@@ -1,5 +1,6 @@
 # occultation
-# Nome sugerido pelo Bruno: Stellar Occultation Reduction and Analysis (SORA)
+Nome sugerido pelo Bruno:
+# Stellar Occultation Reduction and Analysis (SORA)
 
 Programa que atualiza e automatiza os programas do Bruno Sicardy utilizados para redução de dados de ocultaçes estelares.
 
