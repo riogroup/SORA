@@ -1,4 +1,4 @@
-from astropy.coordinates import SkyCoord ICRS, SkyOffsetFrame, SphericalCosLatDifferential
+from astropy.coordinates import SkyCoord, ICRS, SkyOffsetFrame, SphericalCosLatDifferential
 from astropy.time import Time
 import astropy.units as u
 import spiceypy as spice
@@ -8,14 +8,14 @@ from .star import Star
 
 
 ### Object for ephemeris
-class Ephem():
+class Ephemeris():
     '''
     Docstring
     Define ephemeris
     It can be the style of ephem_planete, ephemeris from JPL or with bsp files
     '''
     def __init__(self, **kwargs):
-        # Run initial parameters
+        # Run initial parameters, define position as geocentric
         #if 'ephem' in kwargs:
         #    self.ephem = test_attr(kwargs['ephem'], SkyCoord, 'ephem')
         #if 'name' in kwargs:
@@ -33,7 +33,11 @@ class Ephem():
         #return new_pos
         return
     
-    def get_relat_position(self, star, time):
+    def get_topocentric(self, site):
+        # return topocentric position given site
+        return
+    
+    def get_ksi_eta(self, star, time):
         # returns the relative position between the ephemeris for a given time and the star
         #star = test_attr(star, Star, 'star')
         #pos = self.get_in(time)

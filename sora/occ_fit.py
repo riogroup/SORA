@@ -1,6 +1,6 @@
 from .config import test_attr
 from .star import Star
-from .ephem import Ephem
+from .ephem import Ephemeris
 from .observer import Observer
 
 def positionv(ephem,star,observer):
