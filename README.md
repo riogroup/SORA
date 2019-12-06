@@ -12,9 +12,9 @@ Aqui foram criadas as rotinas baseadas (e não 'traduzidas') nos programas* e su
   - bar
   - polyfit
 
-*Programas criados pelo Bruno Sicardy. As equaçes e programação está (algumas vezes) documentada nos pogramas e ser reproduzida aqui conforme desenvolvimento do programa.
+*Programas criados pelo Bruno Sicardy. As equações e a programação está (algumas vezes) documentada nos pogramas e ser reproduzida aqui conforme desenvolvimento do programa.
 
-O programa será (é) dividido em subrotinas de modo a facilitar modificaçes e atualizações em módulos específicos, sem precisar realizar grandes alterações no programa principal.
+O programa será (é) dividido em subrotinas de modo a facilitar modificações e atualizações em módulos específicos, sem precisar realizar grandes alterações no programa principal.
 
 O programa também é pensado em adaptações para integração com o portal TNO do LIneA.
 
