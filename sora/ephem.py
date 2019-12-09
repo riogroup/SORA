@@ -19,12 +19,21 @@ class EphemPlanete():
     def __init__(self, input_file):
         data = np.loadtxt(input_file, unpack=True)
         self.time = data[0]+data[1]/60.0
-        self.ra = data[2]
-        self.dec = data[3]
-        self.distance = data[4]
+        self.ephem = SkyCoord(a[2]*u.deg, a[3]*u.deg, a[4]*u.AU)
         self.min_time(self.time.min())
         self.max_time(self.time.max())
-        self.fit_d2_ksi_eta()
+
+    def fit_d2_ksi_eta(self, star):
+        if hasattr(self, "star") and self.star == star:
+            continue
+        self.star = star
+        target = ephem.transform_to(SkyOffsetFrame(origin=star))  
+        da = -target.cartesian.y
+        dd = -target.cartesian.z
+
+        self.ksi = np.polyfit(self.time, da.to(u.km).value, 2)
+        self.eta = np.polyfit(self.time, dd.to(u.km).value, 2)
+        
         
 
 
