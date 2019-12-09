@@ -6,6 +6,27 @@ from astroquery.vizier import Vizier
 from .config import test_attr
 from .star import Star
 
+class EphemPlanete():
+    """ EphemPlanete simulates ephem_planete and fit_d2_ksi_eta.
+
+    Parameters:
+        input_file (str):Input file with Time
+
+    Returns:
+        catalogue(astropy.Table):An astropy Table with the catalogue informations.   
+
+    """
+    def __init__(self, input_file):
+        data = np.loadtxt(input_file, unpack=True)
+        self.time = data[0]+data[1]/60.0
+        self.ra = data[2]
+        self.dec = data[3]
+        self.distance = data[4]
+        self.min_time(self.time.min())
+        self.max_time(self.time.max())
+        self.fit_d2_ksi_eta()
+        
+
 
 ### Object for ephemeris
 class Ephemeris():
@@ -15,12 +36,14 @@ class Ephemeris():
     It can be the style of ephem_planete, ephemeris from JPL or with bsp files
     '''
     def __init__(self, **kwargs):
-        # Run initial parameters, define position as geocentric
-        #if 'ephem' in kwargs:
-        #    self.ephem = test_attr(kwargs['ephem'], SkyCoord, 'ephem')
-        #if 'name' in kwargs:
-        #    self.name = kwargs['name']
-        return
+        if 'ephem' in kwargs:
+            try:
+                ephem = test_attr(kwargs['ephem'], str, 'ephem')
+                self.ephem = EphemPlanete(ephem)
+            except:
+                pass
+        else:
+            raise InputError('Input values does not correspont to any allowed value')
             
     def get_position(self, time):
         # returns the position for a given time, it can return ksi, eta
