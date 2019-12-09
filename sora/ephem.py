@@ -1,3 +1,4 @@
+import numpy as np
 from astropy.coordinates import SkyCoord, ICRS, SkyOffsetFrame, SphericalCosLatDifferential
 from astropy.time import Time
 import astropy.units as u
@@ -19,23 +20,44 @@ class EphemPlanete():
     def __init__(self, input_file):
         data = np.loadtxt(input_file, unpack=True)
         self.time = data[0]+data[1]/60.0
-        self.ephem = SkyCoord(a[2]*u.deg, a[3]*u.deg, a[4]*u.AU)
-        self.min_time(self.time.min())
-        self.max_time(self.time.max())
+        self.ephem = SkyCoord(data[2]*u.deg, data[3]*u.deg, data[4]*u.AU)
+        self.min_time = self.time.min()
+        self.max_time = self.time.max()
 
     def fit_d2_ksi_eta(self, star):
-        if hasattr(self, "star") and self.star == star:
-            continue
+        if hasattr(self, 'star') and self.star == star:
+            return
         self.star = star
-        target = ephem.transform_to(SkyOffsetFrame(origin=star))  
+        target = self.ephem.transform_to(SkyOffsetFrame(origin=star))  
         da = -target.cartesian.y
         dd = -target.cartesian.z
 
         self.ksi = np.polyfit(self.time, da.to(u.km).value, 2)
         self.eta = np.polyfit(self.time, dd.to(u.km).value, 2)
         
-        
+    def get_position(self, time, star=None):
+        if star:
+            self.fit_d2_ksi_eta(self, star)
+        if time < self.min_time or time > self.max_time:
+            raise ValueError('time must be in the interval [{},{}]'.format(self.min_time, self.max_time))
+        if hasattr(self, 'ksi') and hasattr(self, 'eta'):
+            ksi = np.poly1d(self.ksi)
+            eta = np.poly1d(self.eta)
+            return ksi(time), eta(time)
+        else:
+            raise ValueError('A "star" parameter is missing. Please run fit_d2_ksi_eta first.')
 
+    def __str__(self):
+        out = 'Ephemeris valid from {} until {}\n'.format(self.min_time, self.max_time)
+        if hasattr(self, 'ksi') and hasattr(self, 'eta'):
+            out += 'star coordinates: {}\n\n'.format(self.star.to_string('hmsdms'))
+            out += '                 aksi={}\n'.format(self.ksi[0])
+            out += '                 bksi={}\n'.format(self.ksi[1])
+            out += '                 cksi={}\n'.format(self.ksi[2])
+            out += '                 aeta={}\n'.format(self.eta[0])
+            out += '                 beta={}\n'.format(self.eta[1])
+            out += '                 ceta={}\n'.format(self.eta[2])
+        return out
 
 ### Object for ephemeris
 class Ephemeris():
