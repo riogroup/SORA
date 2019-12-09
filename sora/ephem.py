@@ -8,10 +8,7 @@ class EphemPlanete():
     """ EphemPlanete simulates ephem_planete and fit_d2_ksi_eta.
 
     Parameters:
-        ephem (str):Input file with hour, minute, RA, DEC, distance
-
-    Returns:
-        catalogue(astropy.Table):An astropy Table with the catalogue informations.   
+        ephem (str):Input file with hour, minute, RA, DEC, distance  
 
     """
     def __init__(self, ephem):
@@ -22,6 +19,11 @@ class EphemPlanete():
         self.max_time = self.time.max()
 
     def fit_d2_ksi_eta(self, star):
+        """ Fits the on-sky ephemeris position relative to a star
+        
+        Parameters:
+        star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+        """
         if hasattr(self, 'star') and self.star == star:
             return
         if type(star) == str:
@@ -35,6 +37,15 @@ class EphemPlanete():
         self.eta = np.polyfit(self.time, dd.to(u.km).value, 2)
         
     def get_ksi_eta(self, time, star=None):
+        """ Returns the on-sky position of the ephemeris relative to a star.
+        
+        Parameters:
+        time (int, float):Time from which to calculate the position.
+        star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+        
+        Returns:
+        ksi, eta (float): on-sky position of the ephemeris relative to a star
+        """
         if star:
             self.fit_d2_ksi_eta(star)
         if time < self.min_time or time > self.max_time:
@@ -47,6 +58,8 @@ class EphemPlanete():
             raise ValueError('A "star" parameter is missing. Please run fit_d2_ksi_eta first.')
 
     def __str__(self):
+        """ Print the ksi, eta fit values
+        """
         out = 'Ephemeris valid from {} until {}\n'.format(self.min_time, self.max_time)
         if hasattr(self, 'ksi') and hasattr(self, 'eta'):
             out += 'star coordinates: {}\n\n'.format(self.star.to_string('hmsdms'))
