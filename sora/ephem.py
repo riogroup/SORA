@@ -1,9 +1,6 @@
 import numpy as np
-from astropy.coordinates import SkyCoord, ICRS, SkyOffsetFrame, SphericalCosLatDifferential
-from astropy.time import Time
+from astropy.coordinates import SkyCoord, SkyOffsetFrame
 import astropy.units as u
-import spiceypy as spice
-from astroquery.vizier import Vizier
 from .config import test_attr
 from .star import Star
 
@@ -11,14 +8,14 @@ class EphemPlanete():
     """ EphemPlanete simulates ephem_planete and fit_d2_ksi_eta.
 
     Parameters:
-        input_file (str):Input file with Time
+        ephem (str):Input file with hour, minute, RA, DEC, distance
 
     Returns:
         catalogue(astropy.Table):An astropy Table with the catalogue informations.   
 
     """
-    def __init__(self, input_file):
-        data = np.loadtxt(input_file, unpack=True)
+    def __init__(self, ephem):
+        data = np.loadtxt(ephem, unpack=True)
         self.time = data[0]+data[1]/60.0
         self.ephem = SkyCoord(data[2]*u.deg, data[3]*u.deg, data[4]*u.AU)
         self.min_time = self.time.min()
@@ -27,6 +24,8 @@ class EphemPlanete():
     def fit_d2_ksi_eta(self, star):
         if hasattr(self, 'star') and self.star == star:
             return
+        if type(star) == str:
+            star = SkyCoord(star, unit=(u.hourangle, u.deg))
         self.star = star
         target = self.ephem.transform_to(SkyOffsetFrame(origin=star))  
         da = -target.cartesian.y
@@ -35,9 +34,9 @@ class EphemPlanete():
         self.ksi = np.polyfit(self.time, da.to(u.km).value, 2)
         self.eta = np.polyfit(self.time, dd.to(u.km).value, 2)
         
-    def get_position(self, time, star=None):
+    def get_ksi_eta(self, time, star=None):
         if star:
-            self.fit_d2_ksi_eta(self, star)
+            self.fit_d2_ksi_eta(star)
         if time < self.min_time or time > self.max_time:
             raise ValueError('time must be in the interval [{},{}]'.format(self.min_time, self.max_time))
         if hasattr(self, 'ksi') and hasattr(self, 'eta'):
@@ -60,23 +59,24 @@ class EphemPlanete():
         return out
 
 ### Object for ephemeris
-class Ephemeris():
+class Ephemeris(EphemPlanete):
     '''
     Docstring
     Define ephemeris
     It can be the style of ephem_planete, ephemeris from JPL or with bsp files
     '''
-    def __init__(self, **kwargs):
-        if 'ephem' in kwargs:
-            try:
-                ephem = test_attr(kwargs['ephem'], str, 'ephem')
-                self.ephem = EphemPlanete(ephem)
-            except:
-                pass
-        else:
-            raise InputError('Input values does not correspont to any allowed value')
+    pass
+    #def __init__(self, **kwargs):
+    #    if 'ephem' in kwargs:
+    #        try:
+    #            ephem = test_attr(kwargs['ephem'], str, 'ephem')
+    #            self.ephem = EphemPlanete(ephem)
+    #        except:
+    #            pass
+    #    else:
+    #        raise InputError('Input values does not correspont to any allowed value')
             
-    def get_position(self, time):
+    #def get_position(self, time):
         # returns the position for a given time, it can return ksi, eta
         #time = test_attr(time, Time, 'time')
 
@@ -85,28 +85,30 @@ class Ephemeris():
         #    new_pos = SkyCoord(lon=self.delta.d_lon_coslat, lat=self.delta.d_lat, frame=star_frame)
         #    return new_pos.transform_to(ICRS)
         #return new_pos
-        return
+    #    return
     
-    def get_topocentric(self, site):
+    #def get_topocentric(self, site):
         # return topocentric position given site
-        return
+    #    return
     
-    def get_ksi_eta(self, star, time):
+    #def get_ksi_eta(self, time, star=None):
+    #    if type(self.ephem) == EphemPlanete:
+    #        return self.ephem.get_ksi_eta(time,star)
         # returns the relative position between the ephemeris for a given time and the star
         #star = test_attr(star, Star, 'star')
         #pos = self.get_in(time)
         #target = pos.transform_to(SkyOffsetFrame(origin=star)) 
         #return -target.cartesian.y, -target.cartesian.z
-        return
+    #    return
     
-    def add_offset(self, da_cosdec, dded):
+    #def add_offset(self, da_cosdec, dded):
         # saves an offset for the ephemeris
         #dadc = test_attr(da_cosdec, u.quantity.Quantity, 'd_lon_coslat')
         #dd = test_attr(dded, u.quantity.Quantity, 'dd')
         #self.delta = SphericalCosLatDifferential(dadc, dd, 0.0*u.km)
-        return
+    #    return
         
-    def __str__(self):
+    #def __str__(self):
         # return what it is to be printed
-        return ''
+    #    return ''
         
