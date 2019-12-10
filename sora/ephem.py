@@ -13,8 +13,9 @@ class EphemPlanete():
     """
     def __init__(self, ephem):
         data = np.loadtxt(ephem, unpack=True)
-        self.time = data[0]+data[1]/60.0
-        self.ephem = SkyCoord(data[2]*u.deg, data[3]*u.deg, data[4]*u.AU)
+        self.time = data[0]
+        self.__reftime = np.median(data)
+        self.ephem = SkyCoord(data[1]*u.deg, data[2]*u.deg, data[3]*u.AU)
         self.min_time = self.time.min()
         self.max_time = self.time.max()
 
@@ -33,8 +34,8 @@ class EphemPlanete():
         da = -target.cartesian.y
         dd = -target.cartesian.z
 
-        self.ksi = np.polyfit(self.time, da.to(u.km).value, 2)
-        self.eta = np.polyfit(self.time, dd.to(u.km).value, 2)
+        self.ksi = np.polyfit(self.time-self.__reftime, da.to(u.km).value, 2)
+        self.eta = np.polyfit(self.time-self.__reftime, dd.to(u.km).value, 2)
         
     def get_ksi_eta(self, time, star=None):
         """ Returns the on-sky position of the ephemeris relative to a star.
@@ -53,7 +54,7 @@ class EphemPlanete():
         if hasattr(self, 'ksi') and hasattr(self, 'eta'):
             ksi = np.poly1d(self.ksi)
             eta = np.poly1d(self.eta)
-            return ksi(time), eta(time)
+            return ksi(time-self.__reftime), eta(time-self.__reftime)
         else:
             raise ValueError('A "star" parameter is missing. Please run fit_d2_ksi_eta first.')
 
