@@ -22,7 +22,7 @@ def search_star(**kwargs):
 
     """
     row_limit = 100
-    print('Downloading star parameters from Gaia-DR2')
+    print('Downloading star parameters from {}'.format(kwargs['catalog']))
     vquery = Vizier(columns=kwargs['columns'], row_limit=row_limit, timeout=600)
     if 'code' in kwargs:
         catalogue = vquery.query_constraints(catalog=kwargs['catalog'], Source=kwargs['code'])
@@ -60,7 +60,7 @@ class Star():
     '''
     def __init__(self,**kwargs):
         self.__local = False
-        self.mags = {}
+        self.mag = {}
         self.errors = {}
         if 'local' in kwargs:
             self.__local = test_attr(kwargs['local'], bool, 'local')
@@ -84,6 +84,7 @@ class Star():
         radius = float, in mas
         '''
         for key in kwargs:
+            mag = test_attr(kwargs[key], float, key)
             if key in self.mag:
                 warnings.warn('{0} mag already defined. {1} will be replaced by {2}'.format(key, self.mag[key], kwargs[key]))
             self.mag[key] = kwargs[key]
@@ -128,7 +129,6 @@ class Star():
         else:
             catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/345/gaia2')[0]
         if len(catalogue) == 1:
-            print('1 star found')
             self.code = catalogue['Source']
             ra = catalogue['RA_ICRS']
             dec = catalogue['DE_ICRS']
@@ -141,7 +141,7 @@ class Star():
             self.errors['RA'] = catalogue['e_RA_ICRS'][0]
             self.errors['DEC'] = catalogue['e_DE_ICRS'][0]
             self.errors['pmRA'] = catalogue['e_pmRA'][0]
-            self.errors['pmDEC'] = catalogue['e_pmDEC'][0]
+            self.errors['pmDEC'] = catalogue['e_pmDE'][0]
             rad = catalogue['Rad'][0]
             if np.ma.core.is_masked(rad):
                 warnings.warn('Gaia star does not have Radius, please define [B, V, K] magnitudes.')
@@ -154,7 +154,7 @@ class Star():
     def __getcolors(self):
         # search for the B,V,K magnitudes of the star on Vizier and saves the result
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
-        catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='	I/297/out')[0]
+        catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/297/out')[0]
         if len(catalogue) == 0:
             raise Error('No star was found on NOMAD that matches the star')
         elif len(catalogue) > 1:
