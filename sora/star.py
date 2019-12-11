@@ -89,6 +89,7 @@ class Star():
         if not self.__local:
             self.__searchgaia2()
     
+    
     def set_magnitude(self,**kwargs):
         '''
         Set the magnitudes of a star in the G, B, V and K band.
@@ -102,36 +103,87 @@ class Star():
                 warnings.warn('{0} mag already defined. {1} will be replaced by {2}'.format(key, self.mag[key], kwargs[key]))
             self.mag[key] = kwargs[key]
 
-    def set_diameter(self,star_diameter):
+            
+    def set_diameter(self, diameter):
         '''
         Set the diameter of a star in mas.
         Inputs:
         star_diameter = float, in mas
         '''
-        self.diameter = star_diameter
+        self.diameter_user = star_diameter*u.mas
 
-    def calc_diameter(self,obs_filter='V',star_type='sg'):
+    
+    def van_belle(self):
         '''
         Determine the diameter of a star in mas using equations from van Belle (1999) 
         -- Publi. Astron. Soc. Pacific 111, 1515-1523:
         Inputs:
-        obs_filter = str; should be Visual (V) or Blue (B)
-        star_type = str; should be Super-giant (gs), Main-sequence (ms) or Variable (vs)
+        magB, magV, magK: The magnitudes B, V and K of the star
         '''
-        if (self.magV == None):
-            print('First you need to set the magnitudes B, V, K')
-            return
-        if (obs_filter not in ['V','B']):
-            print('obs_filter should be Visual (V) or Blue (B)')
-            return
-        if (star_type not in ['sg','ms','vs']):
-            print('star_type should be Super-giant (gs), Main-sequence (ms) or Variable (vs)')
-            return
-        return van_belle(self.magB, self.magV, self.magK)[star_type][obs_filter]
+        return van_belle(self.mag['B'], self.mag['V'], self.mag['K'])
     
-    def apparent_radius(self, distance):
+    
+    def kervella(self):
+        '''
+        Determine the diameter of a star in mas using equations from Kervella et. al (2004) 
+        -- A&A Vol.  426, No.  1:
+        Inputs:
+        magB, magV, magK: The magnitudes B, V and K of the star
+        '''
+        return kervella(self.mag['B'], self.mag['V'], self.mag['K'])
+    
+    
+    def apparent_diameter(self, distance, mode='auto', **kwargs):
         # calculate the apparent radius of the star at given distance
-        return
+        if mode == 'auto':
+            kwargs['obs_filter'] = 'V'
+            kwargs['star_type'] = 'sg'
+            
+        if mode in ['user', 'auto']:
+            try:
+                if 'diameter' in kwargs:
+                    self.set_diameter(kwargs['diameter'])
+                print('Calculating apparent diameter from user defined diameter')
+                diam = distance*np.tan(self.diameter_user)
+                return diam.to(u.km)
+            except:
+                pass
+        
+        if mode == 'user':
+            raise ValueError('User diameter must be informed.')
+            
+        if mode in ['gaia', 'auto']:
+            try:
+                diam = distance*np.tan(self.diameter_gaia)
+                print('Apparent diameter using Gaia')
+                return diam.to(u.km)
+            except:
+                pass
+                
+        if mode == 'gaia':
+            raise ValueError('It is not possible to calculate star diameter from Gaia.')
+                
+        if 'obs_filter' not in kwargs:
+            raise KeyError('obs_filter must be informed as "B", or "V"')
+            
+        if mode in ['kervella', 'auto']:
+            if all(i in self.mag for i in ['B', 'V', 'K']):
+                print('Apparent diameter using Kervella et al. (2004)')
+                diam = distance*np.tan(self.kervella()[kwargs['obs_filter']])
+                return diam.to(u.km)
+            
+        if 'star_type' not in kwargs:
+            raise KeyError('star_type must be informed as "sg", "ms" or "vs"')
+            
+        if mode in ['van_belle', 'auto']:
+            if all(i in self.mag for i in ['B', 'V', 'K']):
+                print('Apparent diameter using van Belle (1999)')
+                diam = distance*np.tan(self.van_belle()[kwargs['star_type']][kwargs['obs_filter']])
+                return diam.to(u.km)
+                        
+        raise AttributeError('Star apparent diameter could not be calculated.\
+Please define star diameter or B,V,K magnitudes.')
+        
     
     def __searchgaia2(self):
         """search for the star position in the gaia catalogue and save informations
@@ -160,16 +212,18 @@ class Star():
                 warnings.warn('Gaia star does not have Radius, please define [B, V, K] magnitudes.')
             else:
                 self.diameter_gaia = 2*np.arctan((rad*u.solRad)/distance[0]).to(u.mas)
+            self.__getcolors()
         else:
             ## pegar todas as estrelas e colocar como opcao pro usuario escolher.
             warnings.warn('{} stars found in the region searched'.format(len(catalogue)))
+        
         
     def __getcolors(self):
         # search for the B,V,K magnitudes of the star on Vizier and saves the result
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
         catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/297/out')[0]
         if len(catalogue) == 0:
-            raise Error('No star was found on NOMAD that matches the star')
+            raise IndexError('No star was found on NOMAD that matches the star')
         elif len(catalogue) > 1:
             print('One or more stars were found in the region. Please select the correct one')
             n_coord = SkyCoord(catalogue['RAJ2000'], catalogue['DEJ2000'])
@@ -185,13 +239,16 @@ class Star():
         if len(errors) > 1:
             warnings.warn('Magnitudes in {} were not located in NOMAD'.format())
         
+        
     def geocentric(self, time):
         # calculate the position of the star using parallax and proper motion
         return
     
+    
     def barycentric(self, time):
         # calculate the position of the star using proper motion
         return
+    
     
     def add_offset(self, da_cosdec, ddec):
         # saves an offset for the star
