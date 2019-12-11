@@ -148,11 +148,29 @@ class Star():
             else:
                 self.radius = rad*u.solRad
         else:
+            ## pegar todas as estrelas e colocar como opcao pro usuario escolher.
             warnings.warn('{} stars found in the region searched'.format(len(catalogue)))
         
     def __getcolors(self):
         # search for the B,V,K magnitudes of the star on Vizier and saves the result
-        return
+        columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
+        catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='	I/297/out')[0]
+        if len(catalogue) == 0:
+            raise Error('No star was found on NOMAD that matches the star')
+        elif len(catalogue) > 1:
+            print('One or more stars were found in the region. Please select the correct one')
+            n_coord = SkyCoord(catalogue['RAJ2000'], catalogue['DEJ2000'])
+            ### pegar todas as estrelas e colocar como opcao pro usuario escolher.
+            print('Options')
+        errors = []
+        for mag in ['B', 'V', 'R', 'J', 'H', 'K']:
+            name = mag + 'mag'
+            if np.ma.core.is_masked(catalogue[name][0]):
+                errors.append(mag)
+                continue
+            self.set_magnitude(**{mag: catalogue[name][0]})
+        if len(errors) > 1:
+            warnings.warn('Magnitudes in {} were not located in NOMAD'.format())
         
     def geocentric(self, time):
         # calculate the position of the star using parallax and proper motion
