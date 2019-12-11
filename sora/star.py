@@ -209,7 +209,7 @@ Please define star diameter or B,V,K magnitudes.')
             self.errors['pmDEC'] = catalogue['e_pmDE'][0]*(u.mas/u.yr)
             rad = catalogue['Rad'][0]
             if np.ma.core.is_masked(rad):
-                warnings.warn('Gaia star does not have Radius, please define [B, V, K] magnitudes.')
+                warnings.warn('Gaia catalogue does not have star radius.')
             else:
                 self.diameter_gaia = 2*np.arctan((rad*u.solRad)/distance[0]).to(u.mas)
             self.__getcolors()
@@ -236,8 +236,8 @@ Please define star diameter or B,V,K magnitudes.')
                 errors.append(mag)
                 continue
             self.set_magnitude(**{mag: catalogue[name][0]})
-        if len(errors) > 1:
-            warnings.warn('Magnitudes in {} were not located in NOMAD'.format())
+        if len(errors) > 0:
+            warnings.warn('Magnitudes in {} were not located in NOMAD'.format(errors))
         
         
     def geocentric(self, time):
@@ -271,6 +271,6 @@ Please define star diameter or B,V,K magnitudes.')
         out += '\b\n'
         if hasattr(self, 'diameter_gaia'):
             out += 'Diameter: {}, Source: Gaia-DR2\n'.format(self.diameter_gaia)
-        else:
-            out += 'Diameter: Undefined\n'
+        if hasattr(self, 'diameter_user'):
+            out += 'Diameter: {}, Source: USER\n'.format(self.diameter_user)
         return out
