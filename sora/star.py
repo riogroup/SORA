@@ -60,6 +60,7 @@ class Star():
     '''
     def __init__(self,**kwargs):
         self.__local = False
+        self.mags = {}
         if 'local' in kwargs:
             self.__local = test_attr(kwargs['local'], bool, 'local')
         if not any(i in kwargs for i in ['coord', 'code']):
@@ -72,19 +73,19 @@ class Star():
         if 'code' in kwargs:
             self.code = test_attr(kwargs['code'], str, 'code')
         if not self.__local:
-            self.searchgaia2()
+            self.__searchgaia2()
     
-    def set_magnitudes(self,magG,magB,magV,magK):
+    def set_magnitude(self,**kwargs):
         '''
         Set the magnitudes of a star in the G, B, V and K band.
         usually this values can be found in the GDR2 and in the NOMAD catalogue.
         Inputs:
         radius = float, in mas
         '''
-        self.magG = magG
-        self.magB = magB
-        self.magV = magV
-        self.magK = magK
+        for key in kwargs:
+            if key in self.mag:
+                warnings.warn('{0} mag already defined. {1} will be replaced by {2}'.format(key, self.mag[key], kwargs[key]))
+            self.mag[key] = kwargs[key]
 
     def set_diameter(self,star_diameter):
         '''
@@ -117,7 +118,7 @@ class Star():
         # calculate the apparent radius of the star at given distance
         return
     
-    def searchgaia2(self):
+    def __searchgaia2(self):
         """search for the star position in the gaia catalogue and save informations
         """
         columns = ['Source', 'RA_ICRS', 'e_RA_ICRS', 'DE_ICRS', 'e_DE_ICRS', 'Plx', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Gmag', 'e_Gmag', 'Dup', 'Epoch', 'Rad']
@@ -136,6 +137,7 @@ class Star():
             epoch = Time(catalogue['Epoch'].quantity, format='jyear')
             self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch)[0]
             rad = catalogue['Rad'][0]
+            self.set_magnitude(G=catalogue['Gmag'][0])
             if np.ma.core.is_masked(rad):
                 warnings.warn('Gaia star does not have Radius, please define [B, V, K] magnitudes.')
             else:
