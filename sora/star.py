@@ -31,34 +31,47 @@ def search_star(**kwargs):
     return catalogue
 
 def van_belle(magB, magV, magK):
-        '''
-        Determine the diameter of a star in mas using equations from van Belle (1999) 
-        -- Publi. Astron. Soc. Pacific 111, 1515-1523:
-        Inputs:
-        magB, magV, magK: The magnitudes B, V and K of the star
-        '''
+    '''
+    Determine the diameter of a star in mas using equations from van Belle (1999) 
+    -- Publi. Astron. Soc. Pacific 111, 1515-1523:
+    Inputs:
+    magB, magV, magK: The magnitudes B, V and K of the star
+    '''
 
-        def calc_diameter(a1, a2, mag):
-            return 10**(a1 + a2*(mag - magK) - 0.2*mag)
-        
-        params = {'sg': {'B': [ 0.648, 0.220], 'V': [0.669, 0.223]},
-                  'ms': {'B': [ 0.500, 0.290], 'V': [0.500, 0.264]},
-                  'vs': {'B': [ 0.789, 0.218], 'V': [0.840, 0.211]}}
-        
-        mag = np.array([magB, magV])
-        diameter = {}
-        for st in ['sg', 'ms', 'vs']:
-            diameter[st] = {}
-            for i,m in enumerate(['B','V']):
-                diameter[st][m] = calc_diameter(*params[st][m], mag[i])*u.mas
-        return diameter
+    def calc_diameter(a1, a2, mag):
+        return 10**(a1 + a2*(mag - magK) - 0.2*mag)
+
+    params = {'sg': {'B': [ 0.648, 0.220], 'V': [0.669, 0.223]},
+              'ms': {'B': [ 0.500, 0.290], 'V': [0.500, 0.264]},
+              'vs': {'B': [ 0.789, 0.218], 'V': [0.840, 0.211]}}
+
+    mag = np.array([magB, magV])
+    diameter = {}
+    for st in ['sg', 'ms', 'vs']:
+        diameter[st] = {}
+        for i,m in enumerate(['B','V']):
+            diameter[st][m] = calc_diameter(*params[st][m], mag[i])*u.mas
+    return diameter
+    
+def kervella(magB, magV, magK):
+    '''
+    Determine the diameter of a star in mas using equations from Kervella et. al (2004) 
+    -- A&A Vol.  426, No.  1:
+    Inputs:
+    magB, magV, magK: The magnitudes B, V and K of the star
+    '''
+    const1 = np.array([0.0755, 0.0535])
+    const2 = np.array([0.5170, 0.5159])
+    mag = np.array([magV,magB])
+    vals = 10**(const1*(mag-magK)+const2-0.2*magK)
+    return {'V': vals[0]*u.mas, 'B': vals[1]*u.mas}
 
 class Star():
-    '''
-    Docstring
-    Define a star
-    '''
     def __init__(self,**kwargs):
+        '''
+        Docstring
+        Define a star
+        '''
         self.__local = False
         self.mag = {}
         self.errors = {}
@@ -146,7 +159,7 @@ class Star():
             if np.ma.core.is_masked(rad):
                 warnings.warn('Gaia star does not have Radius, please define [B, V, K] magnitudes.')
             else:
-                self.radius = rad*u.solRad
+                self.diameter_gaia = 2*np.arctan((rad*u.solRad)/distance[0]).to(u.mas)
         else:
             ## pegar todas as estrelas e colocar como opcao pro usuario escolher.
             warnings.warn('{} stars found in the region searched'.format(len(catalogue)))
@@ -199,8 +212,8 @@ class Star():
         for mag in self.mag:
             out += '{}: {},'.format(mag, self.mag[mag])
         out += '\b\n'
-        if hasattr(self, 'radius'):
-            out += 'Radius: {}\n'.format(self.radius)
+        if hasattr(self, 'diameter_gaia'):
+            out += 'Diameter: {}, Source: Gaia-DR2\n'.format(self.diameter_gaia)
         else:
-            out += 'Radius: Undefined\n'
+            out += 'Diameter: Undefined\n'
         return out
