@@ -117,9 +117,7 @@ class Star():
         '''
         Determine the diameter of a star in mas using equations from van Belle (1999) 
         -- Publi. Astron. Soc. Pacific 111, 1515-1523:
-        Inputs:
-        magB, magV, magK: The magnitudes B, V and K of the star
-        '''
+       '''
         return van_belle(self.mag['B'], self.mag['V'], self.mag['K'])
     
     
@@ -127,8 +125,6 @@ class Star():
         '''
         Determine the diameter of a star in mas using equations from Kervella et. al (2004) 
         -- A&A Vol.  426, No.  1:
-        Inputs:
-        magB, magV, magK: The magnitudes B, V and K of the star
         '''
         return kervella(self.mag['B'], self.mag['V'], self.mag['K'])
     
