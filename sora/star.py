@@ -138,10 +138,10 @@ class Star():
             epoch = Time(catalogue['Epoch'].quantity, format='jyear')
             self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch)[0]
             self.set_magnitude(G=catalogue['Gmag'][0])
-            self.errors['RA'] = catalogue['e_RA_ICRS'][0]
-            self.errors['DEC'] = catalogue['e_DE_ICRS'][0]
-            self.errors['pmRA'] = catalogue['e_pmRA'][0]
-            self.errors['pmDEC'] = catalogue['e_pmDE'][0]
+            self.errors['RA'] = catalogue['e_RA_ICRS'][0]*u.mas
+            self.errors['DEC'] = catalogue['e_DE_ICRS'][0]*u.mas
+            self.errors['pmRA'] = catalogue['e_pmRA'][0]*(u.mas/u.yr)
+            self.errors['pmDEC'] = catalogue['e_pmDE'][0]*(u.mas/u.yr)
             rad = catalogue['Rad'][0]
             if np.ma.core.is_masked(rad):
                 warnings.warn('Gaia star does not have Radius, please define [B, V, K] magnitudes.')
@@ -190,5 +190,17 @@ class Star():
         
     
     def __str__(self):
-        # return what it is to be printed
-        return ''
+        """String representation of the Star class
+        """
+        out = 'Star coordinate: RA={} +/- {}, DEC={} +/- {}\n'.format(
+            self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
+            self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'])
+        out += 'Magnitudes: '
+        for mag in self.mag:
+            out += '{}: {},'.format(mag, self.mag[mag])
+        out += '\b\n'
+        if hasattr(self, 'radius'):
+            out += 'Radius: {}\n'.format(self.radius)
+        else:
+            out += 'Radius: Undefined\n'
+        return out
