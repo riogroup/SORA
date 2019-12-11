@@ -1,15 +1,18 @@
-from astropy.coordinates import SkyCoord, SphericalCosLatDifferential
+from astropy.coordinates import SkyCoord, SphericalCosLatDifferential, Distance
 from astropy.time import Time
 import astropy.units as u
 from astroquery.vizier import Vizier
+import warnings
+import numpy as np
 from .config import test_attr
 
 ### Object for star
-def search_star(coord, columns, radius, catalog):
+def search_star(**kwargs):
     """ Search position on Vizier and returns a catalogue.
 
     Parameters:
-        coord (str, astropy.SkyCoord):Coordinate to search aroung.
+        coord (str, astropy.SkyCoord):Coordinate to search around.
+        code (str):Gaia Source_id of the star
         columns (list):List of strings with the name of the columns to retrieve.
         radius (int, float, unit.quantity):Radius to search around coord.
         catalog (str):Vizier catalogue to search.
@@ -19,10 +22,36 @@ def search_star(coord, columns, radius, catalog):
 
     """
     row_limit = 100
-    print('Downloading coordinate positions around {}'.format(radius))
-    vquery = Vizier(columns=columns, row_limit=row_limit, timeout=600)
-    catalogue = vquery.query_region(coord, radius=radius, catalog=catalog)
+    print('Downloading star parameters from Gaia-DR2')
+    vquery = Vizier(columns=kwargs['columns'], row_limit=row_limit, timeout=600)
+    if 'code' in kwargs:
+        catalogue = vquery.query_constraints(catalog=kwargs['catalog'], Source=kwargs['code'])
+    elif 'coord' in kwargs:
+        catalogue = vquery.query_region(kwargs['coord'], radius=kwargs['radius'], catalog=kwargs['catalog'])
     return catalogue
+
+def van_belle(magB, magV, magK):
+        '''
+        Determine the diameter of a star in mas using equations from van Belle (1999) 
+        -- Publi. Astron. Soc. Pacific 111, 1515-1523:
+        Inputs:
+        magB, magV, magK: The magnitudes B, V and K of the star
+        '''
+
+        def calc_diameter(a1, a2, mag):
+            return 10**(a1 + a2*(mag - magK) - 0.2*mag)
+        
+        params = {'sg': {'B': [ 0.648, 0.220], 'V': [0.669, 0.223]},
+                  'ms': {'B': [ 0.500, 0.290], 'V': [0.500, 0.264]},
+                  'vs': {'B': [ 0.789, 0.218], 'V': [0.840, 0.211]}}
+        
+        mag = np.array([magB, magV])
+        diameter = {}
+        for st in ['sg', 'ms', 'vs']:
+            diameter[st] = {}
+            for i,m in enumerate(['B','V']):
+                diameter[st][m] = calc_diameter(*params[st][m], mag[i])*u.mas
+        return diameter
 
 class Star():
     '''
@@ -30,14 +59,20 @@ class Star():
     Define a star
     '''
     def __init__(self,**kwargs):
-        self.ra = None
-        self.dec = None
-        self.magG = None
-        self.magB = None
-        self.magV = None
-        self.magK = None
-        self.diameter = None
-        return
+        self.__local = False
+        if 'local' in kwargs:
+            self.__local = test_attr(kwargs['local'], bool, 'local')
+        if not any(i in kwargs for i in ['coord', 'code']):
+            raise KeyError('Input values must have either the coordinate of the star or the Gaia code for online search')
+        if 'coord' in kwargs:
+            self.coord = SkyCoord(kwargs['coord'], unit=('hourangle', 'deg'))
+            #self.coord = test_attr(kwargs['coord'], SkyCoord, 'coord')
+        else:
+            self.__local=False
+        if 'code' in kwargs:
+            self.code = test_attr(kwargs['code'], str, 'code')
+        if not self.__local:
+            self.searchgaia2()
     
     def set_magnitudes(self,magG,magB,magV,magK):
         '''
@@ -50,7 +85,6 @@ class Star():
         self.magB = magB
         self.magV = magV
         self.magK = magK
-        return
 
     def set_diameter(self,star_diameter):
         '''
@@ -59,8 +93,6 @@ class Star():
         star_diameter = float, in mas
         '''
         self.diameter = star_diameter
-        return
-
 
     def calc_diameter(self,obs_filter='V',star_type='sg'):
         '''
@@ -79,51 +111,37 @@ class Star():
         if (star_type not in ['sg','ms','vs']):
             print('star_type should be Super-giant (gs), Main-sequence (ms) or Variable (vs)')
             return
-        if (star_type == 'sg'):
-            if (obs_filter == 'B'):
-                a1, a2 = 0.648, 0.220
-                self.diameter = (10**(a1 + a2*(self.magB - self.magK) - 0.2*self.magB))
-            if (obs_filter == 'V'):
-                a1, a2 = 0.669, 0.223
-                self.diameter = (10**(a1 + a2*(self.magV - self.magK) - 0.2*self.magV))
-        if (star_type == 'ms'):
-            if (obs_filter == 'B'):
-                a1, a2 = 0.500, 0.290
-                self.diameter = (10**(a1 + a2*(self.magB - self.magK) - 0.2*self.magB))
-            if (obs_filter == 'V'):
-                a1, a2 = 0.500, 0.264
-                self.diameter = (10**(a1 + a2*(self.magV - self.magK) - 0.2*self.magV))
-        if (star_type == 'vs'):
-            if (obs_filter == 'B'):
-                a1, a2 = 0.789, 0.218
-                self.diameter = (10**(a1 + a2*(self.magB - self.magK) - 0.2*self.magB))
-            if (obs_filter == 'V'):
-                a1, a2 = 0.840, 0.211
-                self.diameter = (10**(a1 + a2*(self.magV - self.magK) - 0.2*self.magV))
-        return
-
-
-    #def __init__(self, **kwargs):
-    #    # Run initial parameters
-    #    #if 'coord' in kwargs:
-    #    #    self.star = test_attr(kwargs['coord'], SkyCoord, 'coord')
-    #    #elif 'code' in kwargs:
-    #    #    self.star = test_attr(kwargs['code'], str, 'code')
-    #    #else:
-    #    #    raise KeyError('Input values must have either the coordinate of the star or the Gaia code for online search')
-    #    #if type(self.star) != SkyCoord:
-    #    #    pos = self.search_gaia2()
-    #    return
+        return van_belle(self.magB, self.magV, self.magK)[star_type][obs_filter]
     
     def apparent_radius(self, distance):
         # calculate the apparent radius of the star at given distance
         return
     
-    def __searchgaia2(self):
-        # search for the star position in the gaia catalogue and save informations
-        #columns = ['Source', 'RA_ICRS', 'e_RA_ICRS', 'DE_ICRS', 'e_DE_ICRS', 'Plx', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Gmag', 'e_Gmag', 'Dup', 'Epoch', 'Rad']
-        #catalogue = search_star(coord=self.star, columns=columns, radius=2*u.arcsec, catalog='I/345/gaia2')
-        return
+    def searchgaia2(self):
+        """search for the star position in the gaia catalogue and save informations
+        """
+        columns = ['Source', 'RA_ICRS', 'e_RA_ICRS', 'DE_ICRS', 'e_DE_ICRS', 'Plx', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Gmag', 'e_Gmag', 'Dup', 'Epoch', 'Rad']
+        if hasattr(self, 'code'):
+            catalogue = search_star(code=self.code, columns=columns, catalog='I/345/gaia2')[0]
+        else:
+            catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/345/gaia2')[0]
+        if len(catalogue) == 1:
+            print('1 star found')
+            self.code = catalogue['Source']
+            ra = catalogue['RA_ICRS']
+            dec = catalogue['DE_ICRS']
+            distance = Distance(parallax=catalogue['Plx'].quantity, allow_negative=True)
+            pmra = catalogue['pmRA']
+            pmde = catalogue['pmDE']
+            epoch = Time(catalogue['Epoch'].quantity, format='jyear')
+            self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch)[0]
+            rad = catalogue['Rad'][0]
+            if np.ma.core.is_masked(rad):
+                warnings.warn('Gaia star does not have Radius, please define [B, V, K] magnitudes.')
+            else:
+                self.radius = rad*u.solRad
+        else:
+            warnings.warn('{} stars found in the region searched'.format(len(catalogue)))
         
     def __getcolors(self):
         # search for the B,V,K magnitudes of the star on Vizier and saves the result
