@@ -141,10 +141,8 @@ class Star():
             
         if mode in ['user', 'auto']:
             try:
-                if 'diameter' in kwargs:
-                    self.set_diameter(kwargs['diameter'])
-                print('Calculating apparent diameter from user defined diameter')
                 diam = distance*np.tan(self.diameter_user)
+                print('Calculating apparent diameter from user defined diameter')
                 return diam.to(u.km)
             except:
                 pass
