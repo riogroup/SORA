@@ -61,6 +61,7 @@ class Star():
     def __init__(self,**kwargs):
         self.__local = False
         self.mags = {}
+        self.errors = {}
         if 'local' in kwargs:
             self.__local = test_attr(kwargs['local'], bool, 'local')
         if not any(i in kwargs for i in ['coord', 'code']):
@@ -136,8 +137,12 @@ class Star():
             pmde = catalogue['pmDE']
             epoch = Time(catalogue['Epoch'].quantity, format='jyear')
             self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch)[0]
-            rad = catalogue['Rad'][0]
             self.set_magnitude(G=catalogue['Gmag'][0])
+            self.errors['RA'] = catalogue['e_RA_ICRS'][0]
+            self.errors['DEC'] = catalogue['e_DE_ICRS'][0]
+            self.errors['pmRA'] = catalogue['e_pmRA'][0]
+            self.errors['pmDEC'] = catalogue['e_pmDEC'][0]
+            rad = catalogue['Rad'][0]
             if np.ma.core.is_masked(rad):
                 warnings.warn('Gaia star does not have Radius, please define [B, V, K] magnitudes.')
             else:
