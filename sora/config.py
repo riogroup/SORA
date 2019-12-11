@@ -18,4 +18,4 @@ def test_attr(attr, typ, name):
     try:
         return typ(attr)
     except:
-        raise ValueError('{} keyword must be a {} object'.format(name, typ))
+        raise TypeError('"{}" keyword must be a {} object'.format(name, typ))
