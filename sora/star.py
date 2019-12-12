@@ -1,4 +1,4 @@
-from astropy.coordinates import SkyCoord, SphericalCosLatDifferential, Distance
+from astropy.coordinates import SkyCoord, SphericalCosLatDifferential, Distance, get_sun, SphericalRepresentation
 from astropy.time import Time
 import astropy.units as u
 from astroquery.vizier import Vizier
@@ -236,13 +236,34 @@ Please define star diameter or B,V,K magnitudes.')
         
         
     def geocentric(self, time):
-        # calculate the position of the star using parallax and proper motion
-        return
+        """ calculate the position of the star using parallax and proper motion
+        
+        Parameters:
+        time (float, Time):time to apply proper motion and calculate paralax.
+        """
+        if type(time) == Time:
+            pass
+        elif type(time) == float:
+            time = Time(time, format='jd', scale='utc')
+        n_coord = self.barycentric(time)
+        sun = get_sun(time)
+        g_coord = SkyCoord(*(n_coord.cartesian.xyz + sun.cartesian.xyz), representation='cartesian')
+        g_coord = g_coord.represent_as(SphericalRepresentation)
+        return SkyCoord(g_coord.lon, g_coord.lat, g_coord.distance)
     
     
     def barycentric(self, time):
-        # calculate the position of the star using proper motion
-        return
+        """ calculate the position of the star using proper motion
+        
+        Parameters:
+        time (float, Time):time to apply proper motion.
+        """
+        if type(time) == Time:
+            pass
+        elif type(time) == float:
+            time = Time(time, format='jd', scale='utc')
+        n_coord = self.coord.apply_space_motion(new_obstime=time)
+        return n_coord[0]
     
     
     def add_offset(self, da_cosdec, ddec):
