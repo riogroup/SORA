@@ -224,6 +224,7 @@ Please define star diameter or B,V,K magnitudes.')
             n_coord = SkyCoord(catalogue['RAJ2000'], catalogue['DEJ2000'])
             ### pegar todas as estrelas e colocar como opcao pro usuario escolher.
             print('Options')
+            return
         errors = []
         for mag in ['B', 'V', 'R', 'J', 'H', 'K']:
             name = mag + 'mag'
