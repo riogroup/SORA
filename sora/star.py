@@ -1,4 +1,5 @@
-from astropy.coordinates import SkyCoord, SphericalCosLatDifferential, Distance, get_sun, SphericalRepresentation
+from astropy.coordinates import SkyCoord, SphericalCosLatDifferential, Distance
+from astropy.coordinates import get_sun, SphericalRepresentation, SkyOffsetFrame, ICRS
 from astropy.time import Time
 import astropy.units as u
 from astroquery.vizier import Vizier
@@ -250,7 +251,14 @@ Please define star diameter or B,V,K magnitudes.')
         sun = get_sun(time)
         g_coord = SkyCoord(*(n_coord.cartesian.xyz + sun.cartesian.xyz), representation='cartesian')
         g_coord = g_coord.represent_as(SphericalRepresentation)
-        return SkyCoord(g_coord.lon, g_coord.lat, g_coord.distance)
+        g_coord = SkyCoord(g_coord.lon, g_coord.lat, g_coord.distance)
+        
+        if hasattr(self, 'offset'):
+            star_frame = SkyOffsetFrame(origin=g_coord)
+            new_pos = SkyCoord(lon=self.offset.d_lon_coslat, lat=self.offset.d_lat, frame=star_frame)
+            return new_pos.transform_to(ICRS)
+        
+        return g_coord
     
     
     def barycentric(self, time):
@@ -282,11 +290,11 @@ Please define star diameter or B,V,K magnitudes.')
     def __str__(self):
         """String representation of the Star class
         """
-        out = 'Star coordinate: RA={} +/- {}, DEC={} +/- {}\n'.format(
+        out = 'ICRS star coordinate at J2000: RA={} +/- {}, DEC={} +/- {}\n'.format(
             self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
             self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'])
         if hasattr(self, 'offset'):
-            out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}'.format(self.offset.d_lon_coslat, self.offset.d_lat)
+            out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}\n'.format(self.offset.d_lon_coslat, self.offset.d_lat)
         out += 'Magnitudes: '
         for mag in self.mag:
             out += '{}: {},'.format(mag, self.mag[mag])
