@@ -213,7 +213,8 @@ Please define star diameter or B,V,K magnitudes.')
         
         
     def __getcolors(self):
-        # search for the B,V,K magnitudes of the star on Vizier and saves the result
+        """search for the B,V,K magnitudes of the star on Vizier and saves the result
+        """
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
         catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/297/out')[0]
         if len(catalogue) == 0:
@@ -245,12 +246,15 @@ Please define star diameter or B,V,K magnitudes.')
     
     
     def add_offset(self, da_cosdec, ddec):
-        # saves an offset for the star
+        """Add an offset to star
         
-        #dadc = test_attr(da_cosdec, u.quantity.Quantity, 'd_lon_coslat')
-        #dd = test_attr(ddec, u.quantity.Quantity, 'dd')
-        #self.delta = SphericalCosLatDifferential(dadc, dd, 0.0*u.km)
-        return
+        Parameters:
+        da_cosdec (int, float):Delta_alpha_cos_delta in mas
+        ddec (int, float):Delta_delta in mas
+        """
+        dadc = test_attr(da_cosdec, float, 'da_cosdec')
+        dd = test_attr(ddec, float, 'ddec')
+        self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
         
     
     def __str__(self):
@@ -259,6 +263,8 @@ Please define star diameter or B,V,K magnitudes.')
         out = 'Star coordinate: RA={} +/- {}, DEC={} +/- {}\n'.format(
             self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
             self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'])
+        if hasattr(self, 'offset'):
+            out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}'.format(self.offset.d_lon_coslat, self.offset.d_lat)
         out += 'Magnitudes: '
         for mag in self.mag:
             out += '{}: {},'.format(mag, self.mag[mag])
