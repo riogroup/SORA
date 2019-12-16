@@ -41,7 +41,7 @@ class Observer():
                 code = args[0]
                 try:
                     code = test_attr(args[0], float, 'code')
-                    code = '{:3.0f}'.format(code)
+                    code = '{:03.0f}'.format(code)
                     kwargs['code'] = code
                 except:
                     pass
@@ -84,7 +84,14 @@ class Observer():
     
     def sidereal_time(self, time, mode='local'):
         # return local or greenwich sidereal time
-        return
+        time = test_attr(time, Time, 'time')
+        time.location = self.site
+        if mode == 'local':
+            return time.sidereal_time('apparent')
+        elif mode == 'greenwich':
+            return time.sidereal_time('apparent', 'greenwich')
+        else:
+            raise ValueError('mode must be "local" or "greenwich"')
 
     def __str__(self):
         # return what it is to be printed
