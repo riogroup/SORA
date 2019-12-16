@@ -2,9 +2,31 @@ from astropy.coordinates import EarthLocation, GCRS
 from astropy.coordinates.matrix_utilities import rotation_matrix
 from astropy.time import Time
 import astropy.units as u
+import numpy as np
 from .config import test_attr
 from .star import Star
 
+def search_code_mpc():
+    from urllib.request import urlopen
+    data = urlopen('https://www.minorplanetcenter.net/iau/lists/ObsCodes.html')
+    lines = data.readlines()
+    del lines[0:2]
+    del lines[-1]
+    observatories = {}
+    for line in lines:
+        try:
+            obs = line.decode('utf-8').strip()
+            code = obs[0:3]
+            lon = float(obs[3:13])*u.deg
+            rcphi = float(obs[13:21])*u.R_earth
+            rsphi = float(obs[21:30])*u.R_earth
+            name = obs[30:]
+            site = EarthLocation(rcphi*np.cos(lon), rcphi*np.sin(lon), rsphi)
+            observatories[code] = (name, site)
+        except:
+            pass
+    return observatories
+        
 
 class Observer():
     '''
