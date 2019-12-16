@@ -196,7 +196,7 @@ Please define star diameter or B,V,K magnitudes.')
             pmra = catalogue['pmRA']
             pmde = catalogue['pmDE']
             epoch = Time(catalogue['Epoch'].quantity, format='jyear')
-            self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch)[0]
+            self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch[0])[0]
             self.set_magnitude(G=catalogue['Gmag'][0])
             self.errors['RA'] = catalogue['e_RA_ICRS'][0]*u.mas
             self.errors['DEC'] = catalogue['e_DE_ICRS'][0]*u.mas
@@ -272,7 +272,7 @@ Please define star diameter or B,V,K magnitudes.')
         elif type(time) == float:
             time = Time(time, format='jd', scale='utc')
         n_coord = self.coord.apply_space_motion(new_obstime=time)
-        return n_coord[0]
+        return n_coord
     
     
     def add_offset(self, da_cosdec, ddec):
@@ -290,14 +290,14 @@ Please define star diameter or B,V,K magnitudes.')
     def __str__(self):
         """String representation of the Star class
         """
-        out = 'ICRS star coordinate at J2000: RA={} +/- {}, DEC={} +/- {}\n'.format(
+        out = 'ICRS star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}\n'.format(self.coord.obstime.jyear,
             self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
             self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'])
         if hasattr(self, 'offset'):
             out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}\n'.format(self.offset.d_lon_coslat, self.offset.d_lat)
         out += 'Magnitudes: '
         for mag in self.mag:
-            out += '{}: {},'.format(mag, self.mag[mag])
+            out += '{}: {:6.3f},'.format(mag, self.mag[mag])
         out += '\b\n'
         if hasattr(self, 'diameter_gaia'):
             out += 'Diameter: {}, Source: Gaia-DR2\n'.format(self.diameter_gaia)
