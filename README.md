@@ -26,8 +26,7 @@ O programa também é pensado em adaptações para uma integração com o portal
 Incluir uma descrição do que o programa faz
 Incluir o que o programa usa como INPUT e OUTPUT
 
-===
-English description and documentation of the package will follow as possible
+**********
 
 # Program description
 
@@ -49,5 +48,5 @@ This program was also developed in order to make easy adaptations for an integra
 
 
 ===
-Incluir uma descrição do que o programa faz
-Incluir o que o programa usa como INPUT e OUTPUT
+Include a description about what does the program do
+Incluir what does it uses as INPUT and OUTPUT
