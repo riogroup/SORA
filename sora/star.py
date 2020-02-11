@@ -185,42 +185,64 @@ Please define star diameter or B,V,K magnitudes.')
         """
         columns = ['Source', 'RA_ICRS', 'e_RA_ICRS', 'DE_ICRS', 'e_DE_ICRS', 'Plx', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Gmag', 'e_Gmag', 'Dup', 'Epoch', 'Rad']
         if hasattr(self, 'code'):
-            catalogue = search_star(code=self.code, columns=columns, catalog='I/345/gaia2')[0]
+            catalogue = search_star(code=self.code, columns=columns, catalog='I/345/gaia2')
         else:
-            catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/345/gaia2')[0]
-        if len(catalogue) == 1:
-            self.code = catalogue['Source']
+            catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/345/gaia2')
+        if len(catalogue) == 0:
+            raise ValueError('No star was found within 2 arcsec from given coordinate')
+        catalogue = catalogue[0]
+        if len(catalogue) > 1:
+            print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
+            print('The list below is sorted by distance. Please select the correct star')
             ra = catalogue['RA_ICRS']
             dec = catalogue['DE_ICRS']
-            distance = Distance(parallax=catalogue['Plx'].quantity, allow_negative=True)
-            pmra = catalogue['pmRA']
-            pmde = catalogue['pmDE']
-            epoch = Time(catalogue['Epoch'].quantity, format='jyear')
-            self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch[0])[0]
-            self.set_magnitude(G=catalogue['Gmag'][0])
-            self.errors['RA'] = catalogue['e_RA_ICRS'][0]*u.mas
-            self.errors['DEC'] = catalogue['e_DE_ICRS'][0]*u.mas
-            self.errors['pmRA'] = catalogue['e_pmRA'][0]*(u.mas/u.yr)
-            self.errors['pmDEC'] = catalogue['e_pmDE'][0]*(u.mas/u.yr)
-            rad = catalogue['Rad'][0]
-            if np.ma.core.is_masked(rad):
-                warnings.warn('Gaia catalogue does not have star radius.')
-            else:
-                self.diameter_gaia = 2*np.arctan((rad*u.solRad)/distance[0]).to(u.mas)
-            self.__getcolors()
+            gmag = catalogue['Gmag']
+            tstars = SkyCoord(ra, dec)
+            sep = tstars.separation(self.coord)
+            k = sep.argsort()
+            while True:
+                print('num  dist(")   Gmag         RA___ ICRS___DEC')
+                for i,v in enumerate(k):
+                    print('{:3d}   {:6.3f}  {:6.3f}  {}'.format(i+1, sep[v].arcsec, gmag[v], tstars[v].to_string('hmsdms', precision=4)))
+                print('  0: Cancel')
+                choice = int(input('Choose the corresponding number of the correct star: '))
+                if choice in np.arange(len(k)+1):
+                    break
+                print('{} is not a valid choice. Please select the correct star'.format(choice))
+            if choice == 0:
+                raise ValueError('It was not possible to define a star')
+            catalogue = catalogue[[k[choice-1]]]
+        self.code = catalogue['Source']
+        ra = catalogue['RA_ICRS']
+        dec = catalogue['DE_ICRS']
+        distance = Distance(parallax=catalogue['Plx'].quantity, allow_negative=True)
+        pmra = catalogue['pmRA']
+        pmde = catalogue['pmDE']
+        epoch = Time(catalogue['Epoch'].quantity, format='jyear')
+        self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch[0])[0]
+        self.set_magnitude(G=catalogue['Gmag'][0])
+        self.errors['RA'] = catalogue['e_RA_ICRS'][0]*u.mas
+        self.errors['DEC'] = catalogue['e_DE_ICRS'][0]*u.mas
+        self.errors['pmRA'] = catalogue['e_pmRA'][0]*(u.mas/u.yr)
+        self.errors['pmDEC'] = catalogue['e_pmDE'][0]*(u.mas/u.yr)
+        rad = catalogue['Rad'][0]
+        if np.ma.core.is_masked(rad):
+            warnings.warn('Gaia catalogue does not have star radius.')
         else:
-            ## pegar todas as estrelas e colocar como opcao pro usuario escolher.
-            warnings.warn('{} stars found in the region searched'.format(len(catalogue)))
+            self.diameter_gaia = 2*np.arctan((rad*u.solRad)/distance[0]).to(u.mas)
+        self.__getcolors()
         
         
     def __getcolors(self):
         """search for the B,V,K magnitudes of the star on Vizier and saves the result
         """
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
-        catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/297/out')[0]
+        catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/297/out')
         if len(catalogue) == 0:
-            raise IndexError('No star was found on NOMAD that matches the star')
-        elif len(catalogue) > 1:
+            warnings.warn('No star was found on NOMAD that matches the star')
+            return
+        catalogue = catalogue[0]
+        if len(catalogue) > 1:
             print('One or more stars were found in the region. Please select the correct one')
             n_coord = SkyCoord(catalogue['RAJ2000'], catalogue['DEJ2000'])
             ### pegar todas as estrelas e colocar como opcao pro usuario escolher.
