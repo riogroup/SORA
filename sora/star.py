@@ -29,7 +29,10 @@ def search_star(**kwargs):
         catalogue = vquery.query_constraints(catalog=kwargs['catalog'], Source=kwargs['code'])
     elif 'coord' in kwargs:
         catalogue = vquery.query_region(kwargs['coord'], radius=kwargs['radius'], catalog=kwargs['catalog'])
+    else:
+        raise ValueError('At least a code or coord should be given as input')
     return catalogue
+
 
 def van_belle(magB, magV, magK):
     '''
@@ -54,6 +57,7 @@ def van_belle(magB, magV, magK):
             diameter[st][m] = calc_diameter(*params[st][m], mag[i])*u.mas
     return diameter
     
+    
 def kervella(magB, magV, magK):
     '''
     Determine the diameter of a star in mas using equations from Kervella et. al (2004) 
@@ -66,6 +70,7 @@ def kervella(magB, magV, magK):
     mag = np.array([magV,magB])
     vals = 10**(const1*(mag-magK)+const2-0.2*magK)
     return {'V': vals[0]*u.mas, 'B': vals[1]*u.mas}
+
 
 class Star():
     def __init__(self,**kwargs):
@@ -121,7 +126,7 @@ class Star():
        '''
         return van_belle(self.mag['B'], self.mag['V'], self.mag['K'])
     
-    
+
     def kervella(self):
         '''
         Determine the diameter of a star in mas using equations from Kervella et. al (2004) 
