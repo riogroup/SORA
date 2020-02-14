@@ -14,7 +14,7 @@ class EphemPlanete():
     def __init__(self, ephem):
         data = np.loadtxt(ephem, unpack=True)
         self.time = data[0]
-        self.__reftime = np.median(data)
+        self.__reftime = self.time[0]
         self.ephem = SkyCoord(data[1]*u.deg, data[2]*u.deg, data[3]*u.AU)
         self.min_time = self.time.min()
         self.max_time = self.time.max()
@@ -33,9 +33,10 @@ class EphemPlanete():
         target = self.ephem.transform_to(SkyOffsetFrame(origin=star))  
         da = -target.cartesian.y
         dd = -target.cartesian.z
+        dt = (self.time-self.__reftime)/(self.max_time-self.min_time)
 
-        self.ksi = np.polyfit(self.time-self.__reftime, da.to(u.km).value, 2)
-        self.eta = np.polyfit(self.time-self.__reftime, dd.to(u.km).value, 2)
+        self.ksi = np.polyfit(dt, da.to(u.km).value, 2)
+        self.eta = np.polyfit(dt, dd.to(u.km).value, 2)
         
     def get_ksi_eta(self, time, star=None):
         """ Returns the on-sky position of the ephemeris relative to a star.
@@ -54,7 +55,7 @@ class EphemPlanete():
         if hasattr(self, 'ksi') and hasattr(self, 'eta'):
             ksi = np.poly1d(self.ksi)
             eta = np.poly1d(self.eta)
-            return ksi(time-self.__reftime), eta(time-self.__reftime)
+            return ksi((time-self.__reftime)/(self.max_time-self.min_time)), eta((time-self.__reftime)/(self.max_time-self.min_time))
         else:
             raise ValueError('A "star" parameter is missing. Please run fit_d2_ksi_eta first.')
 
@@ -63,7 +64,8 @@ class EphemPlanete():
         """
         out = 'Ephemeris valid from {} until {}\n'.format(self.min_time, self.max_time)
         if hasattr(self, 'ksi') and hasattr(self, 'eta'):
-            out += 'star coordinates: {}\n\n'.format(self.star.to_string('hmsdms'))
+            out += 'star coordinates: {}\n'.format(self.star.to_string('hmsdms'))
+            out += 'fit for time=(jd-{})/({}-{})\n\n'.format(self.__reftime, self.max_time,self.min_time)
             out += '                 aksi={}\n'.format(self.ksi[0])
             out += '                 bksi={}\n'.format(self.ksi[1])
             out += '                 cksi={}\n'.format(self.ksi[2])
