@@ -1,6 +1,7 @@
 from astropy.coordinates import SkyCoord, SphericalCosLatDifferential, Distance
 from astropy.coordinates import get_sun, SphericalRepresentation, SkyOffsetFrame, ICRS
 from astropy.time import Time
+from astropy.table import Table
 import astropy.units as u
 from astroquery.vizier import Vizier
 import warnings
@@ -106,7 +107,7 @@ class Star():
         for key in kwargs:
             mag = test_attr(kwargs[key], float, key)
             if key in self.mag:
-                warnings.warn('{0} mag already defined. {1} will be replaced by {2}'.format(key, self.mag[key], kwargs[key]))
+                warnings.warn('{0} mag already defined. {0}={1} will be replaced by {0}={2}'.format(key, self.mag[key], kwargs[key]))
             self.mag[key] = kwargs[key]
 
             
@@ -199,16 +200,19 @@ Please define star diameter or B,V,K magnitudes.')
         if len(catalogue) > 1:
             print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
             print('The list below is sorted by distance. Please select the correct star')
-            ra = catalogue['RA_ICRS']
-            dec = catalogue['DE_ICRS']
             gmag = catalogue['Gmag']
-            tstars = SkyCoord(ra, dec)
+            tstars = SkyCoord(catalogue['RA_ICRS'], catalogue['DE_ICRS'])
             sep = tstars.separation(self.coord)
             k = sep.argsort()
             while True:
-                print('num  dist(")   Gmag         RA___ ICRS___DEC')
-                for i,v in enumerate(k):
-                    print('{:3d}   {:6.3f}  {:6.3f}  {}'.format(i+1, sep[v].arcsec, gmag[v], tstars[v].to_string('hmsdms', precision=4)))
+                t = Table()
+                t['num'] = np.arange(len(tstars))+1
+                t['dist(")'] = sep[k].arcsec
+                t['dist(")'].format = '6.3f'
+                t['Gmag'] = gmag[k].quantity.value
+                t['Gmag'].format = '6.3f'
+                t['RA___ICRS___DEC'] = tstars[k].to_string('hmsdms', precision=4)
+                t.pprint_all()
                 print('  0: Cancel')
                 choice = int(input('Choose the corresponding number of the correct star: '))
                 if choice in np.arange(len(k)+1):
@@ -242,17 +246,41 @@ Please define star diameter or B,V,K magnitudes.')
         """search for the B,V,K magnitudes of the star on Vizier and saves the result
         """
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
-        catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/297/out')
+        catalogue = search_star(coord=self.coord, columns=columns, radius=20*u.arcsec, catalog='I/297/out')
         if len(catalogue) == 0:
             warnings.warn('No star was found on NOMAD that matches the star')
             return
         catalogue = catalogue[0]
         if len(catalogue) > 1:
-            print('One or more stars were found in the region. Please select the correct one')
-            n_coord = SkyCoord(catalogue['RAJ2000'], catalogue['DEJ2000'])
-            ### pegar todas as estrelas e colocar como opcao pro usuario escolher.
-            print('Options')
-            return
+            print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
+            print('The list below is sorted by distance. Please select the correct star')
+            print('Star G mag: {}'.format(self.mag['G']))
+            tstars = SkyCoord(catalogue['RAJ2000'], catalogue['DEJ2000'])
+            sep = tstars.separation(self.coord)
+            k = sep.argsort()
+            while True:
+                t = Table()
+                t['num'] = np.arange(len(tstars))+1
+                t['dist(")'] = sep[k].arcsec
+                t['dist(")'].format = '6.3f'
+                t['Bmag'] = catalogue['Bmag'][k].quantity.value
+                t['Vmag'] = catalogue['Vmag'][k].quantity.value
+                t['Rmag'] = catalogue['Rmag'][k].quantity.value
+                t['Jmag'] = catalogue['Jmag'][k].quantity.value
+                t['Hmag'] = catalogue['Hmag'][k].quantity.value
+                t['Kmag'] = catalogue['Kmag'][k].quantity.value
+                t['Bmag'].format = t['Vmag'].format = t['Rmag'].format = t['Jmag'].format = t['Hmag'].format = t['Kmag'].format = '6.3f'
+                t['RA___ICRS___DEC'] = tstars[k].to_string('hmsdms', precision=4)
+                t.pprint_all()
+                print('  0: Cancel')
+                choice = int(input('Choose the corresponding number of the correct star: '))
+                if choice in np.arange(len(k)+1):
+                    break
+                print('{} is not a valid choice. Please select the correct star'.format(choice))
+            if choice == 0:
+                warnings.warn('No magnitudes were obtained from NOMAD')
+                return
+            catalogue = catalogue[[k[choice-1]]]
         errors = []
         for mag in ['B', 'V', 'R', 'J', 'H', 'K']:
             name = mag + 'mag'
@@ -322,12 +350,12 @@ Please define star diameter or B,V,K magnitudes.')
             self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'])
         if hasattr(self, 'offset'):
             out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}\n'.format(self.offset.d_lon_coslat, self.offset.d_lat)
-        out += 'Magnitudes: '
+        out += 'Magnitudes:'
         for mag in self.mag:
-            out += '{}: {:6.3f},'.format(mag, self.mag[mag])
+            out += ' {}: {:6.3f},'.format(mag, self.mag[mag])
         out += '\b\n'
         if hasattr(self, 'diameter_gaia'):
-            out += 'Diameter: {}, Source: Gaia-DR2\n'.format(self.diameter_gaia)
+            out += 'Diameter: {:.4f}, Source: Gaia-DR2\n'.format(self.diameter_gaia)
         if hasattr(self, 'diameter_user'):
-            out += 'Diameter: {}, Source: USER\n'.format(self.diameter_user)
+            out += 'Diameter: {:.4f}, Source: USER\n'.format(self.diameter_user)
         return out
