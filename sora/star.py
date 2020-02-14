@@ -88,7 +88,7 @@ class Star():
         if 'code' in kwargs:
             self.code = test_attr(kwargs['code'], str, 'code')
         if not self.__local:
-            self.__searchgaia2()
+            self.__searchgaia()
     
     
     def set_magnitude(self,**kwargs):
@@ -180,7 +180,7 @@ class Star():
 Please define star diameter or B,V,K magnitudes.')
         
     
-    def __searchgaia2(self):
+    def __searchgaia(self):
         """search for the star position in the gaia catalogue and save informations
         """
         columns = ['Source', 'RA_ICRS', 'e_RA_ICRS', 'DE_ICRS', 'e_DE_ICRS', 'Plx', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Gmag', 'e_Gmag', 'Dup', 'Epoch', 'Rad']
