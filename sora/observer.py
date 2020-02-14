@@ -1,4 +1,4 @@
-from astropy.coordinates import EarthLocation, GCRS
+from astropy.coordinates import SkyCoord, EarthLocation, GCRS
 from astropy.coordinates.matrix_utilities import rotation_matrix
 from astropy.time import Time
 import astropy.units as u
@@ -36,6 +36,8 @@ class Observer():
     '''
     def __init__(self, *args, **kwargs):
         # Run initial parameters
+        if 'name' not in kwargs:
+            kwargs['name'] = 'User'
         if len(args) == 1 or 'code' in kwargs:
             if len(args) == 1:
                 code = args[0]
@@ -67,20 +69,32 @@ class Observer():
         else:
             raise ValueError('Input parameters could not be determined')
         
-    def get_parallax(self, time, star):
-        # return relative position to star in the orthographic projection.
-        #time = test_attr(time, Time, 'time')
-        #star = test_attr(star, Star, 'star')
-        #time.location = self.site
+    def get_ksi_eta(self, time, star):
+        """ Calculates relative position to star in the orthographic projection.
+        
+        Parameters:
+        time (str, Time):Time from which to calculate the position.
+        It can be a string in the format "yyyy-mm-dd hh:mm:ss.s" or an astropy Time object
+        
+        star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+        It can be a string in the format "hh mm ss.s +dd mm ss.ss" or an astropy SkyCoord object.
+        
+        Returns:
+        ksi, eta (float): on-sky orthographic projection of the observer relative to a star
+        """
+        time = test_attr(time, Time, 'time')
+        try:
+            star = SkyCoord(star, unit=(u.hourangle,u.deg))
+        except:
+            raise ValueError('star is not an astropy object or a string in the format "hh mm ss.s +dd mm ss.ss"')
 
-        #itrs = self.site.get_itrs(obstime=time)
-        #gcrs = itrs.transform_to(GCRS(obstime=time))
-        #rz = rotation_matrix((star.ra-self.sidereal_time(time, 'greenwich')), 'z')
-        #ry = rotation_matrix(-star.dec, 'y')
+        itrs = self.site.get_itrs(obstime=time)
+        gcrs = itrs.transform_to(GCRS(obstime=time))
+        rz = rotation_matrix(star.ra, 'z')
+        ry = rotation_matrix(-star.dec, 'y')
 
-        #cp = itrs.cartesian.transform(rz).transform(ry)
-        #return cp.y.to(u.km).value, cp.z.to(u.km).value
-        return
+        cp = gcrs.cartesian.transform(rz).transform(ry)
+        return cp.y.to(u.km).value, cp.z.to(u.km).value
     
     def sidereal_time(self, time, mode='local'):
         # return local or greenwich sidereal time
@@ -95,4 +109,5 @@ class Observer():
 
     def __str__(self):
         # return what it is to be printed
-        return ''
+        out = ''
+        return out
