@@ -246,7 +246,7 @@ Please define star diameter or B,V,K magnitudes.')
         """search for the B,V,K magnitudes of the star on Vizier and saves the result
         """
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
-        catalogue = search_star(coord=self.coord, columns=columns, radius=20*u.arcsec, catalog='I/297/out')
+        catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/297/out')
         if len(catalogue) == 0:
             warnings.warn('No star was found on NOMAD that matches the star')
             return
