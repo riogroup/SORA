@@ -1,4 +1,4 @@
-from .config import test_attr
+import .config as cnfg
 from .star import Star
 from .ephem import Ephemeris
 from .observer import Observer
@@ -26,15 +26,21 @@ class Occultation():
             raise ValueError('star must be a Star object')
         if type(ephem) != Ephemeris:
             raise ValueError('ephem must be a Ephemeris object')
-        self.star = test_attr(star, Star, 'star')
-        self.ephem = test_attr(ephem, Ephem, 'star')
+        self.star = star
+        self.ephem = ephem
     
     def add_observation(self, obs):
-        # add an observation object to the list of observations of this occultation
-        #if not hasattr(self, obs):
-        #    self.obs = []
-        #self.obs.append(test_attr(obs, Observer, 'Occ_obs'))
-        return
+        """ Add Observers to the Occultation object.
+        
+        Parameters:
+        obs (Observer):The Observer object to be added.
+
+        """
+        if type(star) != Observer:
+            raise ValueError('obs must be an Observer object')
+        if not hasattr(self, obs):
+            self.obs = []
+        self.obs.append(obs)
     
     def fit_ellipse(self):
         # fit ellipse to the points
