@@ -22,7 +22,7 @@ def search_code_mpc():
             rcphi = float(obs[13:21])*u.R_earth
             rsphi = float(obs[21:30])*u.R_earth
             name = obs[30:]
-            site = EarthLocation(rcphi*np.cos(lon), rcphi*np.sin(lon), rsphi)
+            site = EarthLocation.from_geocentric(rcphi*np.cos(lon), rcphi*np.sin(lon), rsphi)
             observatories[code] = (name, site)
         except:
             pass
@@ -75,7 +75,6 @@ class Observer():
         Parameters:
         time (str, Time):Time from which to calculate the position.
         It can be a string in the format "yyyy-mm-dd hh:mm:ss.s" or an astropy Time object
-        
         star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
         It can be a string in the format "hh mm ss.s +dd mm ss.ss" or an astropy SkyCoord object.
         
@@ -108,6 +107,9 @@ class Observer():
             raise ValueError('mode must be "local" or "greenwich"')
 
     def __str__(self):
-        # return what it is to be printed
-        out = ''
+        """String representation of the Observer class
+        """
+        out = 'Site: {}\n'.format(self.name)
+        out += 'Geodetic coordinates: Lon: {}, Lat: {}, height: {:.3f}'.format(
+            self.site.lon.__str__(), self.site.lat.__str__(), self.site.height.to(u.km))
         return out
