@@ -14,10 +14,20 @@ class Occultation():
     Do the reduction of the occultation
     '''
     def __init__(self, star, ephem):
-        # Run initial parameters
-        #self.star = test_attr(star, Star, 'star')
-        #self.ephem = test_attr(ephem, Ephem, 'star')
-        return
+        """ Instantiate Occultation object.
+        
+        Parameters:
+        star (Star):The coordinate of the star in the same frame as the ephemeris.
+        It must be a Star object.
+        ephem (Ephem):Ephemeris. It must be an Ephemeris object.
+
+        """
+        if type(star) != Star:
+            raise ValueError('star must be a Star object')
+        if type(ephem) != Ephemeris:
+            raise ValueError('ephem must be a Ephemeris object')
+        self.star = test_attr(star, Star, 'star')
+        self.ephem = test_attr(ephem, Ephem, 'star')
     
     def add_observation(self, obs):
         # add an observation object to the list of observations of this occultation
