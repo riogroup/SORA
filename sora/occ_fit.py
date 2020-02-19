@@ -41,7 +41,7 @@ def positionv(star,ephem,observer,time):
     
     vf = (nf-f)/0.1
     vg = (ng-g)/0.1
-    ## falta calcular velocidade
+
     return f, g, vf, vg
         
 ### Object for occultation
