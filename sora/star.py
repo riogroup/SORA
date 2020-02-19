@@ -304,7 +304,7 @@ Please define star diameter or B,V,K magnitudes.')
             time = Time(time, format='jd', scale='utc')
         n_coord = self.barycentric(time)
         sun = get_sun(time)
-        g_coord = SkyCoord(*(n_coord.cartesian.xyz + sun.cartesian.xyz), representation='cartesian')
+        g_coord = SkyCoord(*(n_coord.cartesian.xyz + sun.cartesian.xyz), representation_type='cartesian')
         g_coord = g_coord.represent_as(SphericalRepresentation)
         g_coord = SkyCoord(g_coord.lon, g_coord.lat, g_coord.distance)
         
