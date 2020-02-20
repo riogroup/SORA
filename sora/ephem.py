@@ -51,8 +51,12 @@ class EphemPlanete():
         """
         if star:
             self.fit_d2_ksi_eta(star)
-        if time < self.min_time or time > self.max_time:
-            raise ValueError('time must be in the interval [{},{}]'.format(self.min_time, self.max_time))
+        if not time.isscalar:
+            if any(time < self.min_time) or any(time > self.max_time):
+                raise ValueError('time must be in the interval [{},{}]'.format(self.min_time, self.max_time))
+        elif time.isscalar:
+            if time < self.min_time or time > self.max_time:
+                raise ValueError('time must be in the interval [{},{}]'.format(self.min_time, self.max_time))
         if hasattr(self, 'ksi') and hasattr(self, 'eta'):
             ksi = np.poly1d(self.ksi)
             eta = np.poly1d(self.eta)
