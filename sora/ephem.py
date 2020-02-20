@@ -1,5 +1,6 @@
 import numpy as np
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
+from astropy.time import Time
 import astropy.units as u
 from .config import test_attr
 from .star import Star
@@ -13,11 +14,11 @@ class EphemPlanete():
     """
     def __init__(self, ephem):
         data = np.loadtxt(ephem, unpack=True)
-        self.time = data[0]
-        self.__reftime = self.time[0]
+        self.time = Time(data[0], format='jd')
         self.ephem = SkyCoord(data[1]*u.deg, data[2]*u.deg, data[3]*u.AU)
-        self.min_time = self.time.min()
-        self.max_time = self.time.max()
+        self.__reftime = self.time[0]
+        self.min_time = Time(data[0].min(), format='jd')
+        self.max_time = Time(data[0].max(), format='jd')
 
     def fit_d2_ksi_eta(self, star):
         """ Fits the on-sky ephemeris position relative to a star
@@ -62,10 +63,10 @@ class EphemPlanete():
     def __str__(self):
         """ Print the ksi, eta fit values
         """
-        out = 'Ephemeris valid from {} until {}\n'.format(self.min_time, self.max_time)
+        out = 'Ephemeris valid from {} until {}\n'.format(self.min_time.iso, self.max_time.iso)
         if hasattr(self, 'ksi') and hasattr(self, 'eta'):
             out += 'star coordinates: {}\n'.format(self.star.to_string('hmsdms'))
-            out += 'fit for time=(jd-{})/({}-{})\n\n'.format(self.__reftime, self.max_time,self.min_time)
+            out += 'fit for time=(jd-{})/({}-{})\n\n'.format(self.__reftime.jd, self.max_time.jd,self.min_time.jd)
             out += '                 aksi={}\n'.format(self.ksi[0])
             out += '                 bksi={}\n'.format(self.ksi[1])
             out += '                 cksi={}\n'.format(self.ksi[2])
