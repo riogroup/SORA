@@ -95,6 +95,7 @@ class Star():
             self.code = test_attr(kwargs['code'], str, 'code')
         if not self.__local:
             self.__searchgaia()
+        self.__getcolors()
     
     
     def set_magnitude(self,**kwargs):
@@ -221,7 +222,7 @@ Please define star diameter or B,V,K magnitudes.')
             if choice == 0:
                 raise ValueError('It was not possible to define a star')
             catalogue = catalogue[[k[choice-1]]]
-        self.code = catalogue['Source']
+        self.code = catalogue['Source'][0]
         ra = catalogue['RA_ICRS']
         dec = catalogue['DE_ICRS']
         distance = Distance(parallax=catalogue['Plx'].quantity, allow_negative=True)
@@ -239,7 +240,10 @@ Please define star diameter or B,V,K magnitudes.')
             warnings.warn('Gaia catalogue does not have star radius.')
         else:
             self.diameter_gaia = 2*np.arctan((rad*u.solRad)/distance[0]).to(u.mas)
-        self.__getcolors()
+        print('1 Gaia-DR2 star found G={}'.format(catalogue['Gmag'][0]))
+        print('star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}'.format(self.coord.obstime.jyear,
+            self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
+            self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
         
         
     def __getcolors(self):
@@ -348,6 +352,8 @@ Please define star diameter or B,V,K magnitudes.')
         out = 'ICRS star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}\n'.format(self.coord.obstime.jyear,
             self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
             self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'])
+        if hasattr(self, 'code'):
+            out += 'Gaia-DR2 star Source ID: {}\n'.format(self.code)
         if hasattr(self, 'offset'):
             out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}\n'.format(self.offset.d_lon_coslat, self.offset.d_lat)
         out += 'Magnitudes:'
