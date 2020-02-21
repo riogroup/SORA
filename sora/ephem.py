@@ -27,10 +27,10 @@ class EphemPlanete():
         Parameters:
         star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
         """
-        if hasattr(self, 'star') and self.star == star:
-            return
         if type(star) == str:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
+        if hasattr(self, 'star') and self.star.to_string('hmsdms', precision=5) == star.to_string('hmsdms', precision=5):
+            return
         self.star = star
         target = self.ephem.transform_to(SkyOffsetFrame(origin=star))  
         da = -target.cartesian.y
