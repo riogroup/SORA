@@ -12,8 +12,9 @@ class EphemPlanete():
         ephem (str):Input file with hour, minute, RA, DEC, distance  
 
     """
-    def __init__(self, ephem):
+    def __init__(self, name, ephem):
         data = np.loadtxt(ephem, unpack=True)
+        self.name = name
         self.time = Time(data[0], format='jd')
         self.ephem = SkyCoord(data[1]*u.deg, data[2]*u.deg, data[3]*u.AU)
         self.__reftime = self.time[0]
@@ -67,7 +68,8 @@ class EphemPlanete():
     def __str__(self):
         """ Print the ksi, eta fit values
         """
-        out = 'Ephemeris valid from {} until {}\n'.format(self.min_time.iso, self.max_time.iso)
+        out = 'Ephemeris of {}.\n'.format(self.name)
+        out += 'Valid from {} until {}\n'.format(self.min_time.iso, self.max_time.iso)
         if hasattr(self, 'ksi') and hasattr(self, 'eta'):
             out += 'star coordinates: {}\n'.format(self.star.to_string('hmsdms'))
             out += 'fit for time=(jd-{})/({}-{})\n\n'.format(self.__reftime.jd, self.max_time.jd,self.min_time.jd)
