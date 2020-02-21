@@ -37,8 +37,26 @@ class EphemPlanete():
         dd = -target.cartesian.z
         dt = (self.time-self.__reftime)/(self.max_time-self.min_time)
 
+        print('Fitting ephemeris position relative to star coordinate {}'.format(self.star.to_string('hmsdms')))
         self.ksi = np.polyfit(dt, da.to(u.km).value, 2)
         self.eta = np.polyfit(dt, dd.to(u.km).value, 2)
+        print('ksi = aksi*t\u00b2 + bksi*t + cksi')
+        print('eta = aeta*t\u00b2 + beta*t + ceta')
+        print('t=(jd-{})/({}-{})'.format(self.__reftime.jd, self.max_time.jd,self.min_time.jd))
+        print('        aksi={}'.format(self.ksi[0]))
+        print('        bksi={}'.format(self.ksi[1]))
+        print('        cksi={}'.format(self.ksi[2]))
+        print('        aeta={}'.format(self.eta[0]))
+        print('        beta={}'.format(self.eta[1]))
+        print('        ceta={}'.format(self.eta[2]))
+        ksi = np.poly1d(self.ksi)
+        eta = np.poly1d(self.eta)
+        dksi = da.to(u.km).value - ksi(dt)
+        deta = dd.to(u.km).value - eta(dt)
+        rmsk = np.sqrt(np.mean(np.square(dksi)))
+        rmse = np.sqrt(np.mean(np.square(deta)))
+        print('Residual RMS: ksi={:.3f} km, eta={:.3f} km'.format(rmsk, rmse))
+              
         
     def get_ksi_eta(self, time, star=None):
         """ Returns the on-sky position of the ephemeris relative to a star.
@@ -66,19 +84,10 @@ class EphemPlanete():
             raise ValueError('A "star" parameter is missing. Please run fit_d2_ksi_eta first.')
 
     def __str__(self):
-        """ Print the ksi, eta fit values
+        """ String representation of the EphemPlanete Class.
         """
         out = 'Ephemeris of {}.\n'.format(self.name)
         out += 'Valid from {} until {}\n'.format(self.min_time.iso, self.max_time.iso)
-        if hasattr(self, 'ksi') and hasattr(self, 'eta'):
-            out += 'star coordinates: {}\n'.format(self.star.to_string('hmsdms'))
-            out += 'fit for time=(jd-{})/({}-{})\n\n'.format(self.__reftime.jd, self.max_time.jd,self.min_time.jd)
-            out += '                 aksi={}\n'.format(self.ksi[0])
-            out += '                 bksi={}\n'.format(self.ksi[1])
-            out += '                 cksi={}\n'.format(self.ksi[2])
-            out += '                 aeta={}\n'.format(self.eta[0])
-            out += '                 beta={}\n'.format(self.eta[1])
-            out += '                 ceta={}\n'.format(self.eta[2])
         return out
 
 ### Object for ephemeris
