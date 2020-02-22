@@ -30,6 +30,7 @@ def positionv(star,ephem,observer,time):
     coord = star.geocentric(time)
     dt = 0.1*u.s
     
+    ephem.fit_d2_ksi_eta(coord, log=False)
     ksio1, etao1 = observer.get_ksi_eta(time=time, star=coord)
     ksie1, etae1 = ephem.get_ksi_eta(time=time, star=coord)
     
@@ -72,6 +73,7 @@ def occ_params(star, ephem):
     tt = ephem.min_time + np.arange(1, dt-1, delta_t)*u.s
     tt = Time(tt, format='jd')
     coord = star.geocentric(tt[0])
+    ephem.fit_d2_ksi_eta(coord, log=False)
     ksi, eta = ephem.get_ksi_eta(tt, coord)
     dd = np.sqrt(ksi*ksi+eta*eta)
     min = np.argmin(dd)
@@ -111,19 +113,47 @@ class Occultation():
             raise ValueError('ephem must be a Ephemeris object')
         self.star = star
         self.ephem = ephem
+        
+        tt, ca, pa, vel, dist = occ_params(star,ephem)
+        self.ca = ca   # Closest Approach distance
+        self.pa = pa   # Position Angle at CA
+        self.vel = vel  # Shadow velocity at CA
+        self.dist = dist  # object distance at CA
+        self.tca = tt   # Instant of CA
+        
+        self.obs_positive = []
+        self.obs_negative = []
+        self.obs_visual = []
+        self.obs_undefined = []
     
-    def add_observation(self, obs):
+    def add_observation(self, obs, status='undefined'):
         """ Add Observers to the Occultation object.
         
         Parameters:
         obs (Observer):The Observer object to be added.
+        status (string): it can be "positive", "negative", "visual" or "undefined"
 
         """
         if type(obs) != Observer:
             raise ValueError('obs must be an Observer object')
-        if not hasattr(self, 'obs'):
-            self.obs = []
-        self.obs.append(obs)
+        if status not in ['positive', 'negative', 'visual', 'undefined']:
+            raise ValueError('status must be one the following valeus: "positive", "negative", "visual" or "undefined"')
+        if obs in self.obs_positive:
+            raise ValueError('{} observation already defined as positive'.format(obs.name))
+        elif obs in self.obs_negative:
+            raise ValueError('{} observation already defined as negative'.format(obs.name))
+        elif obs in self.obs_visual:
+            raise ValueError('{} observation already defined as visual'.format(obs.name))
+        elif obs in self.obs_undefined:
+            raise ValueError('{} observation already defined as undefined'.format(obs.name))
+        if status == 'positive':
+            self.obs_positive.append(obs)
+        if status == 'negative':
+            self.obs_negative.append(obs)
+        if status == 'visual':
+            self.obs_visual.append(obs)
+        if status == 'undefined':
+            self.obs_undefined.append(obs)
     
     def fit_ellipse(self):
         # fit ellipse to the points
@@ -144,5 +174,57 @@ class Occultation():
     def __str__(self):
         """String representation of the Star class
         """
-        out = ''
-        return ''
+        out = 'Stellar occultation of star Gaia-DR2 {} by {}.\n\n'.format(self.star.code, self.ephem.name)
+        out += 'Geocentric Closest Approach: {:.3f}\n'.format(self.ca)
+        out += 'Instant of CA: {}\n'.format(self.tca.iso)
+        out += 'Position Angle: {:.2f}\n'.format(self.pa)
+        out += 'Geocentric shadow velocity: {:.2f}\n\n'.format(self.vel)
+        
+        out += self.star.__str__() + '\n'
+        out += self.ephem.__str__() + '\n'
+
+        self.__count = 0
+        self.__out1 = ''
+        n = 0
+        out1 = ''
+        
+        n += len(self.obs_positive)
+        if len(self.obs_positive) > 0:
+            out1 += '{} positive observations\n'.format(len(self.obs_positive))
+            for i in self.obs_positive:
+                out1 += i.__str__() + '\n'
+                out1 += '\n'
+            out1 += '\n'
+        
+        n += len(self.obs_negative)
+        if len(self.obs_negative) > 0:
+            out1 += '{} negative observations\n'.format(len(self.obs_negative))
+            for i in self.obs_negative:
+                out1 += i.__str__() + '\n'
+                out1 += '\n'
+            out1 += '\n'
+        
+        n += len(self.obs_visual)
+        if len(self.obs_visual) > 0:
+            out1 += '{} visual observations\n'.format(len(self.obs_visual))
+            for i in self.obs_visual:
+                out1 += i.__str__() + '\n'
+                out1 += '\n'
+            out1 += '\n'
+        
+        n += len(self.obs_undefined)
+        if len(self.obs_undefined) > 0:
+            out1 += '{} without status observations\n'.format(len(self.obs_undefined))
+            for i in self.obs_undefined:
+                out1 += i.__str__() + '\n'
+                out1 += '\n'
+            out1 += '\n'
+        out1 += '\b\b'
+        
+        if n == 0:
+            out += 'No observations reported'
+        else:
+            out += '{} observations reported\n\n'.format(n)
+            out += out1
+        
+        return out
