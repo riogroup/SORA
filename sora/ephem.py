@@ -16,7 +16,7 @@ class EphemPlanete():
         ephem (str):Input file with hour, minute, RA, DEC, distance  
 
     """
-    def __init__(self, name, ephem):
+    def __init__(self, name, ephem, **kwargs):
         data = np.loadtxt(ephem, unpack=True)
         self.name = name
         self.time = Time(data[0], format='jd')
@@ -24,6 +24,12 @@ class EphemPlanete():
         self.__reftime = self.time[0]
         self.min_time = Time(data[0].min(), format='jd')
         self.max_time = Time(data[0].max(), format='jd')
+        self.radius = 0*u.km
+        if 'radius' in kwargs:
+            self.radius = kwargs['radius']*u.km
+        self.mass = 0*u.kg
+        if 'mass' in kwargs:
+            self.mass = kwargs['mass']*u.kg
 
     def fit_d2_ksi_eta(self, star, log=True):
         """ Fits the on-sky ephemeris position relative to a star
@@ -109,9 +115,15 @@ class EphemJPL():
         or 'smallbody' (find the closest match under any id_type), default: 'smallbody'
 
     """
-    def __init__(self, name, id_type='smallbody'):
+    def __init__(self, name, id_type='smallbody', **kwargs):
         self.name = name
         self.id_type='majorbody'
+        self.radius = 0*u.km
+        if 'radius' in kwargs:
+            self.radius = kwargs['radius']*u.km
+        self.mass = 0*u.kg
+        if 'mass' in kwargs:
+            self.mass = kwargs['mass']*u.kg
 
     def get_position(self, time):
         """ Returns the geocentric position of the object.
@@ -163,7 +175,7 @@ class EphemKernel():
         list of paths for kernels
 
     """
-    def __init__(self, name, code, *args):
+    def __init__(self, name, code, *args, **kwargs):
         self.name = name
         self.code = str(code)
         for arg in args:
@@ -171,6 +183,13 @@ class EphemKernel():
         spice.spkpos(self.code, 0, 'J2000', 'NONE', '399')
         spice.kclear()
         self.__kernels = args
+        self.radius = 0*u.km
+        if 'radius' in kwargs:
+            self.radius = kwargs['radius']*u.km
+        self.mass = 0*u.kg
+        if 'mass' in kwargs:
+            self.mass = kwargs['mass']*u.kg
+
     
     def get_position(self, time):
         """ Returns the geocentric position of the object.
