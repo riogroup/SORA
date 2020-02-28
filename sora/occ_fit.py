@@ -1,6 +1,6 @@
 from .config import test_attr
 from .star import Star
-from .ephem import Ephemeris
+from .ephem import Ephemeris, EphemPlanete
 from .observer import Observer
 import astropy.units as u
 from astropy.time import Time
@@ -22,15 +22,16 @@ def positionv(star,ephem,observer,time):
     """
     if type(star) != Star:
         raise ValueError('star must be a Star object')
-    if type(ephem) != Ephemeris:
-        raise ValueError('ephem must be a Ephemeris object')
+    if type(ephem) not in [Ephemeris, EphemPlanete, EphemJPL, EphemKernel]:
+        raise ValueError('ephem must be an Ephemeris object')
     if type(observer) != Observer:
         raise ValueError('observer must be an Observer object')
         
     coord = star.geocentric(time)
     dt = 0.1*u.s
     
-    ephem.fit_d2_ksi_eta(coord, log=False)
+    if type(ephem) == EphemPlanete:
+        ephem.fit_d2_ksi_eta(coord, log=False)
     ksio1, etao1 = observer.get_ksi_eta(time=time, star=coord)
     ksie1, etae1 = ephem.get_ksi_eta(time=time, star=coord)
     
