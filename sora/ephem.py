@@ -96,6 +96,62 @@ class EphemPlanete():
         return out
     
     
+class EphemJPL():
+    """ EphemJPL obtains the ephemeris from Horizons website.
+
+    Parameters:
+        name (str): name of the object for search in the JPL database
+        id_type (str): type of object options: 'smallbody', 'majorbody'
+        (planets but also anything that is not a small body), 'designation',
+        'name', 'asteroid_name', 'comet_name', 'id' (Horizons id number),
+        or 'smallbody' (find the closest match under any id_type), default: 'smallbody'
+
+    """
+    def __init__(self, name, id_type='smallbody'):
+        self.name = name
+        self.id_type='majorbody'
+
+    def get_position(self, time):
+        """ Returns the geocentric position of the object.
+
+        Parameters:
+        time (int, float):Time from which to calculate the position.
+
+        Returns:
+        coord (SkyCoord): Astropy SkyCoord object with the coordinate at given time
+        """
+        obj = Horizons(id=self.name, id_type=self.id_type, location='geo', epochs=time.jd)
+        eph = obj.ephemerides(extra_precision=True)
+        coord = SkyCoord(eph['RA'], eph['DEC'], eph['delta'], frame='icrs', obstime=time)
+        if len(coord) == 1:
+            return coord[0]
+        return coord
+
+    def get_ksi_eta(self, time, star=None):
+        """ Returns the on-sky position of the ephemeris relative to a star.
+
+        Parameters:
+        time (int, float):Time from which to calculate the position.
+        star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+
+        Returns:
+        ksi, eta (float): on-sky position of the ephemeris relative to a star
+        """
+        if type(star) == str:
+            star = SkyCoord(star, unit=(u.hourangle, u.deg))
+        coord = self.get_position(time)
+        target = coord.transform_to(SkyOffsetFrame(origin=star))
+        da = -target.cartesian.y
+        dd = -target.cartesian.z
+        return da.to(u.km).value, dd.to(u.km).value
+
+    def __str__(self):
+        """ String representation of the EphemPlanete Class.
+        """
+        out = 'Ephemeris of {}.'.format(self.name)
+        return out
+
+
 class EphemKernel():
     """ EphemHorizons gets online the ephemeris for an object.
 
