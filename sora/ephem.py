@@ -2,8 +2,11 @@ import numpy as np
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
 from astropy.time import Time
 import astropy.units as u
+import astropy.constants as const
+from astroquery.jplhorizons import Horizons
 from .config import test_attr
-from .star import Star
+import os
+import spiceypy as spice
 
 class EphemPlanete():
     """ EphemPlanete simulates ephem_planete and fit_d2_ksi_eta.
@@ -91,6 +94,69 @@ class EphemPlanete():
         out = 'Ephemeris of {}.\n'.format(self.name)
         out += 'Valid from {} until {}\n'.format(self.min_time.iso, self.max_time.iso)
         return out
+    
+    
+class EphemKernel():
+    """ EphemHorizons gets online the ephemeris for an object.
+
+    Parameters:
+        ephem (str):Input file with hour, minute, RA, DEC, distance  
+
+    """
+    def __init__(self, name, code, *args):
+        self.name = name
+        self.code = str(code)
+        for arg in args:
+            spice.furnsh(arg)
+        spice.spkpos(self.code, 0, 'J2000', 'NONE', '399')
+        spice.kclear()
+        self.__kernels = args
+    
+    def get_position(self, time):
+        for arg in self.__kernels:
+            spice.furnsh(arg)
+        t0 = Time('J2000', scale='tdb')
+        if time.isscalar:
+            time = Time([time])
+        dt = (time - t0)
+        delt = 0*u.s
+        position1 = np.array(spice.spkpos('0', dt.sec, 'J2000', 'NONE', '399')[0])
+        while True:
+            ### calculates new time
+            tempo = dt - delt
+            ### calculates vector Solar System Baricenter -> Object
+            position2 = spice.spkpos(self.code, tempo.sec, 'J2000', 'NONE', '0')[0]
+            position = (position1 + position2).T
+            ### calculates linear distance Earth Topocenter -> Object
+            dist = np.linalg.norm(position, axis=0)*u.km
+            ### calculates new light time
+            delt = (dist/const.c).decompose()
+            ### if difference between new and previous light time is smaller than 0.001 sec, than continue.
+            if all(np.absolute(((dt - tempo) - delt).sec) < 0.001):
+                break
+        coord = SkyCoord(position[0], position[1], position[2], frame='icrs', unit=u.km, representation_type='cartesian', obstime=time)
+        spice.kclear()
+        coord_rd = SkyCoord(ra=coord.spherical.lon, dec=coord.spherical.lat, distance=coord.spherical.distance, obstime=time)
+        if len(coord) == 1:
+            return coord_rd[0]
+        return coord_rd
+    
+    def get_ksi_eta(self, time, star=None):
+        if type(star) == str:
+            star = SkyCoord(star, unit=(u.hourangle, u.deg))
+        coord = self.get_position(time)
+        target = coord.transform_to(SkyOffsetFrame(origin=star))  
+        da = -target.cartesian.y
+        dd = -target.cartesian.z
+        return da.to(u.km).value, dd.to(u.km).value
+    
+    def __str__(self):
+        """ String representation of the EphemPlanete Class.
+        """
+        out = 'Ephemeris of {}.\n'.format(self.name)
+        return out
+    
+        
 
 ### Object for ephemeris
 class Ephemeris(EphemPlanete):
