@@ -156,7 +156,9 @@ class EphemKernel():
     """ EphemHorizons gets online the ephemeris for an object.
 
     Parameters:
-        ephem (str):Input file with hour, minute, RA, DEC, distance  
+        name (str): name of the object for search in the JPL database
+        code (str): kernel code of the targeting object
+        list of paths for kernels
 
     """
     def __init__(self, name, code, *args):
@@ -169,6 +171,14 @@ class EphemKernel():
         self.__kernels = args
     
     def get_position(self, time):
+        """ Returns the geocentric position of the object.
+
+        Parameters:
+        time (int, float):Time from which to calculate the position.
+
+        Returns:
+        coord (SkyCoord): Astropy SkyCoord object with the coordinate at given time
+        """
         for arg in self.__kernels:
             spice.furnsh(arg)
         t0 = Time('J2000', scale='tdb')
@@ -198,6 +208,15 @@ class EphemKernel():
         return coord_rd
     
     def get_ksi_eta(self, time, star=None):
+        """ Returns the on-sky position of the ephemeris relative to a star.
+
+        Parameters:
+        time (int, float):Time from which to calculate the position.
+        star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+
+        Returns:
+        ksi, eta (float): on-sky position of the ephemeris relative to a star
+        """
         if type(star) == str:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
         coord = self.get_position(time)
