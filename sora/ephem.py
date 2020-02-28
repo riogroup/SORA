@@ -12,6 +12,7 @@ class EphemPlanete():
     """ EphemPlanete simulates ephem_planete and fit_d2_ksi_eta.
 
     Parameters:
+        name (str): name of the object for search in the JPL database
         ephem (str):Input file with hour, minute, RA, DEC, distance  
 
     """
@@ -29,6 +30,7 @@ class EphemPlanete():
         
         Parameters:
         star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+        log (bool): if fit log is to printed. Default: True
         """
         if type(star) == str:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
