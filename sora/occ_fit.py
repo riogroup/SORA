@@ -49,7 +49,7 @@ def positionv(star,ephem,observer,time):
 
     return f, g, vf, vg
 
-def occ_params(star, ephem):
+def occ_params(star, ephem, time):
     """ Calculates the parameters of the occultation, as instant, CA, PA.
         
     Parameters:
@@ -70,16 +70,18 @@ def occ_params(star, ephem):
     if type(ephem) != Ephemeris:
         raise ValueError('ephem must be a Ephemeris object')
         
-    dt = (ephem.max_time - ephem.min_time).sec
-    tt = ephem.min_time + np.arange(1, dt-1, delta_t)*u.s
-    tt = Time(tt, format='jd')
+    tt = time + np.arange(-600, 600, delta_t)*u.s
     coord = star.geocentric(tt[0])
-    ephem.fit_d2_ksi_eta(coord, log=False)
+    if type(ephem) == EphemPlanete:
+        ephem.fit_d2_ksi_eta(coord, log=False)
     ksi, eta = ephem.get_ksi_eta(tt, coord)
     dd = np.sqrt(ksi*ksi+eta*eta)
     min = np.argmin(dd)
     
-    dist = ephem.ephem[int(len(ephem.time)/2)].distance
+    if type(ephem) == EphemPlanete:
+        dist = ephem.ephem[int(len(ephem.time)/2)].distance
+    else:
+        dist = ephem.get_position(time).distance
     
     ca = np.arcsin(dd[min]*u.km/dist).to(u.arcsec)
     
@@ -99,7 +101,7 @@ class Occultation():
     Docstring
     Do the reduction of the occultation
     '''
-    def __init__(self, star, ephem):
+    def __init__(self, star, ephem, time):
         """ Instantiate Occultation object.
         
         Parameters:
@@ -115,7 +117,7 @@ class Occultation():
         self.star = star
         self.ephem = ephem
         
-        tt, ca, pa, vel, dist = occ_params(star,ephem)
+        tt, ca, pa, vel, dist = occ_params(star,ephem, time)
         self.ca = ca   # Closest Approach distance
         self.pa = pa   # Position Angle at CA
         self.vel = vel  # Shadow velocity at CA
