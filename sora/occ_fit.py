@@ -1,11 +1,103 @@
 from .config import test_attr
 from .star import Star
-from .ephem import Ephemeris, EphemPlanete
+from .ephem import Ephemeris, EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
 import astropy.units as u
+import astropy.constants as const
 from astropy.time import Time
-import numpy as np
 from astropy.coordinates import SphericalCosLatDifferential, SkyCoord, SkyOffsetFrame
+from astropy.table import Table
+from astroquery.vizier import Vizier
+import numpy as np
+
+
+def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
+    """ Predicts stellar occultations
+        
+    Parameters:
+    ephem (Ephem): Ephemeris. It must be an Ephemeris object.
+    time_beg (Time): Initial time for prediction
+    time_beg (Time): Final time for prediction
+    mag_lim (int,float): Faintest Gmag for search
+    interv (int, float): interval, in seconds, of ephem times for search
+    divs (int,float): interal, in deg, for max search of stars
+    
+    Return:
+    occ_params (Table): Astropy Table with the occultation params for each event
+    """
+    # generate ephemeris
+    if type(ephem) != EphemKernel:
+        raise TypeError('At the moment prediction only works with EphemKernel')
+    dt = np.arange(0, (time_end-time_beg).sec, interv)*u.s
+    t = time_beg + dt
+    coord = ephem.get_position(t)
+
+    # define catalogue parameters
+    kwds = {}
+    kwds['columns'] = ['Source', 'RA_ICRS', 'DE_ICRS']
+    kwds['row_limit']=10000000
+    kwds['timeout']=600
+    if mag_lim:
+        kwds['column_filters']={"Gmag":"<{}".format(mag_lim)}
+    vquery = Vizier(**kwds)
+
+    # determine suitable divisions for star search
+    radius = ephem.radius + const.R_earth
+    mindist = np.arcsin(radius/coord[0].distance)
+    divisions = []
+    n=0 
+    while True: 
+        dif = coord.separation(coord[n]) 
+        k = np.where(dif < divs*u.deg)[0].max()
+        if k < len(coord)-11:
+            k = k+10
+        divisions.append([n,k])
+        if k == len(coord)-1: 
+            break
+        n = k-10
+    print('Ephemeris was split in {} parts for better search of stars'.format(len(divisions)))
+
+    # makes predictions for each division
+    occs = []
+    for i,vals in enumerate(divisions):
+        print('Searching occultations in part {}/{}'.format(i+1,len(divisions)))
+        nt = t[vals[0]:vals[1]]
+        ncoord = coord[vals[0]:vals[1]]
+        ra = np.mean([ncoord.ra.min().deg,ncoord.ra.max().deg])
+        dec = np.mean([ncoord.dec.min().deg,ncoord.dec.max().deg])
+        width = ncoord.ra.max() - ncoord.ra.min() + 2*mindist
+        height = ncoord.dec.max() - ncoord.dec.min() + 2*mindist
+        pos_search = SkyCoord(ra*u.deg, dec*u.deg)
+    
+        catalogue = vquery.query_region(pos_search, width=width, height=height, catalog='I/345/gaia2')[0]  ## mudar pos_search
+        stars = SkyCoord(catalogue['RA_ICRS'], catalogue['DE_ICRS'])
+        idx, d2d, d3d = stars.match_to_catalog_sky(ncoord)
+        
+        dist = np.arcsin(radius/ncoord[idx].distance)
+        k = np.where(d2d < dist)[0]
+        for ev in k:
+            star = Star(code=catalogue['Source'][ev], log=False)
+            pars = [star.code, star.geocentric(nt[idx][ev]), star.mag['G']]
+            pars = np.hstack((pars, occ_params(star, ephem, nt[idx][ev])))
+            occs.append(pars)
+
+    # create astropy table with the params
+    occs2 = np.transpose(occs)
+    time = Time(occs2[3])
+    k = np.argsort(time)
+    source = occs2[0][k]
+    coord = [i.to_string('hmsdms',precision=5, sep=' ') for i in occs2[1][k]]
+    mags = ['{:6.3f}'.format(i) for i in occs2[2][k]]
+    magstt = ['{:6.3f}'.format(occs2[2][i] + 2.5*np.log10(occs2[6][i].value/20.0)) for i in k]
+    time = [i.iso for i in time[k]]
+    ca = ['{:5.3f}'.format(i.value) for i in occs2[4][k]]
+    pa = ['{:6.2f}'.format(i.value) for i in occs2[5][k]]
+    vel = ['{:-6.2f}'.format(i.value) for i in occs2[6][k]]
+    dist = ['{:7.3f}'.format(i.value) for i in occs2[7][k]]
+    t = Table([time, coord, ca, pa, vel, mags, magstt, dist],
+               names=['time', 'coord', 'ca', 'pa', 'vel', 'G', 'G*', 'dist'])
+    return t
+
 
 def positionv(star,ephem,observer,time):
     """ Calculates the position and velocity of the occultation shadow relative to the observer.
@@ -49,6 +141,7 @@ def positionv(star,ephem,observer,time):
 
     return f, g, vf, vg
 
+
 def occ_params(star, ephem, time):
     """ Calculates the parameters of the occultation, as instant, CA, PA.
         
@@ -67,7 +160,7 @@ def occ_params(star, ephem, time):
     
     if type(star) != Star:
         raise ValueError('star must be a Star object')
-    if type(ephem) != Ephemeris:
+    if type(ephem) not in [Ephemeris, EphemKernel, EphemJPL, EphemPlanete]:
         raise ValueError('ephem must be a Ephemeris object')
         
     tt = time + np.arange(-600, 600, delta_t)*u.s
@@ -85,14 +178,14 @@ def occ_params(star, ephem, time):
     
     ca = np.arcsin(dd[min]*u.km/dist).to(u.arcsec)
     
-    pa = np.arctan2(-ksi[min],-eta[min]).to(u.deg)
+    pa = (np.arctan2(-ksi[min],-eta[min])*u.rad).to(u.deg)
     
     dksi = ksi[min+1]-ksi[min]
     deta = eta[min+1]-eta[min]
     vel = np.sqrt(dksi**2 + deta**2)/delta_t
     vel = -vel*np.sign(dksi)*(u.km/u.s)
     
-    return tt[min], ca, pa, vel, dist
+    return tt[min], ca, pa, vel, dist.to(u.AU)
     
         
 ### Object for occultation
