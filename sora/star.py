@@ -24,7 +24,8 @@ def search_star(**kwargs):
 
     """
     row_limit = 100
-    print('Downloading star parameters from {}'.format(kwargs['catalog']))
+    if 'log' in kwargs and kwargs['log']:
+        print('Downloading star parameters from {}'.format(kwargs['catalog']))
     vquery = Vizier(columns=kwargs['columns'], row_limit=row_limit, timeout=600)
     if 'code' in kwargs:
         catalogue = vquery.query_constraints(catalog=kwargs['catalog'], Source=kwargs['code'])
@@ -82,6 +83,9 @@ class Star():
         self.__local = False
         self.mag = {}
         self.errors = {}
+        self.__log = True
+        if 'log' in kwargs:
+            self.__log = kwargs['log']
         if 'local' in kwargs:
             self.__local = test_attr(kwargs['local'], bool, 'local')
         if not any(i in kwargs for i in ['coord', 'code']):
@@ -192,15 +196,16 @@ Please define star diameter or B,V,K magnitudes.')
         """
         columns = ['Source', 'RA_ICRS', 'e_RA_ICRS', 'DE_ICRS', 'e_DE_ICRS', 'Plx', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'Gmag', 'e_Gmag', 'Dup', 'Epoch', 'Rad']
         if hasattr(self, 'code'):
-            catalogue = search_star(code=self.code, columns=columns, catalog='I/345/gaia2')
+            catalogue = search_star(code=self.code, columns=columns, catalog='I/345/gaia2', log=self.__log)
         else:
-            catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/345/gaia2')
+            catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/345/gaia2', log=self.__log)
         if len(catalogue) == 0:
             raise ValueError('No star was found within 2 arcsec from given coordinate')
         catalogue = catalogue[0]
         if len(catalogue) > 1:
-            print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
-            print('The list below is sorted by distance. Please select the correct star')
+            if self.__log:
+                print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
+                print('The list below is sorted by distance. Please select the correct star')
             gmag = catalogue['Gmag']
             tstars = SkyCoord(catalogue['RA_ICRS'], catalogue['DE_ICRS'])
             sep = tstars.separation(self.coord)
@@ -236,23 +241,25 @@ Please define star diameter or B,V,K magnitudes.')
         self.errors['pmRA'] = catalogue['e_pmRA'][0]*(u.mas/u.yr)
         self.errors['pmDEC'] = catalogue['e_pmDE'][0]*(u.mas/u.yr)
         rad = catalogue['Rad'][0]
-        if np.ma.core.is_masked(rad):
+        if np.ma.core.is_masked(rad) and self.__log:
             warnings.warn('Gaia catalogue does not have star radius.')
         else:
             self.diameter_gaia = 2*np.arctan((rad*u.solRad)/distance[0]).to(u.mas)
-        print('1 Gaia-DR2 star found G={}'.format(catalogue['Gmag'][0]))
-        print('star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}'.format(self.coord.obstime.jyear,
-            self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
-            self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
+        if self.__log:
+            print('1 Gaia-DR2 star found G={}'.format(catalogue['Gmag'][0]))
+            print('star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}'.format(self.coord.obstime.jyear,
+                self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
+                self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
         
         
     def __getcolors(self):
         """search for the B,V,K magnitudes of the star on Vizier and saves the result
         """
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
-        catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/297/out')
+        catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec, catalog='I/297/out', log=self.__log)
         if len(catalogue) == 0:
-            warnings.warn('No star was found on NOMAD that matches the star')
+            if self.__log:
+                warnings.warn('No star was found on NOMAD that matches the star')
             return
         catalogue = catalogue[0]
         if len(catalogue) > 1:
@@ -292,7 +299,7 @@ Please define star diameter or B,V,K magnitudes.')
                 errors.append(mag)
                 continue
             self.set_magnitude(**{mag: catalogue[name][0]})
-        if len(errors) > 0:
+        if len(errors) > 0 and self.__log:
             warnings.warn('Magnitudes in {} were not located in NOMAD'.format(errors))
         
         
