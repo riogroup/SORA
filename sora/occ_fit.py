@@ -88,7 +88,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
     source = occs2[0][k]
     coord = [i.to_string('hmsdms',precision=5, sep=' ') for i in occs2[1][k]]
     mags = ['{:6.3f}'.format(i) for i in occs2[2][k]]
-    magstt = ['{:6.3f}'.format(occs2[2][i] + 2.5*np.log10(occs2[6][i].value/20.0)) for i in k]
+    magstt = ['{:6.3f}'.format(occs2[2][i] + 2.5*np.log10(np.absolute(occs2[6][i].value)/20.0)) for i in k]
     time = [i.iso for i in time[k]]
     ca = ['{:5.3f}'.format(i.value) for i in occs2[4][k]]
     pa = ['{:6.2f}'.format(i.value) for i in occs2[5][k]]
@@ -205,7 +205,7 @@ class Occultation():
         """
         if type(star) != Star:
             raise ValueError('star must be a Star object')
-        if type(ephem) != Ephemeris:
+        if type(ephem) not in [Ephemeris, EphemKernel, EphemJPL]:
             raise ValueError('ephem must be a Ephemeris object')
         self.star = star
         self.ephem = ephem
