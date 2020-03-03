@@ -314,6 +314,8 @@ Please define star diameter or B,V,K magnitudes.')
         elif type(time) == float:
             time = Time(time, format='jd', scale='utc')
         n_coord = self.barycentric(time)
+        if np.isnan(n_coord.distance):
+            return n_coord
         sun = get_sun(time)
         g_coord = SkyCoord(*(n_coord.cartesian.xyz + sun.cartesian.xyz), representation_type='cartesian')
         g_coord = g_coord.represent_as(SphericalRepresentation)
@@ -337,6 +339,8 @@ Please define star diameter or B,V,K magnitudes.')
             pass
         elif type(time) == float:
             time = Time(time, format='jd', scale='utc')
+        if np.isnan(self.coord.pm_dec):
+            return self.coord
         n_coord = self.coord.apply_space_motion(new_obstime=time)
         return n_coord
     
