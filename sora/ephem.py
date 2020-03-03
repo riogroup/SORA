@@ -180,7 +180,7 @@ class EphemKernel():
         self.code = str(code)
         for arg in args:
             spice.furnsh(arg)
-        spice.spkpos(self.code, 0, 'J2000', 'NONE', '399')
+        #spice.spkpos(self.code, 0, 'J2000', 'NONE', '399')
         spice.kclear()
         self.__kernels = args
         self.radius = 0*u.km
