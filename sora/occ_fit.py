@@ -28,6 +28,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
     # generate ephemeris
     if type(ephem) != EphemKernel:
         raise TypeError('At the moment prediction only works with EphemKernel')
+    print("Generating Ephemeris ...")
     dt = np.arange(0, (time_end-time_beg).sec, interv)*u.s
     t = time_beg + dt
     coord = ephem.get_position(t)
@@ -45,22 +46,25 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
     radius = ephem.radius + const.R_earth
     mindist = np.arcsin(radius/coord[0].distance)
     divisions = []
-    n=0 
+    n=0
     while True: 
         dif = coord.separation(coord[n]) 
-        k = np.where(dif < divs*u.deg)[0].max()
-        if k < len(coord)-11:
-            k = k+10
+        k = np.where(dif < divs*u.deg)[0] 
+        l = np.where(k[1:]-k[:-1] > 1)[0] 
+        l = np.append(l,len(k)-1) 
+        m = np.where(k[l] - n > 0)[0].min() 
+        k = k[l][m] 
         divisions.append([n,k])
         if k == len(coord)-1: 
-            break
-        n = k-10
+            break 
+        n = k 
+        
     print('Ephemeris was split in {} parts for better search of stars'.format(len(divisions)))
 
     # makes predictions for each division
     occs = []
     for i,vals in enumerate(divisions):
-        print('Searching occultations in part {}/{}'.format(i+1,len(divisions)))
+        print('\nSearching occultations in part {}/{}'.format(i+1,len(divisions)))
         nt = t[vals[0]:vals[1]]
         ncoord = coord[vals[0]:vals[1]]
         ra = np.mean([ncoord.ra.min().deg,ncoord.ra.max().deg])
@@ -68,8 +72,13 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
         width = ncoord.ra.max() - ncoord.ra.min() + 2*mindist
         height = ncoord.dec.max() - ncoord.dec.min() + 2*mindist
         pos_search = SkyCoord(ra*u.deg, dec*u.deg)
-    
-        catalogue = vquery.query_region(pos_search, width=width, height=height, catalog='I/345/gaia2')[0]  ## mudar pos_search
+        
+        print('Downloading stars ...')
+        catalogue = vquery.query_region(pos_search, width=width, height=height, catalog='I/345/gaia2')
+        print('Identifying occultations ...')
+        if len(catalogue) == 0:
+            continue
+        catalogue = catalogue[0]
         stars = SkyCoord(catalogue['RA_ICRS'], catalogue['DE_ICRS'])
         idx, d2d, d3d = stars.match_to_catalog_sky(ncoord)
         
@@ -179,6 +188,8 @@ def occ_params(star, ephem, time):
     ca = np.arcsin(dd[min]*u.km/dist).to(u.arcsec)
     
     pa = (np.arctan2(-ksi[min],-eta[min])*u.rad).to(u.deg)
+    if pa < 0*u.deg:
+        pa = pa + 360*u.deg
     
     dksi = ksi[min+1]-ksi[min]
     deta = eta[min+1]-eta[min]
