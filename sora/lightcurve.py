@@ -1,7 +1,7 @@
 import numpy as np
 import pylab as pl
 import astropy.units as u
-
+from astropy.timeseries import BoxLeastSquares
 
 class LightCurve():
     '''
