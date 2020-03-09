@@ -123,7 +123,7 @@ class LightCurve():
             print('There is no lightcurve to plot')
         return
     
-        def DetectOcc(self, maximum_duration=None, dur_step=None, snr_limit=None, \
+    def DetectOcc(self, maximum_duration=None, dur_step=None, snr_limit=None, \
                   n_detections=None):
         """
         Detect automatically the occultation event in the light curve
