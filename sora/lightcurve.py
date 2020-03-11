@@ -2,6 +2,52 @@ import numpy as np
 import pylab as pl
 import astropy.units as u
 from astropy.timeseries import BoxLeastSquares
+import scipy.special as scsp
+
+
+def bar_fresnel(X,X01,X02,fresnel_scale,opa_ampli):
+    """ Returns the modelled light curve considering fresnel difraction.
+    ----------
+    Parameters
+    ----------
+    X   (array): Array with time values converted in km using the event velocity.
+    X01 (int, float): Ingrees time converted in km using the event velocity.
+    X02 (int, float): Egress time converted in km using the event velocity.
+    fresnel_scale (int, float): Fresnel scale.
+    opa_ampli     (int, float): Opacity, opaque = 1.0, transparent = 0.0
+    ----------
+    Returns
+    ----------
+    flux_fresnel (array):
+    """
+    # Converting from km to units of fresnel scale
+    x   = X/fresnel_scale
+    x01 = X01/fresnel_scale
+    x02 = X02/fresnel_scale
+    # Fresnel difraction parameters 
+    x1 = x - x01
+    x2 = x - x02
+    s1,c1 = scsp.fresnel(x1)
+    s2,c2 = scsp.fresnel(x2)
+    cc = c1 - c2
+    ss = s1 - s2
+    r_ampli = - (cc+ss)*(opa_ampli/2.)
+    i_ampli =   (cc-ss)*(opa_ampli/2.)
+    # Determining the flux considering fresnel difraction
+    flux_fresnel = (1.0 + r_ampli)**2 + (i_ampli)**2
+    return flux_fresnel
+
+def calc_fresnel(distance,lambida):
+    """ Returns the fresnel scale.
+    ----------
+    Parameters
+    ----------
+    distance  (int, float, array): distances, in km.
+    lambida   (int, float, array): wavelength, in km.
+    ----------
+    """
+    return np.sqrt(lambida*distance/2)
+
 
 class LightCurve():
     '''
@@ -21,6 +67,9 @@ class LightCurve():
         self.delta_lambda = 0.30 #microns #### *u.micrometer.to('km')
         self.sigma = None
         self.tref = None
+        self.dist = None
+        self.d_star = None
+        self.vel = None
         return
     
     def set_lightcurve(self,time,flux):
@@ -89,14 +138,80 @@ class LightCurve():
         self.bottom_flux = 10**((self.mag_combined - obj.magV)*0.4)
         return
     
-    
-    def calc_occmodel(self,t_ingress,t_egress,opa_ampli=1.0,baseflux=1.0,depht=0.0):
-        #INCLUIR MODELO CORRETO!!!!!!!
-        if (np.any(self.time) != None):
-            self.model = baseflux*np.ones(len(self.time))
-            event_id = (self.time > t_ingress) & (self.time < t_egress)
-            self.model[event_id] = depht
+    def calc_occ_model(self,t_ingress,t_egress,opa_ampli,mask,npt_star=12,time_resolution_factor=10):
+        """ Returns the modelled light curve considering fresnel difraction, star diameter and intrumental response.
+        ----------
+        Parameters
+        ----------
+        t_ingress (int, float): Ingrees time, in seconds.                       (input)
+        t_egress  (int, float): Egress time, in seconds.                        (input)
+        opa_ampli (int, float): Opacity, opaque = 1.0, transparent = 0.0.       (input)
+        mask (array with Booleans): Mask with True values to be computed        (input)
+        npt_star  (int): Number of subdivisions for computing the star size's effects, default equal to 12. (auto)
+        time_resolution_factor (int,float): Steps for fresnel scale used for modelling the light curve,     (auto)
+            default equals to 10 steps for fresnel scale.
+        ----------
+        Returns
+        ----------
+        self.flux_inst       (array): Modelled Instrumental light flux.
+        self.time_model      (array): Modelled timing.
+        self.flux_star       (array): Modelled light flux considering fresnel difraction and star's diameter.
+        self.flux_fresnel    (array): Modelled light flux considering fresnel difraction.
+        self.model_geometric (array): Modelled light flux considering a box model.
+        """
+        # Computing the fresnel scale
+        lamb  = self.lambda_0*u.micrometer.to('km')
+        dlamb = self.delta_lambda*u.micrometer.to('km')
+        dist  = self.dist*u.au.to('km')
+        time_obs = self.time[mask]
+        fresnel_scale_1 = calc_fresnel(dist,lamb-dlamb/2.0)
+        fresnel_scale_2 = calc_fresnel(dist,lamb-dlamb/2.0)
+        fresnel_scale   = (fresnel_scale_1 + fresnel_scale_2)/2.0
+        time_resolution = (np.min([fresnel_scale/self.vel,self.exptime]))/time_resolution_factor
+        #
+        #Creating a high resolution curve to compute fresnel difraction, stellar diameter and instrumental integration 
+        time_model = np.arange(time_obs.min()-5*self.exptime,time_obs.max()+5*self.exptime,time_resolution)
+        #
+        #Changing X: time (s) to distances in the sky plane (km), considering the tangential velocity (vel in km/s)
+        x   = time_model*self.vel    
+        x01 = t_ingress*self.vel
+        x02 = t_egress*self.vel
+        #
+        #Computing fresnel diffraction for the case where the star size is negligenciable
+        flux_fresnel_1 = bar_fresnel(x,x01,x02,fresnel_scale_1,opa_ampli)
+        flux_fresnel_2 = bar_fresnel(x,x01,x02,fresnel_scale_2,opa_ampli)
+        flux_fresnel   = (flux_fresnel_1 + flux_fresnel_2)/2.
+        flux_star      = flux_fresnel.copy()
+        if (self.d_star > 0):
+            #Computing fresnel diffraction for the case where the star size is not negligenciable
+            resolucao   = self.d_star/npt_star
+            flux_star_1 = np.zeros(len(time_model))
+            flux_star_2 = np.zeros(len(time_model))
+            #Computing stellar diameter only near the ingrees or egrees times
+            star_diam = (np.absolute(x - x01) < 3*self.d_star) + (np.absolute(x - x02) < 3*self.d_star)
+            p = np.arange(-npt_star,npt_star)*resolucao
+            coeff = np.sqrt(np.absolute(self.d_star**2 - p**2))
+            for ii in np.where(star_diam == True)[0]:
+                xx = x[ii] + p
+                flux1 = bar_fresnel(xx,x01,x02,fresnel_scale_1,opa_ampli)
+                flux2 = bar_fresnel(xx,x01,x02,fresnel_scale_2,opa_ampli)
+                flux_star_1[ii] = np.sum(coeff*flux1)/coeff.sum()
+                flux_star_2[ii] = np.sum(coeff*flux2)/coeff.sum()
+                flux_star[ii]   = (flux_star_1[ii] + flux_star_2[ii])/2.
+        flux_inst = np.zeros(len(time_obs)) 
+        for i in range(len(time_obs)):
+            event_model  = (time_model > time_obs[i]-self.exptime/2.) & (time_model < time_obs[i]+self.exptime/2.)
+            flux_inst[i] = (flux_star[event_model]).mean()
+        self.model[mask] = flux_inst
+        self.time_model = time_model
+        self.model_star = flux_star
+        self.model_fresnel = flux_fresnel
+        ev_model = (time_model > t_ingress) & (time_model < t_egress)
+        flux_box = np.ones(len(time_model))
+        flux_box[ev_model] = (1-opa_ampli)**2
+        self.model_geometric = flux_box
         return
+    
 
     def plot_lc(self,fig_name=None):
         '''
