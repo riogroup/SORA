@@ -4,39 +4,6 @@ import astropy.units as u
 from astropy.timeseries import BoxLeastSquares
 import scipy.special as scsp
 
-
-def bar_fresnel(X,X01,X02,fresnel_scale,opa_ampli):
-    """ Returns the modelled light curve considering fresnel difraction.
-    ----------
-    Parameters
-    ----------
-    X   (array): Array with time values converted in km using the event velocity.
-    X01 (int, float): Ingrees time converted in km using the event velocity.
-    X02 (int, float): Egress time converted in km using the event velocity.
-    fresnel_scale (int, float): Fresnel scale.
-    opa_ampli     (int, float): Opacity, opaque = 1.0, transparent = 0.0
-    ----------
-    Returns
-    ----------
-    flux_fresnel (array):
-    """
-    # Converting from km to units of fresnel scale
-    x   = X/fresnel_scale
-    x01 = X01/fresnel_scale
-    x02 = X02/fresnel_scale
-    # Fresnel difraction parameters 
-    x1 = x - x01
-    x2 = x - x02
-    s1,c1 = scsp.fresnel(x1)
-    s2,c2 = scsp.fresnel(x2)
-    cc = c1 - c2
-    ss = s1 - s2
-    r_ampli = - (cc+ss)*(opa_ampli/2.)
-    i_ampli =   (cc-ss)*(opa_ampli/2.)
-    # Determining the flux considering fresnel difraction
-    flux_fresnel = (1.0 + r_ampli)**2 + (i_ampli)**2
-    return flux_fresnel
-
 def calc_fresnel(distance,lambida):
     """ Returns the fresnel scale.
     ----------
@@ -56,8 +23,7 @@ class LightCurve():
     '''
     def __init__(self, time, flux, dflux=None, **kwargs):
         if len(flux) != len(time):
-            print('The time and the flux should have the same length')
-            return
+            raise ValueError('The time and the flux should have the same length')
         self.flux = flux
         self.dflux = dflux
         self.time = time
@@ -82,18 +48,7 @@ class LightCurve():
         self.time = time
         self.flux = flux
         return
-    
-    def set_filter(self,lambda_0,delta_lambda):
-        '''
-        Set the filter utilized in the observation centred at lambda0 with a width of delta_lambda. 
-        Inputs:
-        lambda_0 = float, in microns
-        delta_lambda = float, in microns
-        '''
-        self.lambda_0 = lambda_0 #microns
-        self.delta_lambda = delta_lambda #microns
-        return
-    
+        
     def set_exposure(self,exp):
         '''
         Set the exposure time utilized
@@ -103,28 +58,22 @@ class LightCurve():
         self.exptime = np.float(exp)
         return
     
-    def set_sigma_noise(self,sigma):
+    def sigma_noise(self,sigma=None):
         '''
         Set the standard deviation of the light-curve (sigma)
         Inputs:
         sigma = float, in flux
         '''
-        self.sigma = sigma
-        return
-    
-    def calc_sigma_noise(self):
-        '''
-        Determine the standard deviation of the light-curve (sigma)
-        '''
-        if (np.any(self.flux) != None):
+        if sigma is None:
             cut = np.absolute(self.flux-1) < np.std(self.flux)
             for loop in range(10):
                 cut = np.absolute(self.flux-1) < 3*np.std(self.flux[cut])
             self.sigma = np.std(self.flux[cut])
-        return
+        else:
+            self.sigma = sigma
+        return    
     
-    
-    def calc_magnitude_drop(self,star,obj):
+    def magnitude_drop(self,star,obj):
         '''
         Determine the magnitude drop
         Inputs:
@@ -138,7 +87,7 @@ class LightCurve():
         self.bottom_flux = 10**((self.mag_combined - obj.magV)*0.4)
         return
     
-    def calc_occ_model(self,t_ingress,t_egress,opa_ampli,mask,npt_star=12,time_resolution_factor=10):
+    def occ_model(self,t_ingress,t_egress,opa_ampli,mask,npt_star=12,time_resolution_factor=10):
         """ Returns the modelled light curve considering fresnel difraction, star diameter and intrumental response.
         ----------
         Parameters
@@ -178,8 +127,8 @@ class LightCurve():
         x02 = t_egress*self.vel
         #
         #Computing fresnel diffraction for the case where the star size is negligenciable
-        flux_fresnel_1 = bar_fresnel(x,x01,x02,fresnel_scale_1,opa_ampli)
-        flux_fresnel_2 = bar_fresnel(x,x01,x02,fresnel_scale_2,opa_ampli)
+        flux_fresnel_1 = self.__bar_fresnel(x,x01,x02,fresnel_scale_1,opa_ampli)
+        flux_fresnel_2 = self.__bar_fresnel(x,x01,x02,fresnel_scale_2,opa_ampli)
         flux_fresnel   = (flux_fresnel_1 + flux_fresnel_2)/2.
         flux_star      = flux_fresnel.copy()
         if (self.d_star > 0):
@@ -193,8 +142,8 @@ class LightCurve():
             coeff = np.sqrt(np.absolute(self.d_star**2 - p**2))
             for ii in np.where(star_diam == True)[0]:
                 xx = x[ii] + p
-                flux1 = bar_fresnel(xx,x01,x02,fresnel_scale_1,opa_ampli)
-                flux2 = bar_fresnel(xx,x01,x02,fresnel_scale_2,opa_ampli)
+                flux1 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_1,opa_ampli)
+                flux2 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_2,opa_ampli)
                 flux_star_1[ii] = np.sum(coeff*flux1)/coeff.sum()
                 flux_star_2[ii] = np.sum(coeff*flux2)/coeff.sum()
                 flux_star[ii]   = (flux_star_1[ii] + flux_star_2[ii])/2.
@@ -390,4 +339,37 @@ class LightCurve():
             else:
                 dict3[key] = np.append(dict1[key],dict2[key])
         return dict3
+
+    def __bar_fresnel(self,X,X01,X02,fresnel_scale,opa_ampli):
+         """ Returns the modelled light curve considering fresnel difraction.
+         ----------
+         Parameters
+         ----------
+         X   (array): Array with time values converted in km using the event velocity.
+         X01 (int, float): Ingrees time converted in km using the event velocity.
+         X02 (int, float): Egress time converted in km using the event velocity.
+         fresnel_scale (int, float): Fresnel scale.
+         opa_ampli     (int, float): Opacity, opaque = 1.0, transparent = 0.0
+         ----------
+         Returns
+         ----------
+         flux_fresnel (array):
+         """
+         # Converting from km to units of fresnel scale
+         x   = X/fresnel_scale
+         x01 = X01/fresnel_scale
+         x02 = X02/fresnel_scale
+         # Fresnel difraction parameters 
+         x1 = x - x01
+         x2 = x - x02
+         s1,c1 = scsp.fresnel(x1)
+         s2,c2 = scsp.fresnel(x2)
+         cc = c1 - c2
+         ss = s1 - s2
+         r_ampli = - (cc+ss)*(opa_ampli/2.)
+         i_ampli =   (cc-ss)*(opa_ampli/2.)
+         # Determining the flux considering fresnel difraction
+         flux_fresnel = (1.0 + r_ampli)**2 + (i_ampli)**2
+         return flux_fresnel
+
 
