@@ -159,7 +159,7 @@ class LightCurve():
         flux_box = np.ones(len(time_model))
         flux_box[ev_model] = (1-opa_ampli)**2
         self.model_geometric = flux_box
-        return
+        return self.model
     
 
     def plot_lc(self,fig_name=None):
