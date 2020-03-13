@@ -1,4 +1,4 @@
-from .config import test_attr
+from .config import test_attr, colors
 from .star import Star
 from .ephem import Ephemeris, EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
@@ -10,6 +10,8 @@ from astropy.table import Table
 from astroquery.vizier import Vizier
 import numpy as np
 import warnings
+import matplotlib.pyplot as plt
+cor = colors()
 
 
 def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
@@ -232,12 +234,9 @@ class Occultation():
         self.dist = dist  # object distance at CA
         self.tca = tt   # Instant of CA
         
-        self.obs_positive = []
-        self.obs_negative = []
-        self.obs_visual = []
-        self.obs_undefined = []
+        self.__observations = []
     
-    def add_observation(self, obs, status='undefined'):
+    def add_observation(self, obs, lightcurve):
         """ Add Observers to the Occultation object.
         
         Parameters:
@@ -247,41 +246,53 @@ class Occultation():
         """
         if type(obs) != Observer:
             raise ValueError('obs must be an Observer object')
-        if status not in ['positive', 'negative', 'visual', 'undefined']:
-            raise ValueError('status must be one the following valeus: "positive", "negative", "visual" or "undefined"')
-        if obs in self.obs_positive:
-            raise ValueError('{} observation already defined as positive'.format(obs.name))
-        elif obs in self.obs_negative:
-            raise ValueError('{} observation already defined as negative'.format(obs.name))
-        elif obs in self.obs_visual:
-            raise ValueError('{} observation already defined as visual'.format(obs.name))
-        elif obs in self.obs_undefined:
-            raise ValueError('{} observation already defined as undefined'.format(obs.name))
-        if status == 'positive':
-            self.obs_positive.append(obs)
-        if status == 'negative':
-            self.obs_negative.append(obs)
-        if status == 'visual':
-            self.obs_visual.append(obs)
-        if status == 'undefined':
-            self.obs_undefined.append(obs)
-    
+        ## test lightcurve
+        if len(self.__observations) > 0:
+            for o,l in self.__observations:
+                if o == obs and l == lightcurve:
+                    raise ValueError('{} observation already defined'.format(obs.name))
+        self.__observations.append((obs,lightcurve))
+        
     def fit_ellipse(self):
         # fit ellipse to the points
         return
-    
+
     def fit_to_shape(self):
         # fit points to a 3D shape model
         return
-    
+
     def plot_chords(self):
         # plot chords of the occultation
-        return
+        if len(self.__observations) == 0:
+            raise ValueError('There is no observation defined for this occultation')
+
+        for o,l in self.__observations:
+            if len(l.times) < 2:
+                continue
+
+            if len(l.times) == 2:  ### negative
+                f1,g1 = positionv(self.star,self.ephem,o,l.times[0][1])[0:2]
+                f2,g2 = positionv(self.star,self.ephem,o,l.times[1][1])[0:2]
+                plt.plot([f1,f2], [g1,g2], '--', color=cor.negative_color, linewidth=0.7)
+
+            else:  ###positive
+                for s, time, err in l.times:  ### plotting error bars
+                    if s not in ['im', 'em']:
+                        continue
+                    f1,g1 = positionv(self.star,self.ephem,o,time-err*u.s)[0:2]
+                    f2,g2 = positionv(self.star,self.ephem,o,time+err*u.s)[0:2]
+                    plt.plot([f1,f2], [g1,g2], color=cor.error_bar, linewidth=1.5)
+
+                for i in np.arange(int((len(l.times)-2)/2)):  ### plotting chords
+                    f1,g1 = positionv(self.star,self.ephem,o,l.times[2*i+1][1])[0:2]
+                    f2,g2 = positionv(self.star,self.ephem,o,l.times[2*i+2][1])[0:2]
+                    plt.plot([f1,f2], [g1,g2], color=cor.positive_color, linewidth=0.7)
+        plt.axis('equal')
     
     def plot_occ_map(self):
         # plot occultation map
         return
-    
+
     def __str__(self):
         """String representation of the Star class
         """
@@ -290,9 +301,11 @@ class Occultation():
         out += 'Instant of CA: {}\n'.format(self.tca.iso)
         out += 'Position Angle: {:.2f}\n'.format(self.pa)
         out += 'Geocentric shadow velocity: {:.2f}\n\n'.format(self.vel)
-        
+
         out += self.star.__str__() + '\n'
         out += self.ephem.__str__() + '\n'
+
+        return out
 
         self.__count = 0
         self.__out1 = ''
