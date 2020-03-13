@@ -3,6 +3,8 @@ import pylab as pl
 import astropy.units as u
 from astropy.timeseries import BoxLeastSquares
 import scipy.special as scsp
+import multiprocessing
+from datetime import datetime
 
 def calc_fresnel(distance,lambida):
     """ Returns the fresnel scale.
@@ -161,6 +163,53 @@ class LightCurve():
         self.model_geometric = flux_box
         return self.model
     
+    def occ_lcfit(self,mask, t_ingress, t_egress, opa_ampli=1, dt_ingress=0, dt_egress=0, dopacity=0, loop=10000, multiproc=False,nproc=10):
+        """ Brute force chi square fit for occultations lightcurve.
+        ----------
+        Parameters
+        ----------
+        mask (array with Booleans): Mask with True values to be computed                (input)
+        t_ingress  (int, float): Ingrees time, in seconds.                              (input)
+        t_egress   (int, float): Egress time, in seconds.                               (input)
+        opa_ampli  (int, float): Opacity, opaque = 1.0, transparent = 0.0, default = 1. (input)
+        dt_ingress (int, float): Interval to fit ingress time, default equal to 0, no fit. (auto)
+        dt_egress  (int, float): Interval to fit egress time, default equal to 0, no fit.  (auto)
+        dopacity   (int, float): Interval to fit opacity, default equal to 0, no fit.      (auto)
+        loop       (int): Number of tests to be done, default equal to 10000.              (auto)
+        multiproc  (bool): Do multiproces, True or False, default equal to False           (auto)
+        nproc      (int): Number of process, for multiprov=True only, default equal to 10. (auto)        
+        ----------
+        Returns
+        ----------
+        chi2 (array): Tested chi squared values.
+        t_i  (array): Tested ingress values
+        t_e  (array): Tested egress values
+        opa  (array): Tested opacity values
+        """
+        #
+        t_i = t_ingress + dt_ingress*(2*np.random.random(loop) - 1)
+        t_e = t_egress  + dt_egress*(2*np.random.random(loop) - 1)
+        opa = opa_ampli + dopacity*(2*np.random.random(loop) - 1)
+        opa[opa>1.], opa[opa<0.] = 1.0, 0.0
+        #
+        if multiproc == True:
+            raise ValueError('Multiprocess are not working yet')
+            #tcontrol_f0 = datetime.now()
+            #if __name__ == '__main__':
+            #    p = multiprocessing.Pool(processes = nproc)
+            #    chi2_p = p.map(__Paralell_run, range(loop),2)
+            #tcontrol_f3 = datetime.now()
+            #print('Elapsed time: {:.3f} seconds.'.format((tcontrol_f3 - tcontrol_f0).total_seconds()))
+            #chi2 = np.array(chi2_p)
+        else:
+            chi2 = 999999*np.ones(loop)
+            tcontrol_f0 = datetime.now()
+            for i in range(loop):
+                model_test = self.occ_model(t_i[i],t_e[i],opa[i],mask)
+                chi2[i] = np.sum((self.flux[mask] -  model_test[mask])**2)/(self.sigma**2)
+            tcontrol_f3 = datetime.now()
+            print('Elapsed time: {:.3f} seconds.'.format((tcontrol_f3 - tcontrol_f0).total_seconds()))
+        return chi2, t_i, t_e, opa
 
     def plot_lc(self,fig_name=None):
         '''
