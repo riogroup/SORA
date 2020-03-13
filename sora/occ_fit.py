@@ -9,6 +9,7 @@ from astropy.coordinates import SphericalCosLatDifferential, SkyCoord, SkyOffset
 from astropy.table import Table
 from astroquery.vizier import Vizier
 import numpy as np
+import warnings
 
 
 def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
@@ -90,6 +91,9 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
             pars = np.hstack((pars, occ_params(star, ephem, nt[idx][ev])))
             occs.append(pars)
 
+    if not occs:
+        warnings.warn('No stellar occultation was found')
+        return Table(names=['time', 'coord', 'ca', 'pa', 'vel', 'G', 'G*', 'dist'])
     # create astropy table with the params
     occs2 = np.transpose(occs)
     time = Time(occs2[3])
