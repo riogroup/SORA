@@ -3,12 +3,39 @@ class colors():
     '''
     Docstring
     '''
-    positive_color = 'blue'
-    negative_color = 'green'
-    error_bar = 'red'
+    __cores = {
+    'positive': 'blue',
+    'negative': 'green',
+    'error': 'red'
+    }
     def __init__(self):
-        return
-    
+        pass
+
+    @property
+    def positive_color(self):
+        return self.__cores['positive']
+
+    @positive_color.setter
+    def positive_color(self, value):
+        self.__cores['positive']=value
+
+    @property
+    def negative_color(self):
+        return self.__cores['negative']
+
+    @negative_color.setter
+    def negative_color(self, value):
+        self.__cores['negative']=value
+
+    @property
+    def error_bar(self):
+        return self.__cores['error']
+
+    @error_bar.setter
+    def error_bar(self, value):
+        self.__cores['error']=value
+
+
 ### useful functions
 def test_attr(attr, typ, name):
     """
