@@ -2,6 +2,7 @@ from .config import test_attr, colors
 from .star import Star
 from .ephem import Ephemeris, EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
+from .lightcurve import LightCurve
 import astropy.units as u
 import astropy.constants as const
 from astropy.time import Time
@@ -233,6 +234,7 @@ class Occultation():
         self.vel = vel  # Shadow velocity at CA
         self.dist = dist  # object distance at CA
         self.tca = tt   # Instant of CA
+        self.star_diam = self.star.apparent_diameter(self.dist)
         
         self.__observations = []
     
@@ -246,13 +248,17 @@ class Occultation():
         """
         if type(obs) != Observer:
             raise ValueError('obs must be an Observer object')
-        ## test lightcurve
+        if type(lightcurve) != LightCurve:
+            raise ValueError('lightcurve must be a LightCurve object')
         if len(self.__observations) > 0:
             for o,l in self.__observations:
                 if o == obs and l == lightcurve:
                     raise ValueError('{} observation already defined'.format(obs.name))
         self.__observations.append((obs,lightcurve))
-        
+        lightcurve.set_vel(np.absolute(self.vel))
+        lightcurve.set_dist(float(self.dist.AU))
+        lightcurve.set_diam(float(self.star_diam.AU))
+
     def fit_ellipse(self):
         # fit ellipse to the points
         return

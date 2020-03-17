@@ -60,6 +60,48 @@ class LightCurve():
         self.exptime = np.float(exp)
         return
     
+    def set_vel(self,vel):
+        '''
+        Set the occultation velocity
+        Inputs:
+        vel = float, in km/s
+        '''
+        if type(vel) == u.quantity.Quantity:
+            vel = vel.to(u.km/u.s).value
+        elif type(vel) == [float,int]:
+            pass
+        else:
+            raise TypeError('vel must be a float or an Astropy Unit object')
+        self.vel = np.absolute(vel)
+
+    def set_dist(self,dist):
+        '''
+        Set the object distance
+        Inputs:
+        dist = float, in km
+        '''
+        if type(dist) == u.quantity.Quantity:
+            dist = dist.to(u.AU).value
+        elif type(dist) in [float,int]:
+            pass
+        else:
+            raise TypeError('dist must be a float or an Astropy Unit object')
+        self.dist = dist
+
+    def set_diam(self,diam):
+        '''
+        Set the star diameter
+        Inputs:
+        diam = float, in km
+        '''
+        if type(diam) == u.quantity.Quantity:
+            diam = diam.to(u.km).value
+        elif type(diam) in [float,int]:
+            pass
+        else:
+            raise TypeError('diam must be a float or an Astropy Unit object')
+        self.d_star = diam
+    
     def sigma_noise(self,sigma=None):
         '''
         Set the standard deviation of the light-curve (sigma)
