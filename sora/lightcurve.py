@@ -5,6 +5,7 @@ from astropy.timeseries import BoxLeastSquares
 import scipy.special as scsp
 import multiprocessing
 from datetime import datetime
+from .extra import ChiSquare
 
 def calc_fresnel(distance,lambida):
     """ Returns the fresnel scale.
@@ -251,7 +252,8 @@ class LightCurve():
                 chi2[i] = np.sum((self.flux[mask] -  model_test[mask])**2)/(self.sigma**2)
             tcontrol_f3 = datetime.now()
             print('Elapsed time: {:.3f} seconds.'.format((tcontrol_f3 - tcontrol_f0).total_seconds()))
-        return chi2, t_i, t_e, opa
+        chisquare = ChiSquare(chi2, immersion=t_i, emersion=t_e, opacity=opa)
+        return chisquare
 
     def plot_lc(self,fig_name=None):
         '''

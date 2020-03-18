@@ -1,6 +1,5 @@
-from .config import *
-from .ephem import *
-from .observer import *
-from .occ_fit import *
-from .star import *
-from .lightcurve import *
+from .ephem import EphemKernel, EphemPlanete, EphemJPL
+from .observer import Observer
+from .occ_fit import Occultation
+from .star import Star
+from .lightcurve import LightCurve
