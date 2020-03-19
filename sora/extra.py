@@ -41,10 +41,11 @@ class ChiSquare():
     chisquare.data['immersion']
 
     """
-    def __init__(self,chi2,**kwargs):
+    def __init__(self,chi2,npts,**kwargs):
         names = [('chi2', 'f8')]
         data = chi2
         data_size = len(chi2)
+        self.npts = npts
         for item in kwargs.keys():
             if len(kwargs[item]) != data_size:
                 raise ValueError('{} size must have the same size as given chi2')
@@ -125,7 +126,9 @@ class ChiSquare():
         """
         sigma_1 = self.get_nsigma(sigma=1)
         sigma_3 = self.get_nsigma(sigma=3)
-        output = 'Minimum chi-square: {}\n'.format(sigma_1['chi2_min'])
+        output = 'Minimum chi-square: {:.3f}\n'.format(sigma_1['chi2_min'])
+        output += 'Number of fitted points: {}\n'.format(self.npts)
+        output += 'Minimum chi-square per degree of freedom: {:.3f}\n'.format(sigma_1['chi2_min']/self.npts)
         for name in self.data.dtype.names[1:]:
             output += '\n{}:\n'.format(name)
             output += '    1-sigma: {:.3f} +/- {:.3f}\n'.format(*sigma_1[name])

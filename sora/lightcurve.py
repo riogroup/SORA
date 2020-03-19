@@ -235,24 +235,14 @@ class LightCurve():
         opa = opa_ampli + dopacity*(2*np.random.random(loop) - 1)
         opa[opa>1.], opa[opa<0.] = 1.0, 0.0
         #
-        if multiproc == True:
-            raise ValueError('Multiprocess are not working yet')
-            #tcontrol_f0 = datetime.now()
-            #if __name__ == '__main__':
-            #    p = multiprocessing.Pool(processes = nproc)
-            #    chi2_p = p.map(__Paralell_run, range(loop),2)
-            #tcontrol_f3 = datetime.now()
-            #print('Elapsed time: {:.3f} seconds.'.format((tcontrol_f3 - tcontrol_f0).total_seconds()))
-            #chi2 = np.array(chi2_p)
-        else:
-            chi2 = 999999*np.ones(loop)
-            tcontrol_f0 = datetime.now()
-            for i in range(loop):
-                model_test = self.occ_model(t_i[i],t_e[i],opa[i],mask)
-                chi2[i] = np.sum((self.flux[mask] -  model_test[mask])**2)/(self.sigma**2)
-            tcontrol_f3 = datetime.now()
-            print('Elapsed time: {:.3f} seconds.'.format((tcontrol_f3 - tcontrol_f0).total_seconds()))
-        chisquare = ChiSquare(chi2, immersion=t_i, emersion=t_e, opacity=opa)
+        chi2 = 999999*np.ones(loop)
+        tcontrol_f0 = datetime.now()
+        for i in range(loop):
+           model_test = self.occ_model(t_i[i],t_e[i],opa[i],mask)
+           chi2[i] = np.sum((self.flux[mask] -  model_test[mask])**2)/(self.sigma**2)
+        tcontrol_f3 = datetime.now()
+        print('Elapsed time: {:.3f} seconds.'.format((tcontrol_f3 - tcontrol_f0).total_seconds()))
+        chisquare = ChiSquare(chi2, len(self.flux[mask]), immersion=t_i, emersion=t_e, opacity=opa)
         return chisquare
 
     def plot_lc(self,fig_name=None):
