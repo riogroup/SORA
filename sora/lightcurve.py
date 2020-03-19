@@ -3,7 +3,6 @@ import pylab as pl
 import astropy.units as u
 from astropy.timeseries import BoxLeastSquares
 import scipy.special as scsp
-import multiprocessing
 from datetime import datetime
 from .extra import ChiSquare
 
@@ -206,7 +205,7 @@ class LightCurve():
         self.model_geometric = flux_box
         return self.model
     
-    def occ_lcfit(self,mask, t_ingress, t_egress, opa_ampli=1, dt_ingress=0, dt_egress=0, dopacity=0, loop=10000, multiproc=False,nproc=10):
+    def occ_lcfit(self,mask, t_ingress, t_egress, opa_ampli=1, dt_ingress=0, dt_egress=0, dopacity=0, loop=10000):
         """ Brute force chi square fit for occultations lightcurve.
         ----------
         Parameters
@@ -219,8 +218,6 @@ class LightCurve():
         dt_egress  (int, float): Interval to fit egress time, default equal to 0, no fit.  (auto)
         dopacity   (int, float): Interval to fit opacity, default equal to 0, no fit.      (auto)
         loop       (int): Number of tests to be done, default equal to 10000.              (auto)
-        multiproc  (bool): Do multiproces, True or False, default equal to False           (auto)
-        nproc      (int): Number of process, for multiprov=True only, default equal to 10. (auto)        
         ----------
         Returns
         ----------
