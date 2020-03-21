@@ -230,11 +230,14 @@ Please define star diameter or B,V,K magnitudes.')
         self.code = catalogue['Source'][0]
         ra = catalogue['RA_ICRS']
         dec = catalogue['DE_ICRS']
-        distance = Distance(parallax=catalogue['Plx'].quantity, allow_negative=True)
         pmra = catalogue['pmRA']
         pmde = catalogue['pmDE']
         epoch = Time(catalogue['Epoch'].quantity, format='jyear')
-        self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch[0])[0]
+        try:
+            distance = Distance(parallax=catalogue['Plx'].quantity, allow_negative=False)
+            self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch[0])[0]
+        except:
+            self.coord = SkyCoord(ra, dec, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch[0])[0]
         self.set_magnitude(G=catalogue['Gmag'][0])
         self.errors['RA'] = catalogue['e_RA_ICRS'][0]*u.mas
         self.errors['DEC'] = catalogue['e_DE_ICRS'][0]*u.mas
@@ -248,8 +251,8 @@ Please define star diameter or B,V,K magnitudes.')
         if self.__log:
             print('1 Gaia-DR2 star found G={}'.format(catalogue['Gmag'][0]))
             print('star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}'.format(self.coord.obstime.jyear,
-                self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
-                self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
+                  self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
+                  self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
         
         
     def __getcolors(self):
@@ -314,7 +317,7 @@ Please define star diameter or B,V,K magnitudes.')
         elif type(time) == float:
             time = Time(time, format='jd', scale='utc')
         n_coord = self.barycentric(time)
-        if np.isnan(n_coord.distance):
+        if self.coord.distance.unit.is_unity() or np.isnan(self.coord.distance):
             return n_coord
         sun = get_sun(time)
         g_coord = SkyCoord(*(n_coord.cartesian.xyz + sun.cartesian.xyz), representation_type='cartesian')
@@ -341,7 +344,13 @@ Please define star diameter or B,V,K magnitudes.')
             time = Time(time, format='jd', scale='utc')
         if np.isnan(self.coord.pm_dec):
             return self.coord
-        n_coord = self.coord.apply_space_motion(new_obstime=time)
+        if self.coord.distance.unit.is_unity():
+            star_frame = SkyOffsetFrame(origin=self.coord)
+            dt = time - self.coord.obstime
+            new_pos = SkyCoord(lon=self.coord.pm_ra_cosdec*dt, lat=self.coord.pm_dec*dt, frame=star_frame)
+            n_coord = new_pos.transform_to(ICRS)
+        else:
+            n_coord = self.coord.apply_space_motion(new_obstime=time)
         return n_coord
     
     
