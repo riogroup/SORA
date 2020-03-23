@@ -244,8 +244,9 @@ Please define star diameter or B,V,K magnitudes.')
         self.errors['pmRA'] = catalogue['e_pmRA'][0]*(u.mas/u.yr)
         self.errors['pmDEC'] = catalogue['e_pmDE'][0]*(u.mas/u.yr)
         rad = catalogue['Rad'][0]
-        if np.ma.core.is_masked(rad) and self.__log:
-            warnings.warn('Gaia catalogue does not have star radius.')
+        if np.ma.core.is_masked(rad) or np.ma.core.is_masked(catalogue['Plx'][0]):
+            if self.__log:
+                warnings.warn('Gaia catalogue does not have star radius.')
         else:
             self.diameter_gaia = 2*np.arctan((rad*u.solRad)/distance[0]).to(u.mas)
         if self.__log:
