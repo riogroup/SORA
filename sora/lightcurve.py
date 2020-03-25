@@ -2,9 +2,11 @@ import numpy as np
 import pylab as pl
 import astropy.units as u
 from astropy.timeseries import BoxLeastSquares
+from astropy.time import Time
 import scipy.special as scsp
 from datetime import datetime
 from .extra import ChiSquare
+import os
 
 def calc_fresnel(distance,lambida):
     """ Returns the fresnel scale.
@@ -23,42 +25,88 @@ class LightCurve():
     Docstring
     Define a Light Curve
     '''
-    def __init__(self, time, flux, dflux=None, **kwargs):
-        if len(flux) != len(time):
-            raise ValueError('The time and the flux should have the same length')
-        self.flux = flux
-        self.dflux = dflux
-        self.time = time
-        self.exptime = None
-        self.model = np.ones(len(self.time))
+    def __init__(self, **kwargs):
+        input_done = False
+        self.dflux = None
+        if 'file' in kwargs:
+            if not os.path.isfile(kwargs['file']):
+                raise ValueError('{} not found'.format(kwargs['file']))
+            try:
+                time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0,1,2], unpack=True)
+            except:
+                time, self.flux = np.loadtxt(kwargs['file'], usecols=[0,1], unpack=True)
+            else:
+                raise ValueError('Input file must ')
+            input_done = True
+        if 'time' in kwargs and 'flux' in kwargs:
+            if input_done:
+                raise ValueError('Only one type of input can be given. Please refer to the tutorial.')
+            self.flux = kwargs['flux']
+            time = kwargs['time']
+            if len(self.flux) != len(time):
+                raise ValueError('time and flux must have the same length')
+            if 'dflux' in kwargs:
+                self.dflux = kwargs['dflux']
+                if len(self.flux) != len(self.dflux):
+                    raise ValueError('dflux must have the same length as flux and time')
+            input_done = True
+        if input_done and 'exptime' not in kwargs:
+            raise ValueError('exptime not defined')
+        if 'exptime' in kwargs:
+            self.exptime = kwargs['exptime']
+        if 'tref' in kwargs:
+            try:
+                if type(kwargs['tref']) in [Time,str]:
+                    self.tref = Time(kwargs['tref'])
+                elif type(kwargs['tref']) in [int,float]:
+                    self.tref = Time(kwargs['tref'], format='jd')
+            except:
+                raise ValueError('tref must be an Julian Date or ISO format Date')
+        if 'time' in locals():
+            if type(time) == Time:
+                if not 'tref' in kwargs:
+                    self.tref = Time(time[0].iso.split(' ')[0] + ' 00:00:00.000')
+            elif all(time > 2400000):
+                time = Time(time, format='jd')
+                if not 'tref' in kwargs:
+                    self.tref = Time(time[0].iso.split(' ')[0] + ' 00:00:00.000')
+            elif not hasattr(self,'tref'):
+                raise ValueError('tref must be given')
+            else:
+                time = self.tref + time*u.s
+            self.time = (time - self.tref).sec
+            self.initial_time = time[0]
+            self.end_time = time[-1]
+        if 'immersion' in kwargs and 'emersion' in kwargs:
+            self.immersion = kwargs['immersion']
+            self.emersion = kwargs['emersion']
+            self.immersion_err = 0.0
+            if 'immersion_err' in kwargs:
+                self.immersion_err = kwargs['immersion_err']
+            self.emersion_err = 0.0
+            if 'emersion_err' in kwargs:
+                self.emersion_err = kwargs['emersion_err']
+            input_done = True
+        if 'initial_time' in kwargs and 'end_time' in kwargs:
+            self.initial_time = kwargs['initial_time']
+            self.end_time = kwargs['end_time']
+            input_done = True
+        if not input_done:
+            raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')
         self.lambda_0 = 0.70 #microns #### *u.micrometer.to('km')
+        if 'lambda' in kwargs:
+            self.lambda_0 = kwargs['lambda']
         self.delta_lambda = 0.30 #microns #### *u.micrometer.to('km')
-        self.sigma = None
-        self.tref = None
-        self.dist = None
-        self.d_star = None
-        self.vel = None
-        return
-    
-    def set_lightcurve(self,time,flux):
-        '''
-        Set the light curve
-        Inputs:
-        time = numpy array, in seconds relative to reference time (self.tref)
-        flux = numpy array, in flux
-        '''
-        self.time = time
-        self.flux = flux
-        return
-        
-    def set_exposure(self,exp):
-        '''
-        Set the exposure time utilized
-        Inputs:
-        exp = float, in seconds
-        '''
-        self.exptime = np.float(exp)
-        return
+        if 'delta_lambda' in kwargs:
+            self.delta_lambda = kwargs['delta_lambda']
+        if 'dist' in kwargs:
+            self.set_dist(kwargs['dist'])
+        if 'diam' in kwargs:
+            self.set_diam(kwargs['diam'])
+        if 'vel' in kwargs:
+            self.set_vel(kwargs['vel'])
+        if hasattr(self,'time'):
+            self.model = np.ones(len(self.time))
     
     def set_vel(self,vel):
         '''
@@ -102,35 +150,6 @@ class LightCurve():
             raise TypeError('diam must be a float or an Astropy Unit object')
         self.d_star = diam
     
-    def sigma_noise(self,sigma=None):
-        '''
-        Set the standard deviation of the light-curve (sigma)
-        Inputs:
-        sigma = float, in flux
-        '''
-        if sigma is None:
-            cut = np.absolute(self.flux-1) < np.std(self.flux)
-            for loop in range(10):
-                cut = np.absolute(self.flux-1) < 3*np.std(self.flux[cut])
-            self.sigma = np.std(self.flux[cut])
-        else:
-            self.sigma = sigma
-        return    
-    
-    def magnitude_drop(self,star,obj):
-        '''
-        Determine the magnitude drop
-        Inputs:
-        star = Star()
-        obj = Ephemerides()
-        '''
-        ###DEVE SER MODIFICADO PARA ENTRAR NO OCCULTATION [????]
-        self.contrast= 1/(1+(10**((star.magV-obj.magV)*0.4)))
-        self.mag_combined = star.magV-(2.5*(np.log10(1/self.contrast)))
-        self.mag_drop = obj.magV - self.mag_combined
-        self.bottom_flux = 10**((self.mag_combined - obj.magV)*0.4)
-        return
-    
     def occ_model(self,t_ingress,t_egress,opa_ampli,mask,npt_star=12,time_resolution_factor=10):
         """ Returns the modelled light curve considering fresnel difraction, star diameter and intrumental response.
         ----------
@@ -158,7 +177,7 @@ class LightCurve():
         dist  = self.dist*u.au.to('km')
         time_obs = self.time[mask]
         fresnel_scale_1 = calc_fresnel(dist,lamb-dlamb/2.0)
-        fresnel_scale_2 = calc_fresnel(dist,lamb-dlamb/2.0)
+        fresnel_scale_2 = calc_fresnel(dist,lamb+dlamb/2.0)
         fresnel_scale   = (fresnel_scale_1 + fresnel_scale_2)/2.0
         time_resolution = (np.min([fresnel_scale/self.vel,self.exptime]))/time_resolution_factor
         #
@@ -205,41 +224,109 @@ class LightCurve():
         self.model_geometric = flux_box
         return self.model
     
-    def occ_lcfit(self,mask, t_ingress, t_egress, opa_ampli=1, dt_ingress=0, dt_egress=0, dopacity=0, loop=10000):
+    #def occ_lcfit(self,mask, t_ingress, t_egress, opa_ampli=1, dt_ingress=0, dt_egress=0, dopacity=0, loop=10000):
+    def occ_lcfit(self, **kwargs):
         """ Brute force chi square fit for occultations lightcurve.
         ----------
         Parameters
         ----------
-        mask (array with Booleans): Mask with True values to be computed                (input)
+        tmin (int,float): Minimum time to consider in the fit prcedure                  (input)
+        tmax (int,float): Maximum time to consider in the fit prcedure                  (input)
         t_ingress  (int, float): Ingrees time, in seconds.                              (input)
         t_egress   (int, float): Egress time, in seconds.                               (input)
-        opa_ampli  (int, float): Opacity, opaque = 1.0, transparent = 0.0, default = 1. (input)
-        dt_ingress (int, float): Interval to fit ingress time, default equal to 0, no fit. (auto)
-        dt_egress  (int, float): Interval to fit egress time, default equal to 0, no fit.  (auto)
+        opacity  (int, float): Opacity, opaque = 1.0, transparent = 0.0, default = 1. (input)
+        delta_t (int, float): Interval to fit ingress or egress time                       (auto)
         dopacity   (int, float): Interval to fit opacity, default equal to 0, no fit.      (auto)
         loop       (int): Number of tests to be done, default equal to 10000.              (auto)
         ----------
         Returns
         ----------
-        chi2 (array): Tested chi squared values.
-        t_i  (array): Tested ingress values
-        t_e  (array): Tested egress values
-        opa  (array): Tested opacity values
+        chi2 (ChiSquare): ChiSquare object
         """
         #
-        t_i = t_ingress + dt_ingress*(2*np.random.random(loop) - 1)
-        t_e = t_egress  + dt_egress*(2*np.random.random(loop) - 1)
-        opa = opa_ampli + dopacity*(2*np.random.random(loop) - 1)
-        opa[opa>1.], opa[opa<0.] = 1.0, 0.0
+        if not hasattr(self, 'flux'):
+            raise ValueError('Fit curve is only possible when a LightCurve is instatiated with time and flux.')
+        delta_t = self.exptime
+        loop = 10000
+        t_i = np.zeros(loop)
+        t_e = np.zeros(loop)
+        tmax = self.time.max()
+        tmin = self.time.min()
+        t_ingress = tmin - self.exptime
+        do_ingress = False
+        t_egress = tmax + self.exptime
+        do_egress = False
+        opacity = 1.0
+        delta_opacity = 0.0
+        do_opacity = False
+        if 'loop' in kwargs:
+            loop = kwargs['loop']
+        if 't_ingress' not in kwargs and 't_egress' not in kwargs:
+            preliminar_occ = self.DetectOcc()
+            t_ingress = preliminar_occ['imersion_time']
+            do_ingress = True
+            t_egress = preliminar_occ['emersion_time']
+            do_egress = True
+            delta_t = 2*preliminar_occ['time_err']
+            tmax = t_egress+2*preliminar_occ['occultation_duration']
+            tmin = t_ingress-2*preliminar_occ['occultation_duration']
+            if 2*preliminar_occ['occultation_duration'] < 10*self.exptime:
+                tmax = t_egress + 10*self.exptime
+                tmin = t_ingress - 10*self.exptime
+        if 'tmax' in kwargs:
+            tmax = kwargs['tmax']
+        if 'tmin' in kwargs:
+            tmin = kwargs['tmin']
+        if 'delta_t' in kwargs:
+            delta_t = kwargs['delta_t']
+        if 't_ingress' in kwargs:
+            t_ingress = kwargs['t_ingress']
+            do_ingress = True
+        t_i = t_ingress + delta_t*(2*np.random.random(loop) - 1)
+        if 't_egress' in kwargs:
+            t_egress = kwargs['t_egress']
+            do_egress = True
+        t_e = t_egress  + delta_t*(2*np.random.random(loop) - 1)
+        if 'opacity' in kwargs:
+            opacity = kwargs['opacity']
+        if 'opacity' in kwargs:
+            opacity = kwargs['opacity']
+        mask = (self.time >= tmin) & (self.time <= tmax)
+        mask_sigma = (((self.time >= tmin) & (self.time < t_ingress - self.exptime)) +
+                      ((self.time > t_egress + self.exptime) & (self.time <= tmax)))
+        sigma = self.flux[mask_sigma].std()
+        if 'sigma' in kwargs:
+            sigma = kwargs['sigma']
+        if 'opacity' in kwargs:
+            opacity = kwargs['opacity']
+        if 'dopacity' in kwargs:
+            delta_opacity = kwargs['dopacity']
+            do_opacity = True
+        opas = opacity + delta_opacity*(2*np.random.random(loop) - 1)
+        opas[opas>1.], opas[opas<0.] = 1.0, 0.0
         #
         chi2 = 999999*np.ones(loop)
-        tcontrol_f0 = datetime.now()
+        #tcontrol_f0 = datetime.now()
         for i in range(loop):
-           model_test = self.occ_model(t_i[i],t_e[i],opa[i],mask)
-           chi2[i] = np.sum((self.flux[mask] -  model_test[mask])**2)/(self.sigma**2)
-        tcontrol_f3 = datetime.now()
-        print('Elapsed time: {:.3f} seconds.'.format((tcontrol_f3 - tcontrol_f0).total_seconds()))
-        chisquare = ChiSquare(chi2, len(self.flux[mask]), immersion=t_i, emersion=t_e, opacity=opa)
+            model_test = self.occ_model(t_i[i],t_e[i],opas[i],mask)
+            chi2[i] = np.sum((self.flux[mask] -  model_test[mask])**2)/(sigma**2)
+        #tcontrol_f3 = datetime.now()
+        #print('Elapsed time: {:.3f} seconds.'.format((tcontrol_f3 - tcontrol_f0).total_seconds()))
+        kkargs = {}
+        if do_ingress:
+            kkargs['immersion'] = t_i
+        if do_egress:
+            kkargs['emersion'] = t_e
+        if do_opacity:
+            kkargs['opacity'] = opas
+        chisquare = ChiSquare(chi2, len(self.flux[mask]), **kkargs)
+        onesigma = chisquare.get_nsigma(1)
+        if 'immersion' in onesigma:
+            self.immersion = self.tref + onesigma['immersion'][0]*u.s
+            self.immersion_err = onesigma['immersion'][1]
+        if 'emersion' in onesigma:
+            self.emersion = self.tref + onesigma['emersion'][0]*u.s
+            self.emersion_err = onesigma['emersion'][1]
         return chisquare
 
     def plot_lc(self,fig_name=None):
@@ -421,35 +508,35 @@ class LightCurve():
         return dict3
 
     def __bar_fresnel(self,X,X01,X02,fresnel_scale,opa_ampli):
-         """ Returns the modelled light curve considering fresnel difraction.
-         ----------
-         Parameters
-         ----------
-         X   (array): Array with time values converted in km using the event velocity.
-         X01 (int, float): Ingrees time converted in km using the event velocity.
-         X02 (int, float): Egress time converted in km using the event velocity.
-         fresnel_scale (int, float): Fresnel scale.
-         opa_ampli     (int, float): Opacity, opaque = 1.0, transparent = 0.0
-         ----------
-         Returns
-         ----------
-         flux_fresnel (array):
-         """
-         # Converting from km to units of fresnel scale
-         x   = X/fresnel_scale
-         x01 = X01/fresnel_scale
-         x02 = X02/fresnel_scale
-         # Fresnel difraction parameters 
-         x1 = x - x01
-         x2 = x - x02
-         s1,c1 = scsp.fresnel(x1)
-         s2,c2 = scsp.fresnel(x2)
-         cc = c1 - c2
-         ss = s1 - s2
-         r_ampli = - (cc+ss)*(opa_ampli/2.)
-         i_ampli =   (cc-ss)*(opa_ampli/2.)
-         # Determining the flux considering fresnel difraction
-         flux_fresnel = (1.0 + r_ampli)**2 + (i_ampli)**2
-         return flux_fresnel
+        """ Returns the modelled light curve considering fresnel difraction.
+        ----------
+        Parameters
+        ----------
+        X   (array): Array with time values converted in km using the event velocity.
+        X01 (int, float): Ingrees time converted in km using the event velocity.
+        X02 (int, float): Egress time converted in km using the event velocity.
+        fresnel_scale (int, float): Fresnel scale.
+        opa_ampli     (int, float): Opacity, opaque = 1.0, transparent = 0.0
+        ----------
+        Returns
+        ----------
+        flux_fresnel (array):
+        """
+        # Converting from km to units of fresnel scale
+        x   = X/fresnel_scale
+        x01 = X01/fresnel_scale
+        x02 = X02/fresnel_scale
+        # Fresnel difraction parameters 
+        x1 = x - x01
+        x2 = x - x02
+        s1,c1 = scsp.fresnel(x1)
+        s2,c2 = scsp.fresnel(x2)
+        cc = c1 - c2
+        ss = s1 - s2
+        r_ampli = - (cc+ss)*(opa_ampli/2.)
+        i_ampli =   (cc-ss)*(opa_ampli/2.)
+        # Determining the flux considering fresnel difraction
+        flux_fresnel = (1.0 + r_ampli)**2 + (i_ampli)**2
+        return flux_fresnel
 
 
