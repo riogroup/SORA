@@ -75,8 +75,12 @@ class LightCurve():
             else:
                 time = self.tref + time*u.s
             self.time = (time - self.tref).sec
-            self.initial_time = time[0]
-            self.end_time = time[-1]
+            order = np.argsort(self.time)
+            self.flux = self.flux[order]
+            self.time = self.time[oder] 
+            self.initial_time = np.min(time)
+            self.end_time = np.max(time)
+            self.cycle = np.median(self.time[1:] - self.time[:-1])
         if 'immersion' in kwargs and 'emersion' in kwargs:
             self.immersion = kwargs['immersion']
             self.emersion = kwargs['emersion']
@@ -175,19 +179,20 @@ class LightCurve():
         lamb  = self.lambda_0*u.micrometer.to('km')
         dlamb = self.delta_lambda*u.micrometer.to('km')
         dist  = self.dist*u.au.to('km')
+        vel = np.absolute(self.vel)
         time_obs = self.time[mask]
         fresnel_scale_1 = calc_fresnel(dist,lamb-dlamb/2.0)
         fresnel_scale_2 = calc_fresnel(dist,lamb+dlamb/2.0)
         fresnel_scale   = (fresnel_scale_1 + fresnel_scale_2)/2.0
-        time_resolution = (np.min([fresnel_scale/self.vel,self.exptime]))/time_resolution_factor
+        time_resolution = (np.min([fresnel_scale/vel,self.exptime]))/time_resolution_factor
         #
         #Creating a high resolution curve to compute fresnel difraction, stellar diameter and instrumental integration 
         time_model = np.arange(time_obs.min()-5*self.exptime,time_obs.max()+5*self.exptime,time_resolution)
         #
         #Changing X: time (s) to distances in the sky plane (km), considering the tangential velocity (vel in km/s)
-        x   = time_model*self.vel    
-        x01 = t_ingress*self.vel
-        x02 = t_egress*self.vel
+        x   = time_model*vel    
+        x01 = t_ingress*vel
+        x02 = t_egress*vel
         #
         #Computing fresnel diffraction for the case where the star size is negligenciable
         flux_fresnel_1 = self.__bar_fresnel(x,x01,x02,fresnel_scale_1,opa_ampli)
@@ -246,7 +251,7 @@ class LightCurve():
         #
         if not hasattr(self, 'flux'):
             raise ValueError('Fit curve is only possible when a LightCurve is instatiated with time and flux.')
-        delta_t = self.exptime
+        delta_t = self.cycle
         loop = 10000
         t_i = np.zeros(loop)
         t_e = np.zeros(loop)
@@ -305,6 +310,10 @@ class LightCurve():
         opas = opacity + delta_opacity*(2*np.random.random(loop) - 1)
         opas[opas>1.], opas[opas<0.] = 1.0, 0.0
         #
+        tflag = np.zeros(loop)
+        tflag[t_i > t_e] = t_i[t_i > t_e]
+        ti[t_i > t_e]    = t_e[t_i > t_e]
+        te[t_i > t_e]    = tflag[t_i > t_e]
         chi2 = 999999*np.ones(loop)
         #tcontrol_f0 = datetime.now()
         for i in range(loop):
