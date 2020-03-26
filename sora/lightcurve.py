@@ -77,7 +77,9 @@ class LightCurve():
             self.time = (time - self.tref).sec
             order = np.argsort(self.time)
             self.flux = self.flux[order]
-            self.time = self.time[oder] 
+            self.time = self.time[order]
+            if self.dflux != None:
+                self.dflux = self.dflux[order]
             self.initial_time = np.min(time)
             self.end_time = np.max(time)
             self.cycle = np.median(self.time[1:] - self.time[:-1])
@@ -251,7 +253,7 @@ class LightCurve():
         #
         if not hasattr(self, 'flux'):
             raise ValueError('Fit curve is only possible when a LightCurve is instatiated with time and flux.')
-        delta_t = self.cycle
+        delta_t = 2*self.cycle
         loop = 10000
         t_i = np.zeros(loop)
         t_e = np.zeros(loop)
@@ -272,12 +274,12 @@ class LightCurve():
             do_ingress = True
             t_egress = preliminar_occ['emersion_time']
             do_egress = True
-            delta_t = 2*preliminar_occ['time_err']
+            delta_t = 5*preliminar_occ['time_err']
             tmax = t_egress+2*preliminar_occ['occultation_duration']
             tmin = t_ingress-2*preliminar_occ['occultation_duration']
-            if 2*preliminar_occ['occultation_duration'] < 10*self.exptime:
-                tmax = t_egress + 10*self.exptime
-                tmin = t_ingress - 10*self.exptime
+            if 2*preliminar_occ['occultation_duration'] < 10*self.cycle:
+                tmax = t_egress + 10*self.cycle
+                tmin = t_ingress - 10*self.cycle
         if 'tmax' in kwargs:
             tmax = kwargs['tmax']
         if 'tmin' in kwargs:
@@ -292,10 +294,6 @@ class LightCurve():
             t_egress = kwargs['t_egress']
             do_egress = True
         t_e = t_egress  + delta_t*(2*np.random.random(loop) - 1)
-        if 'opacity' in kwargs:
-            opacity = kwargs['opacity']
-        if 'opacity' in kwargs:
-            opacity = kwargs['opacity']
         mask = (self.time >= tmin) & (self.time <= tmax)
         mask_sigma = (((self.time >= tmin) & (self.time < t_ingress - self.exptime)) +
                       ((self.time > t_egress + self.exptime) & (self.time <= tmax)))
@@ -312,8 +310,8 @@ class LightCurve():
         #
         tflag = np.zeros(loop)
         tflag[t_i > t_e] = t_i[t_i > t_e]
-        ti[t_i > t_e]    = t_e[t_i > t_e]
-        te[t_i > t_e]    = tflag[t_i > t_e]
+        t_i[t_i > t_e]    = t_e[t_i > t_e]
+        t_e[t_i > t_e]    = tflag[t_i > t_e]
         chi2 = 999999*np.ones(loop)
         #tcontrol_f0 = datetime.now()
         for i in range(loop):
