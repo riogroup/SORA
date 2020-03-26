@@ -269,7 +269,7 @@ class LightCurve():
         if 'loop' in kwargs:
             loop = kwargs['loop']
         if 't_ingress' not in kwargs and 't_egress' not in kwargs:
-            preliminar_occ = self.DetectOcc()
+            preliminar_occ = self.occ_detect()
             t_ingress = preliminar_occ['imersion_time']
             do_ingress = True
             t_egress = preliminar_occ['emersion_time']
@@ -361,7 +361,7 @@ class LightCurve():
             print('There is no lightcurve to plot')
         return
     
-    def DetectOcc(self, maximum_duration=None, dur_step=None, snr_limit=None, \
+    def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None, \
                   n_detections=None):
         """
         Detect automatically the occultation event in the light curve
@@ -388,7 +388,7 @@ class LightCurve():
             
         Examples
         --------
-        >>> params = lc.DetectOcc()
+        >>> params = lc.occ_detect()
         >>> params
         {'occultation_duration': 0.0004645648878067732,
          'central_time': 2457852.5916293273,
@@ -420,33 +420,33 @@ class LightCurve():
         if snr_limit:
             # minimum SNR accepted in a detection for multiple search
             snr_value = snr_limit+1
-            occ0 = self._runBLS(time_span, duration_grid)
+            occ0 = self.__run_bls(time_span, duration_grid)
             mask *= ~occ0['occ_mask']
             while (snr_value > snr_limit):
-                occ1 = self._runBLS(time_span, duration_grid, mask=mask)
+                occ1 = self.__run_bls(time_span, duration_grid, mask=mask)
                 if occ1['snr'] > snr_limit:
                     snr_value = occ1['snr']
                     mask *= ~occ1['occ_mask']                    
-                    occ0 = self._summarizeBLS(occ0,occ1)
+                    occ0 = self.__summarize_bls(occ0,occ1)
                 else:
                     snr_value = snr_limit
             return occ0
         elif n_detections:
             # search the n best fits
-            occ0 = self._runBLS(time_span, duration_grid)
+            occ0 = self.__run_bls(time_span, duration_grid)
             mask *= ~occ0['occ_mask']    
             for i in range(n_detections-1):
-                occ1 = self._runBLS(time_span, duration_grid, mask=mask)
+                occ1 = self.__run_bls(time_span, duration_grid, mask=mask)
                 snr_value = occ1['snr']
                 mask *= ~occ1['occ_mask']                    
-                occ0 = self._summarizeBLS(occ0,occ1)
+                occ0 = self.__summarize_bls(occ0,occ1)
             return occ0
         else:
             # search only the first best fit
-            return self._runBLS(time_span, duration_grid)
+            return self.__run_bls(time_span, duration_grid)
         
         
-    def _runBLS(self, per_grid, dur_grid, mask=None):
+    def __run_bls(self, per_grid, dur_grid, mask=None):
         """
         Private function to find the best box fit suitable to the data
         """
@@ -494,7 +494,7 @@ class LightCurve():
                      'baseline' : baseline, 'baseline_err' : baseline_err,
                      'snr' : snr,'occ_mask' : occ_mask}
     
-    def _summarizeBLS(self, dict1, dict2):
+    def __summarize_bls(self, dict1, dict2):
         ''' Private function to merge dictionaries returned by BLS and 
             keep values of common keys in list.
         '''
