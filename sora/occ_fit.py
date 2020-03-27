@@ -1,4 +1,4 @@
-from .config import test_attr, colors
+from .config import test_attr
 from .star import Star
 from .ephem import Ephemeris, EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
@@ -12,7 +12,6 @@ from astroquery.vizier import Vizier
 import numpy as np
 import warnings
 import matplotlib.pyplot as plt
-cor = colors()
 
 
 def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
@@ -204,7 +203,27 @@ def occ_params(star, ephem, time):
     vel = -vel*np.sign(dksi)*(u.km/u.s)
     
     return tt[min], ca, pa, vel, dist.to(u.AU)
-    
+
+
+class _PositionDict(dict):
+    def __setitem__(self, key, value):
+        if key.startswith('_occ_'):
+            super().__setitem__(key[5:], value)
+        elif key in self.keys():
+            status = {'on': True, 'off': False}
+            if value in status.keys():
+                if type(self[key]) == _PositionDict:
+                    for k in self[key].keys():
+                        self[key][k] = value
+                elif key=='on':
+                    super().__setitem__('on', status[value])
+            else:
+                raise ValueError("Value must be 'on' or 'off' only.")
+        else:
+            raise KeyError('Key "{}" does not exist'.format(key))
+    def __str__(self):
+        out = '\n' + '\n'.join(['{}: {}'.format(key, self[key]) for key in self.keys()])
+        return out.replace('\n', '\n  ')
         
 ### Object for occultation
 class Occultation():
@@ -267,32 +286,80 @@ class Occultation():
         # fit points to a 3D shape model
         return
 
-    def plot_chords(self):
-        # plot chords of the occultation
+    @property
+    def positions(self):
+        position = _PositionDict()
+        if hasattr(self,'_position'):
+            position = self._position
         if len(self.__observations) == 0:
             raise ValueError('There is no observation defined for this occultation')
 
         for o,l in self.__observations:
-            if len(l.times) < 2:
-                continue
+            if not o.name in position.keys():
+                position['_occ_'+o.name] = _PositionDict()
+            status = False
+            if hasattr(l, 'immersion'):
+                if not 'immersion' in position[o.name].keys():
+                    position[o.name]['_occ_immersion'] = _PositionDict(on=True)
+                obs_im = position[o.name]['immersion']
+                if 'time' in obs_im.keys() and obs_im['time'] == l.immersion:
+                    pass
+                else:
+                    f1,g1 = positionv(self.star,self.ephem,o,l.immersion)[0:2]
+                    fe1,ge1 = positionv(self.star,self.ephem,o,l.immersion-l.immersion_err*u.s)[0:2]
+                    fe2,ge2 = positionv(self.star,self.ephem,o,l.immersion+l.immersion_err*u.s)[0:2]
+                    obs_im['_occ_time'] =l.immersion
+                    #obs_im['_occ_err'] = l.immersion_err
+                    obs_im['_occ_value'] = (round(f1,3),round(g1,3))
+                    obs_im['_occ_error'] = ((round(fe1,3),round(ge1,3)),(round(fe2,3),round(ge2,3)))
+                status = True
+            if hasattr(l, 'emersion'):
+                if not 'emersion' in position[o.name].keys():
+                    position[o.name]['_occ_emersion'] = _PositionDict(on=True)
+                obs_em = position[o.name]['emersion']
+                if 'time' in obs_em.keys() and obs_im['time'] == l.immersion:
+                    pass
+                else:
+                    f1,g1 = positionv(self.star,self.ephem,o,l.emersion)[0:2]
+                    fe1,ge1 = positionv(self.star,self.ephem,o,l.emersion-l.emersion_err*u.s)[0:2]
+                    fe2,ge2 = positionv(self.star,self.ephem,o,l.emersion+l.emersion_err*u.s)[0:2]
+                    obs_em['_occ_time'] =l.emersion
+                    #obs_em['_occ_err'] = l.emersion_err
+                    obs_em['_occ_value'] = (round(f1,3),round(g1,3))
+                    obs_em['_occ_error'] = ((round(fe1,3),round(ge1,3)),(round(fe2,3),round(ge2,3)))
+                status = True
+            if not status:
+                f1,g1 = positionv(self.star,self.ephem,o,l.initial_time)[0:2]
+                position[o.name]['_occ_start_obs'] = (f1,g1)
+                f1,g1 = positionv(self.star,self.ephem,o,l.end_time)[0:2]
+                position[o.name]['_occ_end_obs'] = (f1,g1)
+            if status:
+                position[o.name]['_occ_status'] = 'positive'
+            else:
+                position[o.name]['_occ_status'] = 'negative'
+        self._position = position
+        return self._position
 
-            if len(l.times) == 2:  ### negative
-                f1,g1 = positionv(self.star,self.ephem,o,l.times[0][1])[0:2]
-                f2,g2 = positionv(self.star,self.ephem,o,l.times[1][1])[0:2]
-                plt.plot([f1,f2], [g1,g2], '--', color=cor.negative_color, linewidth=0.7)
-
-            else:  ###positive
-                for s, time, err in l.times:  ### plotting error bars
-                    if s not in ['im', 'em']:
-                        continue
-                    f1,g1 = positionv(self.star,self.ephem,o,time-err*u.s)[0:2]
-                    f2,g2 = positionv(self.star,self.ephem,o,time+err*u.s)[0:2]
-                    plt.plot([f1,f2], [g1,g2], color=cor.error_bar, linewidth=1.5)
-
-                for i in np.arange(int((len(l.times)-2)/2)):  ### plotting chords
-                    f1,g1 = positionv(self.star,self.ephem,o,l.times[2*i+1][1])[0:2]
-                    f2,g2 = positionv(self.star,self.ephem,o,l.times[2*i+2][1])[0:2]
-                    plt.plot([f1,f2], [g1,g2], color=cor.positive_color, linewidth=0.7)
+    def plot_chords(self, positive_color='blue', negative_color='green', error_color='red'):
+        # plot chords of the occultation
+        positions = self.positions
+        for site in positions.keys():
+            if positions[site]['status'] == 'negative':
+                arr = np.array([positions[site]['start_obs'], positions[site]['end_obs']])
+                plt.plot(*arr.T, '--', color=negative_color, linewidth=0.7)
+            else:
+                n = 0
+                if positions[site]['immersion']['on']:
+                    arr = np.array([positions[site]['immersion']['error']])
+                    plt.plot(*arr.T, color=error_color, linewidth=1.5)
+                    n+=1
+                if positions[site]['emersion']['on']:
+                    arr = np.array([positions[site]['emersion']['error']])
+                    plt.plot(*arr.T, color=error_color, linewidth=1.5)
+                    n+=1
+                if n == 2:
+                    arr = np.array([positions[site]['immersion']['value'], positions[site]['emersion']['value']])
+                    plt.plot(*arr.T, color=positive_color, linewidth=0.7)
         plt.axis('equal')
     
     def plot_occ_map(self):
