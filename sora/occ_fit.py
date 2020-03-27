@@ -253,7 +253,7 @@ class Occultation():
         self.vel = vel  # Shadow velocity at CA
         self.dist = dist  # object distance at CA
         self.tca = tt   # Instant of CA
-        self.star_diam = self.star.apparent_diameter(self.dist)
+        self.star_diam = self.star.apparent_diameter(self.dist, log=False)
         
         self.__observations = []
     
@@ -317,7 +317,7 @@ class Occultation():
                 if not 'emersion' in position[o.name].keys():
                     position[o.name]['_occ_emersion'] = _PositionDict(on=True)
                 obs_em = position[o.name]['emersion']
-                if 'time' in obs_em.keys() and obs_im['time'] == l.immersion:
+                if 'time' in obs_em.keys() and obs_em['time'] == l.emersion:
                     pass
                 else:
                     f1,g1 = positionv(self.star,self.ephem,o,l.emersion)[0:2]

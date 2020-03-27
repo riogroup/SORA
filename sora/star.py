@@ -141,7 +141,7 @@ class Star():
         return kervella(self.mag['B'], self.mag['V'], self.mag['K'])
     
     
-    def apparent_diameter(self, distance, mode='auto', **kwargs):
+    def apparent_diameter(self, distance, mode='auto', log=True, **kwargs):
         # calculate the apparent radius of the star at given distance
         if mode == 'auto':
             kwargs['obs_filter'] = 'V'
@@ -150,7 +150,8 @@ class Star():
         if mode in ['user', 'auto']:
             try:
                 diam = distance*np.tan(self.diameter_user)
-                print('Calculating apparent diameter from user defined diameter')
+                if log:
+                    print('Calculating apparent diameter from user defined diameter')
                 return diam.to(u.km)
             except:
                 pass
@@ -161,7 +162,8 @@ class Star():
         if mode in ['gaia', 'auto']:
             try:
                 diam = distance*np.tan(self.diameter_gaia)
-                print('Apparent diameter using Gaia')
+                if log:
+                    print('Apparent diameter using Gaia')
                 return diam.to(u.km)
             except:
                 pass
@@ -174,7 +176,8 @@ class Star():
             
         if mode in ['kervella', 'auto']:
             if all(i in self.mag for i in ['B', 'V', 'K']):
-                print('Apparent diameter using Kervella et al. (2004)')
+                if log:
+                    print('Apparent diameter using Kervella et al. (2004)')
                 diam = distance*np.tan(self.kervella()[kwargs['obs_filter']])
                 return diam.to(u.km)
             
@@ -183,7 +186,8 @@ class Star():
             
         if mode in ['van_belle', 'auto']:
             if all(i in self.mag for i in ['B', 'V', 'K']):
-                print('Apparent diameter using van Belle (1999)')
+                if log:
+                    print('Apparent diameter using van Belle (1999)')
                 diam = distance*np.tan(self.van_belle()[kwargs['star_type']][kwargs['obs_filter']])
                 return diam.to(u.km)
                         

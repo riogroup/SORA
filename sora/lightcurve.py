@@ -84,8 +84,8 @@ class LightCurve():
             self.end_time = np.max(time)
             self.cycle = np.median(self.time[1:] - self.time[:-1])
         if 'immersion' in kwargs and 'emersion' in kwargs:
-            self.immersion = kwargs['immersion']
-            self.emersion = kwargs['emersion']
+            self._immersion = kwargs['immersion']
+            self._emersion = kwargs['emersion']
             self.immersion_err = 0.0
             if 'immersion_err' in kwargs:
                 self.immersion_err = kwargs['immersion_err']
@@ -113,6 +113,15 @@ class LightCurve():
             self.set_vel(kwargs['vel'])
         if hasattr(self,'time'):
             self.model = np.ones(len(self.time))
+        self.dt = 0.0
+
+    @property
+    def immersion(self):
+        return self._immersion + self.dt*u.s
+
+    @property
+    def emersion(self):
+        return self._emersion + self.dt*u.s
     
     def set_vel(self,vel):
         '''
@@ -329,10 +338,10 @@ class LightCurve():
         chisquare = ChiSquare(chi2, len(self.flux[mask]), **kkargs)
         onesigma = chisquare.get_nsigma(1)
         if 'immersion' in onesigma:
-            self.immersion = self.tref + onesigma['immersion'][0]*u.s
+            self._immersion = self.tref + onesigma['immersion'][0]*u.s
             self.immersion_err = onesigma['immersion'][1]
         if 'emersion' in onesigma:
-            self.emersion = self.tref + onesigma['emersion'][0]*u.s
+            self._emersion = self.tref + onesigma['emersion'][0]*u.s
             self.emersion_err = onesigma['emersion'][1]
         return chisquare
 
