@@ -3,6 +3,7 @@ from .star import Star
 from .ephem import Ephemeris, EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
 from .lightcurve import LightCurve
+from .extra import ChiSquare
 import astropy.units as u
 import astropy.constants as const
 from astropy.time import Time
@@ -205,6 +206,112 @@ def occ_params(star, ephem, time):
     return tt[min], ca, pa, vel, dist.to(u.AU)
 
 
+def fit_ellipse(*args, **kwargs):
+    params_needed = ['center_f', 'center_g', 'equatorial_radius', 'oblateness', 'pos_angle']
+    if not all([param in kwargs for param in params_needed]):
+        raise ValueError('Input conditions not satisfied. Please refer to the tutorial.')
+    center_f = kwargs['center_f']
+    dcenter_f = 0.0
+    if 'dcenter_f' in kwargs:
+        dcenter_f = kwargs['dcenter_f']
+    center_g = kwargs['center_g']
+    dcenter_g = 0.0
+    if 'dcenter_g' in kwargs:
+        dcenter_g = kwargs['dcenter_g']
+    equatorial_radius = kwargs['equatorial_radius']
+    dequatorial_radius = 0.0
+    if 'dequatorial_radius' in kwargs:
+        dequatorial_radius = kwargs['dequatorial_radius']
+    oblateness = kwargs['oblateness']
+    doblateness = 0.0
+    if 'doblateness' in kwargs:
+        doblateness = kwargs['doblateness']
+    pos_angle = kwargs['pos_angle']
+    dpos_angle = 0.0
+    if 'dpos_angle' in kwargs:
+        dpos_angle = kwargs['dpos_angle']
+    loop = 10000000
+    if 'loop' in kwargs:
+        loop = kwargs['loop']
+    number_chi = 10000
+    if 'number_chi' in kwargs:
+        number_chi = kwargs['number_chi']
+    log = False
+    if 'log' in kwargs:
+        log = kwargs['log']
+
+    values = []
+    for occ in args:
+        if type(occ) != Occultation:
+            raise TypeError('Given argument must be an Occultation object.')
+        pos = occ.positions
+        for key in pos.keys():
+            if pos[key]['status'] == 'positive':
+                if pos[key]['immersion']['on']:
+                    f,g = pos[key]['immersion']['value']
+                    err = np.array(pos[key]['immersion']['error'])
+                    erro = np.linalg.norm(err[0]-err[1])/2.0
+                    values.append([f,g,erro])
+                if pos[key]['emersion']['on']:
+                    f,g = pos[key]['emersion']['value']
+                    err = np.array(pos[key]['emersion']['error'])
+                    erro = np.linalg.norm(err[0]-err[1])/2.0
+                    values.append([f,g,erro])
+
+    controle_f0 = Time.now()
+    f0_chi = np.array([])
+    g0_chi = np.array([])
+    a_chi  = np.array([])
+    obla_chi  = np.array([])
+    posang_chi  = np.array([])
+    chi2_best = np.array([])
+
+    while (len(f0_chi) < number_chi):
+        chi2 = np.zeros(loop)
+        f0 = center_f + dcenter_f*(2*np.random.random(loop) - 1)
+        g0 = center_g + dcenter_g*(2*np.random.random(loop) - 1)
+        a  = equatorial_radius + dequatorial_radius*(2*np.random.random(loop) - 1)
+        obla  = oblateness + doblateness*(2*np.random.random(loop) - 1)
+        obla[obla<0],obla[obla>1] = 0, 1
+        phi_deg  = pos_angle + dpos_angle*(2*np.random.random(loop) - 1)
+        controle_f1 = Time.now()
+
+        for fi, gi, si in values:
+            b = a - a*obla
+            phi = phi_deg*(np.pi/180.0)
+            dfi = fi-f0
+            dgi = gi-g0
+            r = np.sqrt(dfi**2 + dgi**2)
+            theta = np.arctan2(dgi,dfi)
+            ang = theta+phi
+            r_model = (a*b)/np.sqrt((a*np.sin(ang))**2 + (b*np.cos(ang))**2)
+            f_model = f0 + r_model*np.cos(theta)
+            g_model = g0 + r_model*np.sin(theta)
+            chi2 += ((fi - f_model)**2 + (gi - g_model)**2)/(si**2)
+
+        controle_f2 = Time.now()
+        if 'dchi_min' in kwargs:
+            region = np.where(chi2 < chi2.min() + kwargs['dchi_min'])[0]
+        else:
+            region = np.arange(len(chi2))
+        chi2_best = np.append(chi2_best,chi2[region])
+        if log:
+            print('Elapsed time: {:.3f} seconds.'.format((controle_f2 - controle_f1).sec))
+            print(len(chi2[region]),len(chi2_best)) #TEST
+        f0_chi = np.append(f0_chi,f0[region])
+        g0_chi = np.append(g0_chi,g0[region])
+        a_chi  = np.append(a_chi,a[region])
+        obla_chi  = np.append(obla_chi,obla[region])
+        posang_chi  = np.append(posang_chi,phi_deg[region])
+
+    chisquare = ChiSquare(chi2_best, len(values), center_f=f0_chi, center_g=g0_chi, equatorial_radius=a_chi,
+                          oblateness=obla_chi, position_angle=posang_chi)
+    controle_f4 = Time.now()
+    if log:
+        print('Total elapsed time: {:.3f} seconds.'.format((controle_f4 - controle_f0).sec))
+    return chisquare
+
+
 class _PositionDict(dict):
     def __setitem__(self, key, value):
         if key.startswith('_occ_'):
@@ -278,9 +385,10 @@ class Occultation():
         lightcurve.set_dist(float(self.dist.AU))
         lightcurve.set_diam(float(self.star_diam.AU))
 
-    def fit_ellipse(self):
+    def fit_ellipse(self, **kwargs):
         # fit ellipse to the points
-        return
+        chisquare = fit_ellipse(self, **kwargs)
+        return chisquare
 
     def fit_to_shape(self):
         # fit points to a 3D shape model
@@ -329,10 +437,24 @@ class Occultation():
                     obs_em['_occ_error'] = ((round(fe1,3),round(ge1,3)),(round(fe2,3),round(ge2,3)))
                 status = True
             if not status:
-                f1,g1 = positionv(self.star,self.ephem,o,l.initial_time)[0:2]
-                position[o.name]['_occ_start_obs'] = (f1,g1)
-                f1,g1 = positionv(self.star,self.ephem,o,l.end_time)[0:2]
-                position[o.name]['_occ_end_obs'] = (f1,g1)
+                if not 'start_obs' in position[o.name].keys():
+                    position[o.name]['_occ_start_obs'] = _PositionDict()
+                obs_start = position[o.name]['start_obs']
+                if 'time' in obs_start.keys() and obs_start['time'] == l.initial_time:
+                    pass
+                else:
+                    f1,g1 = positionv(self.star,self.ephem,o,l.initial_time)[0:2]
+                    obs_start['_occ_time'] = l.initial_time
+                    obs_start['_occ_value'] = (f1,g1)
+                if not 'end_obs' in position[o.name].keys():
+                    position[o.name]['_occ_end_obs'] = _PositionDict()
+                obs_end = position[o.name]['end_obs']
+                if 'time' in obs_end.keys() and obs_end['time'] == l.end_time:
+                    pass
+                else:
+                    f1,g1 = positionv(self.star,self.ephem,o,l.end_time)[0:2]
+                    obs_end['_occ_time'] = l.end_time
+                    obs_end['_occ_value'] = (f1,g1)
             if status:
                 position[o.name]['_occ_status'] = 'positive'
             else:
@@ -340,20 +462,29 @@ class Occultation():
         self._position = position
         return self._position
 
-    def plot_chords(self, positive_color='blue', negative_color='green', error_color='red'):
+    @positions.setter
+    def positions(self, value):
+        if not hasattr(self, '_position'):
+            pos = self.positions
+        if value not in ['on','off']:
+            raise ValueError("Value must be 'on' or 'off' only.")
+        for key in self._position.keys():
+            self._position[key] = value
+
+    def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red'):
         # plot chords of the occultation
         positions = self.positions
         for site in positions.keys():
             if positions[site]['status'] == 'negative':
-                arr = np.array([positions[site]['start_obs'], positions[site]['end_obs']])
+                arr = np.array([positions[site]['start_obs']['value'], positions[site]['end_obs']['value']])
                 plt.plot(*arr.T, '--', color=negative_color, linewidth=0.7)
             else:
                 n = 0
-                if positions[site]['immersion']['on']:
+                if positions[site]['immersion']['on'] or all_chords:
                     arr = np.array([positions[site]['immersion']['error']])
                     plt.plot(*arr.T, color=error_color, linewidth=1.5)
                     n+=1
-                if positions[site]['emersion']['on']:
+                if positions[site]['emersion']['on'] or all_chords:
                     arr = np.array([positions[site]['emersion']['error']])
                     plt.plot(*arr.T, color=error_color, linewidth=1.5)
                     n+=1
