@@ -308,7 +308,7 @@ class LightCurve():
         mask = (self.time >= tmin) & (self.time <= tmax)
         mask_sigma = (((self.time >= tmin) & (self.time < t_ingress - self.exptime)) +
                       ((self.time > t_egress + self.exptime) & (self.time <= tmax)))
-        sigma = self.flux[mask_sigma].std()
+        sigma = self.flux[mask_sigma].std(ddof=1)
         if 'sigma' in kwargs:
             sigma = kwargs['sigma']
         if 'opacity' in kwargs:
@@ -493,9 +493,9 @@ class LightCurve():
         emersion_time = stats['transit_times'][0] + r.duration[0]/2
         time_err = dur_grid[1] - dur_grid[0]
         depth = np.mean(self.flux[~occ_mask])-np.mean(self.flux[occ_mask])
-        depth_err = np.std(self.flux[occ_mask])
+        depth_err = np.std(self.flux[occ_mask],ddof=1)
         baseline = np.mean(self.flux[~occ_mask])
-        baseline_err = np.std(self.flux[~occ_mask])
+        baseline_err = np.std(self.flux[~occ_mask],ddof=1)
         snr = (depth/baseline_err)*np.sqrt(np.sum(occ_mask))
 
         return {'occultation_duration' : occultation_duration, 
