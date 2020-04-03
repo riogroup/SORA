@@ -345,7 +345,7 @@ class LightCurve():
             self.emersion_err = onesigma['emersion'][1]
         return chisquare
 
-    def plot_lc(self,fig_name=None):
+    def plot_lc(self):
         '''
         Plot the light curve if you want to save the file, the fig_name should be different than None
         '''
@@ -359,15 +359,11 @@ class LightCurve():
             pl.tight_layout()
             pl.xlabel('Time [seconds]',fontsize=20)
             pl.ylabel('Relative Flux',fontsize=20)
-            pl.legend(fontsize=20)
+            pl.legend(fontsize=20,ncols=2)
             pl.xticks(fontsize=20)
             pl.yticks(fontsize=20)
-            if (fig_name == None):
-                pl.show()
-            else:
-                pl.savefig(fig_name,format='png', dpi=200)
         else:
-            print('There is no lightcurve to plot')
+            raise ValueError('There is no lightcurve to plot')
         return
     
     def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None, \
