@@ -262,7 +262,6 @@ class LightCurve():
         chi2 (ChiSquare): ChiSquare object
         """
         #
-        print('teste v2')
         if not hasattr(self, 'flux'):
             raise ValueError('Fit curve is only possible when a LightCurve is instatiated with time and flux.')
         delta_t = 2*self.cycle
