@@ -414,11 +414,14 @@ class Occultation():
                     pass
                 else:
                     f1,g1 = positionv(self.star,self.ephem,o,l.immersion)[0:2]
+                    obs_im['_occ_time'] =l.immersion
+                    obs_im['_occ_value'] = (round(f1,3),round(g1,3))
+                if 'time_err' in obs_im.keys() and obs_im['time'] == l.immersion and obs_im['time_err'] == l.immersion_err:
+                    pass
+                else:
                     fe1,ge1 = positionv(self.star,self.ephem,o,l.immersion-l.immersion_err*u.s)[0:2]
                     fe2,ge2 = positionv(self.star,self.ephem,o,l.immersion+l.immersion_err*u.s)[0:2]
-                    obs_im['_occ_time'] =l.immersion
-                    #obs_im['_occ_err'] = l.immersion_err
-                    obs_im['_occ_value'] = (round(f1,3),round(g1,3))
+                    obs_im['_occ_time_err'] = l.immersion_err
                     obs_im['_occ_error'] = ((round(fe1,3),round(ge1,3)),(round(fe2,3),round(ge2,3)))
                 status = True
             if hasattr(l, 'emersion'):
@@ -429,16 +432,19 @@ class Occultation():
                     pass
                 else:
                     f1,g1 = positionv(self.star,self.ephem,o,l.emersion)[0:2]
+                    obs_em['_occ_time'] =l.emersion
+                    obs_em['_occ_value'] = (round(f1,3),round(g1,3))
+                if 'time_err' in obs_im.keys() and obs_im['time'] == l.immersion and obs_im['time_err'] == l.immersion_err:
+                    pass
+                else:
                     fe1,ge1 = positionv(self.star,self.ephem,o,l.emersion-l.emersion_err*u.s)[0:2]
                     fe2,ge2 = positionv(self.star,self.ephem,o,l.emersion+l.emersion_err*u.s)[0:2]
-                    obs_em['_occ_time'] =l.emersion
-                    #obs_em['_occ_err'] = l.emersion_err
-                    obs_em['_occ_value'] = (round(f1,3),round(g1,3))
+                    obs_em['_occ_time_err'] = l.emersion_err
                     obs_em['_occ_error'] = ((round(fe1,3),round(ge1,3)),(round(fe2,3),round(ge2,3)))
                 status = True
             if not status:
                 if not 'start_obs' in position[o.name].keys():
-                    position[o.name]['_occ_start_obs'] = _PositionDict()
+                    position[o.name]['_occ_start_obs'] = _PositionDict(on=True)
                 obs_start = position[o.name]['start_obs']
                 if 'time' in obs_start.keys() and obs_start['time'] == l.initial_time:
                     pass
@@ -447,7 +453,7 @@ class Occultation():
                     obs_start['_occ_time'] = l.initial_time
                     obs_start['_occ_value'] = (f1,g1)
                 if not 'end_obs' in position[o.name].keys():
-                    position[o.name]['_occ_end_obs'] = _PositionDict()
+                    position[o.name]['_occ_end_obs'] = _PositionDict(on=True)
                 obs_end = position[o.name]['end_obs']
                 if 'time' in obs_end.keys() and obs_end['time'] == l.end_time:
                     pass
