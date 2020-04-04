@@ -183,6 +183,14 @@ def occ_params(star, ephem, time):
     coord = star.geocentric(tt[0])
     if type(ephem) == EphemPlanete:
         ephem.fit_d2_ksi_eta(coord, log=False)
+    
+    if type(ephem) == EphemJPL:
+        tt = time + np.arange(-600, 600, 4)*u.s
+        ksi, eta = ephem.get_ksi_eta(tt, coord)
+        dd = np.sqrt(ksi*ksi+eta*eta)
+        min = np.argmin(dd)
+        tt = tt[min] + np.arange(-8, 8, 0.05)*u.s
+    
     ksi, eta = ephem.get_ksi_eta(tt, coord)
     dd = np.sqrt(ksi*ksi+eta*eta)
     min = np.argmin(dd)

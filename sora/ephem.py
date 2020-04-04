@@ -1,6 +1,7 @@
 import numpy as np
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
 from astropy.time import Time
+from astropy.table import vstack
 import astropy.units as u
 import astropy.constants as const
 from astroquery.jplhorizons import Horizons
@@ -134,8 +135,23 @@ class EphemJPL():
         Returns:
         coord (SkyCoord): Astropy SkyCoord object with the coordinate at given time
         """
-        obj = Horizons(id=self.name, id_type=self.id_type, location='geo', epochs=time.jd)
-        eph = obj.ephemerides(extra_precision=True)
+        time = Time(time)
+        if not time.isscalar:
+            s = len(time)
+            def calc_ephem(i):
+                n = 50*i
+                k = n+50
+                if k > s:
+                    k = s
+                obj = Horizons(id=self.name, id_type=self.id_type, location='geo', epochs=time[n:k].jd)
+                return obj.ephemerides(extra_precision=True)
+            plus = 0
+            if s%50 > 0:
+                plus = 1
+            eph = vstack([calc_ephem(j) for j in range(s//50+1*plus)])
+        else:
+            obj = Horizons(id=self.name, id_type=self.id_type, location='geo', epochs=time.jd)
+            eph = obj.ephemerides(extra_precision=True)
         coord = SkyCoord(eph['RA'], eph['DEC'], eph['delta'], frame='icrs', obstime=time)
         if len(coord) == 1:
             return coord[0]
