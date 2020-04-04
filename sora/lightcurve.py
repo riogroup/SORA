@@ -4,9 +4,13 @@ import astropy.units as u
 from astropy.timeseries import BoxLeastSquares
 from astropy.time import Time
 import scipy.special as scsp
+import scipy.stats as scst
 from datetime import datetime
+from scipy.odr import odrpack as odr
+from scipy.odr import models
 from .extra import ChiSquare
 import os
+
 
 def calc_fresnel(distance,lambida):
     """ Returns the fresnel scale.
@@ -18,6 +22,30 @@ def calc_fresnel(distance,lambida):
     ----------
     """
     return np.sqrt(lambida*distance/2)
+
+
+def fit_pol(x,y,deg):
+    """ Fit a polinomn to the data.
+    ----------
+    Parameters
+    ----------
+    x  (array): 
+    y  (array):
+    deg  (int): order of the polinomn 
+    ----------
+    Returno
+    ----------
+    param (array): Array with the fitted values
+    param_err (array): Array with the errors of the fitted values    
+    """
+    func   = models.polynomial(deg)
+    mydata = odr.Data(x, y)
+    myodr  = odr.ODR(mydata, func,maxit=200)
+    myodr.set_job(fit_type=2)
+    fit = myodr.run()
+    param = fit.beta[::-1]                      
+    param_err = fit.sd_beta[::-1]
+    return param, param_err
 
 
 class LightCurve():
@@ -33,8 +61,10 @@ class LightCurve():
                 raise ValueError('{} not found'.format(kwargs['file']))
             try:
                 time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0,1,2], unpack=True)
+                self.flux_obs = self.flux
             except:
                 time, self.flux = np.loadtxt(kwargs['file'], usecols=[0,1], unpack=True)
+                self.flux_obs = self.flux
             else:
                 raise ValueError('Input file must ')
             input_done = True
@@ -77,6 +107,7 @@ class LightCurve():
             self.time = (time - self.tref).sec
             order = np.argsort(self.time)
             self.flux = self.flux[order]
+            self.flux_obs = self.flux
             self.time = self.time[order]
             if self.dflux != None:
                 self.dflux = self.dflux[order]
@@ -113,6 +144,8 @@ class LightCurve():
             self.set_vel(kwargs['vel'])
         if hasattr(self,'time'):
             self.model = np.ones(len(self.time))
+        #if np.all(self.flux) != None:
+        #    self.flux_obs = self.flux
         self.dt = 0.0
 
     @property
@@ -164,6 +197,102 @@ class LightCurve():
         else:
             raise TypeError('diam must be a float or an Astropy Unit object')
         self.d_star = diam
+
+
+        
+    def normalize(self,poly_deg=None,mask=None,**kwargs):
+        """ Returns the fresnel scale.
+        ----------
+        Parameters
+        ----------
+        poly_deg  (int): degree of the polinonm to be fitted
+        mask   (array of Bolleans): which values to be fitted 
+        ----------
+        kwargs
+        ----------
+        flux_min (int,float): event flux to be setted as 0.0
+        flux_max (int,float): baseline flux to be setted as 1.0        
+        plot (Bollean): If True plot the steps for visual aid  
+        """
+        #Create a mask where the polinomial fit will be done
+        self.reset_flux()
+        if np.all(self.flux) == None:
+            raise ValueError('Normalization is only possible when a LightCurve is instatiated with time and flux.')
+        flux_min = 0.0
+        flux_max = 1.0
+        plot = False
+        if 'flux_min' in kwargs:
+            flux_min = kwargs['flux_min']
+        if 'flux_max' in kwargs:
+            flux_max = kwargs['flux_max']
+        if 'plot' in kwargs:
+            if (kwargs['plot'] == True):
+                plot = True
+        lc_flux = (self.flux - flux_min)/(flux_max-flux_min)
+        if (np.all(mask) == None):
+            preliminar_occ = self.occ_detect()
+            tmax = preliminar_occ['emersion_time']+1.00*preliminar_occ['occultation_duration']
+            tmin = preliminar_occ['imersion_time']-1.00*preliminar_occ['occultation_duration']
+            chord = preliminar_occ['occultation_duration']
+            mask = np.invert((self.time > tmin-(chord/2)) & (self.time < tmax+(chord/2)))
+        norm_time = (self.time - self.time.min())/(self.time.max()-self.time.min())
+        if (poly_deg != None):
+            n = poly_deg
+            p, err = fit_pol(norm_time[mask],lc_flux[mask],n)
+            flux_poly_model = np.zeros(len(norm_time))
+            for ii in np.arange(n+1):
+                flux_poly_model = flux_poly_model + p[ii]*(norm_time**(n-ii))
+            if (plot == True):
+                pl.plot(norm_time[mask],lc_flux[mask],'k.-')
+                pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
+                pl.title('{}'.format(n),fontsize=15)
+                pl.show()       
+        if (poly_deg == None):
+            n = 0
+            p, err = fit_pol(norm_time[mask],lc_flux[mask],n)
+            flux_poly_model = np.zeros(len(norm_time))
+            for ii in np.arange(n+1):
+                flux_poly_model += p[ii]*(norm_time**(n-ii))
+            if (plot == True):
+                pl.plot(norm_time[mask],lc_flux[mask],'k.-')
+                pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
+                pl.title('{}'.format(n),fontsize=15)
+                pl.show()
+            flux_poly_model_old = flux_poly_model.copy()
+            for nn in np.arange(1,10):
+                p, err = fit_pol(norm_time[mask],lc_flux[mask],nn)
+                flux_poly_model_new = np.zeros(len(norm_time))
+                for ii in np.arange(nn+1):
+                    flux_poly_model_new += p[ii]*(norm_time**(nn-ii))
+                F = np.var(flux_poly_model[mask]-lc_flux[mask])/np.var(flux_poly_model_new[mask]-lc_flux[mask])
+                if (F > 1.05):
+                    flux_poly_model = flux_poly_model_new.copy()
+                    n = nn
+                    if (plot == True):
+                        pl.plot(norm_time[mask],lc_flux[mask],'k.-')
+                        pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
+                        pl.title('{}'.format(nn),fontsize=15)
+                        pl.show()
+                else:
+                    print('Normalization using a {} degree polinonm'.format(n))
+                    print('There is no improvement with a {} degree polinonm'.format(n+1))
+                    break
+        self.flux = lc_flux/flux_poly_model
+        self.normalizer_flux = flux_poly_model
+        self.normalizer_mask = mask
+        return
+
+    def reset_flux(self):
+        '''
+        Reset flux for original values
+        '''
+        if np.all(self.flux_obs) == None:
+            raise ValueError('Reset is only possible when a LightCurve is instatiated with time and flux.')
+        else:
+            self.flux = self.flux_obs
+        return
+
+
     
     def occ_model(self,t_ingress, t_egress, opa_ampli, mask, npt_star=12, time_resolution_factor=10):
         """ Returns the modelled light curve considering fresnel difraction, star diameter and intrumental response.
