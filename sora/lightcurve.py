@@ -292,7 +292,6 @@ class LightCurve():
             self.flux = self.flux_obs
         return
 
-
     
     def occ_model(self,t_ingress, t_egress, opa_ampli, mask, npt_star=12, time_resolution_factor=10):
         """ Returns the modelled light curve considering fresnel difraction, star diameter and intrumental response.
