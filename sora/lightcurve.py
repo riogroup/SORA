@@ -53,9 +53,14 @@ class LightCurve():
     Docstring
     Define a Light Curve
     '''
-    def __init__(self, **kwargs):
+    __names = []
+    def __init__(self, name, **kwargs):
         input_done = False
         self.dflux = None
+        self.__name = name
+        if self.__name in self.__names:
+            raise ValueError('name {} already defined for another LightCurve object. Please choose a different one.'.format(self.__name))
+        self.__names.append(self.__name)
         if 'file' in kwargs:
             if not os.path.isfile(kwargs['file']):
                 raise ValueError('{} not found'.format(kwargs['file']))
@@ -66,7 +71,7 @@ class LightCurve():
                 time, self.flux = np.loadtxt(kwargs['file'], usecols=[0,1], unpack=True)
                 self.flux_obs = self.flux
             else:
-                raise ValueError('Input file must ')
+                raise ValueError('Input file must have 2 or 3 columns')
             input_done = True
         if 'time' in kwargs and 'flux' in kwargs:
             if input_done:
@@ -149,6 +154,10 @@ class LightCurve():
         self.dt = 0.0
 
     @property
+    def name(self):
+        return self.__name
+
+    @property
     def immersion(self):
         return self._immersion + self.dt*u.s
 
@@ -156,6 +165,30 @@ class LightCurve():
     def emersion(self):
         return self._emersion + self.dt*u.s
     
+    def set_flux(self, **kwargs):
+        if 'file' in kwargs:
+            if not os.path.isfile(kwargs['file']):
+                raise ValueError('{} not found'.format(kwargs['file']))
+            try:
+                time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0,1,2], unpack=True)
+                self.flux_obs = self.flux
+            except:
+                time, self.flux = np.loadtxt(kwargs['file'], usecols=[0,1], unpack=True)
+                self.flux_obs = self.flux
+            else:
+                raise ValueError('Input file must have 2 or 3 columns')
+        elif 'time' in kwargs and 'flux' in kwargs:
+            self.flux = kwargs['flux']
+            time = kwargs['time']
+            if len(self.flux) != len(time):
+                raise ValueError('time and flux must have the same length')
+            if 'dflux' in kwargs:
+                self.dflux = np.array(kwargs['dflux'], ndmin=1)
+                if len(self.flux) != len(self.dflux):
+                    raise ValueError('dflux must have the same length as flux and time')
+        else:
+            raise ValueError('User must provide a "file" param or a "time" and "flux" params.')
+
     def set_vel(self,vel):
         '''
         Set the occultation velocity
@@ -750,3 +783,9 @@ class LightCurve():
             event_model  = (time_model > time_obs[i]-self.exptime/2.) & (time_model < time_obs[i]+self.exptime/2.)
             flux_inst[i] = (flux_star[event_model]).mean()
         return flux_inst
+
+    def __del__(self):
+        try:
+            self.__names.remove(self.__name)
+        except:
+            pass
