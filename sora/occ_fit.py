@@ -245,18 +245,23 @@ def fit_ellipse(*args, **kwargs):
         if type(occ) != Occultation:
             raise TypeError('Given argument must be an Occultation object.')
         pos = occ.positions
-        for key in pos.keys():
-            if pos[key]['status'] == 'positive':
-                if pos[key]['immersion']['on']:
-                    f,g = pos[key]['immersion']['value']
-                    err = np.array(pos[key]['immersion']['error'])
-                    erro = np.linalg.norm(err[0]-err[1])/2.0
-                    values.append([f,g,erro])
-                if pos[key]['emersion']['on']:
-                    f,g = pos[key]['emersion']['value']
-                    err = np.array(pos[key]['emersion']['error'])
-                    erro = np.linalg.norm(err[0]-err[1])/2.0
-                    values.append([f,g,erro])
+        for site in pos.keys():
+            pos_obs = pos[site]
+            for lc in pos_obs.keys():
+                pos_lc = pos_obs[lc]
+                if type(pos_lc) != _PositionDict:
+                    continue
+                if pos_lc['status'] == 'positive':
+                    if pos_lc['immersion']['on']:
+                        f,g = pos_lc['immersion']['value']
+                        err = np.array(pos_lc['immersion']['error'])
+                        erro = np.linalg.norm(err[0]-err[1])/2.0
+                        values.append([f,g,erro])
+                    if pos_lc['emersion']['on']:
+                        f,g = pos_lc['emersion']['value']
+                        err = np.array(pos_lc['emersion']['error'])
+                        erro = np.linalg.norm(err[0]-err[1])/2.0
+                        values.append([f,g,erro])
 
     controle_f0 = Time.now()
     f0_chi = np.array([])
@@ -314,24 +319,36 @@ def fit_ellipse(*args, **kwargs):
 
 class _PositionDict(dict):
     def __setitem__(self, key, value):
+        status = {'on': True, 'off': False}
+        n = 0
         if key.startswith('_occ_'):
             super().__setitem__(key[5:], value)
+            n = 1
         elif key in self.keys():
-            status = {'on': True, 'off': False}
-            if value in status.keys():
-                if type(self[key]) == _PositionDict:
-                    for k in self[key].keys():
-                        self[key][k] = value
-                elif key=='on':
-                    super().__setitem__('on', status[value])
-            else:
+            n = 1
+            if value not in status.keys():
                 raise ValueError("Value must be 'on' or 'off' only.")
+            if type(self[key]) == _PositionDict:
+                for k in self[key].keys():
+                    self[key][k] = value
+            elif key=='on':
+                super().__setitem__('on', status[value])
         else:
+            if value not in status.keys():
+                raise ValueError("Value must be 'on' or 'off' only.")
+            for key1 in self.keys():
+                if type(self[key1]) == _PositionDict:
+                    if key in self[key1].keys():
+                        n = 1
+                        self[key1][key] = value
+        if n==0:
             raise KeyError('Key "{}" does not exist'.format(key))
+
     def __str__(self):
         out = '\n' + '\n'.join(['{}: {}'.format(key, self[key]) for key in self.keys()])
         return out.replace('\n', '\n  ')
-        
+
+
 ### Object for occultation
 class Occultation():
     '''
@@ -363,6 +380,7 @@ class Occultation():
         self.star_diam = self.star.apparent_diameter(self.dist, log=False)
         
         self.__observations = []
+        self._position = _PositionDict()
     
     def add_observation(self, obs, lightcurve):
         """ Add Observers to the Occultation object.
@@ -376,14 +394,51 @@ class Occultation():
             raise ValueError('obs must be an Observer object')
         if type(lightcurve) != LightCurve:
             raise ValueError('lightcurve must be a LightCurve object')
-        if len(self.__observations) > 0:
-            for o,l in self.__observations:
-                if o == obs and l == lightcurve:
-                    raise ValueError('{} observation already defined'.format(obs.name))
+        for o,l in self.__observations:
+            if l.name == lightcurve.name:
+                raise ValueError('{} LightCurve already associated to {} Observer'.format(lightcurve.name, o.name))
         self.__observations.append((obs,lightcurve))
         lightcurve.set_vel(np.absolute(self.vel))
         lightcurve.set_dist(float(self.dist.AU))
         lightcurve.set_diam(float(self.star_diam.AU))
+
+    def remove_observation(self, key, key_lc=None):
+        rm_list = np.array([])
+        obs = []
+        lcs = []
+        same_key = False
+        if key_lc is None:
+            same_key = True
+            key_lc = key
+        ko = []
+        kl = []
+        for i, val in enumerate(self.__observations):
+            if val[0].name == key:
+                ko.append(i)
+            if val[1].name == key_lc:
+                kl.append(i)
+        if not same_key:
+            k  = np.where(np.array(ko) == np.array(kl))[0]
+            rm_list = np.hstack((rm_list, k))
+        else:
+            rm_list = np.hstack((rm_list, np.array(kl)))
+            if len(kl) > 0 and len(ko) > 0 and kl[0] not in ko:
+                raise ValueError("Observation could not univocally be identified, please give parameters for Observer and LightCurve")
+            rm_list = np.hstack((rm_list, np.array(ko)))
+        rm_list = np.unique(rm_list)
+        if len(rm_list) == 0:
+            raise ValueError('No observer "{}" and/or lightcurve "{}" was found'.format(key,key_lc))
+        list = np.arange(len(self.__observations)).tolist()
+        for i in rm_list:
+            list.remove(i)
+        self.__observations = [self.__observations[item] for item in list]
+
+    def observations(self):
+        """ Print all the observations added to the Occultation object
+        Pair (Observer, LightCurve)
+        """
+        for o,l in self.__observations:
+            print('Observer= {}, LC: {}'.format(o.name, l.name))
 
     def fit_ellipse(self, **kwargs):
         # fit ellipse to the points
@@ -396,76 +451,105 @@ class Occultation():
 
     @property
     def positions(self):
-        position = _PositionDict()
-        if hasattr(self,'_position'):
-            position = self._position
+        position = self._position
         if len(self.__observations) == 0:
             raise ValueError('There is no observation defined for this occultation')
 
+        pair = []
         for o,l in self.__observations:
-            if not o.name in position.keys():
-                position['_occ_'+o.name] = _PositionDict()
-            status = False
+            pair.append((o.name, l.name))
+
+            coord = [o.lon,o.lat,o.height]
+            if o.name not in position.keys():
+                position['_occ_'+o.name] = _PositionDict(lon=o.lon, lat=o.lat, height=o.height)
+                position[o.name]['_occ_lon'] = o.lon
+                position[o.name]['_occ_lat'] = o.lat
+                position[o.name]['_occ_height'] = o.height
+            pos_obs = position[o.name]
+            coord2 = [pos_obs['lon'],pos_obs['lat'],pos_obs['height']]
+            if o.lon != pos_obs['lon']:
+                position[o.name]['_occ_lon'] = o.lon
+            if o.lat != pos_obs['lat']:
+                position[o.name]['_occ_lat'] = o.lat
+            if o.height != pos_obs['height']:
+                position[o.name]['_occ_height'] = o.height
+            samecoord = (coord == coord2)
+
+            if l.name not in pos_obs.keys():
+                pos_obs['_occ_'+l.name] = _PositionDict()
+            pos_lc = pos_obs[l.name]
+
+            pos_lc['_occ_status'] = 'negative'
+            if hasattr(l, 'immersion') or hasattr(l, 'emersion'):
+                pos_lc['_occ_status'] = 'positive'
+
             if hasattr(l, 'immersion'):
-                if not 'immersion' in position[o.name].keys():
-                    position[o.name]['_occ_immersion'] = _PositionDict(on=True)
-                obs_im = position[o.name]['immersion']
-                if 'time' in obs_im.keys() and obs_im['time'] == l.immersion:
+                if 'immersion' not in pos_lc.keys():
+                    pos_lc['_occ_immersion'] = _PositionDict(on=True)
+                obs_im = pos_lc['immersion']
+                do_err = False
+                if samecoord and 'time' in obs_im.keys() and obs_im['time'] == l.immersion:
                     pass
                 else:
+                    do_err = True
                     f1,g1 = positionv(self.star,self.ephem,o,l.immersion)[0:2]
                     obs_im['_occ_time'] =l.immersion
                     obs_im['_occ_value'] = (round(f1,3),round(g1,3))
-                if 'time_err' in obs_im.keys() and obs_im['time'] == l.immersion and obs_im['time_err'] == l.immersion_err:
+                if not do_err and 'time_err' in obs_im.keys() and obs_im['time_err'] == l.immersion_err:
                     pass
                 else:
                     fe1,ge1 = positionv(self.star,self.ephem,o,l.immersion-l.immersion_err*u.s)[0:2]
                     fe2,ge2 = positionv(self.star,self.ephem,o,l.immersion+l.immersion_err*u.s)[0:2]
                     obs_im['_occ_time_err'] = l.immersion_err
                     obs_im['_occ_error'] = ((round(fe1,3),round(ge1,3)),(round(fe2,3),round(ge2,3)))
-                status = True
+
             if hasattr(l, 'emersion'):
-                if not 'emersion' in position[o.name].keys():
-                    position[o.name]['_occ_emersion'] = _PositionDict(on=True)
-                obs_em = position[o.name]['emersion']
-                if 'time' in obs_em.keys() and obs_em['time'] == l.emersion:
+                if 'emersion' not in pos_lc.keys():
+                    pos_lc['_occ_emersion'] = _PositionDict(on=True)
+                obs_em = pos_lc['emersion']
+                do_err = False
+                if samecoord and 'time' in obs_em.keys() and obs_em['time'] == l.emersion:
                     pass
                 else:
+                    do_err = True
                     f1,g1 = positionv(self.star,self.ephem,o,l.emersion)[0:2]
                     obs_em['_occ_time'] =l.emersion
                     obs_em['_occ_value'] = (round(f1,3),round(g1,3))
-                if 'time_err' in obs_im.keys() and obs_im['time'] == l.immersion and obs_im['time_err'] == l.immersion_err:
+                if not do_err and 'time_err' in obs_em.keys() and obs_em['time_err'] == l.emersion_err:
                     pass
                 else:
                     fe1,ge1 = positionv(self.star,self.ephem,o,l.emersion-l.emersion_err*u.s)[0:2]
                     fe2,ge2 = positionv(self.star,self.ephem,o,l.emersion+l.emersion_err*u.s)[0:2]
                     obs_em['_occ_time_err'] = l.emersion_err
                     obs_em['_occ_error'] = ((round(fe1,3),round(ge1,3)),(round(fe2,3),round(ge2,3)))
-                status = True
-            if not status:
-                if not 'start_obs' in position[o.name].keys():
-                    position[o.name]['_occ_start_obs'] = _PositionDict(on=True)
-                obs_start = position[o.name]['start_obs']
-                if 'time' in obs_start.keys() and obs_start['time'] == l.initial_time:
+
+            if pos_lc['status'] == 'negative':
+                if 'start_obs' not in pos_lc.keys():
+                    pos_lc['_occ_start_obs'] = _PositionDict(on=True)
+                obs_start = pos_lc['start_obs']
+                if samecoord and 'time' in obs_start.keys() and obs_start['time'] == l.initial_time:
                     pass
                 else:
                     f1,g1 = positionv(self.star,self.ephem,o,l.initial_time)[0:2]
                     obs_start['_occ_time'] = l.initial_time
                     obs_start['_occ_value'] = (f1,g1)
-                if not 'end_obs' in position[o.name].keys():
-                    position[o.name]['_occ_end_obs'] = _PositionDict(on=True)
-                obs_end = position[o.name]['end_obs']
-                if 'time' in obs_end.keys() and obs_end['time'] == l.end_time:
+                if 'end_obs' not in pos_lc.keys():
+                    pos_lc['_occ_end_obs'] = _PositionDict(on=True)
+                obs_end = pos_lc['end_obs']
+                if samecoord and 'time' in obs_end.keys() and obs_end['time'] == l.end_time:
                     pass
                 else:
                     f1,g1 = positionv(self.star,self.ephem,o,l.end_time)[0:2]
                     obs_end['_occ_time'] = l.end_time
                     obs_end['_occ_value'] = (f1,g1)
-            if status:
-                position[o.name]['_occ_status'] = 'positive'
-            else:
-                position[o.name]['_occ_status'] = 'negative'
-        self._position = position
+
+        for key in list(position):
+            for key_lc in list(position[key]):
+                if type(key_lc) == _PositionDict and (key,key_lc) not in pair:
+                    del position[key][key_lc]
+            if len(position[key]) == 0:
+                del position[key]
+
         return self._position
 
     @positions.setter
@@ -481,22 +565,27 @@ class Occultation():
         # plot chords of the occultation
         positions = self.positions
         for site in positions.keys():
-            if positions[site]['status'] == 'negative':
-                arr = np.array([positions[site]['start_obs']['value'], positions[site]['end_obs']['value']])
-                plt.plot(*arr.T, '--', color=negative_color, linewidth=0.7)
-            else:
-                n = 0
-                if positions[site]['immersion']['on'] or all_chords:
-                    arr = np.array([positions[site]['immersion']['error']])
-                    plt.plot(*arr.T, color=error_color, linewidth=1.5)
-                    n+=1
-                if positions[site]['emersion']['on'] or all_chords:
-                    arr = np.array([positions[site]['emersion']['error']])
-                    plt.plot(*arr.T, color=error_color, linewidth=1.5)
-                    n+=1
-                if n == 2:
-                    arr = np.array([positions[site]['immersion']['value'], positions[site]['emersion']['value']])
-                    plt.plot(*arr.T, color=positive_color, linewidth=0.7)
+            pos_obs = positions[site]
+            for lc in pos_obs.keys():
+                pos_lc = pos_obs[lc]
+                if type(pos_lc) != _PositionDict:
+                    continue
+                if pos_lc['status'] == 'negative':
+                    arr = np.array([pos_lc['start_obs']['value'], pos_lc['end_obs']['value']])
+                    plt.plot(*arr.T, '--', color=negative_color, linewidth=0.7)
+                else:
+                    n = 0
+                    if pos_lc['immersion']['on'] or all_chords:
+                        arr = np.array([pos_lc['immersion']['error']])
+                        plt.plot(*arr.T, color=error_color, linewidth=1.5)
+                        n+=1
+                    if pos_lc['emersion']['on'] or all_chords:
+                        arr = np.array([pos_lc['emersion']['error']])
+                        plt.plot(*arr.T, color=error_color, linewidth=1.5)
+                        n+=1
+                    if n == 2:
+                        arr = np.array([pos_lc['immersion']['value'], pos_lc['emersion']['value']])
+                        plt.plot(*arr.T, color=positive_color, linewidth=0.7)
         plt.axis('equal')
     
     def plot_occ_map(self):
