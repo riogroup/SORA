@@ -322,6 +322,11 @@ def fit_ellipse(*args, **kwargs):
     controle_f4 = Time.now()
     if log:
         print('Total elapsed time: {:.3f} seconds.'.format((controle_f4 - controle_f0).sec))
+
+    onesigma = chisquare.get_nsigma(sigma=1)
+    for occ in args:
+        if type(occ) == Occultation:
+            occ.fitted_params = {i:onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g', 'oblateness', 'position_angle']}
     return chisquare
 
 
@@ -568,6 +573,91 @@ class Occultation():
             raise ValueError("Value must be 'on' or 'off' only.")
         for key in self._position.keys():
             self._position[key] = value
+
+    def new_astrometric_position(self, time=None, offset=None, error=None):
+        """ Calculates the new astrometric position for the object given fitted params
+
+        INPUT:
+            time: Time to which calculate the position. If not given, it uses the instant at C/A.
+            offset (list): Offset to apply to the position. If not given, it uses the params fitted from ellipse.
+                Offsets must be a list of 3 values being [X, Y, 'unit'], where 'unit' must be an angular or distance unit.
+                Angular units must be in dacosdec, ddec: Ex: [30.6, 20, 'mas'], or [-15, 2, 'arcsec']
+                Distance units must be in X and Y: Ex: [100, -200, 'km'], [0.001, 0.002, 'AU']
+            error (list): Error bar of the given offset. If not given, it uses the 1-sigma fitted from ellipse.
+                Error must be a list of 3 values being [dX, dY, 'unit'], similar to offset.
+                It does not need to be in the same unit as offset.
+        """
+        if time is not None:
+            time = Time(time)
+        else:
+            time = self.tca
+
+        if offset is not None:
+            off_ra = offset[0]*u.Unit(offset[2])
+            off_dec = offset[1]*u.Unit(offset[2])
+            try:
+                teste = off_ra.to(u.km)
+                dist = True
+            except:
+                try:
+                    teste = off_ra.to(u.arcsec)
+                    dist = False
+                except:
+                    raise ValueError('Offset unit must be a distance or angular value.')
+        elif hasattr(self, 'fitted_params'):
+            off_ra = self.fitted_params['center_f'][0]*u.km
+            off_dec = self.fitted_params['center_g'][0]*u.km
+            dist = True
+        else:
+            warnings.warn('No offset given or found. Using 0.0 instead.')
+            off_ra = 0.0*u.mas
+            off_dec = 0.0*u.mas
+            dist = False
+
+        if error is not None:
+            e_off_ra = error[0]*u.Unit(error[2])
+            e_off_dec = error[1]*u.Unit(error[2])
+            try:
+                teste = e_off_ra.to(u.km)
+                e_dist = True
+            except:
+                try:
+                    teste = e_off_ra.to(u.arcsec)
+                    e_dist = False
+                except:
+                    raise ValueError('Error unit must be a distance or angular value.')
+        elif hasattr(self, 'fitted_params'):
+            e_off_ra = self.fitted_params['center_f'][1]*u.km
+            e_off_dec = self.fitted_params['center_g'][1]*u.km
+            e_dist = True
+        else:
+            warnings.warn('No error given or found. Using 0.0 instead.')
+            e_off_ra = 0.0*u.mas
+            e_off_dec = 0.0*u.mas
+            e_dist = False
+
+        coord_geo = self.ephem.get_position(time)
+        distance = coord_geo.distance.to(u.km)
+        coord_frame = SkyOffsetFrame(origin=coord_geo)
+        if dist:
+            off_ra = np.arctan2(off_ra, distance)
+            off_dec = np.arctan2(off_dec, distance)
+        if e_dist:
+            e_off_ra = np.arctan2(e_off_ra, distance)
+            e_off_dec = np.arctan2(e_off_dec, distance)
+        new_pos = SkyCoord(lon=off_ra, lat=off_dec, frame=coord_frame)
+        new_pos = new_pos.icrs
+
+        error_ra = self.star.errors['RA'] + e_off_ra
+        error_dec = self.star.errors['DEC'] + e_off_dec
+
+        print('Ephemeris offset (km): X = {:.1f} +/- {:.1f}; Y = {:.1f} +/- {:.1f}'.format(distance*np.sin(off_ra.to(u.mas)).value,
+              distance*np.sin(e_off_ra.to(u.mas)).value, distance*np.sin(off_dec.to(u.mas)).value, distance*np.sin(e_off_dec.to(u.mas)).value))
+        print('Ephemeris offset (mas): da_cos_dec = {:.3f} +/- {:.3f}; d_dec = {:.3f} +/- {:.3f}'.
+              format(off_ra.to(u.mas).value, e_off_ra.to(u.mas).value, off_dec.to(u.mas).value, e_off_dec.to(u.mas).value))
+        print('\nAstrometric position at time {}'.format(time.iso))
+        print('RA = {} +/- {:.3f} mas; DEC = {} +/- {:.3f} mas'.format(new_pos.ra.to_string(u.hourangle, precision=5, sep=' '), error_ra.to(u.mas).value,
+                                                               new_pos.dec.to_string(u.deg, precision=4, sep=' '), error_dec.to(u.mas).value))
 
     def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red'):
         # plot chords of the occultation
