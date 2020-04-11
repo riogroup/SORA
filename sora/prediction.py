@@ -54,7 +54,8 @@ class Prediction(Table):
             super().__init__(values, **kwargs)
 
     @classmethod
-    def from_praia(cls, filename, name, radius):
+    def from_praia(cls, filename, name, **kwargs):
+        from .ephem import read_obj_data
         occs = {}
         if os.path.isfile(filename) == False:
             raise IOError('File {} not found'.format(filename))
@@ -109,7 +110,13 @@ class Prediction(Table):
         loct = ['{:5s}'.format(i.decode()) for i in dados['loct']]
         occs['ob_off_ra'] = dados['ora']*u.mas
         occs['ob_off_de'] = dados['ode']*u.mas
-        meta = {'name': name, 'radius': radius, 'max_ca': max_ca, 'ephem': lines[17].split()[-1]}
+
+        data = read_obj_data()
+        radius, error_ra, error_dec = data.get(name.lower(), [0,0,0])
+        radius = radius*u.km
+        if 'radius' in kwargs:
+            radius = kwargs['radius']*u.km
+        meta = {'name': name, 'radius': radius, 'max_ca': max_ca, 'ephem': lines[17].split()[-1], 'error_ra': error_ra*1000, 'error_dec': error_dec*1000}
         return cls(time=time, coord_star=coord_star, coord_obj=coord_obj, ca=ca, pa=pa, vel=vel, mag_20=mag_20, dist=dist, long=long, loct=loct, meta=meta)
 
     def to_praia(self, filename):
@@ -148,9 +155,10 @@ class Prediction(Table):
                                    size=len(self), radius=self.meta['radius'], ow_des=ow_des))
         for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, long, loct in self.iterrows():
             dmag = float(mag_20)-float(mag)
-            f.write('{} {} {}  {}   {} {}   {} {}   {}  {} {}0 {} {} {:-4.1f}   {}. {}     0     0\n'.
+            f.write('{} {} {}  {}   {} {}   {} {}   {}  {} {}0 {} {} {:-4.1f}   {}. {}  {:4.0f}  {:4.0f}\n'.
                     format(time[8:10], time[5:7], time[:4], time[11:20].replace(':', ' '), coord[:13], coord[15:28], coord_geo[:13],
-                           coord_geo[15:28], ca, pa, vel, dist, mag_20[:4], dmag, long, loct))
+                           coord_geo[15:28], ca, pa, vel, dist, mag_20[:4], dmag, long, loct, self.meta.get('error_ra', 0),
+                           self.meta.get('error_dec', 0)))
         f.write(' '+'-'*148+'\n')
         f.close()
 
@@ -219,7 +227,7 @@ def occ_params(star, ephem, time):
     return tt[min], ca, pa, vel, dist.to(u.AU)
 
 
-def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
+def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma=1):
     """ Predicts stellar occultations
 
     Parameters:
@@ -292,7 +300,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
         stars = SkyCoord(catalogue['RA_ICRS'], catalogue['DE_ICRS'])
         idx, d2d, d3d = stars.match_to_catalog_sky(ncoord)
 
-        dist = np.arcsin(radius/ncoord[idx].distance)
+        dist = np.arcsin(radius/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value,ephem.error_dec.value])*u.arcsec
         k = np.where(d2d < dist)[0]
         for ev in k:
             star = Star(code=catalogue['Source'][ev], log=False)
@@ -304,8 +312,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1):
         warnings.warn('No stellar occultation was found')
         return Prediction(meta=meta)
     # create astropy table with the params
-    meta = {'name': ephem.name, 'time_beg': time_beg, 'time_end': time_end,
-            'maglim': mag_lim, 'max_ca': dist.max(), 'radius':ephem.radius.to(u.km).value}
+    meta = {'name': ephem.name, 'time_beg': time_beg, 'time_end': time_end, 'maglim': mag_lim, 'max_ca': dist.max(),
+            'radius':ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value, 'error_dec': ephem.error_dec.to(u.mas).value}
     occs2 = np.transpose(occs)
     time = Time(occs2[3])
     geocentric = ephem.get_position(time)

@@ -8,6 +8,19 @@ from astroquery.jplhorizons import Horizons
 from .config import test_attr
 import os
 import spiceypy as spice
+import urllib.request
+import warnings
+
+def read_obj_data():
+    obj = {}
+    try:
+        data = urllib.request.urlopen('http://devel2.linea.gov.br/~altair.gomes/radius.txt')
+        for line in data:
+            arr = line.split()
+            obj[arr[0].decode().lower()] = [float(i) for i in arr[1:]]
+    except:
+        warnings.warn('Online object data table could not be found. Please check internet connection.')
+    return obj
 
 class EphemPlanete():
     """ EphemPlanete simulates ephem_planete and fit_d2_ksi_eta.
@@ -25,9 +38,17 @@ class EphemPlanete():
         self.__reftime = self.time[0]
         self.min_time = Time(data[0].min(), format='jd')
         self.max_time = Time(data[0].max(), format='jd')
-        self.radius = 0*u.km
+        data = read_obj_data()
+        radius, error_ra, error_dec = data.get(name.lower(), [0,0,0])
+        self.radius = radius*u.km
         if 'radius' in kwargs:
             self.radius = kwargs['radius']*u.km
+        self.error_ra = error_ra*u.arcsec
+        if 'error_ra' in kwargs:
+            self.error_ra = kwargs['error_ra']*u.arcsec
+        self.error_dec = error_dec*u.arcsec
+        if 'error_dec' in kwargs:
+            self.error_dec = kwargs['error_dec']*u.arcsec
         self.mass = 0*u.kg
         if 'mass' in kwargs:
             self.mass = kwargs['mass']*u.kg
@@ -119,9 +140,17 @@ class EphemJPL():
     def __init__(self, name, id_type='smallbody', **kwargs):
         self.name = name
         self.id_type='majorbody'
-        self.radius = 0*u.km
+        data = read_obj_data()
+        radius, error_ra, error_dec = data.get(name.lower(), [0,0,0])
+        self.radius = radius*u.km
         if 'radius' in kwargs:
             self.radius = kwargs['radius']*u.km
+        self.error_ra = error_ra*u.arcsec
+        if 'error_ra' in kwargs:
+            self.error_ra = kwargs['error_ra']*u.arcsec
+        self.error_dec = error_dec*u.arcsec
+        if 'error_dec' in kwargs:
+            self.error_dec = kwargs['error_dec']*u.arcsec
         self.mass = 0*u.kg
         if 'mass' in kwargs:
             self.mass = kwargs['mass']*u.kg
@@ -196,12 +225,19 @@ class EphemKernel():
         self.code = str(code)
         for arg in args:
             spice.furnsh(arg)
-        #spice.spkpos(self.code, 0, 'J2000', 'NONE', '399')
         spice.kclear()
         self.__kernels = args
-        self.radius = 0*u.km
+        data = read_obj_data()
+        radius, error_ra, error_dec = data.get(name.lower(), [0,0,0])
+        self.radius = radius*u.km
         if 'radius' in kwargs:
             self.radius = kwargs['radius']*u.km
+        self.error_ra = error_ra*u.arcsec
+        if 'error_ra' in kwargs:
+            self.error_ra = kwargs['error_ra']*u.arcsec
+        self.error_dec = error_dec*u.arcsec
+        if 'error_dec' in kwargs:
+            self.error_dec = kwargs['error_dec']*u.arcsec
         self.mass = 0*u.kg
         if 'mass' in kwargs:
             self.mass = kwargs['mass']*u.kg
