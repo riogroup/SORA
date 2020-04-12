@@ -53,6 +53,16 @@ class Prediction(Table):
                 values['loct'] = list(['{}'.format((time[i] + float(values['long'][i])*(24.0/360.0)*u.hour).iso[11:16]) for i in range(size)])
             super().__init__(values, **kwargs)
 
+    def __getitem__(self, item):
+        if isinstance(item, str) and item not in self.colnames:
+            col = self['Epoch']
+            arr = list([i for i, c in enumerate(col) if c.startswith(item)])
+            if len(arr) is not 1:
+                raise KeyError('Given key is not enough to identify an unique row.')
+            else:
+                return self.Row(self, arr[0])
+        return super().__getitem__(item)
+
     @classmethod
     def from_praia(cls, filename, name, **kwargs):
         from .ephem import read_obj_data
