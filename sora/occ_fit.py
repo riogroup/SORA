@@ -6,6 +6,7 @@ from .lightcurve import LightCurve
 from .prediction import occ_params
 from .extra import ChiSquare
 import astropy.units as u
+from astropy.coordinates import SkyCoord, SkyOffsetFrame
 from astropy.time import Time
 import numpy as np
 import warnings
@@ -346,9 +347,10 @@ class Occultation():
                     pass
                 else:
                     do_err = True
-                    f1,g1 = positionv(self.star,self.ephem,o,l.immersion)[0:2]
+                    f1,g1,vf1,vg1 = positionv(self.star,self.ephem,o,l.immersion)
                     obs_im['_occ_time'] =l.immersion
                     obs_im['_occ_value'] = (round(f1,3),round(g1,3))
+                    obs_im['_occ_vel'] = (round(vf1,3),round(vg1,3))
                 if not do_err and 'time_err' in obs_im.keys() and obs_im['time_err'] == l.immersion_err:
                     pass
                 else:
@@ -366,9 +368,10 @@ class Occultation():
                     pass
                 else:
                     do_err = True
-                    f1,g1 = positionv(self.star,self.ephem,o,l.emersion)[0:2]
+                    f1,g1,vf1,vg1 = positionv(self.star,self.ephem,o,l.emersion)
                     obs_em['_occ_time'] =l.emersion
                     obs_em['_occ_value'] = (round(f1,3),round(g1,3))
+                    obs_em['_occ_vel'] = (round(vf1,3),round(vg1,3))
                 if not do_err and 'time_err' in obs_em.keys() and obs_em['time_err'] == l.emersion_err:
                     pass
                 else:
@@ -414,6 +417,29 @@ class Occultation():
             raise ValueError("Value must be 'on' or 'off' only.")
         for key in self._position.keys():
             self._position[key] = value
+
+    def check_velocities(self):
+        """ Print the current velocity used by the LightCurves and the Radial velocity.
+        """
+        if hasattr(self, 'fitted_params'):
+            center = np.array([self.fitted_params['center_f'][0], self.fitted_params['center_g'][0]])
+        else:
+            center = np.array([0,0])
+        for o,l in self.__observations:
+            vals = self.positions[o.name][l.name]
+            if all([i not in vals.keys() for i in ['immersion', 'emersion']]):
+                continue
+            print('{} - Velocity used: {:.3f}'.format(l.name, l.vel))
+            if 'immersion' in vals.keys():
+                im = vals['immersion']
+                delta = np.array(im['value']) - center
+                print('    Immersion Radial Velocity: {:.3f}'.
+                      format(np.abs(np.dot(np.array(im['vel']), delta)/np.linalg.norm(delta))))
+            if 'emersion' in vals.keys():
+                em = vals['emersion']
+                delta = np.array(em['value']) - center
+                print('    Emersion Radial Velocity: {:.3f}'.
+                      format(np.abs(np.dot(np.array(em['vel']), delta)/np.linalg.norm(delta))))
 
     def new_astrometric_position(self, time=None, offset=None, error=None):
         """ Calculates the new astrometric position for the object given fitted params
