@@ -357,8 +357,13 @@ Please define star diameter or B,V,K magnitudes.')
         else:
             n_coord = self.coord.apply_space_motion(new_obstime=time)
         return n_coord
-    
-    
+
+    def error_at(self, time):
+        time = Time(time)
+        e_ra = self.errors['RA'] + self.errors['pmRA']*np.abs(time-self.coord.obstime)
+        e_dec = self.errors['DEC'] + self.errors['pmDEC']*np.abs(time-self.coord.obstime)
+        return e_ra, e_dec
+
     def add_offset(self, da_cosdec, ddec):
         """Add an offset to star
         

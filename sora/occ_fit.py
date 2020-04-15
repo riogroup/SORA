@@ -515,8 +515,9 @@ class Occultation():
         new_pos = SkyCoord(lon=off_ra, lat=off_dec, frame=coord_frame)
         new_pos = new_pos.icrs
 
-        error_ra = self.star.errors['RA'] + e_off_ra
-        error_dec = self.star.errors['DEC'] + e_off_dec
+        error_star = self.star.error_at(self.tca)
+        error_ra = error_star[0] + e_off_ra
+        error_dec = error_star[1] + e_off_dec
 
         print('Ephemeris offset (km): X = {:.1f} +/- {:.1f}; Y = {:.1f} +/- {:.1f}'.format(distance*np.sin(off_ra.to(u.mas)).value,
               distance*np.sin(e_off_ra.to(u.mas)).value, distance*np.sin(off_dec.to(u.mas)).value, distance*np.sin(e_off_dec.to(u.mas)).value))
