@@ -1,6 +1,6 @@
 from .config import test_attr
 from .star import Star
-from .ephem import Ephemeris, EphemPlanete, EphemJPL, EphemKernel
+from .ephem import EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
 from .lightcurve import LightCurve
 from .prediction import occ_params
@@ -28,7 +28,7 @@ def positionv(star,ephem,observer,time):
     """
     if type(star) != Star:
         raise ValueError('star must be a Star object')
-    if type(ephem) not in [Ephemeris, EphemPlanete, EphemJPL, EphemKernel]:
+    if type(ephem) not in [EphemPlanete, EphemJPL, EphemKernel]:
         raise ValueError('ephem must be an Ephemeris object')
     if type(observer) != Observer:
         raise ValueError('observer must be an Observer object')
@@ -221,7 +221,7 @@ class Occultation():
         """
         if type(star) != Star:
             raise ValueError('star must be a Star object')
-        if type(ephem) not in [Ephemeris, EphemKernel, EphemJPL]:
+        if type(ephem) not in [EphemPlanete, EphemKernel, EphemJPL]:
             raise ValueError('ephem must be a Ephemeris object')
         self.star = star
         self.ephem = ephem

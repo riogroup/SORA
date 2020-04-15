@@ -1,5 +1,5 @@
 from .star import Star
-from .ephem import Ephemeris, EphemKernel, EphemJPL, EphemPlanete
+from .ephem import EphemKernel, EphemJPL, EphemPlanete
 from .observer import Observer
 import astropy.units as u
 import astropy.constants as const
@@ -189,8 +189,8 @@ def occ_params(star, ephem, time):
     
     if type(star) != Star:
         raise ValueError('star must be a Star object')
-    if type(ephem) not in [Ephemeris, EphemKernel, EphemJPL, EphemPlanete]:
-        raise ValueError('ephem must be a Ephemeris object')
+    if type(ephem) not in [EphemKernel, EphemJPL, EphemPlanete]:
+        raise ValueError('ephem must be an Ephemeris object')
         
     tt = time + np.arange(-600, 600, delta_t)*u.s
     coord = star.geocentric(tt[0])
