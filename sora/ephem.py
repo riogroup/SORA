@@ -60,7 +60,8 @@ def ephem_kernel(time, target, observer, kernels):
     Return:
         coord (SkyCoord): ICRS coordinate of the target.
     """
-    spice.furnsh(kernels)
+    for kern in kernels:
+        spice.furnsh(kern)
     time = Time(time)
     t0 = Time('J2000', scale='tdb')
     if time.isscalar:
