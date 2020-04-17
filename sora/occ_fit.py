@@ -3,7 +3,7 @@ from .star import Star
 from .ephem import EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
 from .lightcurve import LightCurve
-from .prediction import occ_params
+from .prediction import occ_params, Prediction
 from .extra import ChiSquare
 import astropy.units as u
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
@@ -233,6 +233,19 @@ class Occultation():
         self.dist = dist  # object distance at CA
         self.tca = tt   # Instant of CA
         self.star_diam = self.star.apparent_diameter(self.dist, log=False)
+
+        kwds = {}
+        kwds['time'] = [self.tca.iso]
+        kwds['coord_star'] = [self.star.geocentric(self.tca).to_string('hmsdms',precision=5, sep=' ')]
+        kwds['coord_obj'] = [self.ephem.get_position(self.tca).to_string('hmsdms',precision=5, sep=' ')]
+        kwds['ca'] = ['{:7.5f}'.format(self.ca.value)]
+        kwds['pa'] = ['{:6.2f}'.format(self.pa.value)]
+        kwds['vel'] = ['{:-6.2f}'.format(self.vel.value)]
+        kwds['dist'] = ['{:7.3f}'.format(self.dist.value)]
+        kwds['mag'] = ['{:6.3f}'.format(self.star.mag['G'])]
+        kwds['meta'] = {'name': self.ephem.name, 'radius': self.ephem.radius.to(u.km).value,
+            'error_ra': self.ephem.error_ra.to(u.mas).value, 'error_dec': self.ephem.error_dec.to(u.mas).value}
+        self.predict = Prediction(**kwds)
         
         self.__observations = []
         self._position = _PositionDict()
@@ -554,9 +567,36 @@ class Occultation():
                         plt.plot(*arr.T, color=positive_color, linewidth=0.7)
         plt.axis('equal')
     
-    def plot_occ_map(self):
-        # plot occultation map
-        return
+    def get_map_sites(self):
+        """Return Dictionary with sites in the format required by plot_occ_map function
+
+        Parameters:
+            None
+
+        Returns:
+            sites (dict): Dictionary with the sites in the format required by plot_occ_map function
+        """
+        sites = {}
+        color = {'positive': 'blue', 'negative': 'red'}
+        for o, l in self.__observations:
+            sites[o.name] = [o.lon.deg, o.lat.deg, 10, 10, color[self.positions[o.name][l.name]['status']]]
+        return sites
+
+    def plot_occ_map(self, **kwargs):
+        """Plot occultation map
+
+        Parameters:
+            All parameters are parsed directly by prediction.plot_occ_map()
+            Please refer to the tutorial
+        """
+        kwargs['sites'] = kwargs.get('sites', self.get_map_sites())
+        if 'offset' not in kwargs and hasattr(self, 'fitted_params'):
+            off_ra = self.fitted_params['center_f'][0]*u.km
+            off_dec = self.fitted_params['center_g'][0]*u.km
+            off_ra = np.arctan2(off_ra, self.dist)
+            off_dec = np.arctan2(off_dec, self.dist)
+            kwargs['offset'] = [off_ra, off_dec]
+        self.predict.plot_occ_map(**kwargs)
 
     def __str__(self):
         """String representation of the Star class
