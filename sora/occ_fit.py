@@ -226,26 +226,19 @@ class Occultation():
         self.star = star
         self.ephem = ephem
         
-        tt, ca, pa, vel, dist = occ_params(star,ephem, time)
+        tca, ca, pa, vel, dist = occ_params(star,ephem, time)
         self.ca = ca   # Closest Approach distance
         self.pa = pa   # Position Angle at CA
         self.vel = vel  # Shadow velocity at CA
         self.dist = dist  # object distance at CA
-        self.tca = tt   # Instant of CA
+        self.tca = tca   # Instant of CA
         self.star_diam = self.star.apparent_diameter(self.dist, log=False)
 
-        kwds = {}
-        kwds['time'] = [self.tca.iso]
-        kwds['coord_star'] = [self.star.geocentric(self.tca).to_string('hmsdms',precision=5, sep=' ')]
-        kwds['coord_obj'] = [self.ephem.get_position(self.tca).to_string('hmsdms',precision=5, sep=' ')]
-        kwds['ca'] = ['{:7.5f}'.format(self.ca.value)]
-        kwds['pa'] = ['{:6.2f}'.format(self.pa.value)]
-        kwds['vel'] = ['{:-6.2f}'.format(self.vel.value)]
-        kwds['dist'] = ['{:7.3f}'.format(self.dist.value)]
-        kwds['mag'] = ['{:6.3f}'.format(self.star.mag['G'])]
-        kwds['meta'] = {'name': self.ephem.name, 'radius': self.ephem.radius.to(u.km).value,
+        meta = {'name': self.ephem.name, 'radius': self.ephem.radius.to(u.km).value,
             'error_ra': self.ephem.error_ra.to(u.mas).value, 'error_dec': self.ephem.error_dec.to(u.mas).value}
-        self.predict = Prediction(**kwds)
+        self.predict = Prediction(time=[tca], coord_star=[self.star.geocentric(tca)],
+            coord_obj=[self.ephem.get_position(tca)], ca=[ca.value], pa=[pa.value], vel=[vel.value],
+            dist=[dist.value], mag=[self.star.mag['G']], source=[self.star.code], meta=meta)
         
         self.__observations = []
         self._position = _PositionDict()

@@ -5,7 +5,7 @@ import astropy.units as u
 import astropy.constants as const
 from astropy.coordinates import SkyCoord, EarthLocation, Angle, get_sun, GCRS, ITRS, SkyOffsetFrame
 from astropy.time import Time
-from astropy.table import Table, Row
+from astropy.table import Table, Row, Column
 from astroquery.vizier import Vizier
 import numpy as np
 import warnings
@@ -27,41 +27,60 @@ class Prediction(Table):
     Row = PredictRow
     def __init__(self, *args, **kwargs):
         if not all([i in kwargs for i in ['time', 'coord_star', 'coord_obj','ca', 'pa', 'vel', 'dist']]):
-            super().__init__(*args, names=['Epoch', 'ICRS Star Coord at Epoch', 'Geocentric Object Position', 'C/A', 'PA', 'Vel', 'Dist', 'G', 'G*', 'long', 'loct'], **kwargs)
+            super().__init__(*args, names=['Epoch', 'ICRS Star Coord at Epoch', 'Geocentric Object Position', 'C/A', 'PA', 'Vel',
+                                           'Dist', 'G', 'G*', 'long', 'loct', 'GAIA-DR2 Source ID'], **kwargs)
         else:
             values = {}
             time = Time(kwargs['time'])
-            size = len(time)
-            values['Epoch'] = kwargs['time']; del kwargs['time']
+            time.delta_ut1_utc = 0.0
+            time.format = 'iso'
+            if time.isscalar:
+                time = Time([time])
+            values['Epoch'] = Column(time)
+            def coord_fmt(value):
+                return value.to_string('hmsdms',precision=5, sep=' ')
             coord = SkyCoord(kwargs['coord_star'], unit=(u.hourangle,u.deg))
-            values['ICRS Star Coord at Epoch'] = kwargs['coord_star']; del kwargs['coord_star']
-            values['Geocentric Object Position'] = kwargs['coord_obj']; del kwargs['coord_obj']
-            values['C/A'] = kwargs['ca']; del kwargs['ca']
-            values['P/A'] = kwargs['pa']; del kwargs['pa']
-            values['Vel'] = kwargs['vel']; del kwargs['vel']
-            values['Dist'] = kwargs['dist']; del kwargs['dist']
+            values['ICRS Star Coord at Epoch'] = Column(coord, format=coord_fmt)
+            coord_geo = SkyCoord(kwargs['coord_obj'], unit=(u.hourangle,u.deg))
+            values['Geocentric Object Position'] = Column(coord_geo, format=coord_fmt)
+            values['C/A'] = Column(kwargs['ca'], format='5.3f', unit='arcsec')
+            values['P/A'] = Column(kwargs['pa'], format='6.2f', unit='deg')
+            values['Vel'] = Column(kwargs['vel'], format='-6.2f', unit='km/s')
+            values['Dist'] = Column(kwargs['dist'], format='7.3f', unit='AU')
+            del(kwargs['time'], kwargs['coord_star'], kwargs['coord_obj'], kwargs['ca'], kwargs['pa'], kwargs['vel'], kwargs['dist'])
             if 'mag' not in kwargs.keys() and 'mag_20' not in kwargs.keys():
                 raise ValueError('User must provide "mag" or "mag_20" parameters')
             if 'mag' in kwargs.keys():
-                values['G'] = kwargs['mag']
+                values['G'] = Column(kwargs['mag'], format='6.3f', unit='mag')
                 del kwargs['mag']
             else:
-                values['G'] = list(['{:6.3f}'.format(float(kwargs['mag_20'][i]) - 2.5*np.log10(np.absolute(float(values['Vel'][i]))/20.0)) for i in range(size)])
+                values['G'] = kwargs['mag_20'] - 2.5*np.log10(np.absolute(values['Vel'])/20.0)
+                values['G'].unit = 'mag'
+                values['G'].format = '6.3f'
             if 'mag_20' in kwargs.keys():
-                values['G*'] = kwargs['mag_20']
+                values['G*'] = Column(kwargs['mag_20'], format='6.3f', unit='mag')
                 del kwargs['mag_20']
             else:
-                values['G*'] = list(['{:6.3f}'.format(float(values['G'][i]) + 2.5*np.log10(np.absolute(float(values['Vel'][i]))/20.0)) for i in range(size)])
+                values['G*'] = values['G'] + 2.5*np.log10(np.absolute(values['Vel'])/20.0)
+                values['G*'].unit = 'mag'
+                values['G*'].format = '6.3f'
             if 'long' in kwargs.keys():
-                values['long'] = kwargs['long']
+                values['long'] = Column(kwargs['long'], unit='deg', format='3.0f')
                 del kwargs['long']
             else:
-                values['long'] = list(['{:3.0f}'.format(i.deg) for i in (coord.ra - time.sidereal_time('mean', 'greenwich')).wrap_at(360*u.deg)])
+                values['long'] = Column((coord.ra - time.sidereal_time('mean', 'greenwich')).wrap_at(360*u.deg), unit='deg', format='3.0f')
             if 'loct' in kwargs.keys():
-                values['loct'] = kwargs['loct']
+                values['loct'] = Column(kwargs['loct'], unit='hh:mm')
                 del kwargs['loct']
             else:
-                values['loct'] = list(['{}'.format((time[i] + float(values['long'][i])*(24.0/360.0)*u.hour).iso[11:16]) for i in range(size)])
+                longi = (coord.ra - time.sidereal_time('mean', 'greenwich')).wrap_at(360*u.deg)
+                ntime = time + longi.hour*u.hour
+                values['loct'] = Column(['{}'.format(t.iso[11:16]) for t in ntime], unit='hh:mm')
+            if 'source' in kwargs.keys():
+                values['GAIA-DR2 Source ID'] = Column(kwargs['source'])
+                del kwargs['source']
+            else:
+                values['GAIA-DR2 Source ID'] = Column(np.repeat('', len(time)))
             super().__init__(values, **kwargs)
 
     def __getitem__(self, item):
@@ -101,15 +120,13 @@ class Prediction(Table):
         for i in ['afm', 'afs', 'ded', 'dem', 'des']:
             coor = np.core.defchararray.add(coor, ' ')
             coor = np.core.defchararray.add(coor, np.char.array(dados[i], unicode=True))
-        coord = SkyCoord(coor, frame='icrs', unit=(u.hourangle, u.degree))
-        coord_star = [c.to_string('hmsdms',precision=5, sep=' ') for c in coord]
+        coord_star = SkyCoord(coor, frame='icrs', unit=(u.hourangle, u.degree))
         
         coor = np.char.array(dados['afh2'], unicode=True)
         for i in ['afm2', 'afs2', 'ded2', 'dem2', 'des2']:
             coor = np.core.defchararray.add(coor, ' ')
             coor = np.core.defchararray.add(coor, np.char.array(dados[i], unicode=True))
-        coord = SkyCoord(coor, frame='icrs', unit=(u.hourangle, u.degree))
-        coord_obj = [c.to_string('hmsdms',precision=5, sep=' ') for c in coord]
+        coord_obj = SkyCoord(coor, frame='icrs', unit=(u.hourangle, u.degree))
 
         ################### reading time ########################
         tim=np.char.array(dados['ano'], unicode=True)
@@ -118,27 +135,16 @@ class Prediction(Table):
         for i in np.arange(len(arr)):
             tim = np.core.defchararray.add(tim, len_iso[i]) 
             tim = np.core.defchararray.add(tim, np.char.array(dados[arr[i]], unicode=True))
-        tim2 = Time(np.char.array(tim) + '000')
-        time = [i.iso for i in tim2]
+        time = Time(np.char.array(tim) + '000')
 
         ############### defining parameters #############
-        ca = ['{:5.3f}'.format(i) for i in dados['ca']]
-        pa = ['{:6.2f}'.format(i) for i in dados['pa']]
-        vel = ['{:-6.2f}'.format(i) for i in dados['vel']]
-        dist = ['{:7.3f}'.format(i) for i in dados['delta']]
-        mag_20 = ['{:6.3f}'.format(i) for i in dados['mR']]
-        long = ['{:3.0f}'.format(i) for i in dados['long']]
-        loct = ['{:5s}'.format(i.decode()) for i in dados['loct']]
-        occs['ob_off_ra'] = dados['ora']*u.mas
-        occs['ob_off_de'] = dados['ode']*u.mas
-
         data = read_obj_data()
         radius, error_ra, error_dec = data.get(name.lower(), [0,0,0])
-        radius = radius*u.km
-        if 'radius' in kwargs:
-            radius = kwargs['radius']*u.km
-        meta = {'name': name, 'radius': radius, 'max_ca': max_ca, 'ephem': lines[17].split()[-1], 'error_ra': error_ra*1000, 'error_dec': error_dec*1000}
-        return cls(time=time, coord_star=coord_star, coord_obj=coord_obj, ca=ca, pa=pa, vel=vel, mag_20=mag_20, dist=dist, long=long, loct=loct, meta=meta)
+        radius = kwargs.get('radius', radius)*u.km
+        meta = {'name': name, 'radius': radius, 'max_ca': max_ca, 'ephem': lines[17].split()[-1],
+                'error_ra': error_ra*1000, 'error_dec': error_dec*1000}
+        return cls(time=time, coord_star=coord_star, coord_obj=coord_obj, ca=dados['ca'], pa=dados['pa'],
+                   vel=dados['vel'], mag_20=dados['mR'], dist=dados['delta'], long=dados['long'], loct=dados['loct'], meta=meta)
 
     def to_praia(self, filename):
         """ Write prediction table to PRAIA format.
@@ -149,11 +155,11 @@ class Prediction(Table):
         from .config import praia_occ_head
         f = open(filename, 'w')
         f.write(praia_occ_head.format(max_ca=self.meta['max_ca'].to(u.arcsec), size=len(self), ephem=self.meta.get('ephem', 'ephem')))
-        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, long, loct in self.iterrows():
-            dmag = float(mag_20)-float(mag)
-            f.write("\n {} {} {}  {}  {} {}   {} {}   {}  {} {} {:5.2f} {} {:-4.1f} {:-4.1f} {:-4.1f}   {}. {}       0.0      0.0 ok g2 0    0    0    0    0".
-                    format(time[8:10], time[5:7], time[:4], time[11:21].replace(':', ' '), coord[:13], coord[15:29], coord_geo[:13], coord_geo[15:29], ca, pa, vel,
-                           float(dist), mag_20[:4], dmag, dmag, dmag, long, loct)
+        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, source in self.iterrows():
+            dmag = mag_20-mag
+            f.write("\n {} {} {}  {}  {}   {}   {:5.3f}  {:6.2f} {:-6.2f} {:5.2f} {:4.1f} {:-4.1f} {:-4.1f} {:-4.1f}   {:3.0f}. {}       0.0      0.0 ok g2 0    0    0    0    0".
+                    format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:21].replace(':', ' '), coord.to_string('hmsdms', precision=4, sep=' '),
+                           coord_geo.to_string('hmsdms', precision=4, sep=' '), ca, pa, vel, dist, mag_20, dmag, dmag, dmag, longi, loct)
                    )
         f.close()
 
@@ -174,18 +180,19 @@ class Prediction(Table):
         f = open('tableOccult_update.txt', modes[mode])
         f.write(ow_occ_head.format(name=self.meta['name'], ephem=self.meta.get('ephem', 'ephem'), max_ca=self.meta['max_ca'].to(u.arcsec),
                                    size=len(self), radius=self.meta['radius'], ow_des=ow_des))
-        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, long, loct in self.iterrows():
-            dmag = float(mag_20)-float(mag)
-            f.write('{} {} {}  {}   {} {}   {} {}   {}  {} {}0 {} {} {:-4.1f}   {}. {}  {:4.0f}  {:4.0f}\n'.
-                    format(time[8:10], time[5:7], time[:4], time[11:20].replace(':', ' '), coord[:13], coord[15:28], coord_geo[:13],
-                           coord_geo[15:28], ca, pa, vel, dist, mag_20[:4], dmag, long, loct, self.meta.get('error_ra', 0),
+        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, source in self.iterrows():
+            dmag = mag_20-mag
+            f.write('{} {} {}  {}   {} {}   {} {}   {:5.3f}  {:6.2f} {:-7.3f} {:7.3f} {:4.1f} {:-4.1f}   {:3.0f}. {}  {:4.0f}  {:4.0f}\n'.
+                    format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:20].replace(':', ' '), coord.ra.to_string('hour', precision=4, sep=' '),
+                           coord.dec.to_string('deg', precision=3, sep=' '), coord_geo.ra.to_string('hour', precision=4, sep=' '),
+                           coord_geo.dec.to_string('deg', precision=3, sep=' '), ca, pa, vel, dist, mag_20, dmag, longi, loct, self.meta.get('error_ra', 0),
                            self.meta.get('error_dec', 0)))
         f.write(' '+'-'*148+'\n')
         f.close()
 
-        f = open('LOG2.dat', modes[mode])
+        f = open('LOG.dat', modes[mode])
         t = Time.now()
-        for time in Time(self['Epoch']):
+        for time in self['Epoch']:
             t0 = Time(time.isot.split('T')[0] + ' 00:00:00.0')
             dt = (time-t0).jd*24
             f.write('{} {:5s} {}-{:06.3f}\n'.format(t.isot[:-7], ow_des, time.isot.split('T')[0], dt))
@@ -343,17 +350,9 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     time = Time(occs2[3])
     geocentric = ephem.get_position(time)
     k = np.argsort(time)
-    source = occs2[0][k]
-    coord = [i.to_string('hmsdms',precision=5, sep=' ') for i in occs2[1][k]]
-    coord_geo = [i.to_string('hmsdms',precision=5, sep=' ') for i in geocentric[k]]
-    mags = ['{:6.3f}'.format(i) for i in occs2[2][k]]
-    mags_20 = ['{:6.3f}'.format(occs2[2][i] + 2.5*np.log10(np.absolute(occs2[6][i].value)/20.0)) for i in k]
-    time = [i.iso for i in time[k]]
-    ca = ['{:5.3f}'.format(i.value) for i in occs2[4][k]]
-    pa = ['{:6.2f}'.format(i.value) for i in occs2[5][k]]
-    vel = ['{:-6.2f}'.format(i.value) for i in occs2[6][k]]
-    dist = ['{:7.3f}'.format(i.value) for i in occs2[7][k]]
-    t = Prediction(time=time, coord_star=coord, coord_obj=coord_geo, ca=ca, pa=pa, vel=vel, mag=mags, mag_20=mags_20, dist=dist, meta=meta)
+    t = Prediction(time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
+        pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
+        dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
     return t
 
 
