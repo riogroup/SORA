@@ -99,7 +99,9 @@ class Star():
             self.code = test_attr(kwargs['code'], str, 'code')
         if not self.__local:
             self.__searchgaia()
-        self.__getcolors()
+        nomad = kwargs.get('nomad', True)
+        if nomad:
+            self.__getcolors()
     
     
     def set_magnitude(self,**kwargs):
