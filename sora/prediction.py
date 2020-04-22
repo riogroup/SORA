@@ -41,7 +41,10 @@ class Prediction(Table):
                 return value.to_string('hmsdms',precision=5, sep=' ')
             coord = SkyCoord(kwargs['coord_star'], unit=(u.hourangle,u.deg))
             values['ICRS Star Coord at Epoch'] = Column(coord, format=coord_fmt)
-            coord_geo = SkyCoord(kwargs['coord_obj'], unit=(u.hourangle,u.deg))
+            try:
+                coord_geo = SkyCoord(kwargs['coord_obj'])
+            except:
+                coord_geo = SkyCoord(kwargs['coord_obj'], unit=(u.hourangle,u.deg))
             values['Geocentric Object Position'] = Column(coord_geo, format=coord_fmt)
             values['C/A'] = Column(kwargs['ca'], format='5.3f', unit='arcsec')
             values['P/A'] = Column(kwargs['pa'], format='6.2f', unit='deg')
@@ -294,7 +297,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
 
     # determine suitable divisions for star search
     radius = ephem.radius + const.R_earth
-    mindist = np.arcsin(radius/coord[0].distance)
+    mindist = np.arcsin(radius/coord[0].distance) + sigma*np.max([ephem.error_ra.value,ephem.error_dec.value])*u.arcsec
     divisions = []
     n=0
     while True:
@@ -335,17 +338,21 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
         dist = np.arcsin(radius/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value,ephem.error_dec.value])*u.arcsec
         k = np.where(d2d < dist)[0]
         for ev in k:
-            star = Star(code=catalogue['Source'][ev], log=False)
-            pars = [star.code, star.geocentric(nt[idx][ev]), star.mag['G']]
-            pars = np.hstack((pars, occ_params(star, ephem, nt[idx][ev])))
-            occs.append(pars)
+            star = Star(code=catalogue['Source'][ev], nomad=False, log=False)
+            c = star.geocentric(nt[idx][ev])
+            pars = [star.code, SkyCoord(c.ra,c.dec), star.mag['G']]
+            try:
+                pars = np.hstack((pars, occ_params(star, ephem, nt[idx][ev])))
+                occs.append(pars)
+            except:
+                pass
 
+    meta = {'name': ephem.name, 'time_beg': time_beg, 'time_end': time_end, 'maglim': mag_lim, 'max_ca': dist.max(),
+            'radius':ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value, 'error_dec': ephem.error_dec.to(u.mas).value}
     if not occs:
         warnings.warn('No stellar occultation was found')
         return Prediction(meta=meta)
     # create astropy table with the params
-    meta = {'name': ephem.name, 'time_beg': time_beg, 'time_end': time_end, 'maglim': mag_lim, 'max_ca': dist.max(),
-            'radius':ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value, 'error_dec': ephem.error_dec.to(u.mas).value}
     occs2 = np.transpose(occs)
     time = Time(occs2[3])
     geocentric = ephem.get_position(time)
