@@ -288,6 +288,12 @@ class Occultation():
         lightcurve.set_vel(np.absolute(self.vel))
         lightcurve.set_dist(float(self.dist.AU))
         lightcurve.set_diam(float(self.star_diam.AU))
+        try:
+            lightcurve.calc_magnitude_drop(mag_star=self.star.mag['G'],mag_obj=self.ephem.apparent_magnitude(self.tca))
+        except:
+            lightcurve.bottom_flux = 0.0
+            warnings.warn('Magnitude drop was not calculated. Using bottom flux as 0.0 instead.')
+
 
     def remove_observation(self, key, key_lc=None):
         """ Removes observation from the Occultation object.
