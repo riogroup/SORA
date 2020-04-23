@@ -17,14 +17,14 @@ def positionv(star,ephem,observer,time):
     """ Calculates the position and velocity of the occultation shadow relative to the observer.
         
     Parameters:
-    star (Star): The coordinate of the star in the same frame as the ephemeris.
-    It must be a Star object.
-    ephem (Ephem): Ephemeris. It must be an Ephemeris object.
-    observer (Observer): The Observer object to be added.
-    time (Time): Instant to calculate position and velocity
+        star (Star): The coordinate of the star in the same frame as the ephemeris.
+        It must be a Star object.
+        ephem (Ephem): Ephemeris. It must be an Ephemeris object.
+        observer (Observer): The Observer object to be added.
+        time (Time): Instant to calculate position and velocity
     
     Return:
-    f, g (float): The orthographic projection of the shadow relative to the observer
+        f, g (float): The orthographic projection of the shadow relative to the observer
     """
     if type(star) != Star:
         raise ValueError('star must be a Star object')
@@ -57,38 +57,56 @@ def positionv(star,ephem,observer,time):
 
 
 def fit_ellipse(*args, **kwargs):
+    """ Fits an ellipse to given occultation
+
+    Parameters:
+        required params:
+        Each occultation is added as the first arguments directly.
+        center_f (int,float): The coordinate in f of the ellipse.
+        center_g (int,float): The coordinate in g of the ellipse.
+        equatorial_radius (int,float): The Equatorial radius of the ellipse.
+        oblateness (int,float): The oblateness of the ellipse.
+        pos_angle (int,float): The pole position angle of the ellipse.
+
+        Params for the interval of search, if not given, default is set to zero.
+        Search between (value - dvalue) and (value + dvalue):
+        dcenter_f (int,float)
+        dcenter_g (int,float)
+        dequatorial_radius (int,float)
+        doblateness (int,float)
+        dpos_angle (int,float)
+
+        loop: The number of ellipsis to attempt fitting. Default: 10,000,000
+        dchi_min: If given, it will only save ellipsis which chi square are
+            smaller than chi_min + dchi_min.
+        number_chi: if dchi_min is given, the procedure is repeated until
+            number_chi is reached. Default: 10,000
+        log: If True, it prints information while fitting. Default: False.
+
+    Return:
+        chisquare: A ChiSquare object with all parameters.
+
+    Example:
+        fit_ellipse(occ1, **kwargs) to fit the ellipse to the chords of occ1 Occultation object
+        fit_ellipse(occ1, occ2, **kwargs) to fit the ellipse to the chords
+            of occ1 and occ2 Occultation objects together
+    """
     params_needed = ['center_f', 'center_g', 'equatorial_radius', 'oblateness', 'pos_angle']
     if not all([param in kwargs for param in params_needed]):
         raise ValueError('Input conditions not satisfied. Please refer to the tutorial.')
     center_f = kwargs['center_f']
-    dcenter_f = 0.0
-    if 'dcenter_f' in kwargs:
-        dcenter_f = kwargs['dcenter_f']
+    dcenter_f = kwargs.get('dcenter_f', 0.0)
     center_g = kwargs['center_g']
-    dcenter_g = 0.0
-    if 'dcenter_g' in kwargs:
-        dcenter_g = kwargs['dcenter_g']
+    dcenter_g = kwargs('dcenter_g', 0.0)
     equatorial_radius = kwargs['equatorial_radius']
-    dequatorial_radius = 0.0
-    if 'dequatorial_radius' in kwargs:
-        dequatorial_radius = kwargs['dequatorial_radius']
+    dequatorial_radius = kwargs('dequatorial_radius', 0.0)
     oblateness = kwargs['oblateness']
-    doblateness = 0.0
-    if 'doblateness' in kwargs:
-        doblateness = kwargs['doblateness']
+    doblateness = kwargs('doblateness', 0.0)
     pos_angle = kwargs['pos_angle']
-    dpos_angle = 0.0
-    if 'dpos_angle' in kwargs:
-        dpos_angle = kwargs['dpos_angle']
-    loop = 10000000
-    if 'loop' in kwargs:
-        loop = kwargs['loop']
-    number_chi = 10000
-    if 'number_chi' in kwargs:
-        number_chi = kwargs['number_chi']
-    log = False
-    if 'log' in kwargs:
-        log = kwargs['log']
+    dpos_angle = kwargs('dpos_angle', 0.0)
+    loop = kwargs('loop', 10000000)
+    number_chi = kwargs('number_chi', 10000)
+    log = kwargs('log', False)
 
     values = []
     for occ in args:
@@ -173,7 +191,15 @@ def fit_ellipse(*args, **kwargs):
 
 
 class _PositionDict(dict):
+    """ This is a modified Dictionary object to allow for switch on/off of data points,
+    it also avoids for user to change data.
+    """
     def __setitem__(self, key, value):
+        """Redefine how to set a value to a key in the dictionary.
+        it only sets a value if the key starts with '_occ_'.
+        Otherwise, it only allows for the user to provide 'on' or 'off'
+        which is passed only to change the 'on' keyword.
+        """
         status = {'on': True, 'off': False}
         n = 0
         if key.startswith('_occ_'):
@@ -212,12 +238,13 @@ class Occultation():
     '''
     def __init__(self, star, ephem, time):
         """ Instantiate Occultation object.
-        
-        Parameters:
-        star (Star):The coordinate of the star in the same frame as the ephemeris.
-        It must be a Star object.
-        ephem (Ephem):Ephemeris. It must be an Ephemeris object.
 
+        Parameters:
+            star (Star):The coordinate of the star in the same frame as the ephemeris.
+            It must be a Star object.
+            ephem (Ephem):Ephemeris. It must be an Ephemeris object.
+            time (str, Time): The approximate time of the occultation (~10min)
+                to calculate occultation params.
         """
         if type(star) != Star:
             raise ValueError('star must be a Star object')
@@ -244,12 +271,11 @@ class Occultation():
         self._position = _PositionDict()
     
     def add_observation(self, obs, lightcurve):
-        """ Add Observers to the Occultation object.
-        
-        Parameters:
-        obs (Observer):The Observer object to be added.
-        status (string): it can be "positive", "negative", "visual" or "undefined"
+        """ Add observations to the Occultation object.
 
+        Parameters:
+            obs (Observer):The Observer object to be added.
+            status (string): it can be "positive", "negative", "visual" or "undefined"
         """
         if type(obs) != Observer:
             raise ValueError('obs must be an Observer object')
@@ -264,6 +290,14 @@ class Occultation():
         lightcurve.set_diam(float(self.star_diam.AU))
 
     def remove_observation(self, key, key_lc=None):
+        """ Removes observation from the Occultation object.
+
+        Parameters:
+            key: The name given to Observer or LightCurve to remove from the list.
+            keylc: In the case where repeated names are present for different observations,
+                keylc must be given for the name of the LightCurve
+                and key will be used for the name of the Observer.
+        """
         rm_list = np.array([])
         obs = []
         lcs = []
@@ -302,16 +336,43 @@ class Occultation():
             print('Observer= {}, LC: {}'.format(o.name, l.name))
 
     def fit_ellipse(self, **kwargs):
-        # fit ellipse to the points
+        """ Fits an ellipse to the chords of this occultation
+
+        Parameters:
+            required params:
+            Each occultation is added as the first arguments directly.
+            center_f (int,float): The coordinate in f of the ellipse.
+            center_g (int,float): The coordinate in g of the ellipse.
+            equatorial_radius (int,float): The Equatorial radius of the ellipse.
+            oblateness (int,float): The oblateness of the ellipse.
+            pos_angle (int,float): The pole position angle of the ellipse.
+
+            Params for the interval of search, if not given, default is set to zero.
+            Search between (value - dvalue) and (value + dvalue):
+            dcenter_f (int,float)
+            dcenter_g (int,float)
+            dequatorial_radius (int,float)
+            doblateness (int,float)
+            dpos_angle (int,float)
+
+            loop: The number of ellipsis to attempt fitting. Default: 10,000,000
+            dchi_min: If given, it will only save ellipsis which chi square are
+                smaller than chi_min + dchi_min.
+            number_chi: if dchi_min is given, the procedure is repeated until
+                number_chi is reached. Default: 10,000
+            log: If True, it prints information while fitting. Default: False.
+
+        Return:
+            chisquare: A ChiSquare object with all parameters.
+        """
         chisquare = fit_ellipse(self, **kwargs)
         return chisquare
 
-    def fit_to_shape(self):
-        # fit points to a 3D shape model
-        return
-
     @property
     def positions(self):
+        """ Calculates the positions and velocities for all chords.
+        Saves it into an _PositionDict object.
+        """
         position = self._position
         if len(self.__observations) == 0:
             raise ValueError('There is no observation defined for this occultation')
@@ -417,6 +478,9 @@ class Occultation():
 
     @positions.setter
     def positions(self, value):
+        """ If the users tries to set a value to position, it must be 'on' or 'off',
+        and it will be assigned to all chords.
+        """
         if not hasattr(self, '_position'):
             pos = self.positions
         if value not in ['on','off']:
@@ -450,7 +514,7 @@ class Occultation():
     def new_astrometric_position(self, time=None, offset=None, error=None):
         """ Calculates the new astrometric position for the object given fitted params
 
-        INPUT:
+        Parameters:
             time: Time to which calculate the position. If not given, it uses the instant at C/A.
             offset (list): Offset to apply to the position. If not given, it uses the params fitted from ellipse.
                 Offsets must be a list of 3 values being [X, Y, 'unit'], where 'unit' must be an angular or distance unit.
@@ -534,7 +598,15 @@ class Occultation():
                                                                new_pos.dec.to_string(u.deg, precision=4, sep=' '), error_dec.to(u.mas).value))
 
     def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red'):
-        # plot chords of the occultation
+        """Plots the chords of the occultation
+
+        Parameters:
+            all_chords (bool): if True, it plots all the chords,
+                if False, it sees what was deactivated in self.positions and ignores them
+            positive_color: color for the positive chords. Default: blue
+            negative_color: color for the negative chords. Default: green
+            error_color: color for the error bars of the chords. Default: red
+        """
         positions = self.positions
         for site in positions.keys():
             pos_obs = positions[site]
@@ -559,12 +631,9 @@ class Occultation():
                         arr = np.array([pos_lc['immersion']['value'], pos_lc['emersion']['value']])
                         plt.plot(*arr.T, color=positive_color, linewidth=0.7)
         plt.axis('equal')
-    
+
     def get_map_sites(self):
         """Return Dictionary with sites in the format required by plot_occ_map function
-
-        Parameters:
-            None
 
         Returns:
             sites (dict): Dictionary with the sites in the format required by plot_occ_map function

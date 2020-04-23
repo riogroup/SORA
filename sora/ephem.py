@@ -13,6 +13,7 @@ import warnings
 
 def read_obj_data():
     """ Reads online table with physical parameter for selected objects
+    at http://devel2.linea.gov.br/~altair.gomes/radius.txt
 
     Return:
         python dictionary

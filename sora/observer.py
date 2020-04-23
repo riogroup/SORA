@@ -8,6 +8,12 @@ from .config import test_attr
 from .star import Star
 
 def search_code_mpc():
+    """ Reads the MPC Observer Database
+
+    Return:
+        observatories (dict): A python dictionaty with all the sites
+            as an Astropy EarthLocation object
+    """
     obs = MPC.get_observatory_codes()
     observatories = {}
     for line in obs:
@@ -22,13 +28,26 @@ def search_code_mpc():
         
 
 class Observer():
-    '''
-    Docstring
-    Define the observer object
-    '''
+    """Define the observer object
+    """
     __names = []
     def __init__(self, *args, **kwargs):
-        # Run initial parameters
+        """
+        Parameters:
+            name (str): Name for the Observer. (required)
+                Each time an Observer object is defined, the name must be different.
+            code (str): The IAU code to look for coordinates in MPC database
+            site (EarthLocation): To provide a EarthLocation object to Object.
+            lon (int, float): The Longitude of the site.
+            lat (int, float): The Latitude of the site.
+            height (int, float): The height of the site.
+
+        The user must provide one of the followings:
+        Observer(code)
+        Observer(name, code) if the user wants to use a different name from the MPC database
+        Observer(name, site)
+        Observer(name, lon, lat, height)
+        """
         if 'name' not in kwargs:
             kwargs['name'] = 'User'
         if len(args) == 1 or 'code' in kwargs:
@@ -42,7 +61,8 @@ class Observer():
                     pass
             self.code = kwargs['code']
             try:
-                self.__name, self.site = search_code_mpc()[self.code]
+                name, self.site = search_code_mpc()[self.code]
+                self.__name = kwargs.get('name', name)
             except:
                 raise ValueError('code {} could not be located in MPC database'.format(self.code))
         elif len(args) == 2 or all(i in kwargs for i in ['name', 'site']):
@@ -148,6 +168,8 @@ class Observer():
         return out
 
     def __del__(self):
+        """ When this object is deleted, it removes the name from the Class name list.
+        """
         try:
             self.__names.remove(self.__name)
         except:

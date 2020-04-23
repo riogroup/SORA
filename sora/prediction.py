@@ -87,6 +87,8 @@ class Prediction(Table):
             super().__init__(values, **kwargs)
 
     def __getitem__(self, item):
+        """ The redefinition of __getitem__ allows for selecting prediction based on the ISO date of the event
+        """
         if isinstance(item, str) and item not in self.colnames:
             col = self['Epoch']
             arr = list([i for i, c in enumerate(col) if c.startswith(item)])
@@ -98,6 +100,18 @@ class Prediction(Table):
 
     @classmethod
     def from_praia(cls, filename, name, **kwargs):
+        """ Create a Prediction Table reading from a PRAIA table
+
+        INPUT:
+            filename (str): path to the PRAIA table file.
+            name (str): Name of the Object of the Prediction.
+            radius (int,float): Object radius. (not required)
+                If not given it search in online database.
+                If not found online, the defaults is set to zero.
+
+        OUTPUT:
+            A Prediction Table
+        """
         from .ephem import read_obj_data
         occs = {}
         if os.path.isfile(filename) == False:
@@ -297,7 +311,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
 
     # determine suitable divisions for star search
     radius = ephem.radius + const.R_earth
-    mindist = np.arcsin(radius/coord[0].distance) + sigma*np.max([ephem.error_ra.value,ephem.error_dec.value])*u.arcsec
+    mindist = np.arcsin(radius/coord.distance).max() + sigma*np.max([ephem.error_ra.value,ephem.error_dec.value])*u.arcsec
     divisions = []
     n=0
     while True:
@@ -347,7 +361,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
             except:
                 pass
 
-    meta = {'name': ephem.name, 'time_beg': time_beg, 'time_end': time_end, 'maglim': mag_lim, 'max_ca': dist.max(),
+    meta = {'name': ephem.name, 'time_beg': time_beg, 'time_end': time_end, 'maglim': mag_lim, 'max_ca': mindist,
             'radius':ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value, 'error_dec': ephem.error_dec.to(u.mas).value}
     if not occs:
         warnings.warn('No stellar occultation was found')
@@ -459,7 +473,7 @@ def plot_occ_map(obj, radius, **kwargs):
         vel (int, vel): Velocity of the event (km/s)
         dist (int, float): Object distance at C/A (AU)
         **kwargs: all other parameter is not required
-            and can be refered in the tutorial page.
+            and can be referred in the tutorial page.
     """
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature

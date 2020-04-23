@@ -49,18 +49,104 @@ def fit_pol(x,y,deg):
 
 
 class LightCurve():
-    '''
-    Docstring
-    Define a Light Curve
-    '''
     __names = []
     def __init__(self, name, **kwargs):
+        """ Define a Light Curve
+
+        Parameters:
+            name (str): The name of the LightCurve. (required)
+                Each time an LightCurve object is defined,
+                the name must be different.
+            tref (Time,str,float): Instant of reference. It can be
+                in Julian Date, string in ISO format or Time object.
+                Required only if LightCurve have input fluxes and
+                given time is not in Julian Date.
+            lambda (int,float): The band pass of observation (not required)
+                in microns
+            delta_lambda (int,float): The band width (not required.)
+
+            Input data must be one of the 4 options below:
+            file (str): a file with the time and flux in the first
+                and second columns, respectively. A third columns
+                with error in flux can also be given.
+
+            IF file is not given:
+            time: time must be a list of times, in seconds from tref,
+                or Julian Date, or a Time object.
+            flux: flux must be a list of fluxes. It must have the
+                same lenght as time.
+            dflux: if file not given, dflux must be a list of fluxes errors.
+                It must have the same lenght as time. (not required)
+
+            IF time and flux are not given.
+            For a positive occultation
+            immersion: The instant of immersion.
+            emersion: The instant of emersion
+
+            For a negative occultation
+            initial_time: The initial time of observation
+            end_time: The end time of observation.
+        """
         input_done = False
         self.dflux = None
         self.__name = name
         if self.__name in self.__names:
             raise ValueError('name {} already defined for another LightCurve object. Please choose a different one.'.format(self.__name))
         self.__names.append(self.__name)
+        if 'immersion' in kwargs and 'emersion' in kwargs:
+            self._immersion = kwargs['immersion']
+            self._emersion = kwargs['emersion']
+            self.immersion_err = 0.0
+            if 'immersion_err' in kwargs:
+                self.immersion_err = kwargs['immersion_err']
+            self.emersion_err = 0.0
+            if 'emersion_err' in kwargs:
+                self.emersion_err = kwargs['emersion_err']
+            input_done = True
+        if 'initial_time' in kwargs and 'end_time' in kwargs:
+            self.initial_time = kwargs['initial_time']
+            self.end_time = kwargs['end_time']
+            input_done = True
+        if not input_done:
+            try:
+                self.set_flux(**kwargs)
+            except:
+                raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')
+        self.lambda_0 = kwargs.get('lambda', 0.70)
+        self.delta_lambda = kwargs.get('delta_lambda', 0.30)
+        if hasattr(self,'time'):
+            self.model = np.ones(len(self.time))
+        self.dt = 0.0
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def immersion(self):
+        return self._immersion + self.dt*u.s
+
+    @property
+    def emersion(self):
+        return self._emersion + self.dt*u.s
+
+    def set_flux(self, **kwargs):
+        """ Set the flux for the LightCurve
+
+        Parameters:
+            exptime (int,float): The exposure time of the observation. (required)
+            file (str): a file with the time and flux in the first
+                and second columns, respectively. A third columns
+                with error in flux can also be given.
+            time: if file not given, time must be a list of times,
+                in seconds from tref, or Julian Date, or a Time object.
+            flux: if file not given, flux must be a list of fluxes.
+                It must have the same lenght as time.
+            dflux: if file not given, dflux must be a list of fluxes errors.
+                It must have the same lenght as time.
+            tref (Time,str,float): Instant of reference. It can be
+                in Julian Date, string in ISO format or Time object.
+        """
         if 'file' in kwargs:
             if not os.path.isfile(kwargs['file']):
                 raise ValueError('{} not found'.format(kwargs['file']))
@@ -85,10 +171,9 @@ class LightCurve():
                 if len(self.flux) != len(self.dflux):
                     raise ValueError('dflux must have the same length as flux and time')
             input_done = True
-        if input_done and 'exptime' not in kwargs:
+        if 'exptime' not in kwargs:
             raise ValueError('exptime not defined')
-        if 'exptime' in kwargs:
-            self.exptime = kwargs['exptime']
+        self.exptime = kwargs['exptime']
         if 'tref' in kwargs:
             try:
                 if type(kwargs['tref']) in [Time,str]:
@@ -119,75 +204,6 @@ class LightCurve():
             self.initial_time = np.min(time)
             self.end_time = np.max(time)
             self.cycle = np.median(self.time[1:] - self.time[:-1])
-        if 'immersion' in kwargs and 'emersion' in kwargs:
-            self._immersion = kwargs['immersion']
-            self._emersion = kwargs['emersion']
-            self.immersion_err = 0.0
-            if 'immersion_err' in kwargs:
-                self.immersion_err = kwargs['immersion_err']
-            self.emersion_err = 0.0
-            if 'emersion_err' in kwargs:
-                self.emersion_err = kwargs['emersion_err']
-            input_done = True
-        if 'initial_time' in kwargs and 'end_time' in kwargs:
-            self.initial_time = kwargs['initial_time']
-            self.end_time = kwargs['end_time']
-            input_done = True
-        if not input_done:
-            raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')
-        self.lambda_0 = 0.70 #microns #### *u.micrometer.to('km')
-        if 'lambda' in kwargs:
-            self.lambda_0 = kwargs['lambda']
-        self.delta_lambda = 0.30 #microns #### *u.micrometer.to('km')
-        if 'delta_lambda' in kwargs:
-            self.delta_lambda = kwargs['delta_lambda']
-        if 'dist' in kwargs:
-            self.set_dist(kwargs['dist'])
-        if 'diam' in kwargs:
-            self.set_diam(kwargs['diam'])
-        if 'vel' in kwargs:
-            self.set_vel(kwargs['vel'])
-        if hasattr(self,'time'):
-            self.model = np.ones(len(self.time))
-        #if np.all(self.flux) != None:
-        #    self.flux_obs = self.flux
-        self.dt = 0.0
-
-    @property
-    def name(self):
-        return self.__name
-
-    @property
-    def immersion(self):
-        return self._immersion + self.dt*u.s
-
-    @property
-    def emersion(self):
-        return self._emersion + self.dt*u.s
-    
-    def set_flux(self, **kwargs):
-        if 'file' in kwargs:
-            if not os.path.isfile(kwargs['file']):
-                raise ValueError('{} not found'.format(kwargs['file']))
-            try:
-                time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0,1,2], unpack=True)
-                self.flux_obs = self.flux
-            except:
-                time, self.flux = np.loadtxt(kwargs['file'], usecols=[0,1], unpack=True)
-                self.flux_obs = self.flux
-            else:
-                raise ValueError('Input file must have 2 or 3 columns')
-        elif 'time' in kwargs and 'flux' in kwargs:
-            self.flux = kwargs['flux']
-            time = kwargs['time']
-            if len(self.flux) != len(time):
-                raise ValueError('time and flux must have the same length')
-            if 'dflux' in kwargs:
-                self.dflux = np.array(kwargs['dflux'], ndmin=1)
-                if len(self.flux) != len(self.dflux):
-                    raise ValueError('dflux must have the same length as flux and time')
-        else:
-            raise ValueError('User must provide a "file" param or a "time" and "flux" params.')
 
     def set_vel(self,vel):
         '''
@@ -231,8 +247,6 @@ class LightCurve():
             raise TypeError('diam must be a float or an Astropy Unit object')
         self.d_star = diam
 
-
-        
     def normalize(self,poly_deg=None,mask=None,**kwargs):
         """ Returns the fresnel scale.
         ----------

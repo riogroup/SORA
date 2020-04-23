@@ -21,8 +21,7 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0, 
     
     theta= np.linspace(-np.pi, np.pi, 1800)
     size_vals, size_theta = np.indices((len(equatorial_radius), len(theta)))
-    
-    
+
     if len(equatorial_radius) == 1:
         if 'color' not in kwargs:
             kwargs['color'] = 'black'
@@ -72,14 +71,14 @@ class ChiSquare():
                 raise ValueError('{} size must have the same size as given chi2')
             self.__names.append(item)
             self.data[item] = kwargs[item]
-        
+
     def get_nsigma(self,sigma=1, key=None):
         """ Determines the interval of the chi-square within the n-th sigma
 
         Parameters:
             sigma (float, int): Value of sigma to calculate.
             key (str): keyword the user desire to obtain results.
-            
+
         Return:
             - if a key is given, it returns two values: the mean value within the n-sigma
             and the error bar within the n-sigma.
@@ -87,7 +86,6 @@ class ChiSquare():
             the sigma required, the number of points where chi2 < chi2_min + sigma^2,
             and the mean values and errors for all keys.
         """
-        
         values = np.where(self.data['chi2'] < self.data['chi2'].min() + sigma**2)[0]
         output = {'chi2_min': self.data['chi2'].min()}
         output['sigma'] = sigma
@@ -102,7 +100,7 @@ class ChiSquare():
                                  .format(key, self.__names[1:]))
             return output[key]
         return output
-    
+
     def plot_chi2(self, key=None):
         """ Plots an ellipse given input parameters
 
@@ -129,7 +127,7 @@ class ChiSquare():
             plt.ylabel('Chi2',fontsize=20)
             if key is None:
                 plt.show()
-                
+
     def to_file(self, namefile):
         """ Save the data to a file
 
@@ -143,7 +141,19 @@ class ChiSquare():
             f.write('Column {}: {}\n'.format(i+1,name))
         f.close()
 
-    def get_values(self, sigma=0.0):
+    def get_values(self, sigma=0.0, key=None):
+        """ Returns all values where the chi-square is within the n-th sigma
+
+        Parameters:
+            sigma (float, int): Value of sigma to calculate.
+            key (str): keyword the user desire to obtain results.
+
+        Return:
+            - if a key is given, it returns list with all the values that are within the n-sigma.
+            - if no key is given, it returns a dictionary with the list with all the values
+            that are within the n-sigma for all keys.
+            - if sigma is zero, it returns the parameters for the minimum chi-square instead of a list.
+        """
         values = {}
         if sigma == 0.0:
             k = np.argsort(self.data['chi2'])[0]
@@ -152,7 +162,7 @@ class ChiSquare():
         for name in self.__names[1:]:
             values[name] = self.data[name][k]
         return values
-                
+
     def __str__(self):
         """ String representation of the ChiSquare Object
         """
