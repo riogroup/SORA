@@ -26,10 +26,7 @@ class Prediction(Table):
     """
     Row = PredictRow
     def __init__(self, *args, **kwargs):
-        if not all([i in kwargs for i in ['time', 'coord_star', 'coord_obj','ca', 'pa', 'vel', 'dist']]):
-            super().__init__(*args, names=['Epoch', 'ICRS Star Coord at Epoch', 'Geocentric Object Position', 'C/A', 'PA', 'Vel',
-                                           'Dist', 'G', 'G*', 'long', 'loct', 'GAIA-DR2 Source ID'], **kwargs)
-        else:
+        if 'time' in kwargs:
             values = {}
             time = Time(kwargs['time'])
             time.delta_ut1_utc = 0.0
@@ -85,15 +82,19 @@ class Prediction(Table):
             else:
                 values['GAIA-DR2 Source ID'] = Column(np.repeat('', len(time)))
             super().__init__(values, **kwargs)
+        else:
+            super().__init__(*args, **kwargs)
 
     def __getitem__(self, item):
         """ The redefinition of __getitem__ allows for selecting prediction based on the ISO date of the event
         """
         if isinstance(item, str) and item not in self.colnames:
             col = self['Epoch']
-            arr = list([i for i, c in enumerate(col) if c.startswith(item)])
-            if len(arr) is not 1:
-                raise KeyError('Given key is not enough to identify an unique row.')
+            arr = list([i for i, c in enumerate(col) if c.iso.startswith(item)])
+            if len(arr) is 0:
+                raise KeyError('No prediction corresponds to time "{}"'.format(item))
+            elif len(arr) > 1:
+                return self[arr]
             else:
                 return self.Row(self, arr[0])
         return super().__getitem__(item)
