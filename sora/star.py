@@ -36,7 +36,7 @@ def search_star(**kwargs):
     return catalogue
 
 
-def van_belle(magB, magV, magK):
+def van_belle(magB=None, magV=None, magK=None):
     '''
     Determine the diameter of a star in mas using equations from van Belle (1999) 
     -- Publi. Astron. Soc. Pacific 111, 1515-1523:
@@ -44,6 +44,12 @@ def van_belle(magB, magV, magK):
     Inputs:
         magB, magV, magK: The magnitudes B, V and K of the star
     '''
+    if magB is None or np.isnan(magB) or magB > 49:
+        magB = np.nan
+    if magV is None or np.isnan(magV) or magV > 49:
+        magV = np.nan
+    if magK is None or np.isnan(magK) or magK > 49:
+        magK = np.nan
 
     def calc_diameter(a1, a2, mag):
         return 10**(a1 + a2*(mag - magK) - 0.2*mag)
@@ -55,13 +61,17 @@ def van_belle(magB, magV, magK):
     mag = np.array([magB, magV])
     diameter = {}
     for st in ['sg', 'ms', 'vs']:
-        diameter[st] = {}
+        diameter_s = {}
         for i,m in enumerate(['B','V']):
-            diameter[st][m] = calc_diameter(*params[st][m], mag[i])*u.mas
+            diam = calc_diameter(*params[st][m], mag[i])
+            if not np.isnan(diam):
+                diameter_s[m] = calc_diameter(*params[st][m], mag[i])*u.mas
+        if diameter_s:
+            diameter[st] = diameter_s
     return diameter
     
     
-def kervella(magB, magV, magK):
+def kervella(magB=None, magV=None, magK=None):
     '''
     Determine the diameter of a star in mas using equations from Kervella et. al (2004) 
     -- A&A Vol.  426, No.  1:
@@ -69,11 +79,22 @@ def kervella(magB, magV, magK):
     Inputs:
         magB, magV, magK: The magnitudes B, V and K of the star
     '''
+    if magB is None or np.isnan(magB) or magB > 49:
+        magB = np.nan
+    if magV is None or np.isnan(magV) or magV > 49:
+        magV = np.nan
+    if magK is None or np.isnan(magK) or magK > 49:
+        magK = np.nan
     const1 = np.array([0.0755, 0.0535])
     const2 = np.array([0.5170, 0.5159])
     mag = np.array([magV,magB])
     vals = 10**(const1*(mag-magK)+const2-0.2*magK)
-    return {'V': vals[0]*u.mas, 'B': vals[1]*u.mas}
+    diam = {}
+    if not np.isnan(vals[0]):
+        diam['V'] = vals[0]*u.mas
+    if not np.isnan(vals[1]):
+        diam['B'] = vals[1]*u.mas
+    return diam
 
 
 class Star():
@@ -140,7 +161,7 @@ class Star():
         Inputs:
             diameter = float, in mas
         '''
-        self.diameter_user = star_diameter*u.mas
+        self.diameter_user = diameter*u.mas
 
     
     def van_belle(self):
@@ -148,7 +169,7 @@ class Star():
         Determine the diameter of a star in mas using equations from van Belle (1999) 
         -- Publi. Astron. Soc. Pacific 111, 1515-1523:
        '''
-        return van_belle(self.mag['B'], self.mag['V'], self.mag['K'])
+        return van_belle(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
     
 
     def kervella(self):
@@ -156,7 +177,7 @@ class Star():
         Determine the diameter of a star in mas using equations from Kervella et. al (2004) 
         -- A&A Vol.  426, No.  1:
         '''
-        return kervella(self.mag['B'], self.mag['V'], self.mag['K'])
+        return kervella(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
     
     
     def apparent_diameter(self, distance, mode='auto', log=True, **kwargs):
@@ -427,12 +448,11 @@ class Star():
         dadc = test_attr(da_cosdec, float, 'da_cosdec')
         dd = test_attr(ddec, float, 'ddec')
         self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
-        
-    
+
     def __str__(self):
         """String representation of the Star class
         """
-        out = 'ICRS star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}\n'.format(self.coord.obstime.jyear,
+        out = 'ICRS star coordinate at J{}:\nRA={} +/- {:.4f}, DEC={} +/- {:.4f}\n\n'.format(self.coord.obstime.jyear,
             self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
             self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'])
         if hasattr(self, 'code'):
@@ -440,11 +460,26 @@ class Star():
         if hasattr(self, 'offset'):
             out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}\n'.format(self.offset.d_lon_coslat, self.offset.d_lat)
         out += 'Magnitudes:'
-        for mag in self.mag:
-            out += ' {}: {:6.3f},'.format(mag, self.mag[mag])
-        out += '\b\n'
+        mag_out = [' {}: {:6.3f}'.format(mag, self.mag[mag]) for mag in self.mag]
+        out_mag = []
+        for i,mag in enumerate(mag_out):
+            if i%6 == 0:
+                out_mag.append([])
+            out_mag[-1].append(mag)
+        out += (',\n'+' '*11).join([','.join(out_i) for out_i in out_mag])
+        out += '\n\n'
         if hasattr(self, 'diameter_gaia'):
-            out += 'Diameter: {:.4f}, Source: Gaia-DR2\n'.format(self.diameter_gaia)
+            out += 'Apparent diameter: {:.4f}, Source: Gaia-DR2\n'.format(self.diameter_gaia)
         if hasattr(self, 'diameter_user'):
-            out += 'Diameter: {:.4f}, Source: USER\n'.format(self.diameter_user)
+            out += 'Apparent diameter: {:.4f}, Source: User\n'.format(self.diameter_user)
+        kerv = self.kervella()
+        if kerv:
+            out += 'Apparent diameter from Kervella et. al (2004):\n'
+            out += '   ' + ','.join([' {}: {:.4f}'.format(k, v) for k,v in kerv.items()])
+        vanb = self.van_belle()
+        if vanb:
+            out += '\nApparent diameter from van Belle (1999):'
+            for key, value in vanb.items():
+                out += '\n    {}:'.format(key)
+                out += ','.join([' {}: {:.4f}'.format(k, v) for k,v in value.items()])
         return out
