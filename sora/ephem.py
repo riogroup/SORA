@@ -305,6 +305,24 @@ class EphemJPL():
         dd = -target.cartesian.z
         return da.to(u.km).value, dd.to(u.km).value
 
+    def  get_pole_position_angle(self,pole,time):
+        """ Returns the geocentric position of the object.
+
+        Parameters:
+        pole (str, astropy.SkyCoord):Coordinate of the pole ICRS.
+        time (int, float): Time from which to calculate the position.
+
+        Returns:
+        position_angle (float): Position angle of the pole, in degrees
+        aperture_angle (float): Apeture angle of the pole, in degrees
+        """
+        if type(pole) == str:
+            pole = SkyCoord(pole, unit=(u.hourangle, u.deg))
+        obj = self.get_position(time)
+        position_angle = obj.position_angle(pole).value*u.rad
+        aperture_angle = np.arcsin(-1*(np.sin(pole.dec)*np.sin(obj.dec) + np.cos(pole.dec)*np.cos(obj.dec)*np.cos(pole.ra-obj.ra)))
+        return position_angle.to('deg'), aperture_angle.to('deg')
+
     def __str__(self):
         """ String representation of the EphemPlanete Class.
         """
@@ -402,6 +420,24 @@ class EphemKernel():
         da = -target.cartesian.y
         dd = -target.cartesian.z
         return da.to(u.km).value, dd.to(u.km).value
+
+    def  get_pole_position_angle(self,pole,time):
+        """ Returns the geocentric position of the object.
+
+        Parameters:
+        pole (str, astropy.SkyCoord):Coordinate of the pole ICRS.
+        time (int, float): Time from which to calculate the position.
+
+        Returns:
+        position_angle (float): Position angle of the pole, in degrees
+        aperture_angle (float): Apeture angle of the pole, in degrees
+        """
+        if type(pole) == str:
+            pole = SkyCoord(pole, unit=(u.hourangle, u.deg))
+        obj = self.get_position(time)
+        position_angle = obj.position_angle(pole).value*u.rad
+        aperture_angle = np.arcsin(-1*(np.sin(pole.dec)*np.sin(obj.dec) + np.cos(pole.dec)*np.cos(obj.dec)*np.cos(pole.ra-obj.ra)))
+        return position_angle.to('deg'), aperture_angle.to('deg')
 
     def __str__(self):
         """ String representation of the EphemPlanete Class.
