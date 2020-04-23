@@ -1,5 +1,5 @@
 import numpy as np
-from astropy.coordinates import SkyCoord, SkyOffsetFrame
+from astropy.coordinates import SkyCoord, SkyOffsetFrame, SphericalCosLatDifferential, ICRS
 from astropy.time import Time
 from astropy.table import vstack
 import astropy.units as u
@@ -96,8 +96,13 @@ class EphemPlanete():
 
     Parameters:
         name (str): name of the object for search in the JPL database
-        ephem (str):Input file with hour, minute, RA, DEC, distance  
-
+        ephem (str):Input file with hour, minute, RA, DEC, distance
+        radius (int,float): Object radius, in km (Default: Online database)
+        error_ra (int,float): Ephemeris RA*cosDEC error, in mas (Default: Online database)
+        error_dec (int,float): Ephemeris DEC error, in mas (Default: Online database)
+        mass (int,float): Object Mass, in kg (Default: 0.0)
+        H (int,float): Object Absolute Magnitude (Default: NaN)
+        G (int,float): Object Phase slope (Default: NaN)
     """
     def __init__(self, name, ephem, **kwargs):
         data = np.loadtxt(ephem, unpack=True)
@@ -123,8 +128,8 @@ class EphemPlanete():
         """ Fits the on-sky ephemeris position relative to a star
         
         Parameters:
-        star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
-        log (bool): if fit log is to printed. Default: True
+            star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+            log (bool): if fit log is to printed. Default: True
         """
         if type(star) == str:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
@@ -178,7 +183,15 @@ class EphemPlanete():
         if hasattr(self, 'ksi') and hasattr(self, 'eta'):
             ksi = np.poly1d(self.ksi)
             eta = np.poly1d(self.eta)
-            return ksi((time-self.__reftime)/(self.max_time-self.min_time)), eta((time-self.__reftime)/(self.max_time-self.min_time))
+            k = ksi((time-self.__reftime)/(self.max_time-self.min_time))
+            e = eta((time-self.__reftime)/(self.max_time-self.min_time))
+            if hasattr(self, 'offset'):
+                dist = self.ephem[0].distance.to(u.km).value
+                dksi = np.sin(self.offset.d_lon_coslat)*dist
+                deta = np.sin(self.offset.d_lat)*dist
+                k = k + dksi
+                e = e + deta
+            return k, e
         else:
             raise ValueError('A "star" parameter is missing. Please run fit_d2_ksi_eta first.')
 
@@ -202,11 +215,51 @@ class EphemPlanete():
         else:
             return eph['V'].tolist()
 
+    def add_offset(self, da_cosdec, ddec):
+        """Add an offset to the Ephemeris
+
+        Parameters:
+            da_cosdec (int, float):Delta_alpha_cos_delta in mas
+            ddec (int, float):Delta_delta in mas
+        """
+        dadc = test_attr(da_cosdec, float, 'da_cosdec')
+        dd = test_attr(ddec, float, 'ddec')
+        self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
+
     def __str__(self):
         """ String representation of the EphemPlanete Class.
         """
         out = 'Ephemeris of {}.\n'.format(self.name)
+        out += 'Radius: {:.1f}\n'.format(self.radius)
+        out += 'Mass: {:.2e}\n'.format(self.mass)
+        out += '\nEphem Planete:\n'
         out += 'Valid from {} until {}\n'.format(self.min_time.iso, self.max_time.iso)
+        out += 'Ephem Error: RA*cosDEC: {:.3f}; DEC: {:.3f}\n'.format(self.error_ra, self.error_dec)
+        if hasattr(self,'star'):
+            out += 'Fitted ephemeris position relative to star coordinate {}\n'.format(self.star.to_string('hmsdms'))
+            out += '    ksi = aksi*t\u00b2 + bksi*t + cksi\n'
+            out += '    eta = aeta*t\u00b2 + beta*t + ceta\n'
+            out += '    t=(jd-{})/({}-{})\n'.format(self.__reftime.jd, self.max_time.jd,self.min_time.jd)
+            out += '        aksi={}\n'.format(self.ksi[0])
+            out += '        bksi={}\n'.format(self.ksi[1])
+            out += '        cksi={}\n'.format(self.ksi[2])
+            out += '        aeta={}\n'.format(self.eta[0])
+            out += '        beta={}\n'.format(self.eta[1])
+            out += '        ceta={}\n'.format(self.eta[2])
+            target = self.ephem.transform_to(SkyOffsetFrame(origin=self.star))
+            da = -target.cartesian.y
+            dd = -target.cartesian.z
+            dt = (self.time-self.__reftime)/(self.max_time-self.min_time)
+            ksi = np.poly1d(self.ksi)
+            eta = np.poly1d(self.eta)
+            dksi = da.to(u.km).value - ksi(dt)
+            deta = dd.to(u.km).value - eta(dt)
+            rmsk = np.sqrt(np.mean(np.square(dksi)))
+            rmse = np.sqrt(np.mean(np.square(deta)))
+            out += 'Residual RMS: ksi={:.3f} km, eta={:.3f} km\n'.format(rmsk, rmse)
+        if hasattr(self, 'offset'):
+            out += '\nOffset applied: RA*cosDEC: {:.4f}; DEC: {:.4f}\n'.format(
+                self.offset.d_lon_coslat.to(u.arcsec), self.offset.d_lat.to(u.arcsec))
         return out
 
 
@@ -219,7 +272,12 @@ class EphemJPL():
         (planets but also anything that is not a small body), 'designation',
         'name', 'asteroid_name', 'comet_name', 'id' (Horizons id number),
         or 'smallbody' (find the closest match under any id_type), default: 'smallbody'
-
+        radius (int,float): Object radius, in km (Default: Online database)
+        error_ra (int,float): Ephemeris RA*cosDEC error, in mas (Default: Online database)
+        error_dec (int,float): Ephemeris DEC error, in mas (Default: Online database)
+        mass (int,float): Object Mass, in kg (Default: 0.0)
+        H (int,float): Object Absolute Magnitude (Default: NaN)
+        G (int,float): Object Phase slope (Default: NaN)
     """
     def __init__(self, name, id_type='smallbody', **kwargs):
         self.name = name
@@ -263,6 +321,10 @@ class EphemJPL():
             obj = Horizons(id=self.name, id_type=self.id_type, location='geo', epochs=time.jd)
             eph = obj.ephemerides(extra_precision=True)
         coord = SkyCoord(eph['RA'], eph['DEC'], eph['delta'], frame='icrs', obstime=time)
+        if hasattr(self, 'offset'):
+            pos_frame = SkyOffsetFrame(origin=coord)
+            new_pos = SkyCoord(lon=self.offset.d_lon_coslat, lat=self.offset.d_lat, distance=coord.distance, frame=pos_frame)
+            coord = new_pos.transform_to(ICRS)
         if len(coord) == 1:
             return coord[0]
         return coord
@@ -323,10 +385,27 @@ class EphemJPL():
         aperture_angle = np.arcsin(-1*(np.sin(pole.dec)*np.sin(obj.dec) + np.cos(pole.dec)*np.cos(obj.dec)*np.cos(pole.ra-obj.ra)))
         return position_angle.to('deg'), aperture_angle.to('deg')
 
+    def add_offset(self, da_cosdec, ddec):
+        """Add an offset to the Ephemeris
+
+        Parameters:
+            da_cosdec (int, float):Delta_alpha_cos_delta in mas
+            ddec (int, float):Delta_delta in mas
+        """
+        dadc = test_attr(da_cosdec, float, 'da_cosdec')
+        dd = test_attr(ddec, float, 'ddec')
+        self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
+
     def __str__(self):
         """ String representation of the EphemPlanete Class.
         """
         out = 'Ephemeris of {}.'.format(self.name)
+        out += 'Radius: {:.1f}\n'.format(self.radius)
+        out += 'Mass: {:.2e}\n'.format(self.mass)
+        out += '\nEphemeris are downloaded from Horizons website\n'
+        if hasattr(self, 'offset'):
+            out += 'Offset applied: RA*cosDEC: {:.4f}; DEC: {:.4f}\n'.format(
+                self.offset.d_lon_coslat.to(u.arcsec), self.offset.d_lat.to(u.arcsec))
         return out
 
 
@@ -337,14 +416,23 @@ class EphemKernel():
         name (str): name of the object for search in the JPL database
         code (str): kernel code of the targeting object
         list of paths for kernels
-
+        radius (int,float): Object radius, in km (Default: Online database)
+        error_ra (int,float): Ephemeris RA*cosDEC error, in mas (Default: Online database)
+        error_dec (int,float): Ephemeris DEC error, in mas (Default: Online database)
+        mass (int,float): Object Mass, in kg (Default: 0.0)
+        H (int,float): Object Absolute Magnitude (Default: NaN)
+        G (int,float): Object Phase slope (Default: NaN)
     """
     def __init__(self, name, code, *args, **kwargs):
         self.name = name
         self.code = str(code)
+        self.meta = {}
+        kerns = []
         for arg in args:
             spice.furnsh(arg)
+            kerns.append(arg.split('/')[-1].split('.')[0].upper())
         spice.kclear()
+        self.meta['kernels'] = '/'.join(kerns)
         self.__kernels = args
         try:
             data = read_obj_data()
@@ -367,7 +455,12 @@ class EphemKernel():
         Returns:
         coord (SkyCoord): Astropy SkyCoord object with the coordinate at given time
         """
-        return ephem_kernel(time, self.code, '399', self.__kernels)
+        pos = ephem_kernel(time, self.code, '399', self.__kernels)
+        if hasattr(self, 'offset'):
+            pos_frame = SkyOffsetFrame(origin=pos)
+            new_pos = SkyCoord(lon=self.offset.d_lon_coslat, lat=self.offset.d_lat, distance=pos.distance, frame=pos_frame)
+            pos = new_pos.transform_to(ICRS)
+        return pos
 
     def apparent_magnitude(self,time):
         """ Calculates the Apparent Diameter
@@ -439,8 +532,26 @@ class EphemKernel():
         aperture_angle = np.arcsin(-1*(np.sin(pole.dec)*np.sin(obj.dec) + np.cos(pole.dec)*np.cos(obj.dec)*np.cos(pole.ra-obj.ra)))
         return position_angle.to('deg'), aperture_angle.to('deg')
 
+    def add_offset(self, da_cosdec, ddec):
+        """Add an offset to the Ephemeris
+
+        Parameters:
+            da_cosdec (int, float):Delta_alpha_cos_delta in mas
+            ddec (int, float):Delta_delta in mas
+        """
+        dadc = test_attr(da_cosdec, float, 'da_cosdec')
+        dd = test_attr(ddec, float, 'ddec')
+        self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
+
     def __str__(self):
         """ String representation of the EphemPlanete Class.
         """
         out = 'Ephemeris of {}.\n'.format(self.name)
+        out += 'Radius: {:.1f}\n'.format(self.radius)
+        out += 'Mass: {:.2e}\n'.format(self.mass)
+        out += '\nEphem Kernel: {} (code={})\n'.format(self.meta['kernels'],self.code)
+        out += 'Ephem Error: RA*cosDEC: {:.3f}; DEC: {:.3f}\n'.format(self.error_ra, self.error_dec)
+        if hasattr(self, 'offset'):
+            out += 'Offset applied: RA*cosDEC: {:.4f}; DEC: {:.4f}\n'.format(
+                self.offset.d_lon_coslat.to(u.arcsec), self.offset.d_lat.to(u.arcsec))
         return out
