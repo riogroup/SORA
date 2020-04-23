@@ -20,6 +20,8 @@ def calc_fresnel(distance,lambida):
     distance  (int, float, array): distances, in km.
     lambida   (int, float, array): wavelength, in km.
     ----------
+    Return
+    fresnel_scale  (float, array): fresnel scale, in km
     """
     return np.sqrt(lambida*distance/2)
 
@@ -33,7 +35,7 @@ def fit_pol(x,y,deg):
     y  (array):
     deg  (int): order of the polinomn 
     ----------
-    Returno
+    Return
     ----------
     param (array): Array with the fitted values
     param_err (array): Array with the errors of the fitted values    
@@ -147,6 +149,7 @@ class LightCurve():
             tref (Time,str,float): Instant of reference. It can be
                 in Julian Date, string in ISO format or Time object.
         """
+        input_done = False
         if 'file' in kwargs:
             if not os.path.isfile(kwargs['file']):
                 raise ValueError('{} not found'.format(kwargs['file']))
@@ -247,6 +250,28 @@ class LightCurve():
             raise TypeError('diam must be a float or an Astropy Unit object')
         self.d_star = diam
 
+    def calc_magnitude_drop(self,mag_star,mag_obj):
+        """
+        Determine the magnitude drop
+        ----------
+        Parameters
+        ----------
+        mag_star (float): Stellar magnitude.
+        mag_obj  (float): Object apparent magnitude to the date.
+        ----------
+        Returns
+        ----------
+        mag_drop (float): Magnitude drop for the given magnitudes     
+        bottom_flux (float): Normalized bottom flux for the given magnitudes     
+        """
+        contrast= 1/(1+(10**((mag_star-mag_obj)*0.4)))
+        mag_combined = mag_star-(2.5*(np.log10(1/contrast)))
+        mag_drop = mag_obj - mag_combined
+        bottom_flux = 10**((mag_combined - mag_obj)*0.4)
+        self.mag_drop = mag_drop
+        self.bottom_flux = bottom_flux
+        return 
+ 
     def normalize(self,poly_deg=None,mask=None,**kwargs):
         """ Returns the fresnel scale.
         ----------
