@@ -118,6 +118,7 @@ class LightCurve():
         self.delta_lambda = kwargs.get('delta_lambda', 0.30)
         if hasattr(self,'time'):
             self.model = np.ones(len(self.time))
+            self.time_model = None
         self.dt = 0.0
 
     @property
@@ -573,6 +574,33 @@ class LightCurve():
         else:
             raise ValueError('There is no lightcurve to plot')
         return
+
+    def to_file(self, namefile):
+        """ Save the light currve to a file
+
+        Parameters:
+            namefile (str): Filename to save the data
+        """
+        ###### Observational data
+        data = np.array([(self.time*u.s + self.tref).jd,self.time,self.flux,self.model,self.flux-self.model])
+        colunm_names = ['Time JD','Time relative to {} UTC in seconds'.format(self.tref.iso),'Observational Flux','Modelled Flux','Residual O-C']
+        np.savetxt(namefile, data.T, fmt='%11.8f')
+        f = open(namefile+'.label', 'w')
+        for i, name in enumerate(colunm_names):
+            f.write('Column {}: {}\n'.format(i+1,name))
+        f.close()
+        ###### Complete Model
+        if (np.all(self.time_model) != None):
+            data_model = np.array([(self.time_model*u.s + self.tref).jd,self.time_model,self.model_geometric,self.model_fresnel,self.model_star])
+            colunm_names_model = ['Model time JD','Model time relative to {} UTC in seconds'.format(self.tref.iso),'Geometric Model','Model with Fresnel diffraction','Model with star diameter']
+            np.savetxt('model_'+namefile, data_model.T, fmt='%11.8f')
+            f = open('model_'+namefile+'.label', 'w')
+            for i, name in enumerate(colunm_names_model):
+                f.write('Column {}: {}\n'.format(i+1,name))
+            f.close()
+
+
+
     
     def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None, \
                   n_detections=None):
