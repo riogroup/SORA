@@ -71,6 +71,7 @@ class ChiSquare():
                 raise ValueError('{} size must have the same size as given chi2')
             self.__names.append(item)
             self.data[item] = kwargs[item]
+        self.nparam = len(self.__names) - 1
 
     def get_nsigma(self,sigma=1, key=None):
         """ Determines the interval of the chi-square within the n-th sigma
@@ -168,9 +169,10 @@ class ChiSquare():
         """
         sigma_1 = self.get_nsigma(sigma=1)
         sigma_3 = self.get_nsigma(sigma=3)
-        output = 'Minimum chi-square: {:.3f}\n'.format(sigma_1['chi2_min'])
+        output  = 'Minimum chi-square: {:.3f}\n'.format(sigma_1['chi2_min'])
         output += 'Number of fitted points: {}\n'.format(self.npts)
-        output += 'Minimum chi-square per degree of freedom: {:.3f}\n'.format(sigma_1['chi2_min']/self.npts)
+        output += 'Number of fitted parameters: {}\n'.format(self.nparam)
+        output += 'Minimum chi-square per degree of freedom: {:.3f}\n'.format(sigma_1['chi2_min']/(self.npts-self.nparam))
         for name in self.__names[1:]:
             output += '\n{}:\n'.format(name)
             output += '    1-sigma: {:.3f} +/- {:.3f}\n'.format(*sigma_1[name])

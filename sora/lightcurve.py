@@ -10,7 +10,7 @@ from scipy.odr import odrpack as odr
 from scipy.odr import models
 from .extra import ChiSquare
 import os
-
+import warnings
 
 def calc_fresnel(distance,lambida):
     """ Returns the fresnel scale.
@@ -96,8 +96,14 @@ class LightCurve():
             raise ValueError('name {} already defined for another LightCurve object. Please choose a different one.'.format(self.__name))
         self.__names.append(self.__name)
         if 'immersion' in kwargs and 'emersion' in kwargs:
-            self._immersion = kwargs['immersion']
-            self._emersion = kwargs['emersion']
+            if type(kwargs['immersion']) == str:
+                self._immersion = Time(kwargs['immersion'])
+            else:
+                self._immersion = kwargs['immersion']
+            if type(kwargs['emersion']) == str:
+                self._emersion = Time(kwargs['emersion'])
+            else:
+                self._emersion = kwargs['emersion']
             self.immersion_err = 0.0
             if 'immersion_err' in kwargs:
                 self.immersion_err = kwargs['immersion_err']
@@ -106,8 +112,14 @@ class LightCurve():
                 self.emersion_err = kwargs['emersion_err']
             input_done = True
         if 'initial_time' in kwargs and 'end_time' in kwargs:
-            self.initial_time = kwargs['initial_time']
-            self.end_time = kwargs['end_time']
+            if type(kwargs['initial_time']) == str:
+                self.initial_time = Time(kwargs['initial_time'])
+            else:
+                self.initial_time = kwargs['initial_time']
+            if type(kwargs['end_time']) == str:
+                self.end_time = Time(kwargs['end_time'])
+            else:
+                self.end_time = kwargs['end_time']
             input_done = True
         if not input_done:
             try:
@@ -120,6 +132,16 @@ class LightCurve():
             self.model = np.ones(len(self.time))
             self.time_model = None
         self.dt = 0.0
+
+    @property
+    def fresnel_scale(self):
+        lamb  = self.lambda_0*u.micrometer.to('km')
+        dlamb = self.delta_lambda*u.micrometer.to('km')
+        dist  = self.dist*u.au.to('km')
+        fresnel_scale_1 = calc_fresnel(dist,lamb-dlamb/2.0)
+        fresnel_scale_2 = calc_fresnel(dist,lamb+dlamb/2.0)
+        fresnel_scale   = (fresnel_scale_1 + fresnel_scale_2)/2.0
+        return fresnel_scale
 
     @property
     def name(self):
@@ -208,6 +230,8 @@ class LightCurve():
             self.initial_time = np.min(time)
             self.end_time = np.max(time)
             self.cycle = np.median(self.time[1:] - self.time[:-1])
+            if self.cycle < self.exptime:
+                warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.format(self.exptime,self.cycle))
 
     def set_vel(self,vel):
         '''
@@ -552,6 +576,8 @@ class LightCurve():
             opacity = onesigma['opacity'][0]
         # Run occ_model() to save best parameters in the Object.
         self.occ_model(t_ingress,t_egress,opacity,mask)
+        self.lc_sigma = sigma
+        self.chisquare = chisquare
         return chisquare
 
     def plot_lc(self):
@@ -815,6 +841,7 @@ class LightCurve():
         fresnel_scale_2 = calc_fresnel(dist,lamb+dlamb/2.0)
         fresnel_scale   = (fresnel_scale_1 + fresnel_scale_2)/2.0
         time_resolution = (np.min([fresnel_scale/vel,self.exptime]))/time_resolution_factor
+        self.model_resolution = time_resolution
         #
         #Creating a high resolution curve to compute fresnel difraction, stellar diameter and instrumental integration 
         time_model = np.arange(time_obs.min()-5*self.exptime,time_obs.max()+5*self.exptime,time_resolution)
@@ -856,3 +883,40 @@ class LightCurve():
             self.__names.remove(self.__name)
         except:
             pass
+
+    def __str__(self):
+        """ String representation of the LightCurve Object
+        """
+        output  = 'Light curve name: {}\n'.format(self.name)
+        output += 'Initial time: {} UTC\n'.format(self.initial_time.iso)
+        output += 'End time:     {} UTC\n\n'.format(self.end_time.iso)
+        try:
+            output += 'Exposure time:    {:.4f} seconds\n'.format(self.exptime)
+            output += 'Cycle time:       {:.4f} seconds\n'.format(self.cycle)
+            output += 'Num. data points: {}\n\n'.format(len(self.time))
+        except:
+            output += 'Object LightCurve was not instantiated with time and flux.\n\n'
+        try:
+            output += 'Light curve sigma:    {:.3f}\n'.format(self.lc_sigma)
+            output += 'Bandwidth:            {:.3f} +/- {:.3f} microns\n'.format(self.lambda_0,self.delta_lambda)
+            output += 'Used shadow velocity: {:.3f} km/s\n'.format(self.vel)
+            output += 'Fresnel scale:        {:.3f} seconds or {:.2f} km\n'.format(self.fresnel_scale/self.vel,self.fresnel_scale)
+            output += 'Stellar size effect:  {:.3f} seconds or {:.2f} km\n'.format(self.d_star/self.vel,self.d_star)
+            output += 'Inst. response:       {:.3f} seconds or {:.2f} km\n'.format(self.exptime,self.exptime*self.vel)
+            output += 'Dead time effect:     {:.3f} seconds or {:.2f} km\n'.format(self.cycle-self.exptime,(self.cycle-self.exptime)*self.vel)
+            output += 'Model resolution:     {:.3f} seconds or {:.2f} km\n\n'.format(self.model_resolution,self.model_resolution*self.vel)
+        except:
+            output += 'Object LightCurve model was not fitted.\n\n'
+        try:
+            output += 'Immersion time: {} UTC +/- {:.3f} seconds\n'.format(self.immersion.iso,self.immersion_err)
+            output += 'Emersion time:  {} UTC +/- {:.3f} seconds\n\n'.format(self.emersion.iso,self.emersion_err)
+        except:
+            output += 'Immersion and emersion times were not fitted or instantiated.\n\n'
+
+        try:
+            output += 'Monte Carlo chi square fit.\n\n' + self.chisquare.__str__() + '\n'
+        except:
+            pass
+        return output
+
+
