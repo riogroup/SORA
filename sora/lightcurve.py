@@ -636,7 +636,7 @@ class LightCurve():
         Parameters
         ----------
         maximum_duration (float): Maximum duration of the occultation event 
-                                  (default is 1/4th of the light curve's time
+                                  (default is 1/3rd of the light curve's time
                                   span).                             (optional)
         dur_step (float): Step size to sweep occultation duration event 
                           (default value is 1/2 of sampling).        (optional)
@@ -674,9 +674,16 @@ class LightCurve():
                              'exceeds the time series lenght ({1:0.5f}).' \
                              .format(maximum_duration, time_span))
         if not maximum_duration:
-            maximum_duration = time_span*0.25
+            maximum_duration = time_span*0.3333
+         
+        med_dur_step = np.median(self.time[1:-1]-self.time[0:-2])/2
+        
         if not dur_step:
-            dur_step = np.median(self.time[1:-1]-self.time[0:-2])/2      
+            dur_step = med_dur_step
+        
+        if dur_step < med_dur_step:
+            warning.warn('dur_step is oversampled by a factor of {0:0.1f}.\nUncertainties are constrained from data sampling.'.format(med_dur_step/dur_step))
+        
         duration_grid = np.arange(dur_step, maximum_duration, dur_step)
         # initial occultation mask (all data points)
         mask = np.ones(len(self.time), dtype=bool)
@@ -746,7 +753,7 @@ class LightCurve():
         central_time = stats['transit_times'][0]
         immersion_time = stats['transit_times'][0] - r.duration[0]/2
         emersion_time = stats['transit_times'][0] + r.duration[0]/2
-        time_err = dur_grid[1] - dur_grid[0]
+        time_err = np.median(self.time[1:-1]-self.time[0:-2])/2
         depth = np.mean(self.flux[~occ_mask])-np.mean(self.flux[occ_mask])
         depth_err = np.std(self.flux[occ_mask],ddof=1)
         baseline = np.mean(self.flux[~occ_mask])
