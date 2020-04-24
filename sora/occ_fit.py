@@ -97,16 +97,16 @@ def fit_ellipse(*args, **kwargs):
     center_f = kwargs['center_f']
     dcenter_f = kwargs.get('dcenter_f', 0.0)
     center_g = kwargs['center_g']
-    dcenter_g = kwargs('dcenter_g', 0.0)
+    dcenter_g = kwargs.get('dcenter_g', 0.0)
     equatorial_radius = kwargs['equatorial_radius']
-    dequatorial_radius = kwargs('dequatorial_radius', 0.0)
+    dequatorial_radius = kwargs.get('dequatorial_radius', 0.0)
     oblateness = kwargs['oblateness']
-    doblateness = kwargs('doblateness', 0.0)
+    doblateness = kwargs.get('doblateness', 0.0)
     pos_angle = kwargs['pos_angle']
-    dpos_angle = kwargs('dpos_angle', 0.0)
-    loop = kwargs('loop', 10000000)
-    number_chi = kwargs('number_chi', 10000)
-    log = kwargs('log', False)
+    dpos_angle = kwargs.get('dpos_angle', 0.0)
+    loop = kwargs.get('loop', 10000000)
+    number_chi = kwargs.get('number_chi', 10000)
+    log = kwargs.get('log', False)
 
     values = []
     for occ in args:
@@ -517,7 +517,7 @@ class Occultation():
                 print('    Emersion Radial Velocity: {:.3f}'.
                       format(np.abs(np.dot(np.array(em['vel']), delta)/np.linalg.norm(delta))))
 
-    def new_astrometric_position(self, time=None, offset=None, error=None):
+    def new_astrometric_position(self, time=None, offset=None, error=None, log=True):
         """ Calculates the new astrometric position for the object given fitted params
 
         Parameters:
@@ -529,6 +529,7 @@ class Occultation():
             error (list): Error bar of the given offset. If not given, it uses the 1-sigma fitted from ellipse.
                 Error must be a list of 3 values being [dX, dY, 'unit'], similar to offset.
                 It does not need to be in the same unit as offset.
+            log (bool): If true, it prints text, else it returns text.
         """
         if time is not None:
             time = Time(time)
@@ -595,13 +596,20 @@ class Occultation():
         error_ra = error_star[0] + e_off_ra
         error_dec = error_star[1] + e_off_dec
 
-        print('Ephemeris offset (km): X = {:.1f} +/- {:.1f}; Y = {:.1f} +/- {:.1f}'.format(distance*np.sin(off_ra.to(u.mas)).value,
-              distance*np.sin(e_off_ra.to(u.mas)).value, distance*np.sin(off_dec.to(u.mas)).value, distance*np.sin(e_off_dec.to(u.mas)).value))
-        print('Ephemeris offset (mas): da_cos_dec = {:.3f} +/- {:.3f}; d_dec = {:.3f} +/- {:.3f}'.
-              format(off_ra.to(u.mas).value, e_off_ra.to(u.mas).value, off_dec.to(u.mas).value, e_off_dec.to(u.mas).value))
-        print('\nAstrometric position at time {}'.format(time.iso))
-        print('RA = {} +/- {:.3f} mas; DEC = {} +/- {:.3f} mas'.format(new_pos.ra.to_string(u.hourangle, precision=5, sep=' '), error_ra.to(u.mas).value,
-                                                               new_pos.dec.to_string(u.deg, precision=4, sep=' '), error_dec.to(u.mas).value))
+        out = 'Ephemeris offset (km): X = {:.1f} +/- {:.1f}; Y = {:.1f} +/- {:.1f}\n'.format(
+              distance*np.sin(off_ra.to(u.mas)).value, distance*np.sin(e_off_ra.to(u.mas)).value,
+              distance*np.sin(off_dec.to(u.mas)).value, distance*np.sin(e_off_dec.to(u.mas)).value)
+        out += 'Ephemeris offset (mas): da_cos_dec = {:.3f} +/- {:.3f}; d_dec = {:.3f} +/- {:.3f}\n'.format(
+              off_ra.to(u.mas).value, e_off_ra.to(u.mas).value, off_dec.to(u.mas).value, e_off_dec.to(u.mas).value)
+        out += '\nAstrometric object position at time {}\n'.format(time.iso)
+        out += 'RA = {} +/- {:.3f} mas; DEC = {} +/- {:.3f} mas'.format(
+               new_pos.ra.to_string(u.hourangle, precision=5, sep=' '), error_ra.to(u.mas).value,
+               new_pos.dec.to_string(u.deg, precision=4, sep=' '), error_dec.to(u.mas).value)
+
+        if log:
+            print(out)
+        else:
+            return out
 
     def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red'):
         """Plots the chords of the occultation
@@ -673,55 +681,51 @@ class Occultation():
         out += 'Geocentric Closest Approach: {:.3f}\n'.format(self.ca)
         out += 'Instant of CA: {}\n'.format(self.tca.iso)
         out += 'Position Angle: {:.2f}\n'.format(self.pa)
-        out += 'Geocentric shadow velocity: {:.2f}\n\n'.format(self.vel)
+        out += 'Geocentric shadow velocity: {:.2f}\n\n\n'.format(self.vel)
 
-        out += self.star.__str__() + '\n'
-        out += self.ephem.__str__() + '\n'
+        count = {'positive': 0, 'negative': 0, 'visual': 0}
+        string = {'positive': '', 'negative': '', 'visual': ''}
+        pos = self.positions
+        for o,l in self.__observations:
+            status = pos[o.name][l.name]['status']
+            if count[status] > 0:
+                string[status] += '-'*79 + '\n'
+            string[status] += o.__str__() + '\n\n'
+            string[status] += l.__str__() + ''
+            count[status] += 1
 
-        return out
-
-        self.__count = 0
-        self.__out1 = ''
-        n = 0
-        out1 = ''
-        
-        n += len(self.obs_positive)
-        if len(self.obs_positive) > 0:
-            out1 += '{} positive observations\n'.format(len(self.obs_positive))
-            for i in self.obs_positive:
-                out1 += i.__str__() + '\n'
-                out1 += '\n'
-            out1 += '\n'
-        
-        n += len(self.obs_negative)
-        if len(self.obs_negative) > 0:
-            out1 += '{} negative observations\n'.format(len(self.obs_negative))
-            for i in self.obs_negative:
-                out1 += i.__str__() + '\n'
-                out1 += '\n'
-            out1 += '\n'
-        
-        n += len(self.obs_visual)
-        if len(self.obs_visual) > 0:
-            out1 += '{} visual observations\n'.format(len(self.obs_visual))
-            for i in self.obs_visual:
-                out1 += i.__str__() + '\n'
-                out1 += '\n'
-            out1 += '\n'
-        
-        n += len(self.obs_undefined)
-        if len(self.obs_undefined) > 0:
-            out1 += '{} without status observations\n'.format(len(self.obs_undefined))
-            for i in self.obs_undefined:
-                out1 += i.__str__() + '\n'
-                out1 += '\n'
-            out1 += '\n'
-        out1 += '\b\b'
-        
-        if n == 0:
+        if np.sum([count[i] for i in count.keys()]) == 0:
             out += 'No observations reported'
         else:
-            out += '{} observations reported\n\n'.format(n)
-            out += out1
+            out += '\n'.join(['{} {} observations'.format(count[k],k) for k in string.keys() if count[k] > 0])
+
+        out += '\n\n'
+
+        out += '#'*79 + '\n{:^79s}\n'.format('STAR') + '#'*79 + '\n'
+        out += self.star.__str__() + '\n\n'
+
+        coord = self.star.geocentric(self.tca)
+        error_star = self.star.error_at(self.tca)
+        out += 'GCRS star coordinate at occultation Epoch ({}):\n'.format(self.tca.iso)
+        out += 'RA={} +/- {:.4f}, DEC={} +/- {:.4f}\n\n'.format(
+            coord.ra.to_string(u.hourangle, sep='hms', precision=5), error_star[0],
+            coord.dec.to_string(u.deg, sep='dms', precision=4), error_star[1])
         
+        out += '#'*79 + '\n{:^79s}\n'.format('EPHEMERIS') + '#'*79 +'\n'
+        out += self.ephem.__str__() + '\n'
+
+        for status in string.keys():
+            if count[status] == 0:
+                continue
+            out += ('#'*79 + '\n{:^79s}\n'.format(status.upper() + ' OBSERVATIONS') + '#'*79)
+            out += '\n\n'
+            out += string[status]
+
+        if hasattr(self, 'fitted_params'):
+            out += '#'*79 + '\n{:^79s}\n'.format('RESULTS') + '#'*79 + '\n\n'
+            out += 'Fitted Ellipse:\n'
+            out += '\n'.join(['{}: {:.3f} +/- {:.3f}'.format(k, *self.fitted_params[k])
+                              for k in self.fitted_params.keys()]) + '\n'
+            out += '\n' + self.new_astrometric_position(log=False)
+
         return out
