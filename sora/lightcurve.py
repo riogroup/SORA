@@ -635,17 +635,14 @@ class LightCurve():
         
         Parameters
         ----------
-        maximum_duration: float, optional
-            Maximum duration of the occultation event (default is 1/4th of the
-            light curve's time span).
-        dur_step: float, optionl
-            Step size to sweep occultation duration event (default value is 1/2
-            of sampling).
-        snr_limit: float, optional
-            Minimum occultation SNR.
-        n_detections: int, optional
-            N best detections regardless from SNR. n_detections is superseded
-            by snr_limit.
+        maximum_duration (float): Maximum duration of the occultation event 
+                                  (default is 1/4th of the light curve's time
+                                  span).                             (optional)
+        dur_step (float): Step size to sweep occultation duration event 
+                          (default value is 1/2 of sampling).        (optional)
+        snr_limit (float): Minimum occultation SNR.                  (optional)
+        n_detections (int): N best detections regardless from SNR. n_detections
+                            is superseded by snr_limit.              (optional)
             
         Returns
         -------
@@ -659,7 +656,7 @@ class LightCurve():
         >>> params
         {'occultation_duration': 0.0004645648878067732,
          'central_time': 2457852.5916293273,
-         'imersion_time': 2457852.5913970447,
+         'immersion_time': 2457852.5913970447,
          'emersion_time': 2457852.59186161,
          'time_err': 5.799811333417892e-07,
          'depth': 0.8663887801707082,
@@ -683,6 +680,8 @@ class LightCurve():
         duration_grid = np.arange(dur_step, maximum_duration, dur_step)
         # initial occultation mask (all data points)
         mask = np.ones(len(self.time), dtype=bool)
+        # inital detection rank
+        rank = 1
 
         if snr_limit:
             # minimum SNR accepted in a detection for multiple search
@@ -690,7 +689,8 @@ class LightCurve():
             occ0 = self.__run_bls(time_span, duration_grid)
             mask *= ~occ0['occ_mask']
             while (snr_value > snr_limit):
-                occ1 = self.__run_bls(time_span, duration_grid, mask=mask)
+                rank += 1
+                occ1 = self.__run_bls(time_span, duration_grid, mask=mask, rank=rank)
                 if occ1['snr'] > snr_limit:
                     snr_value = occ1['snr']
                     mask *= ~occ1['occ_mask']                    
@@ -703,7 +703,8 @@ class LightCurve():
             occ0 = self.__run_bls(time_span, duration_grid)
             mask *= ~occ0['occ_mask']    
             for i in range(n_detections-1):
-                occ1 = self.__run_bls(time_span, duration_grid, mask=mask)
+                rank += 1
+                occ1 = self.__run_bls(time_span, duration_grid, mask=mask, rank=rank)
                 snr_value = occ1['snr']
                 mask *= ~occ1['occ_mask']                    
                 occ0 = self.__summarize_bls(occ0,occ1)
@@ -713,7 +714,7 @@ class LightCurve():
             return self.__run_bls(time_span, duration_grid)
         
         
-    def __run_bls(self, per_grid, dur_grid, mask=None):
+    def __run_bls(self, per_grid, dur_grid, mask=None, rank=None):
         """
         Private function to find the best box fit suitable to the data
         """
@@ -743,7 +744,7 @@ class LightCurve():
         # parameters computation for clarity purposes
         occultation_duration = r.duration[0]
         central_time = stats['transit_times'][0]
-        imersion_time = stats['transit_times'][0] - r.duration[0]/2
+        immersion_time = stats['transit_times'][0] - r.duration[0]/2
         emersion_time = stats['transit_times'][0] + r.duration[0]/2
         time_err = dur_grid[1] - dur_grid[0]
         depth = np.mean(self.flux[~occ_mask])-np.mean(self.flux[occ_mask])
@@ -752,18 +753,25 @@ class LightCurve():
         baseline_err = np.std(self.flux[~occ_mask],ddof=1)
         snr = (depth/baseline_err)*np.sqrt(np.sum(occ_mask))
 
-        return {'occultation_duration' : occultation_duration, 
-                     'central_time' : central_time, 
-                     'imersion_time' : imersion_time, 
-                     'emersion_time' : emersion_time,
-                     'time_err' : time_err,
-                     'depth' : depth, 'depth_err' : depth_err,
-                     'baseline' : baseline, 'baseline_err' : baseline_err,
-                     'snr' : snr,'occ_mask' : occ_mask}
+        # define rank
+        if rank:
+            rank = rank
+        else:
+            rank = 1
+        
+        return {'rank' : rank,
+                'occultation_duration' : occultation_duration, 
+                'central_time' : central_time, 
+                'immersion_time' : immersion_time, 
+                'emersion_time' : emersion_time,
+                'time_err' : time_err,
+                'depth' : depth, 'depth_err' : depth_err,
+                'baseline' : baseline, 'baseline_err' : baseline_err,
+                'snr' : snr,'occ_mask' : occ_mask}
     
     def __summarize_bls(self, dict1, dict2):
         ''' Private function to merge dictionaries returned by BLS and 
-            keep values of common keys in list.
+            to keep values of common keys in list.
         '''
         dict3 = {}
         for key, value in dict1.items():
