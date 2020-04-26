@@ -391,7 +391,7 @@ class LightCurve():
         return
 
     
-    def occ_model(self,immersion_time, emersion_time, opa_ampli, mask, npt_star=12, time_resolution_factor=10):
+    def occ_model(self,immersion_time, emersion_time, opa_ampli, mask, npt_star=12, time_resolution_factor=10,flux_min=0,flux_max=1):
         """ Returns the modelled light curve considering fresnel difraction, star diameter and intrumental response.
         ----------
         Parameters
@@ -403,6 +403,8 @@ class LightCurve():
         npt_star  (int): Number of subdivisions for computing the star size's effects, default equal to 12. (auto)
         time_resolution_factor (int,float): Steps for fresnel scale used for modelling the light curve,     (auto)
             default equals to 10 steps for fresnel scale.
+        flux_min (int,float): Bottom flux (only object), default equal to 0.0              (auto)
+        flux_max (int,float): Base flux (object plus star), default equal to 1.0           (auto)
         ----------
         Returns
         ----------
@@ -456,14 +458,17 @@ class LightCurve():
         for i in range(len(time_obs)):
             event_model  = (time_model > time_obs[i]-self.exptime/2.) & (time_model < time_obs[i]+self.exptime/2.)
             flux_inst[i] = (flux_star[event_model]).mean()
-        self.model[mask] = flux_inst
+        self.model[mask] = flux_inst*(flux_max - flux_min) + flux_min
         self.time_model = time_model
-        self.model_star = flux_star
-        self.model_fresnel = flux_fresnel
+        self.model_star = flux_star*(flux_max - flux_min) + flux_min
+        self.model_fresnel = flux_fresnel*(flux_max - flux_min) + flux_min
         ev_model = (time_model > immersion_time) & (time_model < emersion_time)
         flux_box = np.ones(len(time_model))
         flux_box[ev_model] = (1-opa_ampli)**2
+        flux_box = flux_box*(flux_max - flux_min) + flux_min
         self.model_geometric = flux_box
+        self.baseflux = flux_max
+        self.bottomflux = flux_min
         return
 
 
@@ -481,6 +486,8 @@ class LightCurve():
         delta_t (int, float): Interval to fit immersion or emersion time                   (auto)
         dopacity   (int, float): Interval to fit opacity, default equal to 0, no fit.      (auto)
         loop       (int): Number of tests to be done, default equal to 10000.              (auto)
+        flux_min (int,float): Bottom flux (only object), default equal to 0.0              (auto)
+        flux_max (int,float): Base flux (object plus star), default equal to 1.0           (auto)
         ----------
         Returns
         ----------
@@ -543,6 +550,12 @@ class LightCurve():
             do_opacity = True
         opas = opacity + delta_opacity*(2*np.random.random(loop) - 1)
         opas[opas>1.], opas[opas<0.] = 1.0, 0.0
+        flux_min = 0
+        flux_max = 1
+        if 'flux_min' in kwargs:
+            flux_min = kwargs['flux_min']
+        if 'flux_max' in kwargs:
+            flux_max = kwargs['flux_max']
         #
         tflag = np.zeros(loop)
         tflag[t_i > t_e] = t_i[t_i > t_e]
@@ -551,7 +564,7 @@ class LightCurve():
         chi2 = 999999*np.ones(loop)
         #tcontrol_f0 = datetime.now()
         for i in range(loop):
-            model_test = self.__occ_model(t_i[i],t_e[i],opas[i],mask)
+            model_test = self.__occ_model(t_i[i],t_e[i],opas[i],mask,flux_min=flux_min,flux_max=flux_max)
             chi2[i] = np.sum((self.flux[mask] -  model_test)**2)/(sigma**2)
         #tcontrol_f3 = datetime.now()
         #print('Elapsed time: {:.3f} seconds.'.format((tcontrol_f3 - tcontrol_f0).total_seconds()))
@@ -575,7 +588,7 @@ class LightCurve():
         if 'opacity' in onesigma:
             opacity = onesigma['opacity'][0]
         # Run occ_model() to save best parameters in the Object.
-        self.occ_model(immersion_time,emersion_time,opacity,mask)
+        self.occ_model(immersion_time,emersion_time,opacity,mask,flux_min=flux_min,flux_max=flux_max)
         self.lc_sigma = sigma
         self.chisquare = chisquare
         return chisquare
@@ -853,7 +866,7 @@ class LightCurve():
         return flux_fresnel
 
 
-    def __occ_model(self,immersion_time, emersion_time, opa_ampli, mask, npt_star=12, time_resolution_factor=10):
+    def __occ_model(self,immersion_time, emersion_time, opa_ampli, mask, npt_star=12, time_resolution_factor=10,flux_min=0.0,flux_max=1.0):
         """ Private function returns the modelled light curve considering fresnel difraction, star diameter and intrumental response, intended for fitting inside the self.occ_lcfit().
         ----------
         Parameters
@@ -865,6 +878,8 @@ class LightCurve():
         npt_star  (int): Number of subdivisions for computing the star size's effects, default equal to 12. (auto)
         time_resolution_factor (int,float): Steps for fresnel scale used for modelling the light curve,     (auto)
             default equals to 10 steps for fresnel scale.
+        flux_min (int,float): Bottom flux (only object), default equal to 0.0              (auto)
+        flux_max (int,float): Base flux (object plus star), default equal to 1.0           (auto)
         ----------
         Returns
         ----------
@@ -915,7 +930,7 @@ class LightCurve():
         for i in range(len(time_obs)):
             event_model  = (time_model > time_obs[i]-self.exptime/2.) & (time_model < time_obs[i]+self.exptime/2.)
             flux_inst[i] = (flux_star[event_model]).mean()
-        return flux_inst
+        return flux_inst*(flux_max - flux_min) + flux_min
 
     def __del__(self):
         try:
@@ -938,12 +953,15 @@ class LightCurve():
         try:
             output += 'Light curve sigma:    {:.3f}\n'.format(self.lc_sigma)
             output += 'Bandwidth:            {:.3f} +/- {:.3f} microns\n'.format(self.lambda_0,self.delta_lambda)
+            output += 'Modelled baseflux:    {:.3f}\n'.format(self.baseflux)
+            output += 'Modelled bottomflux:  {:.3f}\n'.format(self.bottomflux)
             output += 'Used shadow velocity: {:.3f} km/s\n'.format(self.vel)
             output += 'Fresnel scale:        {:.3f} seconds or {:.2f} km\n'.format(self.fresnel_scale/self.vel,self.fresnel_scale)
             output += 'Stellar size effect:  {:.3f} seconds or {:.2f} km\n'.format(self.d_star/self.vel,self.d_star)
             output += 'Inst. response:       {:.3f} seconds or {:.2f} km\n'.format(self.exptime,self.exptime*self.vel)
             output += 'Dead time effect:     {:.3f} seconds or {:.2f} km\n'.format(self.cycle-self.exptime,(self.cycle-self.exptime)*self.vel)
             output += 'Model resolution:     {:.3f} seconds or {:.2f} km\n\n'.format(self.model_resolution,self.model_resolution*self.vel)
+
         except:
             output += 'Object LightCurve model was not fitted.\n\n'
         try:
