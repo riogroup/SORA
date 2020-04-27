@@ -704,6 +704,9 @@ class LightCurve():
          'occ_mask': array([False, False, False, ..., False, False, False])}
         """
 
+        if not hasattr(self, 'flux'):
+            raise ValueError('time and flux must be instantiated to use occ_detect function.')
+
         # duration of the light curve
         time_span = self.time[-1]-self.time[0]
         if maximum_duration and (maximum_duration > time_span):
@@ -712,14 +715,13 @@ class LightCurve():
                              .format(maximum_duration, time_span))
         if not maximum_duration:
             maximum_duration = time_span*0.3333
-         
-        med_dur_step = np.median(self.time[1:-1]-self.time[0:-2])/2
+
         
         if not dur_step:
-            dur_step = med_dur_step
+            dur_step = self.cycle/2
         
-        if dur_step < med_dur_step:
-            warning.warn('dur_step is oversampled by a factor of {0:0.1f}.\nUncertainties are constrained from data sampling.'.format(med_dur_step/dur_step))
+        if dur_step < self.cycle/2:
+            warnings.warn('dur_step is oversampled by a factor of {0:0.1f}. Uncertainties are constrained from data sampling.'.format(med_dur_step/dur_step))
         
         duration_grid = np.arange(dur_step, maximum_duration, dur_step)
         # initial occultation mask (all data points)
