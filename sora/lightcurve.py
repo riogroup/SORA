@@ -84,6 +84,8 @@ class LightCurve():
             For a positive occultation
             immersion: The instant of immersion.
             emersion: The instant of emersion
+            immersion_err: Immersion time uncertainty
+            emersion_err: Emersion time uncertainty
 
             For a negative occultation
             initial_time: The initial time of observation
@@ -478,16 +480,16 @@ class LightCurve():
         ----------
         Parameters
         ----------
-        tmin (int,float): Minimum time to consider in the fit prcedure                  (input)
-        tmax (int,float): Maximum time to consider in the fit prcedure                  (input)
-        immersion_time  (int, float): immersion time, in seconds.                       (input)
-        emersion_time   (int, float): emersion time, in seconds.                        (input)
-        opacity  (int, float): Opacity, opaque = 1.0, transparent = 0.0, default = 1.   (input)
-        delta_t (int, float): Interval to fit immersion or emersion time                   (auto)
-        dopacity   (int, float): Interval to fit opacity, default equal to 0, no fit.      (auto)
-        loop       (int): Number of tests to be done, default equal to 10000.              (auto)
-        flux_min (int,float): Bottom flux (only object), default equal to 0.0              (auto)
-        flux_max (int,float): Base flux (object plus star), default equal to 1.0           (auto)
+        tmin (int,float): Minimum time to consider in the fit prcedure                  
+        tmax (int,float): Maximum time to consider in the fit prcedure                  
+        flux_min (int,float): Bottom flux (only object), default equal to 0.0          
+        flux_max (int,float): Base flux (object plus star), default equal to 1.0       
+        immersion_time  (int, float): Initial guess for immersion time, in seconds.                       
+        emersion_time   (int, float): Initial guess for emersion time, in seconds.                        
+        opacity  (int, float): Initial guess for opacity, opaque = 1.0, transparent = 0.0, default equal to 0.0.   
+        delta_t (int, float): Interval to fit immersion or emersion time               
+        dopacity   (int, float): Interval to fit opacity, default equal to 0, no fit.  
+        loop       (int): Number of tests to be done, default equal to 10000.          
         ----------
         Returns
         ----------
@@ -945,7 +947,9 @@ class LightCurve():
         """
         output  = 'Light curve name: {}\n'.format(self.name)
         output += 'Initial time: {} UTC\n'.format(self.initial_time.iso)
-        output += 'End time:     {} UTC\n\n'.format(self.end_time.iso)
+        output += 'End time:     {} UTC\n'.format(self.end_time.iso)
+        output += 'Duration:     {:.3f} minutes\n'.format((self.end_time - self.initial_time).value*u.d.to('min'))
+        output += 'Time offset:  {:.3f} seconds\n\n'.format(self.dt)
         try:
             output += 'Exposure time:    {:.4f} seconds\n'.format(self.exptime)
             output += 'Cycle time:       {:.4f} seconds\n'.format(self.cycle)
@@ -953,19 +957,21 @@ class LightCurve():
         except:
             output += 'Object LightCurve was not instantiated with time and flux.\n\n'
         try:
-            output += 'Light curve sigma:    {:.3f}\n'.format(self.lc_sigma)
             output += 'Bandwidth:            {:.3f} +/- {:.3f} microns\n'.format(self.lambda_0,self.delta_lambda)
-            output += 'Modelled baseflux:    {:.3f}\n'.format(self.baseflux)
-            output += 'Modelled bottomflux:  {:.3f}\n'.format(self.bottomflux)
             output += 'Used shadow velocity: {:.3f} km/s\n'.format(self.vel)
             output += 'Fresnel scale:        {:.3f} seconds or {:.2f} km\n'.format(self.fresnel_scale/self.vel,self.fresnel_scale)
             output += 'Stellar size effect:  {:.3f} seconds or {:.2f} km\n'.format(self.d_star/self.vel,self.d_star)
-            output += 'Inst. response:       {:.3f} seconds or {:.2f} km\n'.format(self.exptime,self.exptime*self.vel)
-            output += 'Dead time effect:     {:.3f} seconds or {:.2f} km\n'.format(self.cycle-self.exptime,(self.cycle-self.exptime)*self.vel)
-            output += 'Model resolution:     {:.3f} seconds or {:.2f} km\n\n'.format(self.model_resolution,self.model_resolution*self.vel)
-
         except:
-            output += 'Object LightCurve model was not fitted.\n\n'
+            output += '\nThere is no occultation associated with this light curve.\n'
+        try:
+            output += 'Inst. response:       {:.3f} seconds or {:.2f} km\n'.format(self.exptime, self.exptime*self.vel)
+            output += 'Dead time effect:     {:.3f} seconds or {:.2f} km\n'.format(self.cycle-self.exptime,(self.cycle-self.exptime)*self.vel)
+            output += 'Model resolution:     {:.3f} seconds or {:.2f} km\n'.format(self.model_resolution, self.model_resolution*self.vel)
+            output += 'Modelled baseflux:    {:.3f}\n'.format(self.baseflux)
+            output += 'Modelled bottomflux:  {:.3f}\n'.format(self.bottomflux)
+            output += 'Light curve sigma:    {:.3f}\n\n'.format(self.lc_sigma)
+        except:
+            output += '\nObject LightCurve model was not fitted.\n\n'
         try:
             output += 'Immersion time: {} UTC +/- {:.3f} seconds\n'.format(self.immersion.iso,self.immersion_err)
             output += 'Emersion time:  {} UTC +/- {:.3f} seconds\n\n'.format(self.emersion.iso,self.emersion_err)

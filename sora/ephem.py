@@ -264,7 +264,7 @@ class EphemPlanete():
 
 
 class EphemJPL():
-    """ EphemJPL obtains the ephemeris from Horizons website.
+    """ EphemJPL obtains the ephemeris from Horizons service.
 
     Parameters:
         name (str): name of the object for search in the JPL database
@@ -410,7 +410,7 @@ class EphemJPL():
 
 
 class EphemKernel():
-    """ EphemHorizons gets online the ephemeris for an object.
+    """ EphemKernel gets the ephemeris from bsp kernels.
 
     Parameters:
         name (str): name of the object for search in the JPL database

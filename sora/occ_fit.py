@@ -187,6 +187,31 @@ def fit_ellipse(*args, **kwargs):
     for occ in args:
         if type(occ) == Occultation:
             occ.fitted_params = {i:onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g', 'oblateness', 'position_angle']}
+    a = occ.fitted_params['equatorial_radius'][0]
+    f0 = occ.fitted_params['center_f'][0]
+    g0 = occ.fitted_params['center_g'][0]
+    obla = occ.fitted_params['oblateness'][0]
+    phi_deg = occ.fitted_params['position_angle'][0]
+    radial_dispersion = np.array([])
+    error_bar = np.array([])
+    for fi, gi, si in values:
+        b = a - a*obla
+        phi = phi_deg*(np.pi/180.0)
+        dfi = fi-f0
+        dgi = gi-g0
+        r = np.sqrt(dfi**2 + dgi**2)
+        theta = np.arctan2(dgi,dfi)
+        ang = theta+phi
+        r_model = (a*b)/np.sqrt((a*np.sin(ang))**2 + (b*np.cos(ang))**2)
+        f_model = f0 + r_model*np.cos(theta)
+        g_model = g0 + r_model*np.sin(theta)
+        radial_dispersion = np.append(radial_dispersion,r - r_model)
+        error_bar = np.append(error_bar,si)
+    occ.chi2_params = {'radial_dispersion': radial_dispersion.std(ddof=1)}
+    occ.chi2_params['mean_error'] = [error_bar.mean(),error_bar.std()]
+    occ.chi2_params['chi2_min'] = chisquare.get_nsigma()['chi2_min']
+    occ.chi2_params['nparam'] = chisquare.nparam
+    occ.chi2_params['npts'] = chisquare.npts
     return chisquare
 
 
@@ -287,7 +312,7 @@ class Occultation():
         self.__observations.append((obs,lightcurve))
         lightcurve.set_vel(np.absolute(self.vel))
         lightcurve.set_dist(float(self.dist.AU))
-        lightcurve.set_diam(float(self.star_diam.AU))
+        lightcurve.set_diam(float(self.star_diam.km))
         try:
             lightcurve.calc_magnitude_drop(mag_star=self.star.mag['G'],mag_obj=self.ephem.apparent_magnitude(self.tca))
         except:
@@ -630,20 +655,20 @@ class Occultation():
                     continue
                 if pos_lc['status'] == 'negative':
                     arr = np.array([pos_lc['start_obs']['value'], pos_lc['end_obs']['value']])
-                    plt.plot(*arr.T, '--', color=negative_color, linewidth=0.7)
+                    plt.plot(*arr.T, '--', color=negative_color, linewidth=1.5)
                 else:
                     n = 0
                     if pos_lc['immersion']['on'] or all_chords:
                         arr = np.array([pos_lc['immersion']['error']])
-                        plt.plot(*arr.T, color=error_color, linewidth=1.5)
+                        plt.plot(*arr.T, color=error_color, linewidth=3.0)
                         n+=1
                     if pos_lc['emersion']['on'] or all_chords:
                         arr = np.array([pos_lc['emersion']['error']])
-                        plt.plot(*arr.T, color=error_color, linewidth=1.5)
+                        plt.plot(*arr.T, color=error_color, linewidth=3.0)
                         n+=1
                     if n == 2:
                         arr = np.array([pos_lc['immersion']['value'], pos_lc['emersion']['value']])
-                        plt.plot(*arr.T, color=positive_color, linewidth=0.7)
+                        plt.plot(*arr.T, color=positive_color, linewidth=2.0)
         plt.axis('equal')
 
     def get_map_sites(self):
@@ -685,7 +710,10 @@ class Occultation():
 
         count = {'positive': 0, 'negative': 0, 'visual': 0}
         string = {'positive': '', 'negative': '', 'visual': ''}
-        pos = self.positions
+        try:
+            pos = self.positions
+        except:
+            pass
         for o,l in self.__observations:
             status = pos[o.name][l.name]['status']
             if count[status] > 0:
@@ -726,6 +754,12 @@ class Occultation():
             out += 'Fitted Ellipse:\n'
             out += '\n'.join(['{}: {:.3f} +/- {:.3f}'.format(k, *self.fitted_params[k])
                               for k in self.fitted_params.keys()]) + '\n'
+            out += '\nMinimum chi-square: {:.3f}\n'.format(self.chi2_params['chi2_min'])
+            out += 'Number of fitted points: {}\n'.format(self.chi2_params['npts'])
+            out += 'Number of fitted parameters: {}\n'.format(self.chi2_params['nparam'])
+            out += 'Radial dispersion: {:.3f} km\n'.format(self.chi2_params['radial_dispersion'])
+            out += 'Mean error: {:.3f} +/- {:.3f} km\n'.format(self.chi2_params['mean_error'][0], self.chi2_params['mean_error'][1])
+            
             out += '\n' + self.new_astrometric_position(log=False)
 
         return out

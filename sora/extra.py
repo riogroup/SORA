@@ -66,12 +66,15 @@ class ChiSquare():
         self.data = {'chi2': chi2}
         data_size = len(chi2)
         self.npts = npts
+        nparam = 0
         for item in kwargs.keys():
+            if (kwargs[item].var() != 0):
+                nparam += 1
             if len(kwargs[item]) != data_size:
                 raise ValueError('{} size must have the same size as given chi2')
             self.__names.append(item)
             self.data[item] = kwargs[item]
-        self.nparam = len(self.__names) - 1
+        self.nparam = nparam
 
     def get_nsigma(self,sigma=1, key=None):
         """ Determines the interval of the chi-square within the n-th sigma
