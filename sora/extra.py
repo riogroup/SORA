@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import astropy.units as u
 
-def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0, position_angle=0.0, *args, **kwargs):
+def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0, position_angle=0.0, ax=None, *args, **kwargs):
     """ Plots an ellipse given input parameters
 
     Parameters:
@@ -22,6 +22,8 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0, 
     theta= np.linspace(-np.pi, np.pi, 1800)
     size_vals, size_theta = np.indices((len(equatorial_radius), len(theta)))
 
+    ax = ax or plt.gca()
+
     if len(equatorial_radius) == 1:
         if 'color' not in kwargs:
             kwargs['color'] = 'black'
@@ -39,7 +41,7 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0, 
     for i in np.arange(len(equatorial_radius)):
         circle_x =  equatorial_radius[i]*np.cos(theta)
         circle_y =  equatorial_radius[i]*(1.0-oblateness[i])*np.sin(theta)
-        plt.plot(circle_x*np.cos(position_angle[i]*u.deg) + circle_y*np.sin(position_angle[i]*u.deg) + center_f[i],
+        ax.plot(circle_x*np.cos(position_angle[i]*u.deg) + circle_y*np.sin(position_angle[i]*u.deg) + center_f[i],
                  -circle_x*np.sin(position_angle[i]*u.deg) + circle_y*np.cos(position_angle[i]*u.deg) + center_g[i],
                  *args, **kwargs)
     plt.axis('equal')
@@ -105,7 +107,7 @@ class ChiSquare():
             return output[key]
         return output
 
-    def plot_chi2(self, key=None):
+    def plot_chi2(self, key=None, ax=None):
         """ Plots an ellipse given input parameters
 
         Parameters:
@@ -121,14 +123,18 @@ class ChiSquare():
         for name in self.__names[1:]:
             if (key is not None) and (key != name):
                 continue
-            plt.plot(self.data[name][k], self.data['chi2'][k], 'k.')
-            plt.ylim(sigma_1['chi2_min']-1, sigma_1['chi2_min']+10)
-            plt.xlim(sigma_3[name][0]-3*sigma_3[name][1], sigma_3[name][0]+3*sigma_3[name][1])
-            plt.axhline(sigma_1['chi2_min']+1,linestyle='--',color='red')
-            plt.axhline(sigma_3['chi2_min']+9,linestyle='--',color='red')
+            if key is None or not ax:
+                ax = plt.gca()
+            ax.plot(self.data[name][k], self.data['chi2'][k], 'k.')
+            ax.set_ylim(sigma_1['chi2_min']-1, sigma_1['chi2_min']+10)
+            delta = sigma_3[name][1]
+            if delta == 0.0: delta = 1.0
+            ax.set_xlim(sigma_3[name][0]-3*delta, sigma_3[name][0]+3*delta)
+            ax.axhline(sigma_1['chi2_min']+1,linestyle='--',color='red')
+            ax.axhline(sigma_3['chi2_min']+9,linestyle='--',color='red')
             #pl.axvline(t_i[chi2.argmin()],linestyle='--',color='red')
-            plt.xlabel(name,fontsize=20)
-            plt.ylabel('Chi2',fontsize=20)
+            ax.set_xlabel(name,fontsize=20)
+            ax.set_ylabel('Chi2',fontsize=20)
             if key is None:
                 plt.show()
 

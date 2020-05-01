@@ -17,9 +17,12 @@ class PredictRow(Row):
     """An Astropy Row object modified for Prediction purposes.
     """
     def plot_occ_map(self,**kwargs):
-        plot_occ_map(self.meta['name'], kwargs.get('radius', self.meta['radius']), coord=self['ICRS Star Coord at Epoch'],
-                     time=self['Epoch'], ca=float(self['C/A']), pa=float(self['P/A']), vel=float(self['Vel']),
-                     dist=float(self['Dist']), mag=float(self['G*']), longi=float(self['long']), **kwargs)
+        radius = kwargs.get('radius', self.meta['radius'])
+        if 'radius' in kwargs:
+            del kwargs['radius']
+        plot_occ_map(self.meta['name'], radius, coord=self['ICRS Star Coord at Epoch'], time=self['Epoch'],
+                     ca=float(self['C/A']), pa=float(self['P/A']), vel=float(self['Vel']), dist=float(self['Dist']),
+                     mag=float(self['G*']), longi=float(self['long']), **kwargs)
 
 class Prediction(Table):
     """An Astropy Table object modified for Prediction purposes.
@@ -460,11 +463,11 @@ def latlon2xy(lon, lat, loncen, latcen):
     return y, z
 
 
-def plot_occ_map(obj, radius, **kwargs):
+def plot_occ_map(name, radius, **kwargs):
     """ Plots map of the occultation
 
     Parameters:
-        obj (str): Name of the object
+        name (str): Name of the object
         radius (int, float): radius of the object (km)
         coord (str, SkyCoord): Coordinate of the star
             ("hh mm ss.sss dd mm ss.sss" or "hh.hhhhhhhh dd.dddddddd")
@@ -479,8 +482,8 @@ def plot_occ_map(obj, radius, **kwargs):
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
 
-    if not type(obj) == str:
-        raise TypeError('obj keyword must be a string')
+    if not type(name) == str:
+        raise TypeError('name keyword must be a string')
 
     radius = radius*u.km
 
@@ -514,7 +517,7 @@ def plot_occ_map(obj, radius, **kwargs):
     res = ['10m', '50m', '110m']
     resolution = res[resolution-1]
 
-    nameimg = kwargs.get('nameimg', '{}_{}'.format(obj, occs['datas'].isot))
+    nameimg = kwargs.get('nameimg', '{}_{}'.format(name, occs['datas'].isot))
     fmt = kwargs.get('fmt', 'png')
     dpi = kwargs.get('dpi', 100)
     step = kwargs.get('step', 1)
@@ -804,18 +807,18 @@ def plot_occ_map(obj, radius, **kwargs):
 
 ####### plots the countries names #####
     for country in countries.keys():
-        plt.text(countries[country][0],countries[country][1], country, transform=ccrs.Geodetic(), weight='bold', color='grey', fontsize=30*cscale, family='DejaVu Sans')
+        plt.text(countries[country][0],countries[country][1], country, transform=ccrs.Geodetic(), weight='bold', color='grey', fontsize=30*cscale, family='monospace')
 
 ####### plots the sites ##############
     for site in sites.keys():
         s = EarthLocation.from_geodetic(sites[site][0]*u.deg,sites[site][1]*u.deg,0.0*u.km)
         axf.plot(s.lon.deg,s.lat.deg,'o', transform=ccrs.Geodetic(), markersize=mapsize[0].value*sscale*10.0/46.0, color=sites[site][4])
         xt,yt = latlon2xy(s.lon.deg, s.lat.deg, center_map.lon.value, center_map.lat.value)
-        axf.text(xt + sites[site][2]*1000,yt+sites[site][3]*1000, site, weight='bold', fontsize=25*nscale, family='DejaVu Sans')
+        axf.text(xt + sites[site][2]*1000,yt+sites[site][3]*1000, site, weight='bold', fontsize=25*nscale, family='monospace')
 
 ######## Define the title and label of the output #########
     title = ('Object        Diam   Tmax   dots <> ra_offset_dec\n{:10s} {:4.0f} km  {:5.1f}s  {:02d} s <>{:+6.1f} {:+6.1f} \n'.
-            format(obj, 2*radius.value, (2*radius/np.absolute(occs['vel'])).value, cpoints, off_ra.value, off_de.value))
+            format(name, 2*radius.value, (2*radius/np.absolute(occs['vel'])).value, cpoints, off_ra.value, off_de.value))
     labelx = ("\n year-m-d    h:m:s UT     ra__dec__J2000__candidate    C/A    P/A    vel   Delta   G*  long\n"
              "{}  {:02d} {:02d} {:07.4f} {:+03d} {:02d} {:06.3f} {:6.3f} {:6.2f} {:6.2f}  {:5.2f} {:5.1f}  {:3.0f}".
              format(data.iso,int(occs['stars'].ra.hms.h), int(occs['stars'].ra.hms.m), occs['stars'].ra.hms.s,
@@ -824,9 +827,9 @@ def plot_occ_map(obj, radius, **kwargs):
 
 ####### plots the map#####
     if labels:
-        axf.set_title(title, fontproperties='FreeMono', weight='bold', fontsize=22)
+        axf.set_title(title, family='monospace', weight='bold', fontsize=22)
         axf.text(0.5, -0.1, labelx, va='bottom', ha='center', rotation='horizontal', rotation_mode='anchor', transform=axf.transAxes,
-                 fontproperties='FreeMono', weight='bold', fontsize=22)
+                 family='monospace', weight='bold', fontsize=22)
     plt.savefig('{}.{}'.format(nameimg, fmt), format=fmt, dpi=dpi)
     print('{}.{} generated'.format(nameimg, fmt))
     plt.clf()

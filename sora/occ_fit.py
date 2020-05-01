@@ -636,7 +636,7 @@ class Occultation():
         else:
             return out
 
-    def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red'):
+    def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red', ax=None):
         """Plots the chords of the occultation
 
         Parameters:
@@ -646,6 +646,7 @@ class Occultation():
             negative_color: color for the negative chords. Default: green
             error_color: color for the error bars of the chords. Default: red
         """
+        ax = ax or plt.gca()
         positions = self.positions
         for site in positions.keys():
             pos_obs = positions[site]
@@ -655,21 +656,21 @@ class Occultation():
                     continue
                 if pos_lc['status'] == 'negative':
                     arr = np.array([pos_lc['start_obs']['value'], pos_lc['end_obs']['value']])
-                    plt.plot(*arr.T, '--', color=negative_color, linewidth=1.5)
+                    ax.plot(*arr.T, '--', color=negative_color, linewidth=0.7)
                 else:
                     n = 0
                     if pos_lc['immersion']['on'] or all_chords:
                         arr = np.array([pos_lc['immersion']['error']])
-                        plt.plot(*arr.T, color=error_color, linewidth=3.0)
+                        ax.plot(*arr.T, color=error_color, linewidth=1.5)
                         n+=1
                     if pos_lc['emersion']['on'] or all_chords:
                         arr = np.array([pos_lc['emersion']['error']])
-                        plt.plot(*arr.T, color=error_color, linewidth=3.0)
+                        ax.plot(*arr.T, color=error_color, linewidth=1.5)
                         n+=1
                     if n == 2:
                         arr = np.array([pos_lc['immersion']['value'], pos_lc['emersion']['value']])
-                        plt.plot(*arr.T, color=positive_color, linewidth=2.0)
-        plt.axis('equal')
+                        ax.plot(*arr.T, color=positive_color, linewidth=0.7)
+        ax.axis('equal')
 
     def get_map_sites(self):
         """Return Dictionary with sites in the format required by plot_occ_map function
@@ -690,6 +691,8 @@ class Occultation():
             All parameters are parsed directly by prediction.plot_occ_map()
             Please refer to the tutorial
         """
+        if 'radius' not in kwargs and hasattr(self, 'fitted_params'):
+            kwargs['radius'] = self.fitted_params['equatorial_radius'][0]
         kwargs['sites'] = kwargs.get('sites', self.get_map_sites())
         if 'offset' not in kwargs and hasattr(self, 'fitted_params'):
             off_ra = self.fitted_params['center_f'][0]*u.km
@@ -710,17 +713,15 @@ class Occultation():
 
         count = {'positive': 0, 'negative': 0, 'visual': 0}
         string = {'positive': '', 'negative': '', 'visual': ''}
-        try:
+        if len(self.__observations) > 0:
             pos = self.positions
-        except:
-            pass
-        for o,l in self.__observations:
-            status = pos[o.name][l.name]['status']
-            if count[status] > 0:
-                string[status] += '-'*79 + '\n'
-            string[status] += o.__str__() + '\n\n'
-            string[status] += l.__str__() + ''
-            count[status] += 1
+            for o,l in self.__observations:
+                status = pos[o.name][l.name]['status']
+                if count[status] > 0:
+                    string[status] += '-'*79 + '\n'
+                string[status] += o.__str__() + '\n\n'
+                string[status] += l.__str__() + ''
+                count[status] += 1
 
         if np.sum([count[i] for i in count.keys()]) == 0:
             out += 'No observations reported'
