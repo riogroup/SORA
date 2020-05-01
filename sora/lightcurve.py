@@ -278,6 +278,29 @@ class LightCurve():
             raise TypeError('diam must be a float or an Astropy Unit object')
         self.d_star = diam
 
+    def set_filter(self,lambda_0,delta_lambda):
+        '''
+        Set the filter bandwidth in microns
+        Inputs:
+        lambda_0 = float, in microns
+        delta_lambda = float, in microns
+        '''
+        if type(lambda_0) == u.quantity.Quantity:
+            lambda_0 = diam.to(u.km).value
+        elif type(lambda_0) in [float,int]:
+            pass
+        else:
+            raise TypeError('lambda_0 must be a float or an Astropy Unit object')
+        self.lambda_0 = lambda_0
+        if type(delta_lambda) == u.quantity.Quantity:
+            lambda_0 = diam.to(u.km).value
+        elif type(delta_lambda) in [float,int]:
+            pass
+        else:
+            raise TypeError('delta_lambda must be a float or an Astropy Unit object')
+        self.delta_lambda = delta_lambda
+
+        
     def calc_magnitude_drop(self,mag_star,mag_obj):
         """
         Determine the magnitude drop

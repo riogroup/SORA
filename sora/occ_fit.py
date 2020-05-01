@@ -757,6 +757,7 @@ class Occultation():
             out += '\nMinimum chi-square: {:.3f}\n'.format(self.chi2_params['chi2_min'])
             out += 'Number of fitted points: {}\n'.format(self.chi2_params['npts'])
             out += 'Number of fitted parameters: {}\n'.format(self.chi2_params['nparam'])
+            out += 'Minimum chi-square per degree of freedom: {:.3f}\n'.format(self.chi2_params['chi2_min']/ (self.chi2_params['npts'] - self.chi2_params['nparam']))
             out += 'Radial dispersion: {:.3f} km\n'.format(self.chi2_params['radial_dispersion'])
             out += 'Mean error: {:.3f} +/- {:.3f} km\n'.format(self.chi2_params['mean_error'][0], self.chi2_params['mean_error'][1])
             
