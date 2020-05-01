@@ -688,8 +688,69 @@ class Occultation():
         """Plot occultation map
 
         Parameters:
-            All parameters are parsed directly by prediction.plot_occ_map()
-            Please refer to the tutorial
+            radius: The radius of the shadow. If not given it uses the equatorial radius
+                from an ellipse fit, else it uses the radius obtained from ephem upon
+                instantiating.
+
+            nameimg (str): Change the name of the imaged saved.
+            resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
+                "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
+            states (bool): True to plot the state division of the countries. The states of
+                some countries will only be shown depending on the resolution.
+            zoom (int, float): Zooms in or out of the map.
+            centermap_geo: Center the map given coordinates in longitude and latitude.
+                It must be a list with two numbers. Default=None.
+            centermap_delta: Displace the center of the map given displacement
+                in X and Y, in km. It must be a list with two numbers. Default=None.
+            centerproj: Rotates the Earth to show occultation with the center
+                projected at a given longitude and latitude.
+            labels: Plots text above and below the map with the occultation parameters.
+                Default=True.
+            meridians: Plots lines representing the meridians for given interval. Default=30 deg
+            parallels: Plots lines representing the parallels for given interval. Default=30 deg
+            sites: Plots site positions in map. It must be a python dictionary where the key is
+                the name of the site, and the value is a list with longitude, latitude, delta_x,
+                delta\_y and color. delta_x and delta_y are displacement, in km, from the point
+                of the site in the map and the name. color is the color of the point.
+                If not given, it calculates from observations added to Occultation
+            countries: Plots the names of countries. It must be a python dictionary where the key
+                is the name of the country and the value is a list with longitude and latitude
+                of the lower left part of the text.
+            offset: applies an offset to the ephemeris, calculating new CA and instant of CA.
+                It is a pair of delta_RA*cosDEC and delta_DEC.
+                If not given it uses the center from ellipse fitted.
+            mapstyle: Define the color style of the map. 1 is the default black and white scale.
+                2 is a colored map.
+            error: Ephemeris error in mas. It plots a dashed line representing radius + error.
+            lncolor: Changes the color of the lines of the error bar.
+            ring: It plots a dashed line representing the location of a ring.
+                It is given in km, from the center.
+            rncolor: Changes the color of ring lines.
+            atm: It plots a dashed line representing the location of an atmosphere.
+                It is given in km, from the center.
+            rncolor: Changes the color of atm lines.
+            heights: It plots a circular dashed line showing the locations where the observer
+                would observe the occultation at a given height above the horizons.
+                This must be a list.
+            hcolor: Changes the color of the height lines.
+            mapsize: The size of figure, in cm. It must be a list with two values.
+                Default = [46.0, 38.0].
+            cpoints: Interval for the small points marking the center of shadow,
+                in seconds. Default=60.
+            ptcolor: Change the color of the center points.
+            alpha: The transparency of the night shade, where 0.0 is full transparency
+                and 1.0 is full black. Default = 0.2.
+            fmt: The format to save the image. It is parsed directly by matplotlib.pyplot.
+                Default = 'png'
+            dpi: "Dots per inch". It defines the quality of the image. Default = 100.
+            lncolor: Changes the color of the line that represents the limits of the shadow over Earth.
+            outcolor: Changes the color of the lines that represents the limits of the shadow outside Earth
+            nscale: Arbitrary scale for the size for the name of the site.
+            cscale Arbitrary scale for the name of the country.
+            sscale Arbitrary scale for the size of point of the site.
+            pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+
+            Comment: Only one of centermap_geo and centermap_delta can be given
         """
         if 'radius' not in kwargs and hasattr(self, 'fitted_params'):
             kwargs['radius'] = self.fitted_params['equatorial_radius'][0]
