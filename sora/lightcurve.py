@@ -746,7 +746,7 @@ class LightCurve():
             dur_step = self.cycle/2
         
         if dur_step < self.cycle/2:
-            warnings.warn('dur_step is oversampled by a factor of {0:0.1f}. Uncertainties are constrained from data sampling.'.format(med_dur_step/dur_step))
+            warnings.warn('dur_step is oversampled by a factor of {0:0.1f}. Uncertainties are constrained from data sampling.'.format((self.cycle/2)/dur_step))
         
         duration_grid = np.arange(dur_step, maximum_duration, dur_step)
         # initial occultation mask (all data points)
