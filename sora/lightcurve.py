@@ -822,7 +822,13 @@ class LightCurve():
         depth_err = np.std(self.flux[occ_mask],ddof=1)
         baseline = np.mean(self.flux[~occ_mask])
         baseline_err = np.std(self.flux[~occ_mask],ddof=1)
-        snr = (depth/baseline_err)*np.sqrt(np.sum(occ_mask))
+        # If there is only one measurement during the occultation it will
+        # use the baseline_err to compute SNR, otherwise it will use depth_err
+        if np.sum(occ_mask) < 2:
+            snr = depth/baseline_err
+        else:
+            snr = depth/depth_err
+
 
         # define rank
         if rank:
