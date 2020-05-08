@@ -1008,3 +1008,10 @@ class LightCurve():
         return output
 
 
+    def __del__(self):
+        """ When this object is deleted, it removes the name from the Class name list.
+        """
+        try:
+            self.__names.remove(self.__name)
+        except:
+            pass
