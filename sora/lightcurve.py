@@ -716,17 +716,18 @@ class LightCurve():
         --------
         >>> params = lc.occ_detect()
         >>> params
-        {'occultation_duration': 0.0004645648878067732,
-         'central_time': 2457852.5916293273,
-         'immersion_time': 2457852.5913970447,
-         'emersion_time': 2457852.59186161,
-         'time_err': 5.799811333417892e-07,
-         'depth': 0.8663887801707082,
-         'depth_err': 0.10972550419008305,
-         'baseline': 0.9110181732552853,
-         'baseline_err': 0.1904360360568157,
-         'snr': 91.21719495827487,
-         'occ_mask': array([False, False, False, ..., False, False, False])}
+        {'rank': 1, 
+        'occultation_duration': 40.1384063065052, 
+        'central_time': 7916.773870512843, 
+        'immersion_time': 7896.7046673595905, 
+        'emersion_time': 7936.843073666096, 
+        'time_err': 0.05011036992073059, 
+        'depth': 0.8663887801707082, 
+        'depth_err': 0.10986223384336465, 
+        'baseline': 0.9110181732552853, 
+        'baseline_err': 0.19045768512595365, 
+        'snr': 7.886138392251848, 
+        'occ_mask': array([False, False, False, ..., False, False, False])}
         """
 
         if not hasattr(self, 'flux'):
