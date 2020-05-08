@@ -392,14 +392,14 @@ def occ_params(star, ephem, time):
     
     ca = np.arcsin(dd[min]*u.km/dist).to(u.arcsec)
     
-    pa = (np.arctan2(-ksi[min],-eta[min])*u.rad).to(u.deg)
+    pa = (np.arctan2(ksi[min],eta[min])*u.rad).to(u.deg)
     if pa < 0*u.deg:
         pa = pa + 360*u.deg
     
     dksi = ksi[min+1]-ksi[min]
     deta = eta[min+1]-eta[min]
     vel = np.sqrt(dksi**2 + deta**2)/delta_t
-    vel = -vel*np.sign(dksi)*(u.km/u.s)
+    vel = vel*np.sign(dksi)*(u.km/u.s)
     
     return tt[min], ca, pa, vel, dist.to(u.AU)
 
