@@ -98,7 +98,6 @@ class LightCurve():
         self.time_model = None
         if self.__name in self.__names:
             raise ValueError('name {} already defined for another LightCurve object. Please choose a different one.'.format(self.__name))
-        self.__names.append(self.__name)
         if 'immersion' in kwargs and 'emersion' in kwargs:
             if type(kwargs['immersion']) == str:
                 self._immersion = Time(kwargs['immersion'])
@@ -135,6 +134,7 @@ class LightCurve():
         if hasattr(self,'time'):
             self.model = np.ones(len(self.time))
         self.dt = 0.0
+        self.__names.append(self.__name)
 
     @property
     def fresnel_scale(self):
