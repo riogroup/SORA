@@ -286,15 +286,15 @@ class LightCurve():
         delta_lambda = float, in microns
         '''
         if type(lambda_0) == u.quantity.Quantity:
-            lambda_0 = diam.to(u.km).value
-        elif type(lambda_0) in [float,int]:
+            lambda_0 = lambda_0.to(u.micrometer).value
+        elif type(lambda_0) in [float]:
             pass
         else:
             raise TypeError('lambda_0 must be a float or an Astropy Unit object')
         self.lambda_0 = lambda_0
         if type(delta_lambda) == u.quantity.Quantity:
-            lambda_0 = diam.to(u.km).value
-        elif type(delta_lambda) in [float,int]:
+            delta_lambda = delta_lambda.to(u.micrometer).value
+        elif type(delta_lambda) in [float]:
             pass
         else:
             raise TypeError('delta_lambda must be a float or an Astropy Unit object')
