@@ -158,6 +158,9 @@ class LightCurve():
     def emersion(self):
         return self._emersion + self.dt*u.s
 
+    def check_names(self):
+        return self.__names
+    
     def set_flux(self, **kwargs):
         """ Set the flux for the LightCurve
 
