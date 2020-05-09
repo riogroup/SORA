@@ -41,14 +41,14 @@ def positionv(star,ephem,observer,time):
     ksio1, etao1 = observer.get_ksi_eta(time=time, star=coord)
     ksie1, etae1 = ephem.get_ksi_eta(time=time, star=coord)
     
-    f = ksio1+ksie1
-    g = etao1+etae1
+    f = ksio1-ksie1
+    g = etao1-etae1
     
     ksio2, etao2 = observer.get_ksi_eta(time=time+dt, star=coord)
     ksie2, etae2 = ephem.get_ksi_eta(time=time+dt, star=coord)
     
-    nf = ksio2+ksie2
-    ng = etao2+etae2
+    nf = ksio2-ksie2
+    ng = etao2-etae2
     
     vf = (nf-f)/0.1
     vg = (ng-g)/0.1

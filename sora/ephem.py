@@ -137,8 +137,8 @@ class EphemPlanete():
             return
         self.star = star
         target = self.ephem.transform_to(SkyOffsetFrame(origin=star))  
-        da = -target.cartesian.y
-        dd = -target.cartesian.z
+        da = target.cartesian.y
+        dd = target.cartesian.z
         dt = (self.time-self.__reftime)/(self.max_time-self.min_time)
 
         self.ksi = np.polyfit(dt, da.to(u.km).value, 2)
@@ -363,8 +363,8 @@ class EphemJPL():
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
         coord = self.get_position(time)
         target = coord.transform_to(SkyOffsetFrame(origin=star))
-        da = -target.cartesian.y
-        dd = -target.cartesian.z
+        da = target.cartesian.y
+        dd = target.cartesian.z
         return da.to(u.km).value, dd.to(u.km).value
 
     def  get_pole_position_angle(self,pole,time):
@@ -510,8 +510,8 @@ class EphemKernel():
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
         coord = self.get_position(time)
         target = coord.transform_to(SkyOffsetFrame(origin=star))  
-        da = -target.cartesian.y
-        dd = -target.cartesian.z
+        da = target.cartesian.y
+        dd = target.cartesian.z
         return da.to(u.km).value, dd.to(u.km).value
 
     def  get_pole_position_angle(self,pole,time):

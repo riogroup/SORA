@@ -386,12 +386,13 @@ class Star():
             time = Time(time, format='jd', scale='utc')
         n_coord = self.barycentric(time)
         if self.coord.distance.unit.is_unity() or np.isnan(self.coord.distance):
-            return n_coord
-        sun = get_sun(time)
-        g_coord = SkyCoord(*(n_coord.cartesian.xyz + sun.cartesian.xyz), representation_type='cartesian')
-        g_coord = g_coord.represent_as(SphericalRepresentation)
-        g_coord = SkyCoord(g_coord.lon, g_coord.lat, g_coord.distance)
-        
+            g_coord = n_coord
+        else:
+            sun = get_sun(time)
+            g_coord = SkyCoord(*(n_coord.cartesian.xyz + sun.cartesian.xyz), representation_type='cartesian')
+            g_coord = g_coord.represent_as(SphericalRepresentation)
+            g_coord = SkyCoord(g_coord.lon, g_coord.lat, g_coord.distance)
+
         if hasattr(self, 'offset'):
             star_frame = SkyOffsetFrame(origin=g_coord)
             new_pos = SkyCoord(lon=self.offset.d_lon_coslat, lat=self.offset.d_lat, frame=star_frame)
