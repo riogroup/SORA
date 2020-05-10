@@ -131,8 +131,6 @@ class LightCurve():
                 raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')
         self.lambda_0 = kwargs.get('lambda', 0.70)
         self.delta_lambda = kwargs.get('delta_lambda', 0.30)
-        if hasattr(self,'time'):
-            self.model = np.ones(len(self.time))
         self.dt = 0.0
         self.__names.append(self.__name)
 
