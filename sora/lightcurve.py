@@ -969,12 +969,6 @@ class LightCurve():
             flux_inst[i] = (flux_star[event_model]).mean()
         return flux_inst*(flux_max - flux_min) + flux_min
 
-    def __del__(self):
-        try:
-            self.__names.remove(self.__name)
-        except:
-            pass
-
     def __str__(self):
         """ String representation of the LightCurve Object
         """
