@@ -228,6 +228,7 @@ class LightCurve():
                 time = self.tref + time*u.s
             self.time = (time - self.tref).sec
             order = np.argsort(self.time)
+            self.model = np.ones(len(self.time))
             self.flux = self.flux[order]
             self.flux_obs = self.flux
             self.time = self.time[order]
@@ -371,7 +372,7 @@ class LightCurve():
             if (plot == True):
                 pl.plot(norm_time[mask],lc_flux[mask],'k.-')
                 pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
-                pl.title('{}'.format(n),fontsize=15)
+                pl.title('Polinomial degree = {}'.format(n),fontsize=15)
                 pl.show()       
         if (poly_deg == None):
             n = 0
@@ -382,7 +383,7 @@ class LightCurve():
             if (plot == True):
                 pl.plot(norm_time[mask],lc_flux[mask],'k.-')
                 pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
-                pl.title('{}'.format(n),fontsize=15)
+                pl.title('Polinomial degree = {}'.format(n),fontsize=15)
                 pl.show()
             flux_poly_model_old = flux_poly_model.copy()
             for nn in np.arange(1,10):
@@ -397,7 +398,7 @@ class LightCurve():
                     if (plot == True):
                         pl.plot(norm_time[mask],lc_flux[mask],'k.-')
                         pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
-                        pl.title('{}'.format(nn),fontsize=15)
+                        pl.title('Polinomial degree = {}'.format(nn),fontsize=15)
                         pl.show()
                 else:
                     print('Normalization using a {} degree polinonm'.format(n))
