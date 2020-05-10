@@ -247,7 +247,7 @@ class LightCurve():
         '''
         if type(vel) == u.quantity.Quantity:
             vel = vel.to(u.km/u.s).value
-        elif type(vel) == [float,int]:
+        elif type(vel) in [float,int]:
             pass
         else:
             raise TypeError('vel must be a float or an Astropy Unit object')
