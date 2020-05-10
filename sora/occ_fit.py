@@ -312,7 +312,7 @@ class Occultation():
         self.__observations.append((obs,lightcurve))
         lightcurve.set_vel(np.absolute(self.vel))
         lightcurve.set_dist(float(self.dist.AU))
-        lightcurve.set_diam(float(self.star_diam.km))
+        lightcurve.set_star_diam(float(self.star_diam.km))
         try:
             lightcurve.calc_magnitude_drop(mag_star=self.star.mag['G'],mag_obj=self.ephem.apparent_magnitude(self.tca))
         except:

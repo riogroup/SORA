@@ -267,19 +267,19 @@ class LightCurve():
             raise TypeError('dist must be a float or an Astropy Unit object')
         self.dist = dist
 
-    def set_diam(self,diam):
+    def set_star_diam(self,d_star):
         '''
         Set the star diameter
         Inputs:
         diam = float, in km
         '''
-        if type(diam) == u.quantity.Quantity:
-            diam = diam.to(u.km).value
-        elif type(diam) in [float,int]:
+        if type(d_star) == u.quantity.Quantity:
+            d_star = d_star.to(u.km).value
+        elif type(d_star) in [float,int]:
             pass
         else:
-            raise TypeError('diam must be a float or an Astropy Unit object')
-        self.d_star = diam
+            raise TypeError('d_star must be a float or an Astropy Unit object')
+        self.d_star = d_star
 
     def set_filter(self,lambda_0,delta_lambda):
         '''
