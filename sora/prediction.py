@@ -392,14 +392,14 @@ def occ_params(star, ephem, time):
     
     ca = np.arcsin(dd[min]*u.km/dist).to(u.arcsec)
     
-    pa = (np.arctan2(-ksi[min],-eta[min])*u.rad).to(u.deg)
+    pa = (np.arctan2(ksi[min],eta[min])*u.rad).to(u.deg)
     if pa < 0*u.deg:
         pa = pa + 360*u.deg
     
     dksi = ksi[min+1]-ksi[min]
     deta = eta[min+1]-eta[min]
     vel = np.sqrt(dksi**2 + deta**2)/delta_t
-    vel = -vel*np.sign(dksi)*(u.km/u.s)
+    vel = vel*np.sign(dksi)*(u.km/u.s)
     
     return tt[min], ca, pa, vel, dist.to(u.AU)
 
@@ -940,13 +940,13 @@ def plot_occ_map(name, radius, **kwargs):
         atmo = atm*u.km
         ax2 = ax - atmo*np.sin(paplus)
         by2 = by - atmo*np.cos(paplus)
-        lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, data1)
+        lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon1 < 1e+30)
         axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(),  color=atcolor)
 
         ax3 = ax + atmo*np.sin(paplus)
         by3 = by + atmo*np.cos(paplus)
-        lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, data1)
+        lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon2 < 1e+30)
         axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(),  color=atcolor)
 

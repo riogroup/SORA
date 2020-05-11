@@ -98,7 +98,6 @@ class LightCurve():
         self.time_model = None
         if self.__name in self.__names:
             raise ValueError('name {} already defined for another LightCurve object. Please choose a different one.'.format(self.__name))
-        self.__names.append(self.__name)
         if 'immersion' in kwargs and 'emersion' in kwargs:
             if type(kwargs['immersion']) == str:
                 self._immersion = Time(kwargs['immersion'])
@@ -135,6 +134,7 @@ class LightCurve():
         if hasattr(self,'time'):
             self.model = np.ones(len(self.time))
         self.dt = 0.0
+        self.__names.append(self.__name)
 
     @property
     def fresnel_scale(self):
@@ -286,15 +286,15 @@ class LightCurve():
         delta_lambda = float, in microns
         '''
         if type(lambda_0) == u.quantity.Quantity:
-            lambda_0 = diam.to(u.km).value
-        elif type(lambda_0) in [float,int]:
+            lambda_0 = lambda_0.to(u.micrometer).value
+        elif type(lambda_0) in [float]:
             pass
         else:
             raise TypeError('lambda_0 must be a float or an Astropy Unit object')
         self.lambda_0 = lambda_0
         if type(delta_lambda) == u.quantity.Quantity:
-            lambda_0 = diam.to(u.km).value
-        elif type(delta_lambda) in [float,int]:
+            delta_lambda = delta_lambda.to(u.micrometer).value
+        elif type(delta_lambda) in [float]:
             pass
         else:
             raise TypeError('delta_lambda must be a float or an Astropy Unit object')
@@ -1015,3 +1015,10 @@ class LightCurve():
         return output
 
 
+    def __del__(self):
+        """ When this object is deleted, it removes the name from the Class name list.
+        """
+        try:
+            self.__names.remove(self.__name)
+        except:
+            pass
