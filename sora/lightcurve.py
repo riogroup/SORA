@@ -672,10 +672,15 @@ class LightCurve():
             namefile (str): Filename to save the data
         """
         ###### Observational data
+        folder = ''
+        for idx, charac in enumerate(namefile):
+            if charac == '/':
+                folder =namefile[:idx+1]
+        file = namefile.replace(folder,'')
         data = np.array([(self.time*u.s + self.tref).jd,self.time,self.flux,self.model,self.flux-self.model])
         colunm_names = ['Time JD','Time relative to {} UTC in seconds'.format(self.tref.iso),'Observational Flux','Modelled Flux','Residual O-C']
-        np.savetxt(namefile, data.T, fmt='%11.8f')
-        f = open(namefile+'.label', 'w')
+        np.savetxt(folder + file, data.T, fmt='%11.8f')
+        f = open(folder + file + '.label', 'w')
         for i, name in enumerate(colunm_names):
             f.write('Column {}: {}\n'.format(i+1,name))
         f.close()
@@ -683,8 +688,8 @@ class LightCurve():
         if (np.all(self.time_model) != None):
             data_model = np.array([(self.time_model*u.s + self.tref).jd,self.time_model,self.model_geometric,self.model_fresnel,self.model_star])
             colunm_names_model = ['Model time JD','Model time relative to {} UTC in seconds'.format(self.tref.iso),'Geometric Model','Model with Fresnel diffraction','Model with star diameter']
-            np.savetxt('model_'+namefile, data_model.T, fmt='%11.8f')
-            f = open('model_'+namefile+'.label', 'w')
+            np.savetxt(folder + 'model_'+ file, data_model.T, fmt='%11.8f')
+            f = open(folder + 'model_'+ file+'.label', 'w')
             for i, name in enumerate(colunm_names_model):
                 f.write('Column {}: {}\n'.format(i+1,name))
             f.close()
