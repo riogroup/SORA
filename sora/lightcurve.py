@@ -418,14 +418,14 @@ class LightCurve():
         return
 
     
-    def occ_model(self,immersion_time, emersion_time, opa_ampli, mask, npt_star=12, time_resolution_factor=10,flux_min=0,flux_max=1):
+    def occ_model(self,immersion_time, emersion_time, opacity, mask, npt_star=12, time_resolution_factor=10,flux_min=0,flux_max=1):
         """ Returns the modelled light curve considering fresnel difraction, star diameter and intrumental response.
         ----------
         Parameters
         ----------
         immersion_time (int, float): Immersion time, in seconds.                (input)
         emersion_time  (int, float): Emersion time, in seconds.                 (input)
-        opa_ampli (int, float): Opacity, opaque = 1.0, transparent = 0.0.       (input)
+        opacity (int, float): Opacity, opaque = 1.0, transparent = 0.0.         (input)
         mask (array with Booleans): Mask with True values to be computed        (input)
         npt_star  (int): Number of subdivisions for computing the star size's effects, default equal to 12. (auto)
         time_resolution_factor (int,float): Steps for fresnel scale used for modelling the light curve,     (auto)
@@ -461,8 +461,8 @@ class LightCurve():
         x02 = emersion_time*vel
         #
         #Computing fresnel diffraction for the case where the star size is negligenciable
-        flux_fresnel_1 = self.__bar_fresnel(x,x01,x02,fresnel_scale_1,opa_ampli)
-        flux_fresnel_2 = self.__bar_fresnel(x,x01,x02,fresnel_scale_2,opa_ampli)
+        flux_fresnel_1 = self.__bar_fresnel(x,x01,x02,fresnel_scale_1,opacity)
+        flux_fresnel_2 = self.__bar_fresnel(x,x01,x02,fresnel_scale_2,opacity)
         flux_fresnel   = (flux_fresnel_1 + flux_fresnel_2)/2.
         flux_star      = flux_fresnel.copy()
         if (self.d_star > 0):
@@ -476,8 +476,8 @@ class LightCurve():
             coeff = np.sqrt(np.absolute(self.d_star**2 - p**2))
             for ii in np.where(star_diam == True)[0]:
                 xx = x[ii] + p
-                flux1 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_1,opa_ampli)
-                flux2 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_2,opa_ampli)
+                flux1 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_1,opacity)
+                flux2 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_2,opacity)
                 flux_star_1[ii] = np.sum(coeff*flux1)/coeff.sum()
                 flux_star_2[ii] = np.sum(coeff*flux2)/coeff.sum()
                 flux_star[ii]   = (flux_star_1[ii] + flux_star_2[ii])/2.
@@ -491,7 +491,7 @@ class LightCurve():
         self.model_fresnel = flux_fresnel*(flux_max - flux_min) + flux_min
         ev_model = (time_model > immersion_time) & (time_model < emersion_time)
         flux_box = np.ones(len(time_model))
-        flux_box[ev_model] = (1-opa_ampli)**2
+        flux_box[ev_model] = (1-opacity)**2
         flux_box = flux_box*(flux_max - flux_min) + flux_min
         self.model_geometric = flux_box
         self.baseflux = flux_max
@@ -538,7 +538,7 @@ class LightCurve():
         do_opacity = False
         if 'loop' in kwargs:
             loop = kwargs['loop']
-        if 'immersion_time' not in kwargs and 'emersion_time' not in kwargs:
+        if ('immersion_time' not in kwargs) and ('emersion_time' not in kwargs):
             preliminar_occ = self.occ_detect()
             immersion_time = preliminar_occ['immersion_time']
             do_immersion = True
@@ -869,7 +869,7 @@ class LightCurve():
                 dict3[key] = np.append(dict1[key],dict2[key])
         return dict3
 
-    def __bar_fresnel(self,X,X01,X02,fresnel_scale,opa_ampli):
+    def __bar_fresnel(self,X,X01,X02,fresnel_scale,opacity):
         """ Returns the modelled light curve considering fresnel difraction.
         ----------
         Parameters
@@ -878,7 +878,7 @@ class LightCurve():
         X01 (int, float): Immersion time converted in km using the event velocity.
         X02 (int, float): Emersion time converted in km using the event velocity.
         fresnel_scale (int, float): Fresnel scale.
-        opa_ampli     (int, float): Opacity, opaque = 1.0, transparent = 0.0
+        opacity (int, float): Opacity, opaque = 1.0, transparent = 0.0
         ----------
         Returns
         ----------
@@ -895,21 +895,21 @@ class LightCurve():
         s2,c2 = scsp.fresnel(x2)
         cc = c1 - c2
         ss = s1 - s2
-        r_ampli = - (cc+ss)*(opa_ampli/2.)
-        i_ampli =   (cc-ss)*(opa_ampli/2.)
+        r_ampli = - (cc+ss)*(opacity/2.)
+        i_ampli =   (cc-ss)*(opacity/2.)
         # Determining the flux considering fresnel difraction
         flux_fresnel = (1.0 + r_ampli)**2 + (i_ampli)**2
         return flux_fresnel
 
 
-    def __occ_model(self,immersion_time, emersion_time, opa_ampli, mask, npt_star=12, time_resolution_factor=10,flux_min=0.0,flux_max=1.0):
+    def __occ_model(self,immersion_time, emersion_time, opacity, mask, npt_star=12, time_resolution_factor=10,flux_min=0.0,flux_max=1.0):
         """ Private function returns the modelled light curve considering fresnel difraction, star diameter and intrumental response, intended for fitting inside the self.occ_lcfit().
         ----------
         Parameters
         ----------
         immersion_time (int, float): Immersion time, in seconds.                (input)
         emersion_time  (int, float): Emersion time, in seconds.                 (input)
-        opa_ampli (int, float): Opacity, opaque = 1.0, transparent = 0.0.       (input)
+        opacity (int, float): Opacity, opaque = 1.0, transparent = 0.0.       (input)
         mask (array with Booleans): Mask with True values to be computed        (input)
         npt_star  (int): Number of subdivisions for computing the star size's effects, default equal to 12. (auto)
         time_resolution_factor (int,float): Steps for fresnel scale used for modelling the light curve,     (auto)
@@ -942,8 +942,8 @@ class LightCurve():
         x02 = emersion_time*vel
         #
         #Computing fresnel diffraction for the case where the star size is negligenciable
-        flux_fresnel_1 = self.__bar_fresnel(x,x01,x02,fresnel_scale_1,opa_ampli)
-        flux_fresnel_2 = self.__bar_fresnel(x,x01,x02,fresnel_scale_2,opa_ampli)
+        flux_fresnel_1 = self.__bar_fresnel(x,x01,x02,fresnel_scale_1,opacity)
+        flux_fresnel_2 = self.__bar_fresnel(x,x01,x02,fresnel_scale_2,opacity)
         flux_fresnel   = (flux_fresnel_1 + flux_fresnel_2)/2.
         flux_star      = flux_fresnel.copy()
         if (self.d_star > 0):
@@ -957,8 +957,8 @@ class LightCurve():
             coeff = np.sqrt(np.absolute(self.d_star**2 - p**2))
             for ii in np.where(star_diam == True)[0]:
                 xx = x[ii] + p
-                flux1 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_1,opa_ampli)
-                flux2 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_2,opa_ampli)
+                flux1 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_1,opacity)
+                flux2 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_2,opacity)
                 flux_star_1[ii] = np.sum(coeff*flux1)/coeff.sum()
                 flux_star_2[ii] = np.sum(coeff*flux2)/coeff.sum()
                 flux_star[ii]   = (flux_star_1[ii] + flux_star_2[ii])/2.
