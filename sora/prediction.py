@@ -369,6 +369,7 @@ def occ_params(star, ephem, time):
     if type(ephem) not in [EphemKernel, EphemJPL, EphemPlanete]:
         raise ValueError('ephem must be an Ephemeris object')
         
+    time = Time(time)
     tt = time + np.arange(-600, 600, delta_t)*u.s
     coord = star.geocentric(tt[0])
     if type(ephem) == EphemPlanete:
