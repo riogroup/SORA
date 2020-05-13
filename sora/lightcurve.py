@@ -665,7 +665,7 @@ class LightCurve():
 
 
 
-    def to_file(self, namefile):
+    def to_file(self, namefile=None):
         """ Save the light currve to a file
 
         Parameters:
@@ -673,10 +673,13 @@ class LightCurve():
         """
         ###### Observational data
         folder = ''
-        for idx, charac in enumerate(namefile):
-            if charac == '/':
-                folder =namefile[:idx+1]
-        file = namefile.replace(folder,'')
+        if (namefile == None):
+            file = self.name.replace(' ','_')+'.dat'
+        else:
+            for idx, charac in enumerate(namefile):
+                if charac == '/':
+                    folder =namefile[:idx+1]
+            file = namefile.replace(folder,'')
         data = np.array([(self.time*u.s + self.tref).jd,self.time,self.flux,self.model,self.flux-self.model])
         colunm_names = ['Time JD','Time relative to {} UTC in seconds'.format(self.tref.iso),'Observational Flux','Modelled Flux','Residual O-C']
         np.savetxt(folder + file, data.T, fmt='%11.8f')
