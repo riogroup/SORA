@@ -343,8 +343,10 @@ class Occultation():
                 ko.append(i)
             if val[1].name == key_lc:
                 kl.append(i)
+        ko = np.array(ko)
+        kl = np.array(kl)
         if not same_key:
-            k  = np.where(np.array(ko) == np.array(kl))[0]
+            k  = ko[np.where(ko == kl)[0]]
             rm_list = np.hstack((rm_list, k))
         else:
             rm_list = np.hstack((rm_list, np.array(kl)))
@@ -499,10 +501,15 @@ class Occultation():
                     obs_end['_occ_value'] = (f1,g1)
 
         for key in list(position):
+            n = 0
             for key_lc in list(position[key]):
-                if type(key_lc) == _PositionDict and (key,key_lc) not in pair:
+                if type(position[key][key_lc]) != _PositionDict:
+                    continue
+                if (key,key_lc) not in pair:
                     del position[key][key_lc]
-            if len(position[key]) == 0:
+                else:
+                    n+=1
+            if n == 0:
                 del position[key]
 
         return self._position
