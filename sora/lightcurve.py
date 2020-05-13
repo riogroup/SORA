@@ -691,7 +691,7 @@ class LightCurve():
 
     
     def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None, \
-                  n_detections=None, plot=None):
+                  n_detections=None, plot=False):
         """
         Detect automatically the occultation event in the light curve
         
@@ -701,6 +701,7 @@ class LightCurve():
         dur_step (float): Step size to sweep occultation duration event (default value is 1/2 of sampling). (optional)
         snr_limit (float): Minimum occultation SNR. (optional)
         n_detections (int): N best detections regardless from SNR. n_detections is superseded by snr_limit. (optional)
+        plot (boolean): True if output plots are desired. (optional)
             
         Returns
         -------
@@ -772,6 +773,9 @@ class LightCurve():
                     occ0 = self.__summarize_bls(occ0,occ1)
                 else:
                     snr_value = snr_limit
+            
+            if plot:
+                self.__plot_occ_detect(occ0)                    
             return occ0
         elif n_detections:
             # search the n best fits
@@ -784,13 +788,48 @@ class LightCurve():
                 snr_value = occ1['snr']
                 mask *= ~occ1['occ_mask']                    
                 occ0 = self.__summarize_bls(occ0,occ1)
+            
+            if plot:
+                self.__plot_occ_detect(occ0)
             return occ0
         else:
             # search only the first best fit
             occ0 = self.__run_bls(time_span, duration_grid)
+           
+            if plot:
+                self.__plot_occ_detect(occ0)
+                
             return occ0
         
-        
+    def __plot_occ_detect(self, occ):
+        n = np.size(occ['rank'])
+        if n > 1:
+            # case for multiple detections
+            pl.plot(self.time, self.flux, 'k.', alpha=0.5)
+            mask = np.zeros(len(self.time), dtype=bool)
+            for i in range(n):
+                trues = np.sum(occ['occ_mask'][i])
+                pl.plot(self.time[occ['occ_mask'][i]], np.repeat(np.mean(self.flux[occ['occ_mask'][i]]),trues), '.', label='Rank: '+str(i+1))
+                mask += occ['occ_mask'][i]
+ 
+            falses = list(mask).count(False)
+            pl.plot(self.time[~mask], np.repeat(np.mean(self.flux[~mask]),falses), 'r.', label='Baseline')
+            pl.xlabel('Time [seconds]')
+            pl.ylabel('Relative Flux')
+            pl.legend()    
+            
+        else:
+            # case for single occultation
+            trues = list(occ['occ_mask']).count(True)
+            falses = list(occ['occ_mask']).count(False)
+            pl.plot(self.time, self.flux, 'k.', alpha=0.5)
+            pl.plot(self.time[occ['occ_mask']], np.repeat(np.mean(self.flux[occ['occ_mask']]),trues), '.', label='Occultation')
+            pl.plot(self.time[~occ['occ_mask']], np.repeat(np.mean(self.flux[~occ['occ_mask']]),falses), 'r.', label='Baseline')
+            pl.xlabel('Time [seconds]')
+            pl.ylabel('Relative Flux')
+            pl.legend()
+            
+    
     def __run_bls(self, per_grid, dur_grid, mask=None, rank=None):
         """
         Private function to find the best box fit suitable to the data
