@@ -663,10 +663,21 @@ class LightCurve():
             raise ValueError('Plotting the model light curve is only possible after the model [LightCurve.occ_model()] or the fit [LightCurve.occ_lcfit()]')
         return
 
+    def to_log(self,namefile=None):
+        """ Save the light curve log to a file
 
+        Parameters:
+            namefile (str): Filename to save the log
+        """
+        if (namefile == None):
+            file = self.name.replace(' ','_')+'.log'
+        f = open(namefile, 'w')
+        f.write(self.__str__())
+        f.close()
+        
 
     def to_file(self, namefile=None):
-        """ Save the light currve to a file
+        """ Save the light curve to a file
 
         Parameters:
             namefile (str): Filename to save the data
