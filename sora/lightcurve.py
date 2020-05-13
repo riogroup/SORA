@@ -626,17 +626,14 @@ class LightCurve():
         '''
         if (np.any(self.flux) != None):
             pl.close()
-            pl.figure(figsize=[8.4, 3.4])
-            pl.plot(self.time,self.flux,'k.-',label='Obs.',zorder=1)
+            pl.plot(self.time,self.flux,'k.-',label='Obs.',zorder=0)
             if (np.any(self.model) != None):
                 pl.plot(self.time,self.model,'r-',label='Model',zorder=2)
                 pl.scatter(self.time,self.model, s=50, facecolors='none', edgecolors='r',zorder=3)
             pl.tight_layout()
             pl.xlabel('Time [seconds]',fontsize=20)
             pl.ylabel('Relative Flux',fontsize=20)
-            pl.legend(fontsize=20,ncol=2)
-            pl.xticks(fontsize=20)
-            pl.yticks(fontsize=20)
+            pl.legend()
         else:
             raise ValueError('Plotting the light curve is only possible when the Object LightCurve is instatiated with time and flux')
         return
@@ -646,19 +643,13 @@ class LightCurve():
         Plot the modelled light curve
         '''
         if np.all(self.time_model) != None:
-            pl.close()
-            pl.figure(figsize=[8.4, 3.4])
-            pl.plot(self.time,self.flux,'k.-',label='Obs.',zorder=1)
-            pl.scatter(self.time,self.model, s=50, facecolors='none', edgecolors='r',label='Model',zorder=3)
-            pl.plot(self.time_model,self.model_geometric,'c-',label='Geometric',zorder=2)
-            pl.plot(self.time_model,self.model_fresnel,'b-',label='Fresnel',zorder=2)
-            pl.plot(self.time_model,self.model_star,'g-',label='Star diam.',zorder=2)
+            pl.plot(self.time_model,self.model_geometric,'c-',label='Geometric',zorder=1)
+            pl.plot(self.time_model,self.model_fresnel,'b-',label='Fresnel',zorder=1)
+            pl.plot(self.time_model,self.model_star,'g-',label='Star diam.',zorder=1)
             pl.tight_layout()
             pl.xlabel('Time [seconds]',fontsize=20)
             pl.ylabel('Relative Flux',fontsize=20)
-            pl.legend(fontsize=20)
-            pl.xticks(fontsize=20)
-            pl.yticks(fontsize=20)
+            pl.legend()
         else:
             raise ValueError('Plotting the model light curve is only possible after the model [LightCurve.occ_model()] or the fit [LightCurve.occ_lcfit()]')
         return
