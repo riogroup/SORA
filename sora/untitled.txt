@@ -1,0 +1,9 @@
+            if plot:
+                trues = np.sum(occ0['occ_mask'])
+                falses = len(self.time)-trues
+                plt.plot(self.time, self.flux, 'k*')
+                plt.plot(self.time[occ0['occ_mask']], np.repeat(np.mean(self.flux[occ0['occ_mask']]),trues), '+', label='Occultation')
+                plt.plot(self.time[~occ0['occ_mask']], np.repeat(np.mean(self.flux[~occ0['occ_mask']]),falses), '+', label='Baseline')
+                plt.legend()
+                plt.show()
+            
