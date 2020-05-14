@@ -691,29 +691,26 @@ class LightCurve():
 
     
     def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None, \
-                  n_detections=None):
+                  n_detections=None, plot=False):
         """
         Detect automatically the occultation event in the light curve
         
         Parameters
         ----------
-        maximum_duration (float): Maximum duration of the occultation event 
-                                  (default is 1/3rd of the light curve's time
-                                  span).                             (optional)
-        dur_step (float): Step size to sweep occultation duration event 
-                          (default value is 1/2 of sampling).        (optional)
-        snr_limit (float): Minimum occultation SNR.                  (optional)
-        n_detections (int): N best detections regardless from SNR. n_detections
-                            is superseded by snr_limit.              (optional)
+        maximum_duration (float): Maximum duration of the occultation event (default is 1/3rd of the light curve's time span). (optional)
+        dur_step (float): Step size to sweep occultation duration event (default value is 1/2 of sampling). (optional)
+        snr_limit (float): Minimum occultation SNR. (optional)
+        n_detections (int): N best detections regardless from SNR. n_detections is superseded by snr_limit. (optional)
+        plot (boolean): True if output plots are desired. (optional)
             
         Returns
         -------
         OrderedDict
-            An ordered dictionary of :attr:`name`::attr:`value` pairs for each
-            Parameter.
+            An ordered dictionary of :attr:`name`::attr:`value` pairs for each Parameter.
             
         Examples
         --------
+        >>> lc = sora.LightCurve(time=time, flux=flux, exptime=0.0, name='lc_example')
         >>> params = lc.occ_detect()
         >>> params
         {'rank': 1, 
@@ -726,29 +723,35 @@ class LightCurve():
         'depth_err': 0.10986223384336465, 
         'baseline': 0.9110181732552853, 
         'baseline_err': 0.19045768512595365, 
-        'snr': 7.886138392251848, 
+        'snr': 7.886138392251848,
         'occ_mask': array([False, False, False, ..., False, False, False])}
         """
 
         if not hasattr(self, 'flux'):
-            raise ValueError('time and flux must be instantiated to use occ_detect function.')
+            raise ValueError('time and flux must be instantiated to use '\
+                             'occ_detect function.')
 
         # duration of the light curve
         time_span = self.time[-1]-self.time[0]
         if maximum_duration and (maximum_duration > time_span):
-            raise ValueError('Occultation duration (maximum_duration={0}) ' \
+            warnings.warn('Occultation duration (maximum_duration={0}) ' \
                              'exceeds the time series lenght ({1:0.5f}).' \
-                             .format(maximum_duration, time_span))
+                          ' maximum_duration reset to the time series lenght.'\
+                          .format(maximum_duration, time_span))
+            maximum_duration = time_span
         if not maximum_duration:
-            maximum_duration = time_span*0.3333
+            maximum_duration = time_span
 
-        
         if not dur_step:
             dur_step = self.cycle/2
         
         if dur_step < self.cycle/2:
-            warnings.warn('dur_step is oversampled by a factor of {0:0.1f}. Uncertainties are constrained from data sampling.'.format((self.cycle/2)/dur_step))
-        
+            warnings.warn('The given dur_step is oversampled by a factor ' \
+                          'of {0:0.1f} and has been reset to half a cycle ' \
+                          '({1:0.4f}).' \
+                          .format((self.cycle/2.)/dur_step, self.cycle/2.))
+            dur_step = self.cycle/2
+       
         duration_grid = np.arange(dur_step, maximum_duration, dur_step)
         # initial occultation mask (all data points)
         mask = np.ones(len(self.time), dtype=bool)
@@ -762,13 +765,17 @@ class LightCurve():
             mask *= ~occ0['occ_mask']
             while (snr_value > snr_limit):
                 rank += 1
-                occ1 = self.__run_bls(time_span, duration_grid, mask=mask, rank=rank)
+                occ1 = self.__run_bls(time_span, duration_grid, mask=mask, \
+                                      rank=rank)
                 if occ1['snr'] > snr_limit:
                     snr_value = occ1['snr']
                     mask *= ~occ1['occ_mask']                    
                     occ0 = self.__summarize_bls(occ0,occ1)
                 else:
                     snr_value = snr_limit
+            
+            if plot:
+                self.__plot_occ_detect(occ0)                    
             return occ0
         elif n_detections:
             # search the n best fits
@@ -776,16 +783,53 @@ class LightCurve():
             mask *= ~occ0['occ_mask']    
             for i in range(n_detections-1):
                 rank += 1
-                occ1 = self.__run_bls(time_span, duration_grid, mask=mask, rank=rank)
+                occ1 = self.__run_bls(time_span, duration_grid, mask=mask, \
+                                      rank=rank)
                 snr_value = occ1['snr']
                 mask *= ~occ1['occ_mask']                    
                 occ0 = self.__summarize_bls(occ0,occ1)
+            
+            if plot:
+                self.__plot_occ_detect(occ0)
             return occ0
         else:
             # search only the first best fit
-            return self.__run_bls(time_span, duration_grid)
+            occ0 = self.__run_bls(time_span, duration_grid)
+           
+            if plot:
+                self.__plot_occ_detect(occ0)
+                
+            return occ0
         
-        
+    def __plot_occ_detect(self, occ):
+        n = np.size(occ['rank'])
+        if n > 1:
+            # case for multiple detections
+            pl.plot(self.time, self.flux, 'k.-')
+            mask = np.zeros(len(self.time), dtype=bool)
+            for i in range(n):
+                trues = np.sum(occ['occ_mask'][i])
+                pl.plot(self.time[occ['occ_mask'][i]], np.repeat(np.mean(self.flux[occ['occ_mask'][i]]),trues), '.', label='Rank: '+str(i+1))
+                mask += occ['occ_mask'][i]
+ 
+            falses = list(mask).count(False)
+            pl.plot(self.time[~mask], np.repeat(np.mean(self.flux[~mask]),falses), 'r.', label='Baseline')
+            pl.xlabel('Time [seconds]')
+            pl.ylabel('Relative Flux')
+            pl.legend()    
+            
+        else:
+            # case for single occultation
+            trues = list(occ['occ_mask']).count(True)
+            falses = list(occ['occ_mask']).count(False)
+            pl.plot(self.time, self.flux, 'k.-')
+            pl.plot(self.time[occ['occ_mask']], np.repeat(np.mean(self.flux[occ['occ_mask']]),trues), '.', label='Occultation')
+            pl.plot(self.time[~occ['occ_mask']], np.repeat(np.mean(self.flux[~occ['occ_mask']]),falses), 'r.', label='Baseline')
+            pl.xlabel('Time [seconds]')
+            pl.ylabel('Relative Flux')
+            pl.legend()
+            
+    
     def __run_bls(self, per_grid, dur_grid, mask=None, rank=None):
         """
         Private function to find the best box fit suitable to the data
