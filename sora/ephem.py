@@ -174,6 +174,7 @@ class EphemPlanete():
         """
         if star:
             self.fit_d2_ksi_eta(star)
+        time = Time(time)
         if not time.isscalar:
             if any(time < self.min_time) or any(time > self.max_time):
                 raise ValueError('time must be in the interval [{},{}]'.format(self.min_time, self.max_time))
@@ -359,6 +360,7 @@ class EphemJPL():
         Returns:
         ksi, eta (float): on-sky position of the ephemeris relative to a star
         """
+        time = Time(time)
         if type(star) == str:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
         coord = self.get_position(time)
@@ -378,6 +380,7 @@ class EphemJPL():
         position_angle (float): Position angle of the pole, in degrees
         aperture_angle (float): Apeture angle of the pole, in degrees
         """
+        time = Time(time)
         if type(pole) == str:
             pole = SkyCoord(pole, unit=(u.hourangle, u.deg))
         obj = self.get_position(time)
@@ -506,6 +509,7 @@ class EphemKernel():
         Returns:
         ksi, eta (float): on-sky position of the ephemeris relative to a star
         """
+        time = Time(time)
         if type(star) == str:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
         coord = self.get_position(time)
@@ -525,6 +529,7 @@ class EphemKernel():
         position_angle (float): Position angle of the pole, in degrees
         aperture_angle (float): Apeture angle of the pole, in degrees
         """
+        time = Time(time)
         if type(pole) == str:
             pole = SkyCoord(pole, unit=(u.hourangle, u.deg))
         obj = self.get_position(time)

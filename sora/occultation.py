@@ -32,7 +32,8 @@ def positionv(star,ephem,observer,time):
         raise ValueError('ephem must be an Ephemeris object')
     if type(observer) != Observer:
         raise ValueError('observer must be an Observer object')
-        
+    time = Time(time)
+
     coord = star.geocentric(time)
     dt = 0.1*u.s
     
