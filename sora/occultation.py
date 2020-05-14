@@ -3,7 +3,7 @@ from .star import Star
 from .ephem import EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
 from .lightcurve import LightCurve
-from .prediction import occ_params, Prediction
+from .prediction import occ_params, PredictionTable
 from .extra import ChiSquare
 import astropy.units as u
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
@@ -289,7 +289,7 @@ class Occultation():
 
         meta = {'name': self.ephem.name, 'radius': self.ephem.radius.to(u.km).value,
             'error_ra': self.ephem.error_ra.to(u.mas).value, 'error_dec': self.ephem.error_dec.to(u.mas).value}
-        self.predict = Prediction(time=[tca], coord_star=[self.star.geocentric(tca)],
+        self.predict = PredictionTable(time=[tca], coord_star=[self.star.geocentric(tca)],
             coord_obj=[self.ephem.get_position(tca)], ca=[ca.value], pa=[pa.value], vel=[vel.value],
             dist=[dist.value], mag=[self.star.mag['G']], source=[self.star.code], meta=meta)
         

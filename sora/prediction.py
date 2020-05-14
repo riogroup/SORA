@@ -86,7 +86,7 @@ class PredictRow(Row):
                      ca=float(self['C/A']), pa=float(self['P/A']), vel=float(self['Vel']), dist=float(self['Dist']),
                      mag=float(self['G*']), longi=float(self['long']), **kwargs)
 
-class Prediction(Table):
+class PredictionTable(Table):
     """An Astropy Table object modified for Prediction purposes.
     """
     Row = PredictRow
@@ -166,17 +166,17 @@ class Prediction(Table):
 
     @classmethod
     def from_praia(cls, filename, name, **kwargs):
-        """ Create a Prediction Table reading from a PRAIA table
+        """ Create a PredictionTable Table reading from a PRAIA table
 
         INPUT:
             filename (str): path to the PRAIA table file.
-            name (str): Name of the Object of the Prediction.
+            name (str): Name of the Object of the prediction.
             radius (int,float): Object radius. (not required)
                 If not given it search in online database.
                 If not found online, the defaults is set to zero.
 
         OUTPUT:
-            A Prediction Table
+            A PredictionTable
         """
         from .ephem import read_obj_data
         occs = {}
@@ -230,7 +230,7 @@ class Prediction(Table):
                    vel=dados['vel'], mag_20=dados['mR'], dist=dados['delta'], long=dados['long'], loct=dados['loct'], meta=meta)
 
     def to_praia(self, filename):
-        """ Write prediction table to PRAIA format.
+        """ Write PredictionTable to PRAIA format.
 
         INPUT:
             filename(str): name of the file to save table
@@ -247,7 +247,7 @@ class Prediction(Table):
         f.close()
 
     def to_ow(self, ow_des, mode='append'):
-        """ Write Prediction Table to OccultWatcher feeder update files.
+        """ Write PredictionTable to OccultWatcher feeder update files.
         Tables will be saved in two files: "tableOccult_update.txt" and "LOG.dat"
 
         INPUT:
@@ -417,7 +417,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     divs (int,float): interal, in deg, for max search of stars
 
     Return:
-    occ_params (Table): Astropy Table with the occultation params for each event
+    occ_params (Table): PredictionTable with the occultation params for each event
     """
     # generate ephemeris
     if type(ephem) is not EphemKernel:
@@ -494,13 +494,13 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
             'radius':ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value, 'error_dec': ephem.error_dec.to(u.mas).value}
     if not occs:
         warnings.warn('No stellar occultation was found')
-        return Prediction(meta=meta)
+        return PredictionTable(meta=meta)
     # create astropy table with the params
     occs2 = np.transpose(occs)
     time = Time(occs2[3])
     geocentric = ephem.get_position(time)
     k = np.argsort(time)
-    t = Prediction(time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
+    t = PredictionTable(time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
         pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
         dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
     return t
