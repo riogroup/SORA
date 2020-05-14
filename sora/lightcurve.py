@@ -27,13 +27,13 @@ def calc_fresnel(distance,lambida):
 
 
 def fit_pol(x,y,deg):
-    """ Fit a polinomn to the data.
+    """ Fit a polynom to the data.
     ----------
     Parameters
     ----------
     x  (array): 
     y  (array):
-    deg  (int): order of the polinomn 
+    deg  (int): order of the polynom 
     ----------
     Return
     ----------
@@ -249,7 +249,7 @@ class LightCurve():
         elif type(vel) in [float,int]:
             pass
         else:
-            raise TypeError('vel must be a float or an Astropy Unit object')
+            raise TypeError('vel must be an integer, a float or an Astropy Unit object')
         self.vel = np.absolute(vel)
 
     def set_dist(self,dist):
@@ -263,7 +263,7 @@ class LightCurve():
         elif type(dist) in [float,int]:
             pass
         else:
-            raise TypeError('dist must be a float or an Astropy Unit object')
+            raise TypeError('dist must be an integer, a float or an Astropy Unit object')
         self.dist = dist
 
     def set_star_diam(self,d_star):
@@ -277,7 +277,7 @@ class LightCurve():
         elif type(d_star) in [float,int]:
             pass
         else:
-            raise TypeError('d_star must be a float or an Astropy Unit object')
+            raise TypeError('d_star must be an integer, a float or an Astropy Unit object')
         self.d_star = d_star
 
     def set_filter(self,lambda_0,delta_lambda):
@@ -330,7 +330,7 @@ class LightCurve():
         ----------
         Parameters
         ----------
-        poly_deg  (int): degree of the polinonm to be fitted
+        poly_deg  (int): degree of the polynom to be fitted
         mask   (array of Bolleans): which values to be fitted 
         ----------
         kwargs
@@ -339,7 +339,7 @@ class LightCurve():
         flux_max (int,float): baseline flux to be setted as 1.0        
         plot (Bollean): If True plot the steps for visual aid  
         """
-        #Create a mask where the polinomial fit will be done
+        #Create a mask where the polynomial fit will be done
         if np.all(self.flux) == None:
             raise ValueError('Normalization is only possible when a LightCurve is instatiated with time and flux.')
         self.reset_flux()
@@ -370,7 +370,7 @@ class LightCurve():
             if (plot == True):
                 pl.plot(norm_time[mask],lc_flux[mask],'k.-')
                 pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
-                pl.title('Polinomial degree = {}'.format(n),fontsize=15)
+                pl.title('Polynomial degree = {}'.format(n),fontsize=15)
                 pl.show()       
         if (poly_deg == None):
             n = 0
@@ -381,7 +381,7 @@ class LightCurve():
             if (plot == True):
                 pl.plot(norm_time[mask],lc_flux[mask],'k.-')
                 pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
-                pl.title('Polinomial degree = {}'.format(n),fontsize=15)
+                pl.title('Polynomial degree = {}'.format(n),fontsize=15)
                 pl.show()
             flux_poly_model_old = flux_poly_model.copy()
             for nn in np.arange(1,10):
@@ -396,11 +396,11 @@ class LightCurve():
                     if (plot == True):
                         pl.plot(norm_time[mask],lc_flux[mask],'k.-')
                         pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
-                        pl.title('Polinomial degree = {}'.format(nn),fontsize=15)
+                        pl.title('Polynomial degree = {}'.format(nn),fontsize=15)
                         pl.show()
                 else:
-                    print('Normalization using a {} degree polinonm'.format(n))
-                    print('There is no improvement with a {} degree polinonm'.format(n+1))
+                    print('Normalization using a {} degree polynom'.format(n))
+                    print('There is no improvement with a {} degree polynom'.format(n+1))
                     break
         self.flux = lc_flux/flux_poly_model
         self.normalizer_flux = flux_poly_model
@@ -674,18 +674,16 @@ class LightCurve():
             namefile (str): Filename to save the data
         """
         ###### Observational data
-        folder = ''
         if (namefile == None):
+            folder=''
             file = self.name.replace(' ','_')+'.dat'
         else:
-            for idx, charac in enumerate(namefile):
-                if charac == '/':
-                    folder =namefile[:idx+1]
-            file = namefile.replace(folder,'')
+            folder = os.path.dirname(namefile)
+            file = os.path.basename(namefile)
         data = np.array([(self.time*u.s + self.tref).jd,self.time,self.flux,self.model,self.flux-self.model])
         colunm_names = ['Time JD','Time relative to {} UTC in seconds'.format(self.tref.iso),'Observational Flux','Modelled Flux','Residual O-C']
-        np.savetxt(folder + file, data.T, fmt='%11.8f')
-        f = open(folder + file + '.label', 'w')
+        np.savetxt(os.path.join(folder,file), data.T, fmt='%11.8f')
+        f = open(os.path.join(folder,file) + '.label', 'w')
         for i, name in enumerate(colunm_names):
             f.write('Column {}: {}\n'.format(i+1,name))
         f.close()
@@ -693,8 +691,8 @@ class LightCurve():
         if (np.all(self.time_model) != None):
             data_model = np.array([(self.time_model*u.s + self.tref).jd,self.time_model,self.model_geometric,self.model_fresnel,self.model_star])
             colunm_names_model = ['Model time JD','Model time relative to {} UTC in seconds'.format(self.tref.iso),'Geometric Model','Model with Fresnel diffraction','Model with star diameter']
-            np.savetxt(folder + 'model_'+ file, data_model.T, fmt='%11.8f')
-            f = open(folder + 'model_'+ file+'.label', 'w')
+            np.savetxt(os.path.join(folder,'model_'+file), data_model.T, fmt='%11.8f')
+            f = open(os.path.join(folder,'model_'+file)+'.label', 'w')
             for i, name in enumerate(colunm_names_model):
                 f.write('Column {}: {}\n'.format(i+1,name))
             f.close()
