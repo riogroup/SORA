@@ -11,7 +11,7 @@ from scipy.odr import models
 from .extra import ChiSquare
 import os
 import warnings
-#
+
 def calc_fresnel(distance,lambida):
     """ Returns the fresnel scale.
     ----------
@@ -805,7 +805,7 @@ class LightCurve():
         n = np.size(occ['rank'])
         if n > 1:
             # case for multiple detections
-            pl.plot(self.time, self.flux, 'k.', alpha=0.5)
+            pl.plot(self.time, self.flux, 'k.-')
             mask = np.zeros(len(self.time), dtype=bool)
             for i in range(n):
                 trues = np.sum(occ['occ_mask'][i])
@@ -822,7 +822,7 @@ class LightCurve():
             # case for single occultation
             trues = list(occ['occ_mask']).count(True)
             falses = list(occ['occ_mask']).count(False)
-            pl.plot(self.time, self.flux, 'k.', alpha=0.5)
+            pl.plot(self.time, self.flux, 'k.-')
             pl.plot(self.time[occ['occ_mask']], np.repeat(np.mean(self.flux[occ['occ_mask']]),trues), '.', label='Occultation')
             pl.plot(self.time[~occ['occ_mask']], np.repeat(np.mean(self.flux[~occ['occ_mask']]),falses), 'r.', label='Baseline')
             pl.xlabel('Time [seconds]')
