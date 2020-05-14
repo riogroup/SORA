@@ -207,7 +207,7 @@ def fit_ellipse(*args, **kwargs):
         g_model = g0 + r_model*np.sin(theta)
         radial_dispersion = np.append(radial_dispersion,r - r_model)
         error_bar = np.append(error_bar,si)
-    occ.chi2_params = {'radial_dispersion': radial_dispersion.std(ddof=1)}
+    occ.chi2_params = {'radial_dispersion': [radial_dispersion.mean(),radial_dispersion.std(ddof=1)]}
     occ.chi2_params['mean_error'] = [error_bar.mean(),error_bar.std()]
     occ.chi2_params['chi2_min'] = chisquare.get_nsigma()['chi2_min']
     occ.chi2_params['nparam'] = chisquare.nparam
@@ -312,7 +312,7 @@ class Occultation():
         self.__observations.append((obs,lightcurve))
         lightcurve.set_vel(np.absolute(self.vel))
         lightcurve.set_dist(float(self.dist.AU))
-        lightcurve.set_diam(float(self.star_diam.km))
+        lightcurve.set_star_diam(float(self.star_diam.km))
         try:
             lightcurve.calc_magnitude_drop(mag_star=self.star.mag['G'],mag_obj=self.ephem.apparent_magnitude(self.tca))
         except:
@@ -820,7 +820,7 @@ class Occultation():
             out += 'Number of fitted points: {}\n'.format(self.chi2_params['npts'])
             out += 'Number of fitted parameters: {}\n'.format(self.chi2_params['nparam'])
             out += 'Minimum chi-square per degree of freedom: {:.3f}\n'.format(self.chi2_params['chi2_min']/ (self.chi2_params['npts'] - self.chi2_params['nparam']))
-            out += 'Radial dispersion: {:.3f} km\n'.format(self.chi2_params['radial_dispersion'])
+            out += 'Radial dispersion: {:.3f} +/- {:.3f} km\n'.format(self.chi2_params['radial_dispersion'][0], self.chi2_params['radial_dispersion'][1])
             out += 'Mean error: {:.3f} +/- {:.3f} km\n'.format(self.chi2_params['mean_error'][0], self.chi2_params['mean_error'][1])
             
             out += '\n' + self.new_astrometric_position(log=False)
