@@ -192,7 +192,7 @@ class EphemPlanete():
                 deta = np.sin(self.offset.d_lat)*dist
                 k = k + dksi
                 e = e + deta
-            return k, e
+            return k.value, e.value
         else:
             raise ValueError('A "star" parameter is missing. Please run fit_d2_ksi_eta first.')
 
@@ -350,7 +350,7 @@ class EphemJPL():
         else:
             return eph['V'].tolist()
 
-    def get_ksi_eta(self, time, star=None):
+    def get_ksi_eta(self, time, star):
         """ Returns the on-sky position of the ephemeris relative to a star.
 
         Parameters:
@@ -499,7 +499,7 @@ class EphemKernel():
 
             return apparent_mag(self.H, self.G, obs_obj.distance.to(u.AU).value, sun_obj.distance.to(u.AU).value, phase)
 
-    def get_ksi_eta(self, time, star=None):
+    def get_ksi_eta(self, time, star):
         """ Returns the on-sky position of the ephemeris relative to a star.
 
         Parameters:
