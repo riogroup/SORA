@@ -771,6 +771,18 @@ class Occultation():
             kwargs['offset'] = [off_ra, off_dec]
         self.predict.plot_occ_map(**kwargs)
 
+    def to_log(self,namefile=None):
+        """ Save the occultation log to a file
+
+        Parameters:
+            namefile (str): Filename to save the log
+        """
+        if (namefile == None):
+            namefile = 'occ_{}_{}.log'.format(self.ephem.name, self.tca.isot[:16])
+        f = open(namefile, 'w')
+        f.write(self.__str__())
+        f.close()
+
     def __str__(self):
         """String representation of the Star class
         """
