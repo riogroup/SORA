@@ -75,6 +75,7 @@ class PredictRow(Row):
             cscale Arbitrary scale for the name of the country.
             sscale Arbitrary scale for the size of point of the site.
             pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+            arrow (bool): If true, it plots the arrow with the occultation direction.
 
             Comment: Only one of centermap_geo and centermap_delta can be given
         """
@@ -340,6 +341,7 @@ class PredictionTable(Table):
             cscale Arbitrary scale for the name of the country.
             sscale Arbitrary scale for the size of point of the site.
             pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+            arrow (bool): If true, it plots the arrow with the occultation direction.
 
             Comment: Only one of centermap_geo and centermap_delta can be given
         """
@@ -651,6 +653,7 @@ def plot_occ_map(name, radius, **kwargs):
         cscale Arbitrary scale for the name of the country.
         sscale Arbitrary scale for the size of point of the site.
         pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+        arrow (bool): If true, it plots the arrow with the occultation direction.
 
         Comment: Only one of centermap_geo and centermap_delta can be given
     """
@@ -717,6 +720,7 @@ def plot_occ_map(name, radius, **kwargs):
         raise ValueError('User must give "centermap_geo" OR "centermap_delta"')
     zoom = kwargs.get('zoom', 1)
     off_ra, off_de = kwargs.get('offset', [0.0, 0.0])*u.mas
+    arrow = kwargs.get('arrow', True)
 
     sites = {}
     if 'sites' in kwargs.keys():
@@ -980,12 +984,13 @@ def plot_occ_map(name, radius, **kwargs):
             plt.plot(bordx*np.cos(h*u.deg),bordy*np.cos(h*u.deg), linestyle='dotted', color=hcolor)
 
 ########### plots the the direction arrow ##################
-    if limits is None:
-        plt.quiver(5500000,-5500000, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
-                  (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005)
-    else:
-        plt.quiver(lx + (ux-lx)*0.9,ly + (uy-ly)*0.1, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
-                  (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005, zorder = 1.3)
+    if arrow:
+        if limits is None:
+            plt.quiver(5500000,-5500000, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
+                      (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005)
+        else:
+            plt.quiver(lx + (ux-lx)*0.9,ly + (uy-ly)*0.1, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
+                      (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005, zorder = 1.3)
 
 ####### plots the countries names #####
     for country in countries.keys():

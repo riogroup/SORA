@@ -757,6 +757,7 @@ class Occultation():
             cscale Arbitrary scale for the name of the country.
             sscale Arbitrary scale for the size of point of the site.
             pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+            arrow (bool): If true, it plots the arrow with the occultation direction.
 
             Comment: Only one of centermap_geo and centermap_delta can be given
         """
