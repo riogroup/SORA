@@ -1,6 +1,5 @@
 from .star import Star
 from .ephem import EphemKernel, EphemJPL, EphemPlanete
-from .observer import Observer
 import astropy.units as u
 import astropy.constants as const
 from astropy.coordinates import SkyCoord, EarthLocation, Angle, get_sun, GCRS, ITRS, SkyOffsetFrame
@@ -405,7 +404,7 @@ def occ_params(star, ephem, time):
     return tt[min], ca, pa, vel, dist.to(u.AU)
 
 
-def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma=1, log=True):
+def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1, log=True):
     """ Predicts stellar occultations
 
     Parameters:
@@ -413,8 +412,10 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     time_beg (Time): Initial time for prediction
     time_beg (Time): Final time for prediction
     mag_lim (int,float): Faintest Gmag for search
-    interv (int, float): interval, in seconds, of ephem times for search
-    divs (int,float): interal, in deg, for max search of stars
+    step (int, float): step, in seconds, of ephem times for search
+    divs (int): number of regions the ephemeris will be splitted
+        for better search of occultations
+    log (bool): To show what is being done at the moment.
 
     Return:
     occ_params (Table): PredictionTable with the occultation params for each event
@@ -425,7 +426,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     if log: print("Generating Ephemeris ...")
     time_beg = Time(time_beg)
     time_end = Time(time_end)
-    dt = np.arange(0, (time_end-time_beg).sec, interv)*u.s
+    dt = np.arange(0, (time_end-time_beg).sec, step)*u.s
     t = time_beg + dt
     coord = ephem.get_position(t)
 
@@ -441,19 +442,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     # determine suitable divisions for star search
     radius = ephem.radius + const.R_earth
     mindist = np.arcsin(radius/coord.distance).max() + sigma*np.max([ephem.error_ra.value,ephem.error_dec.value])*u.arcsec
-    divisions = []
-    n=0
-    while True:
-        dif = coord.separation(coord[n])
-        k = np.where(dif < divs*u.deg)[0]
-        l = np.where(k[1:]-k[:-1] > 1)[0]
-        l = np.append(l,len(k)-1)
-        m = np.where(k[l] - n > 0)[0].min()
-        k = k[l][m]
-        divisions.append([n,k])
-        if k == len(coord)-1:
-            break
-        n = k
+
+    divisions = np.array_split(np.arange(len(coord)), divs)
 
     if log: print('Ephemeris was split in {} parts for better search of stars'.format(len(divisions)))
 
@@ -461,8 +451,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     occs = []
     for i,vals in enumerate(divisions):
         if log: print('\nSearching occultations in part {}/{}'.format(i+1,len(divisions)))
-        nt = t[vals[0]:vals[1]]
-        ncoord = coord[vals[0]:vals[1]]
+        nt = t[vals]
+        ncoord = coord[vals]
         ra = np.mean([ncoord.ra.min().deg,ncoord.ra.max().deg])
         dec = np.mean([ncoord.dec.min().deg,ncoord.dec.max().deg])
         width = ncoord.ra.max() - ncoord.ra.min() + 2*mindist
@@ -503,6 +493,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     t = PredictionTable(time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
         pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
         dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
+    if log:
+        print('{} occultations found'.format(len(t)))
     return t
 
 
