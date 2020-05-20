@@ -2,7 +2,8 @@ from .star import Star
 from .ephem import EphemKernel, EphemJPL, EphemPlanete
 import astropy.units as u
 import astropy.constants as const
-from astropy.coordinates import SkyCoord, EarthLocation, Angle, get_sun, GCRS, ITRS, SkyOffsetFrame
+from astropy.coordinates import SkyCoord, EarthLocation, Angle, get_sun
+from astropy.coordinates import get_moon, GCRS, ITRS, SkyOffsetFrame
 from astropy.time import Time
 from astropy.table import Table, Row, Column
 from astroquery.vizier import Vizier
@@ -141,6 +142,10 @@ class PredictionTable(Table):
                 longi = (coord.ra - time.sidereal_time('mean', 'greenwich')).wrap_at(360*u.deg)
                 ntime = time + longi.hour*u.hour
                 values['loct'] = Column(['{}'.format(t.iso[11:16]) for t in ntime], unit='hh:mm')
+            moon_pos = get_moon(time)
+            values['M-G-T'] = Column(moon_pos.separation(coord), unit='deg', format='3.0f')
+            sun_pos = get_sun(time)
+            values['S-G-T'] = Column(sun_pos.separation(coord), unit='deg', format='3.0f')
             if 'source' in kwargs.keys():
                 values['GAIA-DR2 Source ID'] = Column(kwargs['source'])
                 del kwargs['source']
@@ -172,7 +177,7 @@ class PredictionTable(Table):
             filename (str): path to the PRAIA table file.
             name (str): Name of the Object of the prediction.
             radius (int,float): Object radius. (not required)
-                If not given it search in online database.
+                If not given it's searched in online database.
                 If not found online, the defaults is set to zero.
 
         OUTPUT:
@@ -238,7 +243,7 @@ class PredictionTable(Table):
         from .config import praia_occ_head
         f = open(filename, 'w')
         f.write(praia_occ_head.format(max_ca=self.meta['max_ca'].to(u.arcsec), size=len(self), ephem=self.meta.get('ephem', 'ephem')))
-        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, source in self.iterrows():
+        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, md, sd, source in self.iterrows():
             dmag = mag_20-mag
             f.write("\n {} {} {}  {}  {}   {}   {:5.3f}  {:6.2f} {:-6.2f} {:5.2f} {:4.1f} {:-4.1f} {:-4.1f} {:-4.1f}   {:3.0f}. {}       0.0      0.0 ok g2 0    0    0    0    0".
                     format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:21].replace(':', ' '), coord.to_string('hmsdms', precision=4, sep=' '),
@@ -263,7 +268,7 @@ class PredictionTable(Table):
         f = open('tableOccult_update.txt', modes[mode])
         f.write(ow_occ_head.format(name=self.meta['name'], ephem=self.meta.get('ephem', 'ephem'), max_ca=self.meta['max_ca'].to(u.arcsec),
                                    size=len(self), radius=self.meta['radius'], ow_des=ow_des))
-        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, source in self.iterrows():
+        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, md, sd, source in self.iterrows():
             dmag = mag_20-mag
             f.write('{} {} {}  {}   {} {}   {} {}   {:5.3f}  {:6.2f} {:-7.3f} {:7.3f} {:4.1f} {:-4.1f}   {:3.0f}. {}  {:4.0f}  {:4.0f}\n'.
                     format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:20].replace(':', ' '), coord.ra.to_string('hour', precision=4, sep=' '),
@@ -361,6 +366,8 @@ def occ_params(star, ephem, time):
     instant of CA (Time): Instant of Closest Approach
     CA (arcsec): Distance of Closest Approach
     PA (deg): Position Angle at Closest Approach
+    vel (km/s): Velocity of the occultation
+    dist (AU): the object distance.
     """
     
     delta_t = 0.05
