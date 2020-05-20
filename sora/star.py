@@ -193,7 +193,7 @@ class Star():
                 'auto' (default): tries all the above methods
                     until it is able to calculate diameter.
                     The order of try is the same as shows above.
-            'obs_filter': If mode is 'kervella' or 'van_belle',
+            'band': If mode is 'kervella' or 'van_belle',
                 the filter must be given, 'B' or 'V'.
                 In 'auto' mode, 'V' is selected.
             'star_type': If mode is 'van_belle', the star type must be given.
@@ -206,10 +206,9 @@ class Star():
         except:
             distance = distance*u.AU
 
-        if mode == 'auto':
-            kwargs['obs_filter'] = 'V'
-            kwargs['star_type'] = 'sg'
-            
+        kwargs['band'] = kwargs.get('band', 'V')
+        kwargs['star_type'] = kwargs.get('star_type', 'sg')
+
         if mode in ['user', 'auto']:
             try:
                 diam = distance*np.tan(self.diameter_user)
@@ -234,25 +233,32 @@ class Star():
         if mode == 'gaia':
             raise ValueError('It is not possible to calculate star diameter from Gaia.')
                 
-        if 'obs_filter' not in kwargs:
-            raise KeyError('obs_filter must be informed as "B", or "V"')
+        if kwargs['band'] not in ['B', 'V']:
+            raise KeyError('band must be informed as "B", or "V"')
             
         if mode in ['kervella', 'auto']:
-            if all(i in self.mag for i in ['B', 'V', 'K']):
-                if log:
-                    print('Apparent diameter using Kervella et al. (2004)')
-                diam = distance*np.tan(self.kervella()[kwargs['obs_filter']])
-                return diam.to(u.km)
+            diam_kerv = self.kervella().get(kwargs['band'])
+            if diam_kerv is None:
+                raise ValueError('Diameter could not be calculated for given band')
+            if log:
+                print('Apparent diameter using Kervella et al. (2004)')
+            diam = distance*np.tan(diam_kerv)
+            return diam.to(u.km)
             
-        if 'star_type' not in kwargs:
+        if kwargs['star_type'] not in ['sg', 'ms', 'vs']:
             raise KeyError('star_type must be informed as "sg", "ms" or "vs"')
             
         if mode in ['van_belle', 'auto']:
-            if all(i in self.mag for i in ['B', 'V', 'K']):
-                if log:
-                    print('Apparent diameter using van Belle (1999)')
-                diam = distance*np.tan(self.van_belle()[kwargs['star_type']][kwargs['obs_filter']])
-                return diam.to(u.km)
+            diam_van = self.van_belle().get(kwargs['star_type'])
+            if diam_van is None:
+                raise ValueError('Diameter could not be calculated using Van Belle')
+            diam_van = diam_van.get(kwargs['band'])
+            if diam_van is None:
+                raise ValueError('Diameter could not be calculated for given band')
+            if log:
+                print('Apparent diameter using van Belle (1999)')
+            diam = distance*np.tan(diam_van)
+            return diam.to(u.km)
                         
         raise AttributeError("Star apparent diameter could not be calculated. ",
                              "Please define star diameter or B,V,K magnitudes.")

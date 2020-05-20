@@ -96,7 +96,7 @@ class EphemPlanete():
 
     Parameters:
         name (str): name of the object for search in the JPL database
-        ephem (str):Input file with hour, minute, RA, DEC, distance
+        ephem (str):Input file with JD, RA, DEC, distance
         radius (int,float): Object radius, in km (Default: Online database)
         error_ra (int,float): Ephemeris RA*cosDEC error, in mas (Default: Online database)
         error_dec (int,float): Ephemeris DEC error, in mas (Default: Online database)
@@ -174,6 +174,7 @@ class EphemPlanete():
         """
         if star:
             self.fit_d2_ksi_eta(star)
+        time = Time(time)
         if not time.isscalar:
             if any(time < self.min_time) or any(time > self.max_time):
                 raise ValueError('time must be in the interval [{},{}]'.format(self.min_time, self.max_time))
@@ -191,7 +192,7 @@ class EphemPlanete():
                 deta = np.sin(self.offset.d_lat)*dist
                 k = k + dksi
                 e = e + deta
-            return k, e
+            return k.value, e.value
         else:
             raise ValueError('A "star" parameter is missing. Please run fit_d2_ksi_eta first.')
 
@@ -349,7 +350,7 @@ class EphemJPL():
         else:
             return eph['V'].tolist()
 
-    def get_ksi_eta(self, time, star=None):
+    def get_ksi_eta(self, time, star):
         """ Returns the on-sky position of the ephemeris relative to a star.
 
         Parameters:
@@ -359,6 +360,7 @@ class EphemJPL():
         Returns:
         ksi, eta (float): on-sky position of the ephemeris relative to a star
         """
+        time = Time(time)
         if type(star) == str:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
         coord = self.get_position(time)
@@ -378,6 +380,7 @@ class EphemJPL():
         position_angle (float): Position angle of the pole, in degrees
         aperture_angle (float): Apeture angle of the pole, in degrees
         """
+        time = Time(time)
         if type(pole) == str:
             pole = SkyCoord(pole, unit=(u.hourangle, u.deg))
         obj = self.get_position(time)
@@ -399,7 +402,7 @@ class EphemJPL():
     def __str__(self):
         """ String representation of the EphemPlanete Class.
         """
-        out = 'Ephemeris of {}.'.format(self.name)
+        out = 'Ephemeris of {}.\n'.format(self.name)
         out += 'Radius: {:.1f}\n'.format(self.radius)
         out += 'Mass: {:.2e}\n'.format(self.mass)
         out += '\nEphemeris are downloaded from Horizons website\n'
@@ -415,7 +418,7 @@ class EphemKernel():
     Parameters:
         name (str): name of the object for search in the JPL database
         code (str): kernel code of the targeting object
-        list of paths for kernels
+        kernels(list): list of paths for kernels
         radius (int,float): Object radius, in km (Default: Online database)
         error_ra (int,float): Ephemeris RA*cosDEC error, in mas (Default: Online database)
         error_dec (int,float): Ephemeris DEC error, in mas (Default: Online database)
@@ -423,17 +426,17 @@ class EphemKernel():
         H (int,float): Object Absolute Magnitude (Default: NaN)
         G (int,float): Object Phase slope (Default: NaN)
     """
-    def __init__(self, name, code, *args, **kwargs):
+    def __init__(self, name, code, kernels, **kwargs):
         self.name = name
         self.code = str(code)
         self.meta = {}
         kerns = []
-        for arg in args:
+        for arg in kernels:
             spice.furnsh(arg)
             kerns.append(arg.split('/')[-1].split('.')[0].upper())
         spice.kclear()
         self.meta['kernels'] = '/'.join(kerns)
-        self.__kernels = args
+        self.__kernels = kernels
         try:
             data = read_obj_data()
         except:
@@ -496,7 +499,7 @@ class EphemKernel():
 
             return apparent_mag(self.H, self.G, obs_obj.distance.to(u.AU).value, sun_obj.distance.to(u.AU).value, phase)
 
-    def get_ksi_eta(self, time, star=None):
+    def get_ksi_eta(self, time, star):
         """ Returns the on-sky position of the ephemeris relative to a star.
 
         Parameters:
@@ -506,6 +509,7 @@ class EphemKernel():
         Returns:
         ksi, eta (float): on-sky position of the ephemeris relative to a star
         """
+        time = Time(time)
         if type(star) == str:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
         coord = self.get_position(time)
@@ -525,6 +529,7 @@ class EphemKernel():
         position_angle (float): Position angle of the pole, in degrees
         aperture_angle (float): Apeture angle of the pole, in degrees
         """
+        time = Time(time)
         if type(pole) == str:
             pole = SkyCoord(pole, unit=(u.hourangle, u.deg))
         obj = self.get_position(time)

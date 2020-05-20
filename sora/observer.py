@@ -48,8 +48,6 @@ class Observer():
         Observer(name, site)
         Observer(name, lon, lat, height)
         """
-        if 'name' not in kwargs:
-            kwargs['name'] = 'User'
         if len(args) == 1 or 'code' in kwargs:
             if len(args) == 1:
                 code = args[0]
@@ -112,6 +110,17 @@ class Observer():
         return cp.y.to(u.km).value, cp.z.to(u.km).value
     
     def sidereal_time(self, time, mode='local'):
+        """Calculates the Apparent Sidereal Time at a certain time
+
+        Parameters:
+            time (str,Time): Time to calculate sidereal time.
+            mode (str): if 'local' it calculates the sidereal time for
+                the coordinates of this object. If 'greenwich', it
+                calculates the Greenwich Apparent Sidereal Time.
+
+        Returns:
+            sidereal_time: An Astropy Longitude object with the ST.
+        """
         # return local or greenwich sidereal time
         time = test_attr(time, Time, 'time')
         time.location = self.site

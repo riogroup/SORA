@@ -661,7 +661,7 @@ class LightCurve():
             namefile (str): Filename to save the log
         """
         if (namefile == None):
-            file = self.name.replace(' ','_')+'.log'
+            namefile = self.name.replace(' ','_')+'.log'
         f = open(namefile, 'w')
         f.write(self.__str__())
         f.close()

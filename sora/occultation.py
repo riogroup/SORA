@@ -3,7 +3,7 @@ from .star import Star
 from .ephem import EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
 from .lightcurve import LightCurve
-from .prediction import occ_params, Prediction
+from .prediction import occ_params, PredictionTable
 from .extra import ChiSquare
 import astropy.units as u
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
@@ -32,7 +32,8 @@ def positionv(star,ephem,observer,time):
         raise ValueError('ephem must be an Ephemeris object')
     if type(observer) != Observer:
         raise ValueError('observer must be an Observer object')
-        
+    time = Time(time)
+
     coord = star.geocentric(time)
     dt = 0.1*u.s
     
@@ -288,7 +289,7 @@ class Occultation():
 
         meta = {'name': self.ephem.name, 'radius': self.ephem.radius.to(u.km).value,
             'error_ra': self.ephem.error_ra.to(u.mas).value, 'error_dec': self.ephem.error_dec.to(u.mas).value}
-        self.predict = Prediction(time=[tca], coord_star=[self.star.geocentric(tca)],
+        self.predict = PredictionTable(time=[tca], coord_star=[self.star.geocentric(tca)],
             coord_obj=[self.ephem.get_position(tca)], ca=[ca.value], pa=[pa.value], vel=[vel.value],
             dist=[dist.value], mag=[self.star.mag['G']], source=[self.star.code], meta=meta)
         
@@ -343,8 +344,10 @@ class Occultation():
                 ko.append(i)
             if val[1].name == key_lc:
                 kl.append(i)
+        ko = np.array(ko)
+        kl = np.array(kl)
         if not same_key:
-            k  = np.where(np.array(ko) == np.array(kl))[0]
+            k  = ko[np.where(ko == kl)[0]]
             rm_list = np.hstack((rm_list, k))
         else:
             rm_list = np.hstack((rm_list, np.array(kl)))
@@ -499,10 +502,15 @@ class Occultation():
                     obs_end['_occ_value'] = (f1,g1)
 
         for key in list(position):
+            n = 0
             for key_lc in list(position[key]):
-                if type(key_lc) == _PositionDict and (key,key_lc) not in pair:
+                if type(position[key][key_lc]) != _PositionDict:
+                    continue
+                if (key,key_lc) not in pair:
                     del position[key][key_lc]
-            if len(position[key]) == 0:
+                else:
+                    n+=1
+            if n == 0:
                 del position[key]
 
         return self._position
@@ -749,6 +757,7 @@ class Occultation():
             cscale Arbitrary scale for the name of the country.
             sscale Arbitrary scale for the size of point of the site.
             pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+            arrow (bool): If true, it plots the arrow with the occultation direction.
 
             Comment: Only one of centermap_geo and centermap_delta can be given
         """
@@ -762,6 +771,18 @@ class Occultation():
             off_dec = np.arctan2(off_dec, self.dist)
             kwargs['offset'] = [off_ra, off_dec]
         self.predict.plot_occ_map(**kwargs)
+
+    def to_log(self,namefile=None):
+        """ Save the occultation log to a file
+
+        Parameters:
+            namefile (str): Filename to save the log
+        """
+        if (namefile == None):
+            namefile = 'occ_{}_{}.log'.format(self.ephem.name, self.tca.isot[:16])
+        f = open(namefile, 'w')
+        f.write(self.__str__())
+        f.close()
 
     def __str__(self):
         """String representation of the Star class
