@@ -779,13 +779,8 @@ class Occultation():
     def to_log(self,namefile=None):
         """ Save the occultation log to a file
 
-        Three files are saved containing the positions and velocities
-        for the observations. They are for the positive, negative and
-        error bars positions.
-
-        The format of the files are: positions in f and g,
-        velocities in f and g, the Julian Date of the observation,
-        and light curve name of the corresponding position.
+        Parameters:
+            namefile (str): Filename to save the log
         """
         if (namefile == None):
             namefile = 'occ_{}_{}.log'.format(self.ephem.name, self.tca.isot[:16])
@@ -796,10 +791,13 @@ class Occultation():
     def to_file(self):
         """ Save the occultation data to a file
 
-        Parameters:
-            namefile (str): Filename to save the data
+        Three files are saved containing the positions and velocities
+        for the observations. They are for the positive, negative and
+        error bars positions.
 
-        file columns: f, g, vf, vg, time, site, lightcurve
+        The format of the files are: positions in f and g,
+        velocities in f and g, the Julian Date of the observation,
+        and light curve name of the corresponding position.
         """
         positions = self.positions
         pos = []
