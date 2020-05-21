@@ -707,7 +707,7 @@ class LightCurve():
         
         Parameters
         ----------
-        maximum_duration (float): Maximum duration of the occultation event (default is 1/3rd of the light curve's time span). (optional)
+        maximum_duration (float): Maximum duration of the occultation event (default is the light curve's time span). (optional)
         dur_step (float): Step size to sweep occultation duration event (default value is 1/2 of sampling). (optional)
         snr_limit (float): Minimum occultation SNR. (optional)
         n_detections (int): N best detections regardless from SNR. n_detections is superseded by snr_limit. (optional)
