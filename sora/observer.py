@@ -5,7 +5,7 @@ import astropy.units as u
 from astroquery.mpc import MPC
 import numpy as np
 from .config import test_attr
-from .star import Star
+
 
 def search_code_mpc():
     """ Reads the MPC Observer Database
@@ -25,12 +25,13 @@ def search_code_mpc():
         site = EarthLocation.from_geocentric(rcphi*np.cos(lon), rcphi*np.sin(lon), rsphi)
         observatories[code] = (name, site)
     return observatories
-        
+
 
 class Observer():
     """Define the observer object
     """
     __names = []
+
     def __init__(self, *args, **kwargs):
         """
         Parameters:
@@ -80,24 +81,25 @@ class Observer():
         else:
             raise ValueError('Input parameters could not be determined')
         if self.__name in self.__names:
-            raise ValueError('name {} already defined for another Observer object. Please choose a different one.'.format(self.__name))
+            raise ValueError("name {} already defined for another Observer object. "
+                             "Please choose a different one.".format(self.__name))
         self.__names.append(self.__name)
-        
+
     def get_ksi_eta(self, time, star):
         """ Calculates relative position to star in the orthographic projection.
-        
+
         Parameters:
         time (str, Time):Time from which to calculate the position.
         It can be a string in the format "yyyy-mm-dd hh:mm:ss.s" or an astropy Time object
         star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
         It can be a string in the format "hh mm ss.s +dd mm ss.ss" or an astropy SkyCoord object.
-        
+
         Returns:
         ksi, eta (float): on-sky orthographic projection of the observer relative to a star
         """
         time = test_attr(time, Time, 'time')
         try:
-            star = SkyCoord(star, unit=(u.hourangle,u.deg))
+            star = SkyCoord(star, unit=(u.hourangle, u.deg))
         except:
             raise ValueError('star is not an astropy object or a string in the format "hh mm ss.s +dd mm ss.ss"')
 
@@ -108,7 +110,7 @@ class Observer():
 
         cp = gcrs.cartesian.transform(rz).transform(ry)
         return cp.y.to(u.km).value, cp.z.to(u.km).value
-    
+
     def sidereal_time(self, time, mode='local'):
         """Calculates the Apparent Sidereal Time at a certain time
 
@@ -171,9 +173,11 @@ class Observer():
     def __str__(self):
         """String representation of the Observer class
         """
-        out = 'Site: {}\n'.format(self.name)
-        out += 'Geodetic coordinates: Lon: {}, Lat: {}, height: {:.3f}'.format(
-            self.site.lon.__str__(), self.site.lat.__str__(), self.site.height.to(u.km))
+        out = ('Site: {}\n'
+               'Geodetic coordinates: Lon: {}, Lat: {}, height: {:.3f}'.format(
+                   self.name, self.site.lon.__str__(), self.site.lat.__str__(),
+                   self.site.height.to(u.km))
+               )
         return out
 
     def __del__(self):
