@@ -627,8 +627,8 @@ class Occultation():
         new_pos = new_pos.icrs
 
         error_star = self.star.error_at(self.tca)
-        error_ra = error_star[0] + e_off_ra
-        error_dec = error_star[1] + e_off_dec
+        error_ra = np.sqrt(error_star[0]**2 + e_off_ra**2)
+        error_dec = np.sqrt(error_star[1]**2 + e_off_dec**2)
 
         out = 'Ephemeris offset (km): X = {:.1f} +/- {:.1f}; Y = {:.1f} +/- {:.1f}\n'.format(
               distance*np.sin(off_ra.to(u.mas)).value, distance*np.sin(e_off_ra.to(u.mas)).value,
