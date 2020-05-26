@@ -1,4 +1,3 @@
-from .config import test_attr
 from .star import Star
 from .ephem import EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
@@ -13,16 +12,16 @@ import warnings
 import matplotlib.pyplot as plt
 
 
-def positionv(star,ephem,observer,time):
+def positionv(star, ephem, observer, time):
     """ Calculates the position and velocity of the occultation shadow relative to the observer.
-        
+
     Parameters:
         star (Star): The coordinate of the star in the same frame as the ephemeris.
         It must be a Star object.
         ephem (Ephem): Ephemeris. It must be an Ephemeris object.
         observer (Observer): The Observer object to be added.
         time (Time): Instant to calculate position and velocity
-    
+
     Return:
         f, g (float): The orthographic projection of the shadow relative to the observer
     """
@@ -36,21 +35,21 @@ def positionv(star,ephem,observer,time):
 
     coord = star.geocentric(time)
     dt = 0.1*u.s
-    
+
     if type(ephem) == EphemPlanete:
         ephem.fit_d2_ksi_eta(coord, log=False)
     ksio1, etao1 = observer.get_ksi_eta(time=time, star=coord)
     ksie1, etae1 = ephem.get_ksi_eta(time=time, star=coord)
-    
+
     f = ksio1-ksie1
     g = etao1-etae1
-    
+
     ksio2, etao2 = observer.get_ksi_eta(time=time+dt, star=coord)
     ksie2, etae2 = ephem.get_ksi_eta(time=time+dt, star=coord)
-    
+
     nf = ksio2-ksie2
     ng = etao2-etae2
-    
+
     vf = (nf-f)/0.1
     vg = (ng-g)/0.1
 
@@ -122,32 +121,32 @@ def fit_ellipse(*args, **kwargs):
                     continue
                 if pos_lc['status'] == 'positive':
                     if pos_lc['immersion']['on']:
-                        f,g = pos_lc['immersion']['value']
+                        f, g = pos_lc['immersion']['value']
                         err = np.array(pos_lc['immersion']['error'])
                         erro = np.linalg.norm(err[0]-err[1])/2.0
-                        values.append([f,g,erro])
+                        values.append([f, g, erro])
                     if pos_lc['emersion']['on']:
-                        f,g = pos_lc['emersion']['value']
+                        f, g = pos_lc['emersion']['value']
                         err = np.array(pos_lc['emersion']['error'])
                         erro = np.linalg.norm(err[0]-err[1])/2.0
-                        values.append([f,g,erro])
+                        values.append([f, g, erro])
 
     controle_f0 = Time.now()
     f0_chi = np.array([])
     g0_chi = np.array([])
-    a_chi  = np.array([])
-    obla_chi  = np.array([])
-    posang_chi  = np.array([])
+    a_chi = np.array([])
+    obla_chi = np.array([])
+    posang_chi = np.array([])
     chi2_best = np.array([])
 
     while (len(f0_chi) < number_chi):
         chi2 = np.zeros(loop)
         f0 = center_f + dcenter_f*(2*np.random.random(loop) - 1)
         g0 = center_g + dcenter_g*(2*np.random.random(loop) - 1)
-        a  = equatorial_radius + dequatorial_radius*(2*np.random.random(loop) - 1)
-        obla  = oblateness + doblateness*(2*np.random.random(loop) - 1)
-        obla[obla<0],obla[obla>1] = 0, 1
-        phi_deg  = pos_angle + dpos_angle*(2*np.random.random(loop) - 1)
+        a = equatorial_radius + dequatorial_radius*(2*np.random.random(loop) - 1)
+        obla = oblateness + doblateness*(2*np.random.random(loop) - 1)
+        obla[obla < 0], obla[obla > 1] = 0, 1
+        phi_deg = pos_angle + dpos_angle*(2*np.random.random(loop) - 1)
         controle_f1 = Time.now()
 
         for fi, gi, si in values:
@@ -156,7 +155,7 @@ def fit_ellipse(*args, **kwargs):
             dfi = fi-f0
             dgi = gi-g0
             r = np.sqrt(dfi**2 + dgi**2)
-            theta = np.arctan2(dgi,dfi)
+            theta = np.arctan2(dgi, dfi)
             ang = theta+phi
             r_model = (a*b)/np.sqrt((a*np.sin(ang))**2 + (b*np.cos(ang))**2)
             f_model = f0 + r_model*np.cos(theta)
@@ -168,15 +167,15 @@ def fit_ellipse(*args, **kwargs):
             region = np.where(chi2 < chi2.min() + kwargs['dchi_min'])[0]
         else:
             region = np.arange(len(chi2))
-        chi2_best = np.append(chi2_best,chi2[region])
+        chi2_best = np.append(chi2_best, chi2[region])
         if log:
             print('Elapsed time: {:.3f} seconds.'.format((controle_f2 - controle_f1).sec))
-            print(len(chi2[region]),len(chi2_best)) #TEST
-        f0_chi = np.append(f0_chi,f0[region])
-        g0_chi = np.append(g0_chi,g0[region])
-        a_chi  = np.append(a_chi,a[region])
-        obla_chi  = np.append(obla_chi,obla[region])
-        posang_chi  = np.append(posang_chi,phi_deg[region])
+            print(len(chi2[region]), len(chi2_best))
+        f0_chi = np.append(f0_chi, f0[region])
+        g0_chi = np.append(g0_chi, g0[region])
+        a_chi = np.append(a_chi, a[region])
+        obla_chi = np.append(obla_chi, obla[region])
+        posang_chi = np.append(posang_chi, phi_deg[region])
 
     chisquare = ChiSquare(chi2_best, len(values), center_f=f0_chi, center_g=g0_chi, equatorial_radius=a_chi,
                           oblateness=obla_chi, position_angle=posang_chi)
@@ -187,7 +186,8 @@ def fit_ellipse(*args, **kwargs):
     onesigma = chisquare.get_nsigma(sigma=1)
     for occ in args:
         if type(occ) == Occultation:
-            occ.fitted_params = {i:onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g', 'oblateness', 'position_angle']}
+            occ.fitted_params = {i: onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
+                                                          'oblateness', 'position_angle']}
     a = occ.fitted_params['equatorial_radius'][0]
     f0 = occ.fitted_params['center_f'][0]
     g0 = occ.fitted_params['center_g'][0]
@@ -201,15 +201,15 @@ def fit_ellipse(*args, **kwargs):
         dfi = fi-f0
         dgi = gi-g0
         r = np.sqrt(dfi**2 + dgi**2)
-        theta = np.arctan2(dgi,dfi)
+        theta = np.arctan2(dgi, dfi)
         ang = theta+phi
         r_model = (a*b)/np.sqrt((a*np.sin(ang))**2 + (b*np.cos(ang))**2)
         f_model = f0 + r_model*np.cos(theta)
         g_model = g0 + r_model*np.sin(theta)
-        radial_dispersion = np.append(radial_dispersion,r - r_model)
-        error_bar = np.append(error_bar,si)
-    occ.chi2_params = {'radial_dispersion': [radial_dispersion.mean(),radial_dispersion.std(ddof=1)]}
-    occ.chi2_params['mean_error'] = [error_bar.mean(),error_bar.std()]
+        radial_dispersion = np.append(radial_dispersion, r - r_model)
+        error_bar = np.append(error_bar, si)
+    occ.chi2_params = {'radial_dispersion': [radial_dispersion.mean(), radial_dispersion.std(ddof=1)]}
+    occ.chi2_params['mean_error'] = [error_bar.mean(), error_bar.std()]
     occ.chi2_params['chi2_min'] = chisquare.get_nsigma()['chi2_min']
     occ.chi2_params['nparam'] = chisquare.nparam
     occ.chi2_params['npts'] = chisquare.npts
@@ -238,7 +238,7 @@ class _PositionDict(dict):
             if type(self[key]) == _PositionDict:
                 for k in self[key].keys():
                     self[key][k] = value
-            elif key=='on':
+            elif key == 'on':
                 super().__setitem__('on', status[value])
         else:
             if value not in status.keys():
@@ -248,7 +248,7 @@ class _PositionDict(dict):
                     if key in self[key1].keys():
                         n = 1
                         self[key1][key] = value
-        if n==0:
+        if n == 0:
             raise KeyError('Key "{}" does not exist'.format(key))
 
     def __str__(self):
@@ -256,7 +256,6 @@ class _PositionDict(dict):
         return out.replace('\n', '\n  ')
 
 
-### Object for occultation
 class Occultation():
     '''
     Docstring
@@ -278,8 +277,8 @@ class Occultation():
             raise ValueError('ephem must be a Ephemeris object')
         self.star = star
         self.ephem = ephem
-        
-        tca, ca, pa, vel, dist = occ_params(star,ephem, time)
+
+        tca, ca, pa, vel, dist = occ_params(star, ephem, time)
         self.ca = ca   # Closest Approach distance
         self.pa = pa   # Position Angle at CA
         self.vel = vel  # Shadow velocity at CA
@@ -287,15 +286,17 @@ class Occultation():
         self.tca = tca   # Instant of CA
         self.star_diam = self.star.apparent_diameter(self.dist, log=False)
 
-        meta = {'name': self.ephem.name, 'radius': self.ephem.radius.to(u.km).value,
+        meta = {
+            'name': self.ephem.name, 'radius': self.ephem.radius.to(u.km).value,
             'error_ra': self.ephem.error_ra.to(u.mas).value, 'error_dec': self.ephem.error_dec.to(u.mas).value}
-        self.predict = PredictionTable(time=[tca], coord_star=[self.star.geocentric(tca)],
+        self.predict = PredictionTable(
+            time=[tca], coord_star=[self.star.geocentric(tca)],
             coord_obj=[self.ephem.get_position(tca)], ca=[ca.value], pa=[pa.value], vel=[vel.value],
             dist=[dist.value], mag=[self.star.mag['G']], source=[self.star.code], meta=meta)
-        
+
         self.__observations = []
         self._position = _PositionDict()
-    
+
     def add_observation(self, obs, lightcurve):
         """ Add observations to the Occultation object.
 
@@ -307,19 +308,18 @@ class Occultation():
             raise ValueError('obs must be an Observer object')
         if type(lightcurve) != LightCurve:
             raise ValueError('lightcurve must be a LightCurve object')
-        for o,l in self.__observations:
+        for o, l in self.__observations:
             if l.name == lightcurve.name:
                 raise ValueError('{} LightCurve already associated to {} Observer'.format(lightcurve.name, o.name))
-        self.__observations.append((obs,lightcurve))
+        self.__observations.append((obs, lightcurve))
         lightcurve.set_vel(np.absolute(self.vel))
         lightcurve.set_dist(float(self.dist.AU))
         lightcurve.set_star_diam(float(self.star_diam.km))
         try:
-            lightcurve.calc_magnitude_drop(mag_star=self.star.mag['G'],mag_obj=self.ephem.apparent_magnitude(self.tca))
+            lightcurve.calc_magnitude_drop(mag_star=self.star.mag['G'], mag_obj=self.ephem.apparent_magnitude(self.tca))
         except:
             lightcurve.bottom_flux = 0.0
             warnings.warn('Magnitude drop was not calculated. Using bottom flux as 0.0 instead.')
-
 
     def remove_observation(self, key, key_lc=None):
         """ Removes observation from the Occultation object.
@@ -331,8 +331,6 @@ class Occultation():
                 and key will be used for the name of the Observer.
         """
         rm_list = np.array([])
-        obs = []
-        lcs = []
         same_key = False
         if key_lc is None:
             same_key = True
@@ -347,16 +345,17 @@ class Occultation():
         ko = np.array(ko)
         kl = np.array(kl)
         if not same_key:
-            k  = ko[np.where(ko == kl)[0]]
+            k = ko[np.where(ko == kl)[0]]
             rm_list = np.hstack((rm_list, k))
         else:
             rm_list = np.hstack((rm_list, np.array(kl)))
             if len(kl) > 0 and len(ko) > 0 and kl[0] not in ko:
-                raise ValueError("Observation could not univocally be identified, please give parameters for Observer and LightCurve")
+                raise ValueError("Observation could not univocally be identified, "
+                                 "please give parameters for Observer and LightCurve")
             rm_list = np.hstack((rm_list, np.array(ko)))
         rm_list = np.unique(rm_list)
         if len(rm_list) == 0:
-            raise ValueError('No observer "{}" and/or lightcurve "{}" was found'.format(key,key_lc))
+            raise ValueError('No observer "{}" and/or lightcurve "{}" was found'.format(key, key_lc))
         list = np.arange(len(self.__observations)).tolist()
         for i in rm_list:
             list.remove(i)
@@ -366,7 +365,7 @@ class Occultation():
         """ Print all the observations added to the Occultation object
         Pair (Observer, LightCurve)
         """
-        for o,l in self.__observations:
+        for o, l in self.__observations:
             print('Observer= {}, LC: {}'.format(o.name, l.name))
 
     def fit_ellipse(self, **kwargs):
@@ -412,17 +411,17 @@ class Occultation():
             raise ValueError('There is no observation defined for this occultation')
 
         pair = []
-        for o,l in self.__observations:
+        for o, l in self.__observations:
             pair.append((o.name, l.name))
 
-            coord = [o.lon,o.lat,o.height]
+            coord = [o.lon, o.lat, o.height]
             if o.name not in position.keys():
                 position['_occ_'+o.name] = _PositionDict(lon=o.lon, lat=o.lat, height=o.height)
                 position[o.name]['_occ_lon'] = o.lon
                 position[o.name]['_occ_lat'] = o.lat
                 position[o.name]['_occ_height'] = o.height
             pos_obs = position[o.name]
-            coord2 = [pos_obs['lon'],pos_obs['lat'],pos_obs['height']]
+            coord2 = [pos_obs['lon'], pos_obs['lat'], pos_obs['height']]
             if o.lon != pos_obs['lon']:
                 position[o.name]['_occ_lon'] = o.lon
             if o.lat != pos_obs['lat']:
@@ -448,17 +447,17 @@ class Occultation():
                     pass
                 else:
                     do_err = True
-                    f1,g1,vf1,vg1 = positionv(self.star,self.ephem,o,l.immersion)
-                    obs_im['_occ_time'] =l.immersion
-                    obs_im['_occ_value'] = (round(f1,3),round(g1,3))
-                    obs_im['_occ_vel'] = (round(vf1,3),round(vg1,3))
+                    f1, g1, vf1, vg1 = positionv(self.star, self.ephem, o, l.immersion)
+                    obs_im['_occ_time'] = l.immersion
+                    obs_im['_occ_value'] = (round(f1, 3), round(g1, 3))
+                    obs_im['_occ_vel'] = (round(vf1, 3), round(vg1, 3))
                 if not do_err and 'time_err' in obs_im.keys() and obs_im['time_err'] == l.immersion_err:
                     pass
                 else:
-                    fe1,ge1 = positionv(self.star,self.ephem,o,l.immersion-l.immersion_err*u.s)[0:2]
-                    fe2,ge2 = positionv(self.star,self.ephem,o,l.immersion+l.immersion_err*u.s)[0:2]
+                    fe1, ge1 = positionv(self.star, self.ephem, o, l.immersion-l.immersion_err*u.s)[0:2]
+                    fe2, ge2 = positionv(self.star, self.ephem, o, l.immersion+l.immersion_err*u.s)[0:2]
                     obs_im['_occ_time_err'] = l.immersion_err
-                    obs_im['_occ_error'] = ((round(fe1,3),round(ge1,3)),(round(fe2,3),round(ge2,3)))
+                    obs_im['_occ_error'] = ((round(fe1, 3), round(ge1, 3)), (round(fe2, 3), round(ge2, 3)))
 
             if hasattr(l, 'emersion'):
                 if 'emersion' not in pos_lc.keys():
@@ -469,17 +468,17 @@ class Occultation():
                     pass
                 else:
                     do_err = True
-                    f1,g1,vf1,vg1 = positionv(self.star,self.ephem,o,l.emersion)
-                    obs_em['_occ_time'] =l.emersion
-                    obs_em['_occ_value'] = (round(f1,3),round(g1,3))
-                    obs_em['_occ_vel'] = (round(vf1,3),round(vg1,3))
+                    f1, g1, vf1, vg1 = positionv(self.star, self.ephem, o, l.emersion)
+                    obs_em['_occ_time'] = l.emersion
+                    obs_em['_occ_value'] = (round(f1, 3), round(g1, 3))
+                    obs_em['_occ_vel'] = (round(vf1, 3), round(vg1, 3))
                 if not do_err and 'time_err' in obs_em.keys() and obs_em['time_err'] == l.emersion_err:
                     pass
                 else:
-                    fe1,ge1 = positionv(self.star,self.ephem,o,l.emersion-l.emersion_err*u.s)[0:2]
-                    fe2,ge2 = positionv(self.star,self.ephem,o,l.emersion+l.emersion_err*u.s)[0:2]
+                    fe1, ge1 = positionv(self.star, self.ephem, o, l.emersion-l.emersion_err*u.s)[0:2]
+                    fe2, ge2 = positionv(self.star, self.ephem, o, l.emersion+l.emersion_err*u.s)[0:2]
                     obs_em['_occ_time_err'] = l.emersion_err
-                    obs_em['_occ_error'] = ((round(fe1,3),round(ge1,3)),(round(fe2,3),round(ge2,3)))
+                    obs_em['_occ_error'] = ((round(fe1, 3), round(ge1, 3)), (round(fe2, 3), round(ge2, 3)))
 
             if pos_lc['status'] == 'negative':
                 if 'start_obs' not in pos_lc.keys():
@@ -488,30 +487,30 @@ class Occultation():
                 if samecoord and 'time' in obs_start.keys() and obs_start['time'] == l.initial_time:
                     pass
                 else:
-                    f,g, vf,vg = positionv(self.star,self.ephem,o,l.initial_time)
+                    f, g, vf, vg = positionv(self.star, self.ephem, o, l.initial_time)
                     obs_start['_occ_time'] = l.initial_time
-                    obs_start['_occ_value'] = (round(f,3),round(g,3))
-                    obs_start['_occ_vel'] = (round(vf,3),round(vg,3))
+                    obs_start['_occ_value'] = (round(f, 3), round(g, 3))
+                    obs_start['_occ_vel'] = (round(vf, 3), round(vg, 3))
                 if 'end_obs' not in pos_lc.keys():
                     pos_lc['_occ_end_obs'] = _PositionDict(on=True)
                 obs_end = pos_lc['end_obs']
                 if samecoord and 'time' in obs_end.keys() and obs_end['time'] == l.end_time:
                     pass
                 else:
-                    f,g,vf,vg = positionv(self.star,self.ephem,o,l.end_time)
+                    f, g, vf, vg = positionv(self.star, self.ephem, o, l.end_time)
                     obs_end['_occ_time'] = l.end_time
-                    obs_end['_occ_value'] = (round(f,3),round(g,3))
-                    obs_end['_occ_vel'] = (round(vf,3),round(vg,3))
+                    obs_end['_occ_value'] = (round(f, 3), round(g, 3))
+                    obs_end['_occ_vel'] = (round(vf, 3), round(vg, 3))
 
         for key in list(position):
             n = 0
             for key_lc in list(position[key]):
                 if type(position[key][key_lc]) != _PositionDict:
                     continue
-                if (key,key_lc) not in pair:
+                if (key, key_lc) not in pair:
                     del position[key][key_lc]
                 else:
-                    n+=1
+                    n += 1
             if n == 0:
                 del position[key]
 
@@ -522,12 +521,11 @@ class Occultation():
         """ If the users tries to set a value to position, it must be 'on' or 'off',
         and it will be assigned to all chords.
         """
-        if not hasattr(self, '_position'):
-            pos = self.positions
-        if value not in ['on','off']:
+        if value not in ['on', 'off']:
             raise ValueError("Value must be 'on' or 'off' only.")
-        for key in self._position.keys():
-            self._position[key] = value
+        pos = self.positions
+        for key in pos.keys():
+            pos[key] = value
 
     def check_velocities(self):
         """ Print the current velocity used by the LightCurves and the Radial velocity.
@@ -535,13 +533,13 @@ class Occultation():
         if hasattr(self, 'fitted_params'):
             center = np.array([self.fitted_params['center_f'][0], self.fitted_params['center_g'][0]])
         else:
-            center = np.array([0,0])
+            center = np.array([0, 0])
         positions = self.positions
-        for o,l in self.__observations:
-            vals = positions[o.name][l.name]
+        for ob, lc in self.__observations:
+            vals = positions[ob.name][lc.name]
             if all([i not in vals.keys() for i in ['immersion', 'emersion']]):
                 continue
-            print('{} - Velocity used: {:.3f}'.format(l.name, l.vel))
+            print('{} - Velocity used: {:.3f}'.format(lc.name, lc.vel))
             if 'immersion' in vals.keys():
                 im = vals['immersion']
                 delta = np.array(im['value']) - center
@@ -673,11 +671,11 @@ class Occultation():
                     if pos_lc['immersion']['on'] or all_chords:
                         arr = np.array([pos_lc['immersion']['error']])
                         ax.plot(*arr.T, color=error_color, linewidth=1.5)
-                        n+=1
+                        n += 1
                     if pos_lc['emersion']['on'] or all_chords:
                         arr = np.array([pos_lc['emersion']['error']])
                         ax.plot(*arr.T, color=error_color, linewidth=1.5)
-                        n+=1
+                        n += 1
                     if n == 2:
                         arr = np.array([pos_lc['immersion']['value'], pos_lc['emersion']['value']])
                         ax.plot(*arr.T, color=positive_color, linewidth=0.7)
@@ -722,7 +720,7 @@ class Occultation():
             parallels: Plots lines representing the parallels for given interval. Default=30 deg
             sites: Plots site positions in map. It must be a python dictionary where the key is
                 the name of the site, and the value is a list with longitude, latitude, delta_x,
-                delta\_y and color. delta_x and delta_y are displacement, in km, from the point
+                delta_y and color. delta_x and delta_y are displacement, in km, from the point
                 of the site in the map and the name. color is the color of the point.
                 If not given, it calculates from observations added to Occultation
             countries: Plots the names of countries. It must be a python dictionary where the key
@@ -776,13 +774,13 @@ class Occultation():
             kwargs['offset'] = [off_ra, off_dec]
         self.predict.plot_occ_map(**kwargs)
 
-    def to_log(self,namefile=None):
+    def to_log(self, namefile=None):
         """ Save the occultation log to a file
 
         Parameters:
             namefile (str): Filename to save the log
         """
-        if (namefile == None):
+        if namefile is None:
             namefile = 'occ_{}_{}.log'.format(self.ephem.name, self.tca.isot[:16])
         f = open(namefile, 'w')
         f.write(self.__str__())
@@ -801,41 +799,41 @@ class Occultation():
         """
         positions = self.positions
         pos = []
-        neg =[]
+        neg = []
         err = []
-        for o,l in self.__observations:
-            status = positions[o.name][l.name]['status']
-            l_name = l.name.replace(' ', '_')
+        for ob, lc in self.__observations:
+            status = positions[ob.name][lc.name]['status']
+            l_name = lc.name.replace(' ', '_')
             if status == 'positive':
-                im = positions[o.name][l.name]['immersion']
-                f,g = im['value']
+                im = positions[ob.name][lc.name]['immersion']
+                f, g = im['value']
                 err1, err2 = im['error']
-                f1,g1 = err1
-                f2,g2 = err2
-                vf,vg = im['vel']
-                pos.append([f,g,vf,vg, im['time'].jd, l_name+'_immersion'])
-                err.append([f1,g1,vf,vg,(im['time']-im['time_err']*u.s).jd,l_name+'_immersion_err-'])
-                err.append([f2,g2,vf,vg,(im['time']+im['time_err']*u.s).jd,l_name+'_immersion_err+'])
+                f1, g1 = err1
+                f2, g2 = err2
+                vf, vg = im['vel']
+                pos.append([f, g, vf, vg, im['time'].jd, l_name+'_immersion'])
+                err.append([f1, g1, vf, vg, (im['time']-im['time_err']*u.s).jd, l_name+'_immersion_err-'])
+                err.append([f2, g2, vf, vg, (im['time']+im['time_err']*u.s).jd, l_name+'_immersion_err+'])
 
-                em = positions[o.name][l.name]['emersion']
-                f,g = em['value']
+                em = positions[ob.name][lc.name]['emersion']
+                f, g = em['value']
                 err1, err2 = em['error']
-                f1,g1 = err1
-                f2,g2 = err2
-                vf,vg = em['vel']
-                pos.append([f,g,vf,vg, em['time'].jd, l_name+'_emersion'])
-                err.append([f1,g1,vf,vg,(em['time']-em['time_err']*u.s).jd,l_name+'_emersion_err-'])
-                err.append([f2,g2,vf,vg,(em['time']+em['time_err']*u.s).jd,l_name+'_emersion_err+'])
+                f1, g1 = err1
+                f2, g2 = err2
+                vf, vg = em['vel']
+                pos.append([f, g, vf, vg, em['time'].jd, l_name+'_emersion'])
+                err.append([f1, g1, vf, vg, (em['time']-em['time_err']*u.s).jd, l_name+'_emersion_err-'])
+                err.append([f2, g2, vf, vg, (em['time']+em['time_err']*u.s).jd, l_name+'_emersion_err+'])
             if status == 'negative':
-                ini = positions[o.name][l.name]['start_obs']
-                f,g = ini['value']
-                vf,vg = ini['vel']
-                neg.append([f,g,vf,vg,ini['time'].jd,l_name+'_start'])
+                ini = positions[ob.name][lc.name]['start_obs']
+                f, g = ini['value']
+                vf, vg = ini['vel']
+                neg.append([f, g, vf, vg, ini['time'].jd, l_name+'_start'])
 
-                end = positions[o.name][l.name]['end_obs']
-                f,g = end['value']
-                vf,vg = end['vel']
-                neg.append([f,g,vf,vg,end['time'].jd,l_name+'_end'])
+                end = positions[ob.name][lc.name]['end_obs']
+                f, g = end['value']
+                vf, vg = end['vel']
+                neg.append([f, g, vf, vg, end['time'].jd, l_name+'_end'])
         if len(pos) > 0:
             f = open('occ_{}_pos.txt'.format(self.ephem.name), 'w')
             for line in pos:
@@ -854,28 +852,31 @@ class Occultation():
     def __str__(self):
         """String representation of the Star class
         """
-        out = 'Stellar occultation of star Gaia-DR2 {} by {}.\n\n'.format(self.star.code, self.ephem.name)
-        out += 'Geocentric Closest Approach: {:.3f}\n'.format(self.ca)
-        out += 'Instant of CA: {}\n'.format(self.tca.iso)
-        out += 'Position Angle: {:.2f}\n'.format(self.pa)
-        out += 'Geocentric shadow velocity: {:.2f}\n\n\n'.format(self.vel)
+        out = ('Stellar occultation of star Gaia-DR2 {} by {}.\n\n'
+               'Geocentric Closest Approach: {:.3f}\n'
+               'Instant of CA: {}\n'
+               'Position Angle: {:.2f}\n'
+               'Geocentric shadow velocity: {:.2f}\n\n\n'.format(
+                   self.star.code, self.ephem.name, self.ca, self.tca.iso,
+                   self.pa, self.vel)
+               )
 
         count = {'positive': 0, 'negative': 0, 'visual': 0}
         string = {'positive': '', 'negative': '', 'visual': ''}
         if len(self.__observations) > 0:
             pos = self.positions
-            for o,l in self.__observations:
-                status = pos[o.name][l.name]['status']
+            for ob, lc in self.__observations:
+                status = pos[ob.name][lc.name]['status']
                 if count[status] > 0:
                     string[status] += '-'*79 + '\n'
-                string[status] += o.__str__() + '\n\n'
-                string[status] += l.__str__() + ''
+                string[status] += ob.__str__() + '\n\n'
+                string[status] += lc.__str__() + ''
                 count[status] += 1
 
         if np.sum([count[i] for i in count.keys()]) == 0:
             out += 'No observations reported'
         else:
-            out += '\n'.join(['{} {} observations'.format(count[k],k) for k in string.keys() if count[k] > 0])
+            out += '\n'.join(['{} {} observations'.format(count[k], k) for k in string.keys() if count[k] > 0])
 
         out += '\n\n'
 
@@ -888,8 +889,8 @@ class Occultation():
         out += 'RA={} +/- {:.4f}, DEC={} +/- {:.4f}\n\n'.format(
             coord.ra.to_string(u.hourangle, sep='hms', precision=5), error_star[0],
             coord.dec.to_string(u.deg, sep='dms', precision=4), error_star[1])
-        
-        out += '#'*79 + '\n{:^79s}\n'.format('EPHEMERIS') + '#'*79 +'\n'
+
+        out += '#'*79 + '\n{:^79s}\n'.format('EPHEMERIS') + '#'*79 + '\n'
         out += self.ephem.__str__() + '\n'
 
         for status in string.keys():
@@ -907,10 +908,13 @@ class Occultation():
             out += '\nMinimum chi-square: {:.3f}\n'.format(self.chi2_params['chi2_min'])
             out += 'Number of fitted points: {}\n'.format(self.chi2_params['npts'])
             out += 'Number of fitted parameters: {}\n'.format(self.chi2_params['nparam'])
-            out += 'Minimum chi-square per degree of freedom: {:.3f}\n'.format(self.chi2_params['chi2_min']/ (self.chi2_params['npts'] - self.chi2_params['nparam']))
-            out += 'Radial dispersion: {:.3f} +/- {:.3f} km\n'.format(self.chi2_params['radial_dispersion'][0], self.chi2_params['radial_dispersion'][1])
-            out += 'Mean error: {:.3f} +/- {:.3f} km\n'.format(self.chi2_params['mean_error'][0], self.chi2_params['mean_error'][1])
-            
+            out += 'Minimum chi-square per degree of freedom: {:.3f}\n'.format(
+                self.chi2_params['chi2_min']/(self.chi2_params['npts'] - self.chi2_params['nparam']))
+            out += 'Radial dispersion: {:.3f} +/- {:.3f} km\n'.format(
+                self.chi2_params['radial_dispersion'][0], self.chi2_params['radial_dispersion'][1])
+            out += 'Mean error: {:.3f} +/- {:.3f} km\n'.format(
+                self.chi2_params['mean_error'][0], self.chi2_params['mean_error'][1])
+
             out += '\n' + self.new_astrometric_position(log=False)
 
         return out
