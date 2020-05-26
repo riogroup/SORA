@@ -519,7 +519,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     # create astropy table with the params
     occs2 = np.transpose(occs)
     time = Time(occs2[3])
-    geocentric = ephem.get_position(time)
+    geocentric = SkyCoord([ephem.get_position(time)])
     k = np.argsort(time)
     t = PredictionTable(
         time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
