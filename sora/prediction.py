@@ -10,13 +10,13 @@ from astroquery.vizier import Vizier
 import numpy as np
 import warnings
 import os
-import matplotlib
 import matplotlib.pyplot as plt
+
 
 class PredictRow(Row):
     """An Astropy Row object modified for Prediction purposes.
     """
-    def plot_occ_map(self,**kwargs):
+    def plot_occ_map(self, **kwargs):
         """
         Parameters:
             radius: The radius of the shadow. If not given it uses saved value
@@ -39,7 +39,7 @@ class PredictRow(Row):
             parallels: Plots lines representing the parallels for given interval. Default=30 deg
             sites: Plots site positions in map. It must be a python dictionary where the key is
                 the name of the site, and the value is a list with longitude, latitude, delta_x,
-                delta\_y and color. delta_x and delta_y are displacement, in km, from the point
+                delta_y and color. delta_x and delta_y are displacement, in km, from the point
                 of the site in the map and the name. color is the color of the point.
             countries: Plots the names of countries. It must be a python dictionary where the key
                 is the name of the country and the value is a list with longitude and latitude
@@ -87,10 +87,12 @@ class PredictRow(Row):
                      ca=float(self['C/A']), pa=float(self['P/A']), vel=float(self['Vel']), dist=float(self['Dist']),
                      mag=float(self['G*']), longi=float(self['long']), **kwargs)
 
+
 class PredictionTable(Table):
     """An Astropy Table object modified for Prediction purposes.
     """
     Row = PredictRow
+
     def __init__(self, *args, **kwargs):
         if 'time' in kwargs:
             values = {}
@@ -100,20 +102,23 @@ class PredictionTable(Table):
             if time.isscalar:
                 time = Time([time])
             values['Epoch'] = Column(time)
+
             def coord_fmt(value):
-                return value.to_string('hmsdms',precision=5, sep=' ')
-            coord = SkyCoord(kwargs['coord_star'], unit=(u.hourangle,u.deg))
+                return value.to_string('hmsdms', precision=5, sep=' ')
+
+            coord = SkyCoord(kwargs['coord_star'], unit=(u.hourangle, u.deg))
             values['ICRS Star Coord at Epoch'] = Column(coord, format=coord_fmt)
             try:
                 coord_geo = SkyCoord(kwargs['coord_obj'])
             except:
-                coord_geo = SkyCoord(kwargs['coord_obj'], unit=(u.hourangle,u.deg))
+                coord_geo = SkyCoord(kwargs['coord_obj'], unit=(u.hourangle, u.deg))
             values['Geocentric Object Position'] = Column(coord_geo, format=coord_fmt)
             values['C/A'] = Column(kwargs['ca'], format='5.3f', unit='arcsec')
             values['P/A'] = Column(kwargs['pa'], format='6.2f', unit='deg')
             values['Vel'] = Column(kwargs['vel'], format='-6.2f', unit='km/s')
             values['Dist'] = Column(kwargs['dist'], format='7.3f', unit='AU')
-            del(kwargs['time'], kwargs['coord_star'], kwargs['coord_obj'], kwargs['ca'], kwargs['pa'], kwargs['vel'], kwargs['dist'])
+            del(kwargs['time'], kwargs['coord_star'], kwargs['coord_obj'], kwargs['ca'],
+                kwargs['pa'], kwargs['vel'], kwargs['dist'])
             if 'mag' not in kwargs.keys() and 'mag_20' not in kwargs.keys():
                 raise ValueError('User must provide "mag" or "mag_20" parameters')
             if 'mag' in kwargs.keys():
@@ -134,7 +139,8 @@ class PredictionTable(Table):
                 values['long'] = Column(kwargs['long'], unit='deg', format='3.0f')
                 del kwargs['long']
             else:
-                values['long'] = Column((coord.ra - time.sidereal_time('mean', 'greenwich')).wrap_at(360*u.deg), unit='deg', format='3.0f')
+                values['long'] = Column((coord.ra - time.sidereal_time('mean', 'greenwich')).wrap_at(360*u.deg),
+                                        unit='deg', format='3.0f')
             if 'loct' in kwargs.keys():
                 values['loct'] = Column(kwargs['loct'], unit='hh:mm')
                 del kwargs['loct']
@@ -161,7 +167,7 @@ class PredictionTable(Table):
         if isinstance(item, str) and item not in self.colnames:
             col = self['Epoch']
             arr = list([i for i, c in enumerate(col) if c.iso.startswith(item)])
-            if len(arr) is 0:
+            if len(arr) == 0:
                 raise KeyError('No prediction corresponds to time "{}"'.format(item))
             elif len(arr) > 1:
                 return self[arr]
@@ -184,50 +190,52 @@ class PredictionTable(Table):
             A PredictionTable
         """
         from .ephem import read_obj_data
-        occs = {}
-        if os.path.isfile(filename) == False:
+        if not os.path.isfile(filename):
             raise IOError('File {} not found'.format(filename))
         try:
-            dados = np.loadtxt(filename, skiprows=41, usecols=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-                                                               16, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 29),
-                dtype={'names': ('dia', 'mes', 'ano', 'hor', 'min', 'sec', 'afh', 'afm', 'afs', 'ded', 'dem', 'des', 'afh2', 'afm2', 'afs2',
-                                 'ded2', 'dem2', 'des2', 'ca', 'pa', 'vel', 'delta', 'mR', 'mK', 'long', 'loct', 'ora', 'ode'),
-                       'formats': ('S30', 'S30', 'S30','S30', 'S30', 'S30','S20', 'S20', 'S20','S20', 'S20', 'S20', 'S20', 'S20', 'S20',
-                                   'S20', 'S20', 'S20', 'f4', 'f4', 'f4', 'f4', 'f4', 'f4', 'f4', 'S20', 'f4', 'f4')}, ndmin=1)
+            dados = np.loadtxt(
+                filename, skiprows=41,
+                usecols=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 29),
+                dtype={'names': ('dia', 'mes', 'ano', 'hor', 'min', 'sec', 'afh', 'afm', 'afs', 'ded',
+                                 'dem', 'des', 'afh2', 'afm2', 'afs2', 'ded2', 'dem2', 'des2', 'ca',
+                                 'pa', 'vel', 'delta', 'mR', 'mK', 'long', 'loct', 'ora', 'ode'),
+                       'formats': ('S30', 'S30', 'S30', 'S30', 'S30', 'S30', 'S20', 'S20', 'S20',
+                                   'S20', 'S20', 'S20', 'S20', 'S20', 'S20', 'S20', 'S20', 'S20',
+                                   'f4', 'f4', 'f4', 'f4', 'f4', 'f4', 'f4', 'S20', 'f4', 'f4')}, ndmin=1)
         except:
             raise IOError('{} is not in PRAIA format or does not have any occultation'.format(filename))
-            
+
         f = open(filename, 'r')
         lines = f.readlines()
         f.close()
-        
+
         max_ca = float(lines[14].split()[-2])*u.arcsec
 
-        ################## reading coordinates #################
+        # reading coordinates
         coor = np.char.array(dados['afh'], unicode=True)
         for i in ['afm', 'afs', 'ded', 'dem', 'des']:
             coor = np.core.defchararray.add(coor, ' ')
             coor = np.core.defchararray.add(coor, np.char.array(dados[i], unicode=True))
         coord_star = SkyCoord(coor, frame='icrs', unit=(u.hourangle, u.degree))
-        
+
         coor = np.char.array(dados['afh2'], unicode=True)
         for i in ['afm2', 'afs2', 'ded2', 'dem2', 'des2']:
             coor = np.core.defchararray.add(coor, ' ')
             coor = np.core.defchararray.add(coor, np.char.array(dados[i], unicode=True))
         coord_obj = SkyCoord(coor, frame='icrs', unit=(u.hourangle, u.degree))
 
-        ################### reading time ########################
-        tim=np.char.array(dados['ano'], unicode=True)
-        len_iso = ['-', '-', ' ', ':',':']
+        # reading time
+        tim = np.char.array(dados['ano'], unicode=True)
+        len_iso = ['-', '-', ' ', ':', ':']
         arr = ['mes', 'dia', 'hor', 'min', 'sec']
         for i in np.arange(len(arr)):
-            tim = np.core.defchararray.add(tim, len_iso[i]) 
+            tim = np.core.defchararray.add(tim, len_iso[i])
             tim = np.core.defchararray.add(tim, np.char.array(dados[arr[i]], unicode=True))
         time = Time(np.char.array(tim) + '000')
 
-        ############### defining parameters #############
+        # defining parameters
         data = read_obj_data()
-        radius, error_ra, error_dec = data.get(name.lower(), [0,0,0])
+        radius, error_ra, error_dec = data.get(name.lower(), [0, 0, 0])
         radius = kwargs.get('radius', radius)*u.km
         meta = {'name': name, 'radius': radius, 'max_ca': max_ca, 'ephem': lines[17].split()[-1],
                 'error_ra': error_ra*1000, 'error_dec': error_dec*1000}
@@ -242,13 +250,15 @@ class PredictionTable(Table):
         """
         from .config import praia_occ_head
         f = open(filename, 'w')
-        f.write(praia_occ_head.format(max_ca=self.meta['max_ca'].to(u.arcsec), size=len(self), ephem=self.meta.get('ephem', 'ephem')))
+        f.write(praia_occ_head.format(max_ca=self.meta['max_ca'].to(u.arcsec), size=len(self),
+                                      ephem=self.meta.get('ephem', 'ephem')))
         for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, md, sd, source in self.iterrows():
             dmag = mag_20-mag
-            f.write("\n {} {} {}  {}  {}   {}   {:5.3f}  {:6.2f} {:-6.2f} {:5.2f} {:4.1f} {:-4.1f} {:-4.1f} {:-4.1f}   {:3.0f}. {}       0.0      0.0 ok g2 0    0    0    0    0".
-                    format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:21].replace(':', ' '), coord.to_string('hmsdms', precision=4, sep=' '),
-                           coord_geo.to_string('hmsdms', precision=4, sep=' '), ca, pa, vel, dist, mag_20, dmag, dmag, dmag, longi, loct)
-                   )
+            f.write("\n {} {} {}  {}  {}   {}   {:5.3f}  {:6.2f} {:-6.2f} {:5.2f} {:4.1f} "
+                    "{:-4.1f} {:-4.1f} {:-4.1f}   {:3.0f}. {}       0.0      0.0 ok g2 0    0    0    0    0".
+                    format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:21].replace(':', ' '),
+                           coord.to_string('hmsdms', precision=4, sep=' '), coord_geo.to_string('hmsdms', precision=4, sep=' '),
+                           ca, pa, vel, dist, mag_20, dmag, dmag, dmag, longi, loct))
         f.close()
 
     def to_ow(self, ow_des, mode='append'):
@@ -266,15 +276,21 @@ class PredictionTable(Table):
             raise ValueError('mode param must be "append" or "restart".')
 
         f = open('tableOccult_update.txt', modes[mode])
-        f.write(ow_occ_head.format(name=self.meta['name'], ephem=self.meta.get('ephem', 'ephem'), max_ca=self.meta['max_ca'].to(u.arcsec),
-                                   size=len(self), radius=self.meta['radius'], ow_des=ow_des))
+        f.write(ow_occ_head.format(name=self.meta['name'], ephem=self.meta.get('ephem', 'ephem'),
+                                   max_ca=self.meta['max_ca'].to(u.arcsec), size=len(self),
+                                   radius=self.meta['radius'], ow_des=ow_des))
         for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, md, sd, source in self.iterrows():
             dmag = mag_20-mag
-            f.write('{} {} {}  {}   {} {}   {} {}   {:5.3f}  {:6.2f} {:-7.3f} {:7.3f} {:4.1f} {:-4.1f}   {:3.0f}. {}  {:4.0f}  {:4.0f}\n'.
-                    format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:20].replace(':', ' '), coord.ra.to_string('hour', precision=4, sep=' '),
-                           coord.dec.to_string('deg', precision=3, sep=' '), coord_geo.ra.to_string('hour', precision=4, sep=' '),
-                           coord_geo.dec.to_string('deg', precision=3, sep=' '), ca, pa, vel, dist, mag_20, dmag, longi, loct, self.meta.get('error_ra', 0),
-                           self.meta.get('error_dec', 0)))
+            f.write('{} {} {}  {}   {} {}   {} {}   {:5.3f}  {:6.2f} {:-7.3f} {:7.3f} '
+                    '{:4.1f} {:-4.1f}   {:3.0f}. {}  {:4.0f}  {:4.0f}\n'.
+                    format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:20].replace(':', ' '),
+                           coord.ra.to_string('hour', precision=4, sep=' '),
+                           coord.dec.to_string('deg', precision=3, sep=' '),
+                           coord_geo.ra.to_string('hour', precision=4, sep=' '),
+                           coord_geo.dec.to_string('deg', precision=3, sep=' '),
+                           ca, pa, vel, dist, mag_20, dmag, longi, loct,
+                           self.meta.get('error_ra', 0), self.meta.get('error_dec', 0))
+                    )
         f.write(' '+'-'*148+'\n')
         f.close()
 
@@ -309,7 +325,7 @@ class PredictionTable(Table):
             parallels: Plots lines representing the parallels for given interval. Default=30 deg
             sites: Plots site positions in map. It must be a python dictionary where the key is
                 the name of the site, and the value is a list with longitude, latitude, delta_x,
-                delta\_y and color. delta_x and delta_y are displacement, in km, from the point
+                delta_y and color. delta_x and delta_y are displacement, in km, from the point
                 of the site in the map and the name. color is the color of the point.
             countries: Plots the names of countries. It must be a python dictionary where the key
                 is the name of the country and the value is a list with longitude and latitude
@@ -356,12 +372,12 @@ class PredictionTable(Table):
 
 def occ_params(star, ephem, time):
     """ Calculates the parameters of the occultation, as instant, CA, PA.
-        
+
     Parameters:
     star (Star): The coordinate of the star in the same frame as the ephemeris.
     It must be a Star object.
     ephem (Ephem): Ephemeris. It must be an Ephemeris object.
-    
+
     Return:
     instant of CA (Time): Instant of Closest Approach
     CA (arcsec): Distance of Closest Approach
@@ -369,47 +385,47 @@ def occ_params(star, ephem, time):
     vel (km/s): Velocity of the occultation
     dist (AU): the object distance.
     """
-    
+
     delta_t = 0.05
-    
+
     if type(star) != Star:
         raise ValueError('star must be a Star object')
     if type(ephem) not in [EphemKernel, EphemJPL, EphemPlanete]:
         raise ValueError('ephem must be an Ephemeris object')
-        
+
     time = Time(time)
     tt = time + np.arange(-600, 600, delta_t)*u.s
     coord = star.geocentric(tt[0])
     if type(ephem) == EphemPlanete:
         ephem.fit_d2_ksi_eta(coord, log=False)
-    
+
     if type(ephem) == EphemJPL:
         tt = time + np.arange(-600, 600, 4)*u.s
         ksi, eta = ephem.get_ksi_eta(tt, coord)
         dd = np.sqrt(ksi*ksi+eta*eta)
         min = np.argmin(dd)
         tt = tt[min] + np.arange(-8, 8, 0.05)*u.s
-    
+
     ksi, eta = ephem.get_ksi_eta(tt, coord)
     dd = np.sqrt(ksi*ksi+eta*eta)
     min = np.argmin(dd)
-    
+
     if type(ephem) == EphemPlanete:
         dist = ephem.ephem[int(len(ephem.time)/2)].distance
     else:
         dist = ephem.get_position(time).distance
-    
+
     ca = np.arcsin(dd[min]*u.km/dist).to(u.arcsec)
-    
-    pa = (np.arctan2(ksi[min],eta[min])*u.rad).to(u.deg)
+
+    pa = (np.arctan2(ksi[min], eta[min])*u.rad).to(u.deg)
     if pa < 0*u.deg:
         pa = pa + 360*u.deg
-    
+
     dksi = ksi[min+1]-ksi[min]
     deta = eta[min+1]-eta[min]
     vel = np.sqrt(dksi**2 + deta**2)/delta_t
     vel = vel*np.sign(dksi)*(u.km/u.s)
-    
+
     return tt[min], ca, pa, vel, dist.to(u.AU)
 
 
@@ -432,7 +448,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     # generate ephemeris
     if type(ephem) is not EphemKernel:
         raise TypeError('At the moment prediction only works with EphemKernel')
-    if log: print("Generating Ephemeris ...")
+    if log:
+        print("Generating Ephemeris ...")
     time_beg = Time(time_beg)
     time_end = Time(time_end)
     dt = np.arange(0, (time_end-time_beg).sec, step)*u.s
@@ -442,47 +459,51 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     # define catalogue parameters
     kwds = {}
     kwds['columns'] = ['Source', 'RA_ICRS', 'DE_ICRS']
-    kwds['row_limit']=10000000
-    kwds['timeout']=600
+    kwds['row_limit'] = 10000000
+    kwds['timeout'] = 600
     if mag_lim:
-        kwds['column_filters']={"Gmag":"<{}".format(mag_lim)}
+        kwds['column_filters'] = {"Gmag": "<{}".format(mag_lim)}
     vquery = Vizier(**kwds)
 
     # determine suitable divisions for star search
     radius = ephem.radius + const.R_earth
-    mindist = np.arcsin(radius/coord.distance).max() + sigma*np.max([ephem.error_ra.value,ephem.error_dec.value])*u.arcsec
+    mindist = np.arcsin(radius/coord.distance).max() + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec
 
     divisions = np.array_split(np.arange(len(coord)), divs)
 
-    if log: print('Ephemeris was split in {} parts for better search of stars'.format(len(divisions)))
+    if log:
+        print('Ephemeris was split in {} parts for better search of stars'.format(len(divisions)))
 
     # makes predictions for each division
     occs = []
-    for i,vals in enumerate(divisions):
-        if log: print('\nSearching occultations in part {}/{}'.format(i+1,len(divisions)))
+    for i, vals in enumerate(divisions):
+        if log:
+            print('\nSearching occultations in part {}/{}'.format(i+1, len(divisions)))
         nt = t[vals]
         ncoord = coord[vals]
-        ra = np.mean([ncoord.ra.min().deg,ncoord.ra.max().deg])
-        dec = np.mean([ncoord.dec.min().deg,ncoord.dec.max().deg])
+        ra = np.mean([ncoord.ra.min().deg, ncoord.ra.max().deg])
+        dec = np.mean([ncoord.dec.min().deg, ncoord.dec.max().deg])
         width = ncoord.ra.max() - ncoord.ra.min() + 2*mindist
         height = ncoord.dec.max() - ncoord.dec.min() + 2*mindist
         pos_search = SkyCoord(ra*u.deg, dec*u.deg)
 
-        if log: print('Downloading stars ...')
+        if log:
+            print('Downloading stars ...')
         catalogue = vquery.query_region(pos_search, width=width, height=height, catalog='I/345/gaia2')
-        if log: print('Identifying occultations ...')
+        if log:
+            print('Identifying occultations ...')
         if len(catalogue) == 0:
             continue
         catalogue = catalogue[0]
         stars = SkyCoord(catalogue['RA_ICRS'], catalogue['DE_ICRS'])
         idx, d2d, d3d = stars.match_to_catalog_sky(ncoord)
 
-        dist = np.arcsin(radius/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value,ephem.error_dec.value])*u.arcsec
+        dist = np.arcsin(radius/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec
         k = np.where(d2d < dist)[0]
         for ev in k:
             star = Star(code=catalogue['Source'][ev], nomad=False, log=False)
             c = star.geocentric(nt[idx][ev])
-            pars = [star.code, SkyCoord(c.ra,c.dec), star.mag['G']]
+            pars = [star.code, SkyCoord(c.ra, c.dec), star.mag['G']]
             try:
                 pars = np.hstack((pars, occ_params(star, ephem, nt[idx][ev])))
                 occs.append(pars)
@@ -490,7 +511,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
                 pass
 
     meta = {'name': ephem.name, 'time_beg': time_beg, 'time_end': time_end, 'maglim': mag_lim, 'max_ca': mindist,
-            'radius':ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value, 'error_dec': ephem.error_dec.to(u.mas).value}
+            'radius': ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value,
+            'error_dec': ephem.error_dec.to(u.mas).value}
     if not occs:
         warnings.warn('No stellar occultation was found')
         return PredictionTable(meta=meta)
@@ -499,7 +521,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     time = Time(occs2[3])
     geocentric = ephem.get_position(time)
     k = np.argsort(time)
-    t = PredictionTable(time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
+    t = PredictionTable(
+        time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
         pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
         dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
     if log:
@@ -522,7 +545,7 @@ def xy2latlon(x, y, loncen, latcen, time):
                           loncen, lat results in x, y. (deg)
     """
     r = const.R_earth.to(u.m).value
-    site_cen = EarthLocation(loncen*u.deg,latcen*u.deg)
+    site_cen = EarthLocation(loncen*u.deg, latcen*u.deg)
     itrs_cen = site_cen.get_itrs(obstime=time)
     gcrs_cen = itrs_cen.transform_to(GCRS(obstime=time))
 
@@ -543,7 +566,7 @@ def xy2latlon(x, y, loncen, latcen, time):
         if not time.isscalar and len(time) == len(x2):
             time = time[a]
         while True:
-            n+=1
+            n += 1
             new_pos = SkyCoord(x*u.m, y*u.m, z*u.m, representation_type='cartesian', frame=center_frame[a])
             n_coord = new_pos.transform_to(GCRS(obstime=time))
             n_itrs = n_coord.transform_to(ITRS(obstime=time))
@@ -572,12 +595,12 @@ def latlon2xy(lon, lat, loncen, latcen):
     Return:
         x, y (float): Projection of lon, lat at loncen, latcen, in the ITRS (meters)
     """
-    site_cen = EarthLocation(loncen*u.deg,latcen*u.deg)
+    site_cen = EarthLocation(loncen*u.deg, latcen*u.deg)
     itrs_cen = site_cen.get_itrs()
 
     lon = np.array(lon, ndmin=1)
     lat = np.array(lat, ndmin=1)
-    site = EarthLocation(lon*u.deg,lat*u.deg, height=0*u.m)
+    site = EarthLocation(lon*u.deg, lat*u.deg, height=0*u.m)
     itrs_site = site.get_itrs()
 
     target = itrs_site.transform_to(SkyOffsetFrame(origin=itrs_cen))
@@ -623,7 +646,7 @@ def plot_occ_map(name, radius, **kwargs):
         parallels: Plots lines representing the parallels for given interval. Default=30 deg
         sites: Plots site positions in map. It must be a python dictionary where the key is
             the name of the site, and the value is a list with longitude, latitude, delta_x,
-            delta\_y and color. delta_x and delta_y are displacement, in km, from the point
+            delta_y and color. delta_x and delta_y are displacement, in km, from the point
             of the site in the map and the name. color is the color of the point.
         countries: Plots the names of countries. It must be a python dictionary where the key
             is the name of the country and the value is a list with longitude and latitude
@@ -693,7 +716,7 @@ def plot_occ_map(name, radius, **kwargs):
     occs['longi'] = kwargs.get('longi', 0.0)
 
     mapstyle = kwargs.get('mapstyle', 1)
-    if mapstyle not in [1,2]:
+    if mapstyle not in [1, 2]:
         raise ValueError('mapstyle must be 1 or 2]')
 
     resolution = kwargs.get('resolution', 2)
@@ -733,9 +756,10 @@ def plot_occ_map(name, radius, **kwargs):
     if 'sites' in kwargs.keys():
         if type(kwargs['sites']) == str and os.path.isfile(kwargs['sites']):
             data = np.loadtxt(kwargs['sites'], dtype={'names': ('name', 'lon', 'lat', 'offx', 'offy', 'color'),
-                                                        'formats': ('S30', 'f8', 'f8', 'f8', 'f8', 'S30')}, delimiter=',', ndmin=1)
+                                                      'formats': ('S30', 'f8', 'f8', 'f8', 'f8', 'S30')},
+                              delimiter=',', ndmin=1)
             for i, s in enumerate(data):
-                sites[s['name'].strip().decode()] = [s['lon'],s['lat'], s['offx'], s['offy'], s['color'].strip().decode() ]
+                sites[s['name'].strip().decode()] = [s['lon'], s['lat'], s['offx'], s['offy'], s['color'].strip().decode()]
         elif type(kwargs['sites']) == dict:
             sites = kwargs['sites']
         else:
@@ -744,21 +768,22 @@ def plot_occ_map(name, radius, **kwargs):
     countries = {}
     if 'countries' in kwargs.keys():
         if type(kwargs['countries']) == str and os.path.isfile(kwargs['countries']):
-            data = np.loadtxt(kwargs['countries'], dtype={'names': ('name', 'lon', 'lat'), 'formats': ('S30', 'f8', 'f8')}, delimiter=',', ndmin=1)
+            data = np.loadtxt(kwargs['countries'], dtype={'names': ('name', 'lon', 'lat'), 'formats': ('S30', 'f8', 'f8')},
+                              delimiter=',', ndmin=1)
             for i, c in enumerate(data):
-                countries[c['name'].strip().decode()] = [c['lon'],c['lat']]
+                countries[c['name'].strip().decode()] = [c['lon'], c['lat']]
         elif type(kwargs['countries']) == dict:
             countries = kwargs['countries']
         else:
             raise TypeError('country keyword must be a file or a dictionary')
 
-########## calculates offsets ######
+# calculates offsets
     dca = off_ra*np.sin(occs['posa']) + off_de*np.cos(occs['posa'])
     dt = (-(off_ra*np.cos(occs['posa']) - off_de*np.sin(occs['posa'])).to(u.rad)*occs['dist'].to(u.km)/np.absolute(occs['vel'])).value*u.s
     ca1 = occs['ca'] + dca
     data = occs['datas'] + dt
 
-##### define map parameters #####
+# define map parameters
     center_gcrs = GCRS(occs['stars'].ra, occs['stars'].dec, 1*u.R_earth, obstime=data)
     center_itrs = center_gcrs.transform_to(ITRS(obstime=data))
     center_map = center_itrs.earth_location
@@ -776,10 +801,10 @@ def plot_occ_map(name, radius, **kwargs):
     if labels:
         axf = plt.axes(projection=projection)
     else:
-        axf = plt.axes([-0.001,-0.001,1.002,1.002], projection=projection)
+        axf = plt.axes([-0.001, -0.001, 1.002, 1.002], projection=projection)
     axf.set_global()
 
-### calculates regions for zoom
+# calculates regions for zoom
     limits = None
     r = const.R_earth.to(u.m).value
     if centermap_geo is not None:
@@ -789,8 +814,8 @@ def plot_occ_map(name, radius, **kwargs):
             raise ValueError('Coordinates for centermap_geo are outside the visible range.')
     elif centermap_delta is not None:
         limits = centermap_delta
-    elif zoom is not 1:
-        limits = [0,0]
+    elif zoom != 1:
+        limits = [0, 0]
     if limits is not None:
         dr = r/zoom
         l0 = (limits[0]*u.km).to(u.m).value
@@ -806,12 +831,12 @@ def plot_occ_map(name, radius, **kwargs):
             ux = l0 + dr
             ly = l1 - dr/dmsize
             uy = l1 + dr/dmsize
-        axf.set_xlim(lx,ux)
-        axf.set_ylim(ly,uy)
+        axf.set_xlim(lx, ux)
+        axf.set_ylim(ly, uy)
         if labels and zoom > 1:
             centert = False
 
-### plots features
+# plots features
     axf.coastlines(resolution=resolution, color='0.3')
     ocean = cfeature.NaturalEarthFeature('physical', 'ocean', resolution)
     land = cfeature.NaturalEarthFeature('physical', 'land', resolution)
@@ -822,12 +847,12 @@ def plot_occ_map(name, radius, **kwargs):
         axf.add_feature(border, zorder=0.1, edgecolor='0.4', facecolor='None')
         axf.add_feature(cfeature.RIVERS, zorder=0, edgecolor='0.7')
         axf.add_feature(cfeature.LAKES, zorder=0, color='0.7')
-        ptcolor= 'black'
-        lncolor= 'blue'
-        ercolor= 'blue'
-        rncolor= 'blue'
-        atcolor= 'blue'
-        outcolor= 'red'
+        ptcolor = 'black'
+        lncolor = 'blue'
+        ercolor = 'blue'
+        rncolor = 'blue'
+        atcolor = 'blue'
+        outcolor = 'red'
         hcolor = 'black'
     elif mapstyle == 2:
         axf.add_feature(ocean, zorder=0, facecolor=cfeature.COLORS['water'])
@@ -836,29 +861,29 @@ def plot_occ_map(name, radius, **kwargs):
         axf.add_feature(border, zorder=0.1, edgecolor='0.5', facecolor='None')
         axf.add_feature(cfeature.RIVERS, zorder=0)
         axf.add_feature(cfeature.LAKES, zorder=0)
-        ptcolor= 'red'
-        lncolor= 'blue'
-        ercolor= 'red'
-        rncolor= 'black'
-        atcolor= 'black'
-        outcolor= 'red'
+        ptcolor = 'red'
+        lncolor = 'blue'
+        ercolor = 'red'
+        rncolor = 'black'
+        atcolor = 'black'
+        outcolor = 'red'
         hcolor = 'black'
     if states:
         states_r = cfeature.NaturalEarthFeature('cultural', 'admin_1_states_provinces', resolution)
         axf.add_feature(states_r, zorder=0, edgecolor='0.6', facecolor='None')
 
-    gl = axf.gridlines(xlocs=np.arange(-180,180.001,meridians), ylocs=np.arange(-90,90.001,parallels))
+    gl = axf.gridlines(xlocs=np.arange(-180, 180.001, meridians), ylocs=np.arange(-90, 90.001, parallels))
     gl.n_steps = 180
     sun = get_sun(data)
     sun_lat = sun.dec
     sun_lon = sun.ra - data.sidereal_time('mean', 'greenwich')
     pole_lon = sun_lon.deg
     pole_lat = sun_lat.deg
-    proj_sun = ccrs.Orthographic(central_longitude=pole_lon+180,central_latitude=-pole_lat)
-    bordx = r*np.cos(np.arange(0,361,0.5)*u.deg)
-    bordy = r*np.sin(np.arange(0,361,0.5)*u.deg)
-    axf.fill(bordx,bordy, transform=proj_sun, linewidth=0, color='black', alpha=alpha)
-    axf.fill(bordx*np.cos(18*u.deg),bordy*np.cos(18*u.deg), transform=proj_sun, linewidth=0, color='black', alpha=alpha)
+    proj_sun = ccrs.Orthographic(central_longitude=pole_lon+180, central_latitude=-pole_lat)
+    bordx = r*np.cos(np.arange(0, 361, 0.5)*u.deg)
+    bordy = r*np.sin(np.arange(0, 361, 0.5)*u.deg)
+    axf.fill(bordx, bordy, transform=proj_sun, linewidth=0, color='black', alpha=alpha)
+    axf.fill(bordx*np.cos(18*u.deg), bordy*np.cos(18*u.deg), transform=proj_sun, linewidth=0, color='black', alpha=alpha)
 
     ptcolor = kwargs.get('ptcolor', ptcolor)
     lncolor = kwargs.get('lncolor', lncolor)
@@ -868,9 +893,9 @@ def plot_occ_map(name, radius, **kwargs):
     outcolor = kwargs.get('outcolor', outcolor)
     hcolor = kwargs.get('hcolor', hcolor)
 
-########### calculates path ##################
+# calculates path
     vec = np.arange(0, int(8000/(np.absolute(occs['vel'].value))), step)
-    vec = np.sort(np.concatenate((vec,-vec[1:]), axis=0))
+    vec = np.sort(np.concatenate((vec, -vec[1:]), axis=0))
     pa = Angle(occs['posa'])
     pa.wrap_at('180d', inplace=True)
     if pa > 90*u.deg:
@@ -881,8 +906,8 @@ def plot_occ_map(name, radius, **kwargs):
         paplus = pa
     deltatime = vec*u.s
     datas1 = data + deltatime
-    centers_gcrs = GCRS(np.repeat(occs['stars'].ra, len(datas1)),
-            np.repeat(occs['stars'].dec, len(datas1)), 1*u.R_earth, obstime=datas1)
+    centers_gcrs = GCRS(np.repeat(occs['stars'].ra, len(datas1)), np.repeat(occs['stars'].dec, len(datas1)),
+                        1*u.R_earth, obstime=datas1)
     centers_itrs = centers_gcrs.transform_to(ITRS(obstime=datas1))
     centers = centers_itrs.earth_location
 
@@ -908,7 +933,7 @@ def plot_occ_map(name, radius, **kwargs):
     if 'centerproj' not in kwargs:
         plt.plot(ax3[j].to(u.m).value, by3[j].to(u.m).value, color=outcolor, clip_on=(not centert), zorder=-0.2)
 
-##### plots error #####
+# plots error
     if erro is not None:
         err = erro*u.mas
         errd = (occs['dist'].to(u.km)*err.to(u.rad)).value*u.km
@@ -924,7 +949,7 @@ def plot_occ_map(name, radius, **kwargs):
         j = np.where(lon2 < 1e+30)
         axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(),  color=ercolor)
 
-##### plots ring #####
+# plots ring
     if ring is not None:
         rng = ring*u.km
         ax2 = ax - rng*np.sin(paplus)
@@ -939,7 +964,7 @@ def plot_occ_map(name, radius, **kwargs):
         j = np.where(lon2 < 1e+30)
         axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(),  color=rncolor)
 
-##### plots atm #####
+# plots atm
     if atm is not None:
         atmo = atm*u.km
         ax2 = ax - atmo*np.sin(paplus)
@@ -954,26 +979,27 @@ def plot_occ_map(name, radius, **kwargs):
         j = np.where(lon2 < 1e+30)
         axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(),  color=atcolor)
 
-##### plots center points #####
+# plots center points
     vec = np.arange(0, int(8000/(np.absolute(occs['vel'].value))), cpoints)
-    deltatime = np.sort(np.concatenate((vec,-vec[1:]), axis=0))*u.s
+    deltatime = np.sort(np.concatenate((vec, -vec[1:]), axis=0))*u.s
     axc = dista*np.sin(pa) + (deltatime*occs['vel'])*np.cos(paplus)
     byc = dista*np.cos(pa) - (deltatime*occs['vel'])*np.sin(paplus)
     plt.plot(axc.to(u.m).value, byc.to(u.m).value, 'o', color=ptcolor, clip_on=(not centert),
-                 markersize=mapsize[0].value*pscale*8.0/46.0, zorder=-0.2)
+             markersize=mapsize[0].value*pscale*8.0/46.0, zorder=-0.2)
 
     datas2 = data + deltatime
-    centers_p_gcrs = GCRS(np.repeat(occs['stars'].ra, len(datas2)),
-            np.repeat(occs['stars'].dec, len(datas2)), 1*u.R_earth, obstime=datas2)
+    centers_p_gcrs = GCRS(np.repeat(occs['stars'].ra, len(datas2)), np.repeat(occs['stars'].dec, len(datas2)),
+                          1*u.R_earth, obstime=datas2)
     centers_p_itrs = centers_p_gcrs.transform_to(ITRS(obstime=datas2))
     centers_p = centers_p_itrs.earth_location
     clon1, clat1 = xy2latlon(axc.to(u.m).value, byc.to(u.m).value, centers_p.lon.value, centers_p.lat.value, datas2)
     j = np.where(clon1 < 1e+30)
-    axf.plot(clon1[j], clat1[j],'o', transform=ccrs.Geodetic(), color=ptcolor, clip_on=True, markersize=mapsize[0].value*pscale*8.0/46.0)
+    axf.plot(clon1[j], clat1[j], 'o', transform=ccrs.Geodetic(), color=ptcolor, clip_on=True,
+             markersize=mapsize[0].value*pscale*8.0/46.0)
 
     datas1 = data + deltatime
-    center_gcrs = GCRS(np.repeat(occs['stars'].ra, 1),
-            np.repeat(occs['stars'].dec, 1), 1*u.R_earth, obstime=data)
+    center_gcrs = GCRS(np.repeat(occs['stars'].ra, 1), np.repeat(occs['stars'].dec, 1),
+                       1*u.R_earth, obstime=data)
     center_itrs = center_gcrs.transform_to(ITRS(obstime=data))
     center = center_itrs.earth_location
     xp = [(dista.to(u.m)*np.sin(pa)).value]
@@ -981,51 +1007,57 @@ def plot_occ_map(name, radius, **kwargs):
     loncen, latcen = xy2latlon(xp, yp, center.lon.value, center.lat.value, data)
     j = np.where(loncen < 1e+30)
     if len(j) > 0:
-        axf.plot(loncen[j], latcen[j],'o', transform=ccrs.Geodetic(), color=ptcolor, clip_on=True, markersize=mapsize[0].value*pscale*24.0/46.0)
+        axf.plot(loncen[j], latcen[j], 'o', transform=ccrs.Geodetic(), color=ptcolor, clip_on=True,
+                 markersize=mapsize[0].value*pscale*24.0/46.0)
     elif not centert:
         plt.plot(xp, yp, 'o', color=ptcolor, clip_on=False, markersize=mapsize[0].value*pscale*24.0/46.0)
 
-######## plots the heights #########
+# plots the heights
     if 'heights' in kwargs.keys():
         for h in heights:
-            plt.plot(bordx*np.cos(h*u.deg),bordy*np.cos(h*u.deg), linestyle='dotted', color=hcolor)
+            plt.plot(bordx*np.cos(h*u.deg), bordy*np.cos(h*u.deg), linestyle='dotted', color=hcolor)
 
-########### plots the the direction arrow ##################
+# plots the the direction arrow
     if arrow:
         if limits is None:
-            plt.quiver(5500000,-5500000, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
-                      (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005)
+            plt.quiver(5500000, -5500000, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
+                       (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005)
         else:
-            plt.quiver(lx + (ux-lx)*0.9,ly + (uy-ly)*0.1, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
-                      (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005, zorder = 1.3)
+            plt.quiver(lx + (ux-lx)*0.9, ly + (uy-ly)*0.1, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
+                       (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005, zorder=1.3)
 
-####### plots the countries names #####
+# plots the countries names
     for country in countries.keys():
-        plt.text(countries[country][0],countries[country][1], country, transform=ccrs.Geodetic(), weight='bold', color='grey', fontsize=30*cscale, family='monospace')
+        plt.text(countries[country][0], countries[country][1], country, transform=ccrs.Geodetic(),
+                 weight='bold', color='grey', fontsize=30*cscale, family='monospace')
 
-####### plots the sites ##############
+# plots the sites
     for site in sites.keys():
-        s = EarthLocation.from_geodetic(sites[site][0]*u.deg,sites[site][1]*u.deg,0.0*u.km)
-        axf.plot(s.lon.deg,s.lat.deg,'o', transform=ccrs.Geodetic(), markersize=mapsize[0].value*sscale*10.0/46.0, color=sites[site][4])
-        xt,yt = latlon2xy(s.lon.deg, s.lat.deg, center_map.lon.value, center_map.lat.value)
-        axf.text(xt + sites[site][2]*1000,yt+sites[site][3]*1000, site, weight='bold', fontsize=25*nscale, family='monospace')
+        s = EarthLocation.from_geodetic(sites[site][0]*u.deg, sites[site][1]*u.deg, 0.0*u.km)
+        axf.plot(s.lon.deg, s.lat.deg, 'o', transform=ccrs.Geodetic(),
+                 markersize=mapsize[0].value*sscale*10.0/46.0, color=sites[site][4])
+        xt, yt = latlon2xy(s.lon.deg, s.lat.deg, center_map.lon.value, center_map.lat.value)
+        axf.text(xt + sites[site][2]*1000, yt+sites[site][3]*1000, site, weight='bold',
+                 fontsize=25*nscale, family='monospace')
 
-######## Define the title and label of the output #########
-    title = ('Object        Diam   Tmax   dots <> ra_offset_dec\n{:10s} {:4.0f} km  {:5.1f}s  {:02d} s <>{:+6.1f} {:+6.1f} \n'.
-            format(name, 2*radius.value, (2*radius/np.absolute(occs['vel'])).value, cpoints, off_ra.value, off_de.value))
+# Define the title and label of the output
+    title = ('Object        Diam   Tmax   dots <> ra_offset_dec\n'
+             '{:10s} {:4.0f} km  {:5.1f}s  {:02d} s <>{:+6.1f} {:+6.1f} \n'.
+             format(name, 2*radius.value, (2*radius/np.absolute(occs['vel'])).value,
+                    cpoints, off_ra.value, off_de.value))
     labelx = ("\n year-m-d    h:m:s UT     ra__dec__J2000__candidate    C/A    P/A    vel   Delta   G*  long\n"
-             "{}  {:02d} {:02d} {:07.4f} {:+03d} {:02d} {:06.3f} {:6.3f} {:6.2f} {:6.2f}  {:5.2f} {:5.1f}  {:3.0f}".
-             format(data.iso,int(occs['stars'].ra.hms.h), int(occs['stars'].ra.hms.m), occs['stars'].ra.hms.s,
-             int(occs['stars'].dec.dms.d), np.absolute(int(occs['stars'].dec.dms.m)), np.absolute(occs['stars'].dec.dms.s),
-             ca1.value, occs['posa'].value, occs['vel'].value, occs['dist'].value, occs['magG'], occs['longi']))
+              "{}  {:02d} {:02d} {:07.4f} {:+03d} {:02d} {:06.3f} {:6.3f} {:6.2f} {:6.2f}  {:5.2f} {:5.1f}  {:3.0f}".
+              format(data.iso, int(occs['stars'].ra.hms.h), int(occs['stars'].ra.hms.m), occs['stars'].ra.hms.s,
+                     int(occs['stars'].dec.dms.d), np.absolute(int(occs['stars'].dec.dms.m)),
+                     np.absolute(occs['stars'].dec.dms.s), ca1.value, occs['posa'].value,
+                     occs['vel'].value, occs['dist'].value, occs['magG'], occs['longi']))
 
-####### plots the map#####
+# plots the map
     if labels:
         axf.set_title(title, family='monospace', weight='bold', fontsize=22)
-        axf.text(0.5, -0.1, labelx, va='bottom', ha='center', rotation='horizontal', rotation_mode='anchor', transform=axf.transAxes,
-                 family='monospace', weight='bold', fontsize=22)
+        axf.text(0.5, -0.1, labelx, va='bottom', ha='center', rotation='horizontal', rotation_mode='anchor',
+                 transform=axf.transAxes, family='monospace', weight='bold', fontsize=22)
     plt.savefig('{}.{}'.format(nameimg, fmt), format=fmt, dpi=dpi)
     print('{}.{} generated'.format(nameimg, fmt))
     plt.clf()
     plt.close()
-
