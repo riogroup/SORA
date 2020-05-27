@@ -4,15 +4,17 @@ import astropy.units as u
 from astropy.timeseries import BoxLeastSquares
 from astropy.time import Time
 import scipy.special as scsp
-import scipy.stats as scst
-from datetime import datetime
 from scipy.odr import odrpack as odr
 from scipy.odr import models
 from .extra import ChiSquare
 import os
 import warnings
 
-def calc_fresnel(distance,lambida):
+
+warnings.simplefilter('always', UserWarning)
+
+
+def calc_fresnel(distance, lambida):
     """ Returns the fresnel scale.
     ----------
     Parameters
@@ -26,32 +28,33 @@ def calc_fresnel(distance,lambida):
     return np.sqrt(lambida*distance/2)
 
 
-def fit_pol(x,y,deg):
+def fit_pol(x, y, deg):
     """ Fit a polynom to the data.
     ----------
     Parameters
     ----------
-    x  (array): 
+    x  (array):
     y  (array):
-    deg  (int): order of the polynom 
+    deg  (int): order of the polynom
     ----------
     Return
     ----------
     param (array): Array with the fitted values
-    param_err (array): Array with the errors of the fitted values    
+    param_err (array): Array with the errors of the fitted values
     """
-    func   = models.polynomial(deg)
+    func = models.polynomial(deg)
     mydata = odr.Data(x, y)
-    myodr  = odr.ODR(mydata, func,maxit=200)
+    myodr = odr.ODR(mydata, func, maxit=200)
     myodr.set_job(fit_type=2)
     fit = myodr.run()
-    param = fit.beta[::-1]                      
+    param = fit.beta[::-1]
     param_err = fit.sd_beta[::-1]
     return param, param_err
 
 
 class LightCurve():
     __names = []
+
     def __init__(self, name, **kwargs):
         """ Define a Light Curve
 
@@ -97,7 +100,8 @@ class LightCurve():
         self.flux = None
         self.time_model = None
         if self.__name in self.__names:
-            raise ValueError('name {} already defined for another LightCurve object. Please choose a different one.'.format(self.__name))
+            raise ValueError('name {} already defined for another LightCurve object. Please choose a different one.'.
+                             format(self.__name))
         if 'immersion' in kwargs and 'emersion' in kwargs:
             if type(kwargs['immersion']) == str:
                 self._immersion = Time(kwargs['immersion'])
@@ -136,12 +140,12 @@ class LightCurve():
 
     @property
     def fresnel_scale(self):
-        lamb  = self.lambda_0*u.micrometer.to('km')
+        lamb = self.lambda_0*u.micrometer.to('km')
         dlamb = self.delta_lambda*u.micrometer.to('km')
-        dist  = self.dist*u.au.to('km')
-        fresnel_scale_1 = calc_fresnel(dist,lamb-dlamb/2.0)
-        fresnel_scale_2 = calc_fresnel(dist,lamb+dlamb/2.0)
-        fresnel_scale   = (fresnel_scale_1 + fresnel_scale_2)/2.0
+        dist = self.dist*u.au.to('km')
+        fresnel_scale_1 = calc_fresnel(dist, lamb-dlamb/2.0)
+        fresnel_scale_2 = calc_fresnel(dist, lamb+dlamb/2.0)
+        fresnel_scale = (fresnel_scale_1 + fresnel_scale_2)/2.0
         return fresnel_scale
 
     @property
@@ -158,7 +162,7 @@ class LightCurve():
 
     def check_names(self):
         return self.__names
-    
+
     def set_flux(self, **kwargs):
         """ Set the flux for the LightCurve
 
@@ -181,10 +185,10 @@ class LightCurve():
             if not os.path.isfile(kwargs['file']):
                 raise ValueError('{} not found'.format(kwargs['file']))
             try:
-                time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0,1,2], unpack=True)
+                time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0, 1, 2], unpack=True)
                 self.flux_obs = self.flux
             except:
-                time, self.flux = np.loadtxt(kwargs['file'], usecols=[0,1], unpack=True)
+                time, self.flux = np.loadtxt(kwargs['file'], usecols=[0, 1], unpack=True)
                 self.flux_obs = self.flux
             else:
                 raise ValueError('Input file must have 2 or 3 columns')
@@ -206,21 +210,21 @@ class LightCurve():
         self.exptime = kwargs['exptime']
         if 'tref' in kwargs:
             try:
-                if type(kwargs['tref']) in [Time,str]:
+                if type(kwargs['tref']) in [Time, str]:
                     self.tref = Time(kwargs['tref'])
-                elif type(kwargs['tref']) in [int,float]:
+                elif type(kwargs['tref']) in [int, float]:
                     self.tref = Time(kwargs['tref'], format='jd')
             except:
                 raise ValueError('tref must be an Julian Date or ISO format Date')
         if 'time' in locals():
             if type(time) == Time:
-                if not 'tref' in kwargs:
+                if 'tref' not in kwargs:
                     self.tref = Time(time[0].iso.split(' ')[0] + ' 00:00:00.000')
             elif all(time > 2400000):
                 time = Time(time, format='jd')
-                if not 'tref' in kwargs:
+                if 'tref' not in kwargs:
                     self.tref = Time(time[0].iso.split(' ')[0] + ' 00:00:00.000')
-            elif not hasattr(self,'tref'):
+            elif not hasattr(self, 'tref'):
                 raise ValueError('tref must be given')
             else:
                 time = self.tref + time*u.s
@@ -230,15 +234,16 @@ class LightCurve():
             self.flux = self.flux[order]
             self.flux_obs = self.flux
             self.time = self.time[order]
-            if self.dflux != None:
+            if self.dflux is not None:
                 self.dflux = self.dflux[order]
             self.initial_time = np.min(time)
             self.end_time = np.max(time)
             self.cycle = np.median(self.time[1:] - self.time[:-1])
             if self.cycle < self.exptime:
-                warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.format(self.exptime,self.cycle))
+                warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
+                              format(self.exptime, self.cycle))
 
-    def set_vel(self,vel):
+    def set_vel(self, vel):
         '''
         Set the occultation velocity
         Inputs:
@@ -246,13 +251,13 @@ class LightCurve():
         '''
         if type(vel) == u.quantity.Quantity:
             vel = vel.to(u.km/u.s).value
-        elif type(vel) in [float,int]:
+        elif type(vel) in [float, int]:
             pass
         else:
             raise TypeError('vel must be an integer, a float or an Astropy Unit object')
         self.vel = np.absolute(vel)
 
-    def set_dist(self,dist):
+    def set_dist(self, dist):
         '''
         Set the object distance
         Inputs:
@@ -260,13 +265,13 @@ class LightCurve():
         '''
         if type(dist) == u.quantity.Quantity:
             dist = dist.to(u.AU).value
-        elif type(dist) in [float,int]:
+        elif type(dist) in [float, int]:
             pass
         else:
             raise TypeError('dist must be an integer, a float or an Astropy Unit object')
         self.dist = dist
 
-    def set_star_diam(self,d_star):
+    def set_star_diam(self, d_star):
         '''
         Set the star diameter
         Inputs:
@@ -274,13 +279,13 @@ class LightCurve():
         '''
         if type(d_star) == u.quantity.Quantity:
             d_star = d_star.to(u.km).value
-        elif type(d_star) in [float,int]:
+        elif type(d_star) in [float, int]:
             pass
         else:
             raise TypeError('d_star must be an integer, a float or an Astropy Unit object')
         self.d_star = d_star
 
-    def set_filter(self,lambda_0,delta_lambda):
+    def set_filter(self, lambda_0, delta_lambda):
         '''
         Set the filter bandwidth in microns
         Inputs:
@@ -302,8 +307,7 @@ class LightCurve():
             raise TypeError('delta_lambda must be a float or an Astropy Unit object')
         self.delta_lambda = delta_lambda
 
-        
-    def calc_magnitude_drop(self,mag_star,mag_obj):
+    def calc_magnitude_drop(self, mag_star, mag_obj):
         """
         Determine the magnitude drop
         ----------
@@ -314,89 +318,81 @@ class LightCurve():
         ----------
         Returns
         ----------
-        mag_drop (float): Magnitude drop for the given magnitudes     
-        bottom_flux (float): Normalized bottom flux for the given magnitudes     
+        mag_drop (float): Magnitude drop for the given magnitudes
+        bottom_flux (float): Normalized bottom flux for the given magnitudes
         """
-        contrast= 1/(1+(10**((mag_star-mag_obj)*0.4)))
+        contrast = 1/(1+(10**((mag_star-mag_obj)*0.4)))
         mag_combined = mag_star-(2.5*(np.log10(1/contrast)))
         mag_drop = mag_obj - mag_combined
         bottom_flux = 10**((mag_combined - mag_obj)*0.4)
         self.mag_drop = mag_drop
         self.bottom_flux = bottom_flux
-        return 
- 
-    def normalize(self,poly_deg=None,mask=None,**kwargs):
+        return
+
+    def normalize(self, poly_deg=None, mask=None, **kwargs):
         """ Returns the fresnel scale.
         ----------
         Parameters
         ----------
         poly_deg  (int): degree of the polynom to be fitted
-        mask   (array of Bolleans): which values to be fitted 
+        mask   (array of Bolleans): which values to be fitted
         ----------
         kwargs
         ----------
         flux_min (int,float): event flux to be setted as 0.0
-        flux_max (int,float): baseline flux to be setted as 1.0        
-        plot (Bollean): If True plot the steps for visual aid  
+        flux_max (int,float): baseline flux to be setted as 1.0
+        plot (Bollean): If True plot the steps for visual aid
         """
-        #Create a mask where the polynomial fit will be done
-        if np.all(self.flux) == None:
+        # Create a mask where the polynomial fit will be done
+        if not all(self.flux):
             raise ValueError('Normalization is only possible when a LightCurve is instatiated with time and flux.')
         self.reset_flux()
-        flux_min = 0.0
-        flux_max = 1.0
-        plot = False
-        if 'flux_min' in kwargs:
-            flux_min = kwargs['flux_min']
-        if 'flux_max' in kwargs:
-            flux_max = kwargs['flux_max']
-        if 'plot' in kwargs:
-            if (kwargs['plot'] == True):
-                plot = True
+        flux_min = kwargs.get('flux_min', 0.0)
+        flux_max = kwargs.get('flux_max', 1.0)
+        plot = kwargs.get('plot', False)
         lc_flux = (self.flux - flux_min)/(flux_max-flux_min)
-        if (np.all(mask) == None):
+        if mask is None:
             preliminar_occ = self.occ_detect()
             tmax = preliminar_occ['emersion_time']+1.00*preliminar_occ['occultation_duration']
             tmin = preliminar_occ['immersion_time']-1.00*preliminar_occ['occultation_duration']
             chord = preliminar_occ['occultation_duration']
             mask = np.invert((self.time > tmin-(chord/2)) & (self.time < tmax+(chord/2)))
         norm_time = (self.time - self.time.min())/(self.time.max()-self.time.min())
-        if (poly_deg != None):
+        if poly_deg is not None:
             n = poly_deg
-            p, err = fit_pol(norm_time[mask],lc_flux[mask],n)
+            p, err = fit_pol(norm_time[mask], lc_flux[mask], n)
             flux_poly_model = np.zeros(len(norm_time))
             for ii in np.arange(n+1):
                 flux_poly_model = flux_poly_model + p[ii]*(norm_time**(n-ii))
-            if (plot == True):
-                pl.plot(norm_time[mask],lc_flux[mask],'k.-')
-                pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
-                pl.title('Polynomial degree = {}'.format(n),fontsize=15)
-                pl.show()       
-        if (poly_deg == None):
+            if plot:
+                pl.plot(norm_time[mask], lc_flux[mask], 'k.-')
+                pl.plot(norm_time[mask], flux_poly_model[mask], 'r-')
+                pl.title('Polynomial degree = {}'.format(n), fontsize=15)
+                pl.show()
+        if poly_deg is None:
             n = 0
-            p, err = fit_pol(norm_time[mask],lc_flux[mask],n)
+            p, err = fit_pol(norm_time[mask], lc_flux[mask], n)
             flux_poly_model = np.zeros(len(norm_time))
             for ii in np.arange(n+1):
                 flux_poly_model += p[ii]*(norm_time**(n-ii))
-            if (plot == True):
-                pl.plot(norm_time[mask],lc_flux[mask],'k.-')
-                pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
-                pl.title('Polynomial degree = {}'.format(n),fontsize=15)
+            if plot:
+                pl.plot(norm_time[mask], lc_flux[mask], 'k.-')
+                pl.plot(norm_time[mask], flux_poly_model[mask], 'r-')
+                pl.title('Polynomial degree = {}'.format(n), fontsize=15)
                 pl.show()
-            flux_poly_model_old = flux_poly_model.copy()
-            for nn in np.arange(1,10):
-                p, err = fit_pol(norm_time[mask],lc_flux[mask],nn)
+            for nn in np.arange(1, 10):
+                p, err = fit_pol(norm_time[mask], lc_flux[mask], nn)
                 flux_poly_model_new = np.zeros(len(norm_time))
                 for ii in np.arange(nn+1):
                     flux_poly_model_new += p[ii]*(norm_time**(nn-ii))
                 F = np.var(flux_poly_model[mask]-lc_flux[mask])/np.var(flux_poly_model_new[mask]-lc_flux[mask])
-                if (F > 1.05):
+                if F > 1.05:
                     flux_poly_model = flux_poly_model_new.copy()
                     n = nn
-                    if (plot == True):
-                        pl.plot(norm_time[mask],lc_flux[mask],'k.-')
-                        pl.plot(norm_time[mask],flux_poly_model[mask],'r-')
-                        pl.title('Polynomial degree = {}'.format(nn),fontsize=15)
+                    if plot:
+                        pl.plot(norm_time[mask], lc_flux[mask], 'k.-')
+                        pl.plot(norm_time[mask], flux_poly_model[mask], 'r-')
+                        pl.title('Polynomial degree = {}'.format(nn), fontsize=15)
                         pl.show()
                 else:
                     print('Normalization using a {} degree polynom'.format(n))
@@ -417,8 +413,8 @@ class LightCurve():
             raise ValueError('Reset is only possible when a LightCurve is instatiated with time and flux.')
         return
 
-    
-    def occ_model(self,immersion_time, emersion_time, opacity, mask, npt_star=12, time_resolution_factor=10,flux_min=0,flux_max=1):
+    def occ_model(self, immersion_time, emersion_time, opacity, mask, npt_star=12,
+                  time_resolution_factor=10, flux_min=0, flux_max=1):
         """ Returns the modelled light curve considering fresnel difraction, star diameter and intrumental response.
         ----------
         Parameters
@@ -442,48 +438,48 @@ class LightCurve():
         self.model_geometric (array): Modelled light flux considering a box model.
         """
         # Computing the fresnel scale
-        lamb  = self.lambda_0*u.micrometer.to('km')
+        lamb = self.lambda_0*u.micrometer.to('km')
         dlamb = self.delta_lambda*u.micrometer.to('km')
-        dist  = self.dist*u.au.to('km')
+        dist = self.dist*u.au.to('km')
         vel = np.absolute(self.vel)
         time_obs = self.time[mask]
-        fresnel_scale_1 = calc_fresnel(dist,lamb-dlamb/2.0)
-        fresnel_scale_2 = calc_fresnel(dist,lamb+dlamb/2.0)
-        fresnel_scale   = (fresnel_scale_1 + fresnel_scale_2)/2.0
-        time_resolution = (np.min([fresnel_scale/vel,self.exptime]))/time_resolution_factor
-        #
-        #Creating a high resolution curve to compute fresnel difraction, stellar diameter and instrumental integration 
-        time_model = np.arange(time_obs.min()-5*self.exptime,time_obs.max()+5*self.exptime,time_resolution)
-        #
-        #Changing X: time (s) to distances in the sky plane (km), considering the tangential velocity (vel in km/s)
-        x   = time_model*vel    
+        fresnel_scale_1 = calc_fresnel(dist, lamb-dlamb/2.0)
+        fresnel_scale_2 = calc_fresnel(dist, lamb+dlamb/2.0)
+        fresnel_scale = (fresnel_scale_1 + fresnel_scale_2)/2.0
+        time_resolution = (np.min([fresnel_scale/vel, self.exptime]))/time_resolution_factor
+
+        # Creating a high resolution curve to compute fresnel difraction, stellar diameter and instrumental integration
+        time_model = np.arange(time_obs.min()-5*self.exptime, time_obs.max()+5*self.exptime, time_resolution)
+
+        # Changing X: time (s) to distances in the sky plane (km), considering the tangential velocity (vel in km/s)
+        x = time_model*vel
         x01 = immersion_time*vel
         x02 = emersion_time*vel
-        #
-        #Computing fresnel diffraction for the case where the star size is negligenciable
-        flux_fresnel_1 = self.__bar_fresnel(x,x01,x02,fresnel_scale_1,opacity)
-        flux_fresnel_2 = self.__bar_fresnel(x,x01,x02,fresnel_scale_2,opacity)
-        flux_fresnel   = (flux_fresnel_1 + flux_fresnel_2)/2.
-        flux_star      = flux_fresnel.copy()
+
+        # Computing fresnel diffraction for the case where the star size is negligenciable
+        flux_fresnel_1 = self.__bar_fresnel(x, x01, x02, fresnel_scale_1, opacity)
+        flux_fresnel_2 = self.__bar_fresnel(x, x01, x02, fresnel_scale_2, opacity)
+        flux_fresnel = (flux_fresnel_1 + flux_fresnel_2)/2.
+        flux_star = flux_fresnel.copy()
         if (self.d_star > 0):
-            #Computing fresnel diffraction for the case where the star size is not negligenciable
-            resolucao   = self.d_star/npt_star
+            # Computing fresnel diffraction for the case where the star size is not negligenciable
+            resolucao = self.d_star/npt_star
             flux_star_1 = np.zeros(len(time_model))
             flux_star_2 = np.zeros(len(time_model))
-            #Computing stellar diameter only near the immersion or emersion times
+            # Computing stellar diameter only near the immersion or emersion times
             star_diam = (np.absolute(x - x01) < 3*self.d_star) + (np.absolute(x - x02) < 3*self.d_star)
-            p = np.arange(-npt_star,npt_star)*resolucao
+            p = np.arange(-npt_star, npt_star)*resolucao
             coeff = np.sqrt(np.absolute(self.d_star**2 - p**2))
             for ii in np.where(star_diam == True)[0]:
                 xx = x[ii] + p
-                flux1 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_1,opacity)
-                flux2 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_2,opacity)
+                flux1 = self.__bar_fresnel(xx, x01, x02, fresnel_scale_1, opacity)
+                flux2 = self.__bar_fresnel(xx, x01, x02, fresnel_scale_2, opacity)
                 flux_star_1[ii] = np.sum(coeff*flux1)/coeff.sum()
                 flux_star_2[ii] = np.sum(coeff*flux2)/coeff.sum()
-                flux_star[ii]   = (flux_star_1[ii] + flux_star_2[ii])/2.
-        flux_inst = np.zeros(len(time_obs)) 
+                flux_star[ii] = (flux_star_1[ii] + flux_star_2[ii])/2.
+        flux_inst = np.zeros(len(time_obs))
         for i in range(len(time_obs)):
-            event_model  = (time_model > time_obs[i]-self.exptime/2.) & (time_model < time_obs[i]+self.exptime/2.)
+            event_model = (time_model > time_obs[i]-self.exptime/2.) & (time_model < time_obs[i]+self.exptime/2.)
             flux_inst[i] = (flux_star[event_model]).mean()
         self.model[mask] = flux_inst*(flux_max - flux_min) + flux_min
         self.time_model = time_model
@@ -498,29 +494,27 @@ class LightCurve():
         self.bottomflux = flux_min
         return
 
-
-  
     def occ_lcfit(self, **kwargs):
         """ Monte Carlo chi square fit for occultations lightcurve.
         ----------
         Parameters
         ----------
-        tmin (int,float): Minimum time to consider in the fit prcedure                  
-        tmax (int,float): Maximum time to consider in the fit prcedure                  
-        flux_min (int,float): Bottom flux (only object), default equal to 0.0          
-        flux_max (int,float): Base flux (object plus star), default equal to 1.0       
-        immersion_time  (int, float): Initial guess for immersion time, in seconds.                       
-        emersion_time   (int, float): Initial guess for emersion time, in seconds.                        
-        opacity  (int, float): Initial guess for opacity, opaque = 1.0, transparent = 0.0, default equal to 0.0.   
-        delta_t (int, float): Interval to fit immersion or emersion time               
-        dopacity   (int, float): Interval to fit opacity, default equal to 0, no fit.  
-        loop       (int): Number of tests to be done, default equal to 10000.          
+        tmin (int,float): Minimum time to consider in the fit prcedure
+        tmax (int,float): Maximum time to consider in the fit prcedure
+        flux_min (int,float): Bottom flux (only object), default equal to 0.0
+        flux_max (int,float): Base flux (object plus star), default equal to 1.0
+        immersion_time  (int, float): Initial guess for immersion time, in seconds.
+        emersion_time   (int, float): Initial guess for emersion time, in seconds.
+        opacity  (int, float): Initial guess for opacity, opaque = 1.0, transparent = 0.0, default equal to 0.0.
+        delta_t (int, float): Interval to fit immersion or emersion time
+        dopacity   (int, float): Interval to fit opacity, default equal to 0, no fit.
+        loop       (int): Number of tests to be done, default equal to 10000.
         ----------
         Returns
         ----------
         chi2 (ChiSquare): ChiSquare object
         """
-        #
+
         if not hasattr(self, 'flux'):
             raise ValueError('Fit curve is only possible when a LightCurve is instatiated with time and flux.')
         delta_t = 2*self.cycle
@@ -563,7 +557,7 @@ class LightCurve():
         if 'emersion_time' in kwargs:
             emersion_time = kwargs['emersion_time']
             do_emersion = True
-        t_e = emersion_time  + delta_t*(2*np.random.random(loop) - 1)
+        t_e = emersion_time + delta_t*(2*np.random.random(loop) - 1)
         mask = (self.time >= tmin) & (self.time <= tmax)
         mask_sigma = (((self.time >= tmin) & (self.time < immersion_time - self.exptime)) +
                       ((self.time > emersion_time + self.exptime) & (self.time <= tmax)))
@@ -576,25 +570,22 @@ class LightCurve():
             delta_opacity = kwargs['dopacity']
             do_opacity = True
         opas = opacity + delta_opacity*(2*np.random.random(loop) - 1)
-        opas[opas>1.], opas[opas<0.] = 1.0, 0.0
+        opas[opas > 1.], opas[opas < 0.] = 1.0, 0.0
         flux_min = 0
         flux_max = 1
         if 'flux_min' in kwargs:
             flux_min = kwargs['flux_min']
         if 'flux_max' in kwargs:
             flux_max = kwargs['flux_max']
-        #
+
         tflag = np.zeros(loop)
         tflag[t_i > t_e] = t_i[t_i > t_e]
-        t_i[t_i > t_e]    = t_e[t_i > t_e]
-        t_e[t_i > t_e]    = tflag[t_i > t_e]
+        t_i[t_i > t_e] = t_e[t_i > t_e]
+        t_e[t_i > t_e] = tflag[t_i > t_e]
         chi2 = 999999*np.ones(loop)
-        #tcontrol_f0 = datetime.now()
         for i in range(loop):
-            model_test = self.__occ_model(t_i[i],t_e[i],opas[i],mask,flux_min=flux_min,flux_max=flux_max)
-            chi2[i] = np.sum((self.flux[mask] -  model_test)**2)/(sigma**2)
-        #tcontrol_f3 = datetime.now()
-        #print('Elapsed time: {:.3f} seconds.'.format((tcontrol_f3 - tcontrol_f0).total_seconds()))
+            model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
+            chi2[i] = np.sum((self.flux[mask] - model_test)**2)/(sigma**2)
         kkargs = {}
         if do_immersion:
             kkargs['immersion'] = t_i
@@ -615,7 +606,7 @@ class LightCurve():
         if 'opacity' in onesigma:
             opacity = onesigma['opacity'][0]
         # Run occ_model() to save best parameters in the Object.
-        self.occ_model(immersion_time,emersion_time,opacity,mask,flux_min=flux_min,flux_max=flux_max)
+        self.occ_model(immersion_time, emersion_time, opacity, mask, flux_min=flux_min, flux_max=flux_max)
         self.lc_sigma = sigma
         self.chisquare = chisquare
         return chisquare
@@ -624,48 +615,49 @@ class LightCurve():
         '''
         Plot the light curve
         '''
-        if (np.any(self.flux) != None):
+        if any(self.flux):
             pl.close()
-            pl.plot(self.time,self.flux,'k.-',label='Obs.',zorder=0)
-            if (np.any(self.model) != None):
-                pl.plot(self.time,self.model,'r-',label='Model',zorder=2)
-                pl.scatter(self.time,self.model, s=50, facecolors='none', edgecolors='r',zorder=3)
+            pl.plot(self.time, self.flux, 'k.-', label='Obs.', zorder=0)
+            if any(self.model):
+                pl.plot(self.time, self.model, 'r-', label='Model', zorder=2)
+                pl.scatter(self.time, self.model, s=50, facecolors='none', edgecolors='r', zorder=3)
             pl.tight_layout()
-            pl.xlabel('Time [seconds]',fontsize=20)
-            pl.ylabel('Relative Flux',fontsize=20)
+            pl.xlabel('Time [seconds]', fontsize=20)
+            pl.ylabel('Relative Flux', fontsize=20)
             pl.legend()
         else:
-            raise ValueError('Plotting the light curve is only possible when the Object LightCurve is instatiated with time and flux')
+            raise ValueError('Plotting the light curve is only possible when the '
+                             'Object LightCurve is instatiated with time and flux')
         return
 
     def plot_model(self):
         '''
         Plot the modelled light curve
         '''
-        if np.all(self.time_model) != None:
-            pl.plot(self.time_model,self.model_geometric,'c-',label='Geometric',zorder=1)
-            pl.plot(self.time_model,self.model_fresnel,'b-',label='Fresnel',zorder=1)
-            pl.plot(self.time_model,self.model_star,'g-',label='Star diam.',zorder=1)
+        if all(self.time_model):
+            pl.plot(self.time_model, self.model_geometric, 'c-', label='Geometric', zorder=1)
+            pl.plot(self.time_model, self.model_fresnel, 'b-', label='Fresnel', zorder=1)
+            pl.plot(self.time_model, self.model_star, 'g-', label='Star diam.', zorder=1)
             pl.tight_layout()
-            pl.xlabel('Time [seconds]',fontsize=20)
-            pl.ylabel('Relative Flux',fontsize=20)
+            pl.xlabel('Time [seconds]', fontsize=20)
+            pl.ylabel('Relative Flux', fontsize=20)
             pl.legend()
         else:
-            raise ValueError('Plotting the model light curve is only possible after the model [LightCurve.occ_model()] or the fit [LightCurve.occ_lcfit()]')
+            raise ValueError('Plotting the model light curve is only possible after the model '
+                             '[LightCurve.occ_model()] or the fit [LightCurve.occ_lcfit()]')
         return
 
-    def to_log(self,namefile=None):
+    def to_log(self, namefile=None):
         """ Save the light curve log to a file
 
         Parameters:
             namefile (str): Filename to save the log
         """
-        if (namefile == None):
-            namefile = self.name.replace(' ','_')+'.log'
+        if namefile is None:
+            namefile = self.name.replace(' ', '_')+'.log'
         f = open(namefile, 'w')
         f.write(self.__str__())
         f.close()
-        
 
     def to_file(self, namefile=None):
         """ Save the light curve to a file
@@ -673,38 +665,38 @@ class LightCurve():
         Parameters:
             namefile (str): Filename to save the data
         """
-        ###### Observational data
-        if (namefile == None):
-            folder=''
-            file = self.name.replace(' ','_')+'.dat'
+        # Observational data
+        if namefile is None:
+            folder = ''
+            file = self.name.replace(' ', '_')+'.dat'
         else:
             folder = os.path.dirname(namefile)
             file = os.path.basename(namefile)
-        data = np.array([(self.time*u.s + self.tref).jd,self.time,self.flux,self.model,self.flux-self.model])
-        colunm_names = ['Time JD','Time relative to {} UTC in seconds'.format(self.tref.iso),'Observational Flux','Modelled Flux','Residual O-C']
-        np.savetxt(os.path.join(folder,file), data.T, fmt='%11.8f')
-        f = open(os.path.join(folder,file) + '.label', 'w')
+        data = np.array([(self.time*u.s + self.tref).jd, self.time, self.flux, self.model, self.flux-self.model])
+        colunm_names = ['Time JD', 'Time relative to {} UTC in seconds'.format(self.tref.iso),
+                        'Observational Flux', 'Modelled Flux', 'Residual O-C']
+        np.savetxt(os.path.join(folder, file), data.T, fmt='%11.8f')
+        f = open(os.path.join(folder, file) + '.label', 'w')
         for i, name in enumerate(colunm_names):
-            f.write('Column {}: {}\n'.format(i+1,name))
+            f.write('Column {}: {}\n'.format(i+1, name))
         f.close()
-        ###### Complete Model
-        if (np.all(self.time_model) != None):
-            data_model = np.array([(self.time_model*u.s + self.tref).jd,self.time_model,self.model_geometric,self.model_fresnel,self.model_star])
-            colunm_names_model = ['Model time JD','Model time relative to {} UTC in seconds'.format(self.tref.iso),'Geometric Model','Model with Fresnel diffraction','Model with star diameter']
-            np.savetxt(os.path.join(folder,'model_'+file), data_model.T, fmt='%11.8f')
-            f = open(os.path.join(folder,'model_'+file)+'.label', 'w')
+        # Complete Model
+        if all(self.time_model):
+            data_model = np.array([(self.time_model*u.s + self.tref).jd, self.time_model, self.model_geometric,
+                                   self.model_fresnel, self.model_star])
+            colunm_names_model = ['Model time JD', 'Model time relative to {} UTC in seconds'.format(self.tref.iso),
+                                  'Geometric Model', 'Model with Fresnel diffraction', 'Model with star diameter']
+            np.savetxt(os.path.join(folder, 'model_'+file), data_model.T, fmt='%11.8f')
+            f = open(os.path.join(folder, 'model_'+file)+'.label', 'w')
             for i, name in enumerate(colunm_names_model):
-                f.write('Column {}: {}\n'.format(i+1,name))
+                f.write('Column {}: {}\n'.format(i+1, name))
             f.close()
 
-
-
-    
-    def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None, \
-                  n_detections=None, plot=False):
+    def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None,
+                   n_detections=None, plot=False):
         """
         Detect automatically the occultation event in the light curve
-        
+
         Parameters
         ----------
         maximum_duration (float): Maximum duration of the occultation event (default is the light curve's time span). (optional)
@@ -712,41 +704,41 @@ class LightCurve():
         snr_limit (float): Minimum occultation SNR. (optional)
         n_detections (int): N best detections regardless from SNR. n_detections is superseded by snr_limit. (optional)
         plot (boolean): True if output plots are desired. (optional)
-            
+
         Returns
         -------
         OrderedDict
             An ordered dictionary of :attr:`name`::attr:`value` pairs for each Parameter.
-            
+
         Examples
         --------
         >>> lc = sora.LightCurve(time=time, flux=flux, exptime=0.0, name='lc_example')
         >>> params = lc.occ_detect()
         >>> params
-        {'rank': 1, 
-        'occultation_duration': 40.1384063065052, 
-        'central_time': 7916.773870512843, 
-        'immersion_time': 7896.7046673595905, 
-        'emersion_time': 7936.843073666096, 
-        'time_err': 0.05011036992073059, 
-        'depth': 0.8663887801707082, 
-        'depth_err': 0.10986223384336465, 
-        'baseline': 0.9110181732552853, 
-        'baseline_err': 0.19045768512595365, 
+        {'rank': 1,
+        'occultation_duration': 40.1384063065052,
+        'central_time': 7916.773870512843,
+        'immersion_time': 7896.7046673595905,
+        'emersion_time': 7936.843073666096,
+        'time_err': 0.05011036992073059,
+        'depth': 0.8663887801707082,
+        'depth_err': 0.10986223384336465,
+        'baseline': 0.9110181732552853,
+        'baseline_err': 0.19045768512595365,
         'snr': 7.886138392251848,
         'occ_mask': array([False, False, False, ..., False, False, False])}
         """
 
         if not hasattr(self, 'flux'):
-            raise ValueError('time and flux must be instantiated to use '\
+            raise ValueError('time and flux must be instantiated to use ',
                              'occ_detect function.')
 
         # duration of the light curve
         time_span = self.time[-1]-self.time[0]
         if maximum_duration and (maximum_duration > time_span):
-            warnings.warn('Occultation duration (maximum_duration={0}) ' \
-                             'exceeds the time series lenght ({1:0.5f}).' \
-                          ' maximum_duration reset to the time series lenght.'\
+            warnings.warn('Occultation duration (maximum_duration={0}) ',
+                          'exceeds the time series lenght ({1:0.5f}).',
+                          ' maximum_duration reset to the time series lenght.'
                           .format(maximum_duration, time_span))
             maximum_duration = time_span
         if not maximum_duration:
@@ -754,14 +746,14 @@ class LightCurve():
 
         if not dur_step:
             dur_step = self.cycle/2
-        
+
         if dur_step < self.cycle/2:
-            warnings.warn('The given dur_step is oversampled by a factor ' \
-                          'of {0:0.1f} and has been reset to half a cycle ' \
-                          '({1:0.4f}).' \
+            warnings.warn('The given dur_step is oversampled by a factor ',
+                          'of {0:0.1f} and has been reset to half a cycle ',
+                          '({1:0.4f}).'
                           .format((self.cycle/2.)/dur_step, self.cycle/2.))
             dur_step = self.cycle/2
-       
+
         duration_grid = np.arange(dur_step, maximum_duration, dur_step)
         # initial occultation mask (all data points)
         mask = np.ones(len(self.time), dtype=bool)
@@ -775,42 +767,42 @@ class LightCurve():
             mask *= ~occ0['occ_mask']
             while (snr_value > snr_limit):
                 rank += 1
-                occ1 = self.__run_bls(time_span, duration_grid, mask=mask, \
+                occ1 = self.__run_bls(time_span, duration_grid, mask=mask,
                                       rank=rank)
                 if occ1['snr'] > snr_limit:
                     snr_value = occ1['snr']
-                    mask *= ~occ1['occ_mask']                    
-                    occ0 = self.__summarize_bls(occ0,occ1)
+                    mask *= ~occ1['occ_mask']
+                    occ0 = self.__summarize_bls(occ0, occ1)
                 else:
                     snr_value = snr_limit
-            
+
             if plot:
-                self.__plot_occ_detect(occ0)                    
+                self.__plot_occ_detect(occ0)
             return occ0
         elif n_detections:
             # search the n best fits
             occ0 = self.__run_bls(time_span, duration_grid)
-            mask *= ~occ0['occ_mask']    
+            mask *= ~occ0['occ_mask']
             for i in range(n_detections-1):
                 rank += 1
-                occ1 = self.__run_bls(time_span, duration_grid, mask=mask, \
+                occ1 = self.__run_bls(time_span, duration_grid, mask=mask,
                                       rank=rank)
                 snr_value = occ1['snr']
-                mask *= ~occ1['occ_mask']                    
-                occ0 = self.__summarize_bls(occ0,occ1)
-            
+                mask *= ~occ1['occ_mask']
+                occ0 = self.__summarize_bls(occ0, occ1)
+
             if plot:
                 self.__plot_occ_detect(occ0)
             return occ0
         else:
             # search only the first best fit
             occ0 = self.__run_bls(time_span, duration_grid)
-           
+
             if plot:
                 self.__plot_occ_detect(occ0)
-                
+
             return occ0
-        
+
     def __plot_occ_detect(self, occ):
         n = np.size(occ['rank'])
         if n > 1:
@@ -819,27 +811,29 @@ class LightCurve():
             mask = np.zeros(len(self.time), dtype=bool)
             for i in range(n):
                 trues = np.sum(occ['occ_mask'][i])
-                pl.plot(self.time[occ['occ_mask'][i]], np.repeat(np.mean(self.flux[occ['occ_mask'][i]]),trues), '.', label='Rank: '+str(i+1))
+                pl.plot(self.time[occ['occ_mask'][i]], np.repeat(np.mean(self.flux[occ['occ_mask'][i]]), trues),
+                        '.', label='Rank: '+str(i+1))
                 mask += occ['occ_mask'][i]
- 
+
             falses = list(mask).count(False)
-            pl.plot(self.time[~mask], np.repeat(np.mean(self.flux[~mask]),falses), 'r.', label='Baseline')
+            pl.plot(self.time[~mask], np.repeat(np.mean(self.flux[~mask]), falses), 'r.', label='Baseline')
             pl.xlabel('Time [seconds]')
             pl.ylabel('Relative Flux')
-            pl.legend()    
-            
+            pl.legend()
+
         else:
             # case for single occultation
             trues = list(occ['occ_mask']).count(True)
             falses = list(occ['occ_mask']).count(False)
             pl.plot(self.time, self.flux, 'k.-')
-            pl.plot(self.time[occ['occ_mask']], np.repeat(np.mean(self.flux[occ['occ_mask']]),trues), '.', label='Occultation')
-            pl.plot(self.time[~occ['occ_mask']], np.repeat(np.mean(self.flux[~occ['occ_mask']]),falses), 'r.', label='Baseline')
+            pl.plot(self.time[occ['occ_mask']], np.repeat(np.mean(self.flux[occ['occ_mask']]), trues),
+                    '.', label='Occultation')
+            pl.plot(self.time[~occ['occ_mask']], np.repeat(np.mean(self.flux[~occ['occ_mask']]), falses),
+                    'r.', label='Baseline')
             pl.xlabel('Time [seconds]')
             pl.ylabel('Relative Flux')
             pl.legend()
-            
-    
+
     def __run_bls(self, per_grid, dur_grid, mask=None, rank=None):
         """
         Private function to find the best box fit suitable to the data
@@ -847,25 +841,25 @@ class LightCurve():
 
         # object with no occultation mask
         mskmodel = BoxLeastSquares(self.time, self.flux, dy=self.dflux)
-        # if there is no dflux array, reset it to None in case of 
+        # if there is no dflux array, reset it to None in case of
         # using a mask
         if self.dflux is None:
             dfluxmask = None
         else:
             dfluxmask = self.dflux[mask]
-            
+
         # object with occultation mask
         if np.sum(mask):
-            model = BoxLeastSquares(self.time[mask], self.flux[mask], \
+            model = BoxLeastSquares(self.time[mask], self.flux[mask],
                                     dy=dfluxmask)
         else:
-            model = mskmodel   
-        
+            model = mskmodel
+
         r = model.power(per_grid, dur_grid, objective='snr', method='fast')
         # statistics of the BLS fit
         stats = model.compute_stats(r.period, r.duration, r.transit_time)
         # occultation mask of the event with respect to all data
-        occ_mask = mskmodel.transit_mask(self.time, r.period, r.duration, \
+        occ_mask = mskmodel.transit_mask(self.time, r.period, r.duration,
                                          r.transit_time)
         # parameters computation for clarity purposes
         occultation_duration = r.duration[0]
@@ -874,9 +868,9 @@ class LightCurve():
         emersion_time = stats['transit_times'][0] + r.duration[0]/2
         time_err = np.median(self.time[1:-1]-self.time[0:-2])/2
         depth = np.mean(self.flux[~occ_mask])-np.mean(self.flux[occ_mask])
-        depth_err = np.std(self.flux[occ_mask],ddof=1)
+        depth_err = np.std(self.flux[occ_mask], ddof=1)
         baseline = np.mean(self.flux[~occ_mask])
-        baseline_err = np.std(self.flux[~occ_mask],ddof=1)
+        baseline_err = np.std(self.flux[~occ_mask], ddof=1)
         # If there is only one measurement during the occultation it will
         # use the baseline_err to compute SNR, otherwise it will use depth_err
         if np.sum(occ_mask) < 2:
@@ -884,25 +878,24 @@ class LightCurve():
         else:
             snr = depth/depth_err
 
-
         # define rank
         if rank:
             rank = rank
         else:
             rank = 1
-        
-        return {'rank' : rank,
-                'occultation_duration' : occultation_duration, 
-                'central_time' : central_time, 
-                'immersion_time' : immersion_time, 
-                'emersion_time' : emersion_time,
-                'time_err' : time_err,
-                'depth' : depth, 'depth_err' : depth_err,
-                'baseline' : baseline, 'baseline_err' : baseline_err,
-                'snr' : snr,'occ_mask' : occ_mask}
-    
+
+        return {'rank': rank,
+                'occultation_duration': occultation_duration,
+                'central_time': central_time,
+                'immersion_time': immersion_time,
+                'emersion_time': emersion_time,
+                'time_err': time_err,
+                'depth': depth, 'depth_err': depth_err,
+                'baseline': baseline, 'baseline_err': baseline_err,
+                'snr': snr, 'occ_mask': occ_mask}
+
     def __summarize_bls(self, dict1, dict2):
-        ''' Private function to merge dictionaries returned by BLS and 
+        ''' Private function to merge dictionaries returned by BLS and
             to keep values of common keys in list.
         '''
         dict3 = {}
@@ -910,18 +903,18 @@ class LightCurve():
             if key == 'occ_mask':
                 sz = int(np.size(dict1[key])/np.size(dict2[key]))
                 if sz > 1:
-                    l = [None]*(sz+1)
+                    k = [None]*(sz+1)
                     for i in range(sz):
-                        l[i] = dict1[key][i]
-                    l[i+1] = dict2[key]
-                    dict3[key] = l
+                        k[i] = dict1[key][i]
+                    k[i+1] = dict2[key]
+                    dict3[key] = k
                 else:
-                    dict3[key] = [dict1[key],dict2[key]]
+                    dict3[key] = [dict1[key], dict2[key]]
             else:
-                dict3[key] = np.append(dict1[key],dict2[key])
+                dict3[key] = np.append(dict1[key], dict2[key])
         return dict3
 
-    def __bar_fresnel(self,X,X01,X02,fresnel_scale,opacity):
+    def __bar_fresnel(self, X, X01, X02, fresnel_scale, opacity):
         """ Returns the modelled light curve considering fresnel difraction.
         ----------
         Parameters
@@ -937,25 +930,26 @@ class LightCurve():
         flux_fresnel (array):
         """
         # Converting from km to units of fresnel scale
-        x   = X/fresnel_scale
+        x = X/fresnel_scale
         x01 = X01/fresnel_scale
         x02 = X02/fresnel_scale
-        # Fresnel difraction parameters 
+        # Fresnel difraction parameters
         x1 = x - x01
         x2 = x - x02
-        s1,c1 = scsp.fresnel(x1)
-        s2,c2 = scsp.fresnel(x2)
+        s1, c1 = scsp.fresnel(x1)
+        s2, c2 = scsp.fresnel(x2)
         cc = c1 - c2
         ss = s1 - s2
         r_ampli = - (cc+ss)*(opacity/2.)
-        i_ampli =   (cc-ss)*(opacity/2.)
+        i_ampli = (cc-ss)*(opacity/2.)
         # Determining the flux considering fresnel difraction
         flux_fresnel = (1.0 + r_ampli)**2 + (i_ampli)**2
         return flux_fresnel
 
-
-    def __occ_model(self,immersion_time, emersion_time, opacity, mask, npt_star=12, time_resolution_factor=10,flux_min=0.0,flux_max=1.0):
-        """ Private function returns the modelled light curve considering fresnel difraction, star diameter and intrumental response, intended for fitting inside the self.occ_lcfit().
+    def __occ_model(self, immersion_time, emersion_time, opacity, mask, npt_star=12,
+                    time_resolution_factor=10, flux_min=0.0, flux_max=1.0):
+        """ Private function returns the modelled light curve considering fresnel difraction,
+        star diameter and intrumental response, intended for fitting inside the self.occ_lcfit().
         ----------
         Parameters
         ----------
@@ -974,60 +968,64 @@ class LightCurve():
         flux_inst       (array): Modelled Instrumental light flux.
         """
         # Computing the fresnel scale
-        lamb  = self.lambda_0*u.micrometer.to('km')
+        lamb = self.lambda_0*u.micrometer.to('km')
         dlamb = self.delta_lambda*u.micrometer.to('km')
-        dist  = self.dist*u.au.to('km')
+        dist = self.dist*u.au.to('km')
         vel = np.absolute(self.vel)
         time_obs = self.time[mask]
-        fresnel_scale_1 = calc_fresnel(dist,lamb-dlamb/2.0)
-        fresnel_scale_2 = calc_fresnel(dist,lamb+dlamb/2.0)
-        fresnel_scale   = (fresnel_scale_1 + fresnel_scale_2)/2.0
-        time_resolution = (np.min([fresnel_scale/vel,self.exptime]))/time_resolution_factor
+        fresnel_scale_1 = calc_fresnel(dist, lamb-dlamb/2.0)
+        fresnel_scale_2 = calc_fresnel(dist, lamb+dlamb/2.0)
+        fresnel_scale = (fresnel_scale_1 + fresnel_scale_2)/2.0
+        time_resolution = (np.min([fresnel_scale/vel, self.exptime]))/time_resolution_factor
         self.model_resolution = time_resolution
-        #
-        #Creating a high resolution curve to compute fresnel difraction, stellar diameter and instrumental integration 
-        time_model = np.arange(time_obs.min()-5*self.exptime,time_obs.max()+5*self.exptime,time_resolution)
-        #
-        #Changing X: time (s) to distances in the sky plane (km), considering the tangential velocity (vel in km/s)
-        x   = time_model*vel    
+
+        # Creating a high resolution curve to compute fresnel difraction, stellar diameter and instrumental integration
+        time_model = np.arange(time_obs.min()-5*self.exptime, time_obs.max()+5*self.exptime, time_resolution)
+
+        # Changing X: time (s) to distances in the sky plane (km), considering the tangential velocity (vel in km/s)
+        x = time_model*vel
         x01 = immersion_time*vel
         x02 = emersion_time*vel
-        #
-        #Computing fresnel diffraction for the case where the star size is negligenciable
-        flux_fresnel_1 = self.__bar_fresnel(x,x01,x02,fresnel_scale_1,opacity)
-        flux_fresnel_2 = self.__bar_fresnel(x,x01,x02,fresnel_scale_2,opacity)
-        flux_fresnel   = (flux_fresnel_1 + flux_fresnel_2)/2.
-        flux_star      = flux_fresnel.copy()
+
+        # Computing fresnel diffraction for the case where the star size is negligenciable
+        flux_fresnel_1 = self.__bar_fresnel(x, x01, x02, fresnel_scale_1, opacity)
+        flux_fresnel_2 = self.__bar_fresnel(x, x01, x02, fresnel_scale_2, opacity)
+        flux_fresnel = (flux_fresnel_1 + flux_fresnel_2)/2.
+        flux_star = flux_fresnel.copy()
         if (self.d_star > 0):
-            #Computing fresnel diffraction for the case where the star size is not negligenciable
-            resolucao   = self.d_star/npt_star
+            # Computing fresnel diffraction for the case where the star size is not negligenciable
+            resolucao = self.d_star/npt_star
             flux_star_1 = np.zeros(len(time_model))
             flux_star_2 = np.zeros(len(time_model))
-            #Computing stellar diameter only near the immersion or emersion times
+            # Computing stellar diameter only near the immersion or emersion times
             star_diam = (np.absolute(x - x01) < 3*self.d_star) + (np.absolute(x - x02) < 3*self.d_star)
-            p = np.arange(-npt_star,npt_star)*resolucao
+            p = np.arange(-npt_star, npt_star)*resolucao
             coeff = np.sqrt(np.absolute(self.d_star**2 - p**2))
             for ii in np.where(star_diam == True)[0]:
                 xx = x[ii] + p
-                flux1 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_1,opacity)
-                flux2 = self.__bar_fresnel(xx,x01,x02,fresnel_scale_2,opacity)
+                flux1 = self.__bar_fresnel(xx, x01, x02, fresnel_scale_1, opacity)
+                flux2 = self.__bar_fresnel(xx, x01, x02, fresnel_scale_2, opacity)
                 flux_star_1[ii] = np.sum(coeff*flux1)/coeff.sum()
                 flux_star_2[ii] = np.sum(coeff*flux2)/coeff.sum()
-                flux_star[ii]   = (flux_star_1[ii] + flux_star_2[ii])/2.
-        flux_inst = np.zeros(len(time_obs)) 
+                flux_star[ii] = (flux_star_1[ii] + flux_star_2[ii])/2.
+        flux_inst = np.zeros(len(time_obs))
         for i in range(len(time_obs)):
-            event_model  = (time_model > time_obs[i]-self.exptime/2.) & (time_model < time_obs[i]+self.exptime/2.)
+            event_model = (time_model > time_obs[i]-self.exptime/2.) & (time_model < time_obs[i]+self.exptime/2.)
             flux_inst[i] = (flux_star[event_model]).mean()
         return flux_inst*(flux_max - flux_min) + flux_min
 
     def __str__(self):
         """ String representation of the LightCurve Object
         """
-        output  = 'Light curve name: {}\n'.format(self.name)
-        output += 'Initial time: {} UTC\n'.format(self.initial_time.iso)
-        output += 'End time:     {} UTC\n'.format(self.end_time.iso)
-        output += 'Duration:     {:.3f} minutes\n'.format((self.end_time - self.initial_time).value*u.d.to('min'))
-        output += 'Time offset:  {:.3f} seconds\n\n'.format(self.dt)
+        output = ('Light curve name: {}\n'
+                  'Initial time: {} UTC\n'
+                  'End time:     {} UTC\n'
+                  'Duration:     {:.3f} minutes\n'
+                  'Time offset:  {:.3f} seconds\n\n'.format(
+                      self.name, self.initial_time.iso, self.end_time.iso,
+                      (self.end_time - self.initial_time).value*u.d.to('min'),
+                      self.dt)
+                  )
         try:
             output += 'Exposure time:    {:.4f} seconds\n'.format(self.exptime)
             output += 'Cycle time:       {:.4f} seconds\n'.format(self.cycle)
@@ -1035,24 +1033,35 @@ class LightCurve():
         except:
             output += 'Object LightCurve was not instantiated with time and flux.\n\n'
         try:
-            output += 'Bandwidth:            {:.3f} +/- {:.3f} microns\n'.format(self.lambda_0,self.delta_lambda)
-            output += 'Used shadow velocity: {:.3f} km/s\n'.format(self.vel)
-            output += 'Fresnel scale:        {:.3f} seconds or {:.2f} km\n'.format(self.fresnel_scale/self.vel,self.fresnel_scale)
-            output += 'Stellar size effect:  {:.3f} seconds or {:.2f} km\n'.format(self.d_star/self.vel,self.d_star)
+            output += ('Bandwidth:            {:.3f} +/- {:.3f} microns\n'
+                       'Used shadow velocity: {:.3f} km/s\n'
+                       'Fresnel scale:        {:.3f} seconds or {:.2f} km\n'
+                       'Stellar size effect:  {:.3f} seconds or {:.2f} km\n'.format(
+                           self.lambda_0, self.delta_lambda, self.vel, self.fresnel_scale/self.vel,
+                           self.fresnel_scale, self.d_star/self.vel, self.d_star)
+                       )
         except:
             output += '\nThere is no occultation associated with this light curve.\n'
         try:
-            output += 'Inst. response:       {:.3f} seconds or {:.2f} km\n'.format(self.exptime, self.exptime*self.vel)
-            output += 'Dead time effect:     {:.3f} seconds or {:.2f} km\n'.format(self.cycle-self.exptime,(self.cycle-self.exptime)*self.vel)
-            output += 'Model resolution:     {:.3f} seconds or {:.2f} km\n'.format(self.model_resolution, self.model_resolution*self.vel)
-            output += 'Modelled baseflux:    {:.3f}\n'.format(self.baseflux)
-            output += 'Modelled bottomflux:  {:.3f}\n'.format(self.bottomflux)
-            output += 'Light curve sigma:    {:.3f}\n\n'.format(self.lc_sigma)
+            output += ('Inst. response:       {:.3f} seconds or {:.2f} km\n'
+                       'Dead time effect:     {:.3f} seconds or {:.2f} km\n'
+                       'Model resolution:     {:.3f} seconds or {:.2f} km\n'
+                       'Modelled baseflux:    {:.3f}\n'
+                       'Modelled bottomflux:  {:.3f}\n'
+                       'Light curve sigma:    {:.3f}\n\n'.format(
+                           self.exptime, self.exptime*self.vel, self.cycle-self.exptime,
+                           (self.cycle-self.exptime)*self.vel, self.model_resolution,
+                           self.model_resolution*self.vel, self.baseflux, self.bottomflux,
+                           self.lc_sigma)
+                       )
         except:
             output += '\nObject LightCurve model was not fitted.\n\n'
         try:
-            output += 'Immersion time: {} UTC +/- {:.3f} seconds\n'.format(self.immersion.iso,self.immersion_err)
-            output += 'Emersion time:  {} UTC +/- {:.3f} seconds\n\n'.format(self.emersion.iso,self.emersion_err)
+            output += ('Immersion time: {} UTC +/- {:.3f} seconds\n'
+                       'Emersion time:  {} UTC +/- {:.3f} seconds\n\n'.format(
+                           self.immersion.iso, self.immersion_err,
+                           self.emersion.iso, self.emersion_err)
+                       )
         except:
             output += 'Immersion and emersion times were not fitted or instantiated.\n\n'
 
@@ -1061,7 +1070,6 @@ class LightCurve():
         except:
             pass
         return output
-
 
     def __del__(self):
         """ When this object is deleted, it removes the name from the Class name list.
