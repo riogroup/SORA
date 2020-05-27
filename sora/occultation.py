@@ -12,6 +12,9 @@ import warnings
 import matplotlib.pyplot as plt
 
 
+warnings.simplefilter('always', UserWarning)
+
+
 def positionv(star, ephem, observer, time):
     """ Calculates the position and velocity of the occultation shadow relative to the observer.
 
@@ -569,6 +572,11 @@ class Occultation():
             time = Time(time)
         else:
             time = self.tca
+
+        tca_diff = np.absolute(time-self.tca)
+        if tca_diff > 1*u.day:
+            warnings.warn('The difference between the given time and the closest approach instant is {:.1f} days. '
+                          'This position could not have physical meaning.'.format(tca_diff.jd))
 
         if offset is not None:
             off_ra = offset[0]*u.Unit(offset[2])

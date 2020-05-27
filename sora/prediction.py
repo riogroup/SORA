@@ -13,6 +13,9 @@ import os
 import matplotlib.pyplot as plt
 
 
+warnings.simplefilter('always', UserWarning)
+
+
 class PredictRow(Row):
     """An Astropy Row object modified for Prediction purposes.
     """

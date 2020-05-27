@@ -11,6 +11,9 @@ import os
 import warnings
 
 
+warnings.simplefilter('always', UserWarning)
+
+
 def calc_fresnel(distance, lambida):
     """ Returns the fresnel scale.
     ----------

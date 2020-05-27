@@ -9,6 +9,9 @@ import numpy as np
 from .config import test_attr
 
 
+warnings.simplefilter('always', UserWarning)
+
+
 def search_star(**kwargs):
     """ Search position on Vizier and returns a catalogue.
 
