@@ -47,14 +47,16 @@ SORA was developed in Python 3.7 and requires the following packages:
   - spiceypy 3.0.2: SPICE/NAIF functions in python.
 
 If you have a git account
-$ git clone git@github.com:riogroup/SORA.git
-$ cd sora
-$ pip install -e .
+
+  - $ git clone git@github.com:riogroup/SORA.git
+  - $ cd SORA
+  - $ pip install .
 
 If you do not have a git account
-$ git clone https://github.com/riogroup/SORA.git
-$ cd sora
-$ pip install -e .
+
+  - $ git clone https://github.com/riogroup/SORA.git
+  - $ cd SORA
+  - $ pip install .
 
 # CURIOSITIES
 
