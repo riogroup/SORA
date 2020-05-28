@@ -188,9 +188,13 @@ class LightCurve():
                 time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0, 1, 2], unpack=True)
                 self.flux_obs = self.flux
             except:
+                pass
+            try:
                 time, self.flux = np.loadtxt(kwargs['file'], usecols=[0, 1], unpack=True)
                 self.flux_obs = self.flux
-            else:
+            except:
+                pass    
+            if not hasattr(self, 'flux_obs'):
                 raise ValueError('Input file must have 2 or 3 columns')
             input_done = True
         if 'time' in kwargs and 'flux' in kwargs:
