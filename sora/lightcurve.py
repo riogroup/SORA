@@ -500,6 +500,7 @@ class LightCurve():
         self.model_geometric = flux_box
         self.baseflux = flux_max
         self.bottomflux = flux_min
+        self.opacity = opacity
         return
 
     def occ_lcfit(self, **kwargs):
