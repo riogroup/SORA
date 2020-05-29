@@ -211,7 +211,11 @@ class LightCurve():
             input_done = True
         if 'exptime' not in kwargs:
             raise ValueError('exptime not defined')
-        self.exptime = kwargs['exptime']
+        if kwargs['exptime'] <= 0:
+            warnings.warn('Exposure time is zero or negative ({:0.4f} seconds) it was replaced by 0.0001 seconds.'.format(kwargs['exptime']))
+            self.exptime = 0.0001            
+        else:
+            self.exptime = kwargs['exptime']
         if 'tref' in kwargs:
             try:
                 if type(kwargs['tref']) in [Time, str]:
