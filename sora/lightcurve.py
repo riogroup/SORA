@@ -499,7 +499,6 @@ class LightCurve():
         self.model_geometric = flux_box
         self.baseflux = flux_max
         self.bottomflux = flux_min
-        self.opacity = opacity
         return
 
     def occ_lcfit(self, **kwargs):
@@ -607,16 +606,24 @@ class LightCurve():
             self._immersion = self.tref + onesigma['immersion'][0]*u.s
             self.immersion_err = onesigma['immersion'][1]
             immersion_time = onesigma['immersion'][0]
+        else:
+            try: immersion_time = (self._immersion.jd - self.tref.jd)*u.d.to('s')
+            except: pass
         if 'emersion' in onesigma:
             self._emersion = self.tref + onesigma['emersion'][0]*u.s
             self.emersion_err = onesigma['emersion'][1]
             emersion_time = onesigma['emersion'][0]
+        else:
+            try: emersion_time = (self._emersion.jd - self.tref.jd)*u.d.to('s')
+            except: pass
         if 'opacity' in onesigma:
             opacity = onesigma['opacity'][0]
         # Run occ_model() to save best parameters in the Object.
-        self.occ_model(immersion_time, emersion_time, opacity, mask, flux_min=flux_min, flux_max=flux_max)
+        print('FLAG',immersion_time,emersion_time)
+        self.occ_model(immersion_time, emersion_time, opacity, np.repeat(True,len(self.flux)), flux_min=flux_min, flux_max=flux_max)
         self.lc_sigma = sigma
         self.chisquare = chisquare
+        self.opacity = opacity
         return chisquare
 
     def plot_lc(self):
