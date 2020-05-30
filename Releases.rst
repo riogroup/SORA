@@ -53,6 +53,9 @@ sora.occultation
 - Occultation.new_astrometric_positions() now show a warning when time is far
   by more than 1 day from the occultation closest approach. [#21]
 
+- Occultation.to_log() and print(Occultation) added the polar radius, equivalent radius, 
+  the Sun-Geocenter-Target angle and the Moon-Geocenter-Target angle. [#17]
+
 sora.prediction
 ^^^^^^^^^^^^^^^
 
@@ -74,6 +77,13 @@ sora.extra
 
 sora.lightcurve
 ^^^^^^^^^^^^^^^
+
+- Fixed error that appears when the fit was done separately (immersion and emersion times). 
+  Now the final model agrees with the fitted values.   [#9]
+
+- Fixed error when the file with the light curve has three columns. [#19]
+
+- Fixed error when the exptime within the LightCurve was set as zero or negative [#23]
 
 sora.observer
 ^^^^^^^^^^^^^

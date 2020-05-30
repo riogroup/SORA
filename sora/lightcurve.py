@@ -193,7 +193,7 @@ class LightCurve():
                 time, self.flux = np.loadtxt(kwargs['file'], usecols=[0, 1], unpack=True)
                 self.flux_obs = self.flux
             except:
-                pass    
+                pass
             if not hasattr(self, 'flux_obs'):
                 raise ValueError('Input file must have 2 or 3 columns')
             input_done = True
@@ -607,20 +607,23 @@ class LightCurve():
             self.immersion_err = onesigma['immersion'][1]
             immersion_time = onesigma['immersion'][0]
         else:
-            try: immersion_time = (self._immersion.jd - self.tref.jd)*u.d.to('s')
-            except: pass
+            try: 
+                immersion_time = (self._immersion.jd - self.tref.jd)*u.d.to('s')
+            except: 
+                pass
         if 'emersion' in onesigma:
             self._emersion = self.tref + onesigma['emersion'][0]*u.s
             self.emersion_err = onesigma['emersion'][1]
             emersion_time = onesigma['emersion'][0]
         else:
-            try: emersion_time = (self._emersion.jd - self.tref.jd)*u.d.to('s')
-            except: pass
+            try: 
+                emersion_time = (self._emersion.jd - self.tref.jd)*u.d.to('s')
+            except: 
+                pass
         if 'opacity' in onesigma:
             opacity = onesigma['opacity'][0]
         # Run occ_model() to save best parameters in the Object.
-        print('FLAG',immersion_time,emersion_time)
-        self.occ_model(immersion_time, emersion_time, opacity, np.repeat(True,len(self.flux)), flux_min=flux_min, flux_max=flux_max)
+        self.occ_model(immersion_time, emersion_time, opacity, np.repeat(True, len(self.flux)), flux_min=flux_min, flux_max=flux_max)
         self.lc_sigma = sigma
         self.chisquare = chisquare
         self.opacity = opacity
