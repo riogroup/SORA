@@ -864,9 +864,12 @@ class Occultation():
                'Geocentric Closest Approach: {:.3f}\n'
                'Instant of CA: {}\n'
                'Position Angle: {:.2f}\n'
-               'Geocentric shadow velocity: {:.2f}\n\n\n'.format(
+               'Geocentric shadow velocity: {:.2f}\n'
+               'Sun-Geocenter-Target angle:  {:.2f} deg\n'
+               'Moon-Geocenter-Target angle: {:.2f} deg\n\n\n'.format(
                    self.star.code, self.ephem.name, self.ca, self.tca.iso,
-                   self.pa, self.vel)
+                   self.pa, self.vel, self.predict['S-G-T'].data[0], 
+                   self.predict['M-G-T'].data[0])
                )
 
         count = {'positive': 0, 'negative': 0, 'visual': 0}
@@ -913,6 +916,10 @@ class Occultation():
             out += 'Fitted Ellipse:\n'
             out += '\n'.join(['{}: {:.3f} +/- {:.3f}'.format(k, *self.fitted_params[k])
                               for k in self.fitted_params.keys()]) + '\n'
+            polar_radius = self.fitted_params['equatorial_radius'][0]*(1.0-self.fitted_params['oblateness'][0])
+            equivalent_radius = np.sqrt(self.fitted_params['equatorial_radius'][0]*polar_radius)
+            out += 'polar_radius: {:.3f} km \n'.format(polar_radius)
+            out += 'equivalent_radius: {:.3f} km \n'.format(equivalent_radius)
             out += '\nMinimum chi-square: {:.3f}\n'.format(self.chi2_params['chi2_min'])
             out += 'Number of fitted points: {}\n'.format(self.chi2_params['npts'])
             out += 'Number of fitted parameters: {}\n'.format(self.chi2_params['nparam'])
