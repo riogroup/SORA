@@ -13,9 +13,6 @@ import os
 import matplotlib.pyplot as plt
 
 
-warnings.simplefilter('always', UserWarning)
-
-
 class PredictRow(Row):
     """An Astropy Row object modified for Prediction purposes.
     """
@@ -443,6 +440,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     step (int, float): step, in seconds, of ephem times for search
     divs (int): number of regions the ephemeris will be splitted
         for better search of occultations
+    sigma (int,float): ephemeris error sigma for search off-Earth.
     log (bool): To show what is being done at the moment.
 
     Return:
@@ -451,13 +449,10 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     # generate ephemeris
     if type(ephem) is not EphemKernel:
         raise TypeError('At the moment prediction only works with EphemKernel')
-    if log:
-        print("Generating Ephemeris ...")
     time_beg = Time(time_beg)
     time_end = Time(time_end)
     dt = np.arange(0, (time_end-time_beg).sec, step)*u.s
     t = time_beg + dt
-    coord = ephem.get_position(t)
 
     # define catalogue parameters
     kwds = {}
@@ -470,9 +465,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
 
     # determine suitable divisions for star search
     radius = ephem.radius + const.R_earth
-    mindist = np.arcsin(radius/coord.distance).max() + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec
 
-    divisions = np.array_split(np.arange(len(coord)), divs)
+    divisions = np.array_split(np.arange(len(t)), divs)
 
     if log:
         print('Ephemeris was split in {} parts for better search of stars'.format(len(divisions)))
@@ -480,12 +474,14 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     # makes predictions for each division
     occs = []
     for i, vals in enumerate(divisions):
+        nt = t[vals]
         if log:
             print('\nSearching occultations in part {}/{}'.format(i+1, len(divisions)))
-        nt = t[vals]
-        ncoord = coord[vals]
+            print("Generating Ephemeris between {} and {} ...".format(nt.min(),nt.max()))
+        ncoord = ephem.get_position(nt)
         ra = np.mean([ncoord.ra.min().deg, ncoord.ra.max().deg])
         dec = np.mean([ncoord.dec.min().deg, ncoord.dec.max().deg])
+        mindist = np.arcsin(radius/ncoord.distance).max() + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec
         width = ncoord.ra.max() - ncoord.ra.min() + 2*mindist
         height = ncoord.dec.max() - ncoord.dec.min() + 2*mindist
         pos_search = SkyCoord(ra*u.deg, dec*u.deg)
@@ -493,11 +489,12 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         if log:
             print('Downloading stars ...')
         catalogue = vquery.query_region(pos_search, width=width, height=height, catalog='I/345/gaia2')
-        if log:
-            print('Identifying occultations ...')
         if len(catalogue) == 0:
             continue
         catalogue = catalogue[0]
+        if log:
+            print('    {} Gaia-DR2 stars downloaded'.format(len(catalogue)))
+            print('Identifying occultations ...')
         stars = SkyCoord(catalogue['RA_ICRS'], catalogue['DE_ICRS'])
         idx, d2d, d3d = stars.match_to_catalog_sky(ncoord)
 
@@ -517,7 +514,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
             'radius': ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value,
             'error_dec': ephem.error_dec.to(u.mas).value}
     if not occs:
-        warnings.warn('No stellar occultation was found')
+        print('No stellar occultation was found')
         return PredictionTable(meta=meta)
     # create astropy table with the params
     occs2 = np.transpose(occs)
