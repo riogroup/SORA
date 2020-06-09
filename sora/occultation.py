@@ -697,9 +697,8 @@ class Occultation():
         """
         sites = {}
         color = {'positive': 'blue', 'negative': 'red'}
-        positions = self.positions
         for o, l in self.__observations:
-            sites[o.name] = [o.lon.deg, o.lat.deg, 10, 10, color[positions[o.name][l.name]['status']]]
+            sites[o.name] = [o.lon.deg, o.lat.deg, 10, 10, color[self.positions[o.name][l.name]['status']]]
         return sites
 
     def plot_occ_map(self, **kwargs):
