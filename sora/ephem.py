@@ -7,6 +7,7 @@ import astropy.units as u
 import astropy.constants as const
 from astroquery.jplhorizons import Horizons
 from .config import test_attr
+from .config.decorators import deprecated_alias
 import spiceypy as spice
 import urllib.request
 import warnings
@@ -443,7 +444,7 @@ class EphemKernel():
 
     Parameters:
         name (str): name of the object for search in the JPL database
-        code (str): kernel code of the targeting object
+        spkid (str): spkid of the targeting object
         kernels(list): list of paths for kernels
         radius (int,float): Object radius, in km (Default: Online database)
         error_ra (int,float): Ephemeris RA*cosDEC error, in mas (Default: Online database)
@@ -452,9 +453,11 @@ class EphemKernel():
         H (int,float): Object Absolute Magnitude (Default: NaN)
         G (int,float): Object Phase slope (Default: NaN)
     """
-    def __init__(self, name, code, kernels, **kwargs):
+    @deprecated_alias(code='spkid')  # remove this line for v1.0
+    def __init__(self, name, spkid, kernels, **kwargs):
         self.name = name
-        self.code = str(code)
+        self.spkid = str(spkid)
+        self.code = self.spkid  # remove this line for v1.0
         self.meta = {}
         kerns = []
         for arg in kernels:
@@ -484,7 +487,7 @@ class EphemKernel():
         Returns:
         coord (SkyCoord): Astropy SkyCoord object with the coordinate at given time
         """
-        pos = ephem_kernel(time, self.code, '399', self.__kernels)
+        pos = ephem_kernel(time, self.spkid, '399', self.__kernels)
         if hasattr(self, 'offset'):
             pos_frame = SkyOffsetFrame(origin=pos)
             new_pos = SkyCoord(lon=self.offset.d_lon_coslat, lat=self.offset.d_lat,
@@ -516,7 +519,7 @@ class EphemKernel():
 
         else:
             obs_obj = self.get_position(time)
-            sun_obj = ephem_kernel(time, self.code, '10', self.__kernels)
+            sun_obj = ephem_kernel(time, self.spkid, '10', self.__kernels)
 
             # Calculates the phase angle between the 2-vectors
             unit_vector_1 = -obs_obj.cartesian.xyz / np.linalg.norm(obs_obj.cartesian.xyz)
@@ -585,9 +588,9 @@ class EphemKernel():
         out = ("Ephemeris of {}.\n"
                "Radius: {:.1f}\n"
                "Mass: {:.2e}\n"
-               "\nEphem Kernel: {} (code={})\n"
+               "\nEphem Kernel: {} (SPKID={})\n"
                "Ephem Error: RA*cosDEC: {:.3f}; DEC: {:.3f}\n".format(
-                   self.name, self.radius, self.mass, self.meta['kernels'], self.code,
+                   self.name, self.radius, self.mass, self.meta['kernels'], self.spkid,
                    self.error_ra, self.error_dec)
                )
         if hasattr(self, 'offset'):
