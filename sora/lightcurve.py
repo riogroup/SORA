@@ -372,7 +372,7 @@ class LightCurve():
         plot = kwargs.get('plot', False)
         lc_flux = (self.flux - flux_min)/(flux_max-flux_min)
         if mask is None:
-            preliminar_occ = self.occ_detect()
+            preliminar_occ = self.occ_detect(maximum_duration=((self.end_time - self.initial_time).value*u.d.to('s'))/3)
             tmax = preliminar_occ['emersion_time']+1.00*preliminar_occ['occultation_duration']
             tmin = preliminar_occ['immersion_time']-1.00*preliminar_occ['occultation_duration']
             chord = preliminar_occ['occultation_duration']
