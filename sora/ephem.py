@@ -32,6 +32,11 @@ def read_obj_data():
         warnings.warn('Online object data table could not be found. Please check internet connection.')
     return obj
 
+def exemplo():
+    """ test
+    """
+    return "nothing"
+
 
 def apparent_mag(H, G, dist, sundist, phase=0.0):
     """ Calculates the Apparent Magnitude
