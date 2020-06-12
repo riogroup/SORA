@@ -74,6 +74,7 @@ class LightCurve():
             file (str): a file with the time and flux in the first
                 and second columns, respectively. A third columns
                 with error in flux can also be given.
+            usecols (int, tuple, array): Which columns to read, with 0 being the first. 
 
             IF file is not given:
             time: time must be a list of times, in seconds from tref,
@@ -179,21 +180,33 @@ class LightCurve():
                 It must have the same lenght as time.
             tref (Time,str,float): Instant of reference. It can be
                 in Julian Date, string in ISO format or Time object.
+            usecols (int, tuple, array): Which columns to read, with 0 being the first. 
         """
         input_done = False
+        usecols = None
+        if 'usecols' in kwargs:
+            usecols = kwargs['usecols']
         if 'file' in kwargs:
             if not os.path.isfile(kwargs['file']):
                 raise ValueError('{} not found'.format(kwargs['file']))
-            try:
-                time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0, 1, 2], unpack=True)
-                self.flux_obs = self.flux
-            except:
-                pass
-            try:
-                time, self.flux = np.loadtxt(kwargs['file'], usecols=[0, 1], unpack=True)
-                self.flux_obs = self.flux
-            except:
-                pass
+            if usecols is not None:
+                if len(usecols) == 2:
+                    time, self.flux = np.loadtxt(kwargs['file'], usecols=usecols, unpack=True)
+                elif len(usecols) == 3:
+                    time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=usecols, unpack=True)
+                else:
+                    raise ValueError('numcols should have 2 or 3 values')
+            else:
+                try:
+                    time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0, 1, 2], unpack=True)
+                except:
+                    pass
+                try:
+                    time, self.flux = np.loadtxt(kwargs['file'], usecols=[0, 1], unpack=True)
+                except:
+                    pass
+            if hasattr(self, 'flux'):
+                    self.flux_obs = self.flux
             if not hasattr(self, 'flux_obs'):
                 raise ValueError('Input file must have 2 or 3 columns')
             input_done = True
