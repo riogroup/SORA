@@ -928,6 +928,12 @@ class Occultation():
             equivalent_radius = np.sqrt(self.fitted_params['equatorial_radius'][0]*polar_radius)
             out += 'polar_radius: {:.3f} km \n'.format(polar_radius)
             out += 'equivalent_radius: {:.3f} km \n'.format(equivalent_radius)
+            if self.ephem.H is not np.nan:
+                H_sun = -26.74
+                geometric_albedo = (10**(0.4*(H_sun - self.ephem.H))) * ((u.au.to('km')/equivalent_radius)**2)
+                out += 'geometric albedo: {:.3f} ({:.1%}) \n'.format(geometric_albedo, geometric_albedo)
+            else:
+                out += 'geometric albedo: not calculated, absolute magnitude (H) is unknown \n'
             out += '\nMinimum chi-square: {:.3f}\n'.format(self.chi2_params['chi2_min'])
             out += 'Number of fitted points: {}\n'.format(self.chi2_params['npts'])
             out += 'Number of fitted parameters: {}\n'.format(self.chi2_params['nparam'])
