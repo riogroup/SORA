@@ -35,8 +35,13 @@ API Changes
 sora.config
 ^^^^^^^^^^^
 
+- config module is now a directory. It now includes a module with decorators. [#31]
+
 sora.ephem
 ^^^^^^^^^^
+
+- In EphemKernle, `code` argument was replaced by `spkid`. When using 'code',
+  a FutureWarning is raised stating `code` as deprecated and will be removed from v1.0. [#26]
 
 sora.extra
 ^^^^^^^^^^
@@ -58,6 +63,8 @@ sora.occultation
 
 sora.prediction
 ^^^^^^^^^^^^^^^
+
+- prediction() now calculates the ephemeris inside each division to avoid memory overflow. [#31]
 
 documentation
 ^^^^^^^^^^^^^
@@ -92,6 +99,11 @@ sora.occultation
 ^^^^^^^^^^^^^^^^
 
 - Corrected error calculation using err = sqrt(star_err^2 + fit_err^2) [#18]
+
+- Occultation.plot_occ_map() now uses the fitted ellipse to calculate the projected shadow radius [#22]
+
+- Corrected bug that raised an error whe calling Occultation.get_map_sites()
+  and there were no observation added to Occultation. [#31]
 
 sora.prediction
 ^^^^^^^^^^^^^^^
