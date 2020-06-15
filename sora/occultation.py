@@ -697,9 +697,8 @@ class Occultation():
         """
         sites = {}
         color = {'positive': 'blue', 'negative': 'red'}
-        positions = self.positions
         for o, l in self.__observations:
-            sites[o.name] = [o.lon.deg, o.lat.deg, 10, 10, color[positions[o.name][l.name]['status']]]
+            sites[o.name] = [o.lon.deg, o.lat.deg, 10, 10, color[self.positions[o.name][l.name]['status']]]
         return sites
 
     def plot_occ_map(self, **kwargs):
@@ -772,7 +771,16 @@ class Occultation():
             Comment: Only one of centermap_geo and centermap_delta can be given
         """
         if 'radius' not in kwargs and hasattr(self, 'fitted_params'):
-            kwargs['radius'] = self.fitted_params['equatorial_radius'][0]
+            r_equa = self.fitted_params['equatorial_radius'][0]
+            obla = self.fitted_params['oblateness'][0]
+            pos_ang = self.fitted_params['position_angle'][0]
+            theta = np.linspace(-np.pi, np.pi, 1800)
+            map_pa = self.predict['P/A'][0]
+            circle_x = r_equa*np.cos(theta)
+            circle_y = r_equa*(1.0-obla)*np.sin(theta)
+            ellipse_y = -circle_x*np.sin((pos_ang-map_pa)*u.deg) + circle_y*np.cos((pos_ang-map_pa)*u.deg)
+            kwargs['radius'] = ellipse_y.max()
+            print('Projected shadow radius = {:.1f} km'.format(kwargs['radius']))
         kwargs['sites'] = kwargs.get('sites', self.get_map_sites())
         if 'offset' not in kwargs and hasattr(self, 'fitted_params'):
             off_ra = self.fitted_params['center_f'][0]*u.km
@@ -868,7 +876,7 @@ class Occultation():
                'Sun-Geocenter-Target angle:  {:.2f} deg\n'
                'Moon-Geocenter-Target angle: {:.2f} deg\n\n\n'.format(
                    self.star.code, self.ephem.name, self.ca, self.tca.iso,
-                   self.pa, self.vel, self.predict['S-G-T'].data[0], 
+                   self.pa, self.vel, self.predict['S-G-T'].data[0],
                    self.predict['M-G-T'].data[0])
                )
 
