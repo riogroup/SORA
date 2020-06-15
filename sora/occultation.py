@@ -3,7 +3,7 @@ from .star import Star
 from .ephem import EphemPlanete, EphemJPL, EphemKernel
 from .observer import Observer
 from .lightcurve import LightCurve
-from .prediction import occ_params, Prediction
+from .prediction import occ_params, PredictionTable
 from .extra import ChiSquare
 import astropy.units as u
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
@@ -32,7 +32,8 @@ def positionv(star,ephem,observer,time):
         raise ValueError('ephem must be an Ephemeris object')
     if type(observer) != Observer:
         raise ValueError('observer must be an Observer object')
-        
+    time = Time(time)
+
     coord = star.geocentric(time)
     dt = 0.1*u.s
     
@@ -288,7 +289,7 @@ class Occultation():
 
         meta = {'name': self.ephem.name, 'radius': self.ephem.radius.to(u.km).value,
             'error_ra': self.ephem.error_ra.to(u.mas).value, 'error_dec': self.ephem.error_dec.to(u.mas).value}
-        self.predict = Prediction(time=[tca], coord_star=[self.star.geocentric(tca)],
+        self.predict = PredictionTable(time=[tca], coord_star=[self.star.geocentric(tca)],
             coord_obj=[self.ephem.get_position(tca)], ca=[ca.value], pa=[pa.value], vel=[vel.value],
             dist=[dist.value], mag=[self.star.mag['G']], source=[self.star.code], meta=meta)
         
@@ -343,8 +344,10 @@ class Occultation():
                 ko.append(i)
             if val[1].name == key_lc:
                 kl.append(i)
+        ko = np.array(ko)
+        kl = np.array(kl)
         if not same_key:
-            k  = np.where(np.array(ko) == np.array(kl))[0]
+            k  = ko[np.where(ko == kl)[0]]
             rm_list = np.hstack((rm_list, k))
         else:
             rm_list = np.hstack((rm_list, np.array(kl)))
@@ -485,24 +488,31 @@ class Occultation():
                 if samecoord and 'time' in obs_start.keys() and obs_start['time'] == l.initial_time:
                     pass
                 else:
-                    f1,g1 = positionv(self.star,self.ephem,o,l.initial_time)[0:2]
+                    f,g, vf,vg = positionv(self.star,self.ephem,o,l.initial_time)
                     obs_start['_occ_time'] = l.initial_time
-                    obs_start['_occ_value'] = (f1,g1)
+                    obs_start['_occ_value'] = (round(f,3),round(g,3))
+                    obs_start['_occ_vel'] = (round(vf,3),round(vg,3))
                 if 'end_obs' not in pos_lc.keys():
                     pos_lc['_occ_end_obs'] = _PositionDict(on=True)
                 obs_end = pos_lc['end_obs']
                 if samecoord and 'time' in obs_end.keys() and obs_end['time'] == l.end_time:
                     pass
                 else:
-                    f1,g1 = positionv(self.star,self.ephem,o,l.end_time)[0:2]
+                    f,g,vf,vg = positionv(self.star,self.ephem,o,l.end_time)
                     obs_end['_occ_time'] = l.end_time
-                    obs_end['_occ_value'] = (f1,g1)
+                    obs_end['_occ_value'] = (round(f,3),round(g,3))
+                    obs_end['_occ_vel'] = (round(vf,3),round(vg,3))
 
         for key in list(position):
+            n = 0
             for key_lc in list(position[key]):
-                if type(key_lc) == _PositionDict and (key,key_lc) not in pair:
+                if type(position[key][key_lc]) != _PositionDict:
+                    continue
+                if (key,key_lc) not in pair:
                     del position[key][key_lc]
-            if len(position[key]) == 0:
+                else:
+                    n+=1
+            if n == 0:
                 del position[key]
 
         return self._position
@@ -526,8 +536,9 @@ class Occultation():
             center = np.array([self.fitted_params['center_f'][0], self.fitted_params['center_g'][0]])
         else:
             center = np.array([0,0])
+        positions = self.positions
         for o,l in self.__observations:
-            vals = self.positions[o.name][l.name]
+            vals = positions[o.name][l.name]
             if all([i not in vals.keys() for i in ['immersion', 'emersion']]):
                 continue
             print('{} - Velocity used: {:.3f}'.format(l.name, l.vel))
@@ -680,8 +691,9 @@ class Occultation():
         """
         sites = {}
         color = {'positive': 'blue', 'negative': 'red'}
+        positions = self.positions
         for o, l in self.__observations:
-            sites[o.name] = [o.lon.deg, o.lat.deg, 10, 10, color[self.positions[o.name][l.name]['status']]]
+            sites[o.name] = [o.lon.deg, o.lat.deg, 10, 10, color[positions[o.name][l.name]['status']]]
         return sites
 
     def plot_occ_map(self, **kwargs):
@@ -749,6 +761,7 @@ class Occultation():
             cscale Arbitrary scale for the name of the country.
             sscale Arbitrary scale for the size of point of the site.
             pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+            arrow (bool): If true, it plots the arrow with the occultation direction.
 
             Comment: Only one of centermap_geo and centermap_delta can be given
         """
@@ -762,6 +775,81 @@ class Occultation():
             off_dec = np.arctan2(off_dec, self.dist)
             kwargs['offset'] = [off_ra, off_dec]
         self.predict.plot_occ_map(**kwargs)
+
+    def to_log(self,namefile=None):
+        """ Save the occultation log to a file
+
+        Parameters:
+            namefile (str): Filename to save the log
+        """
+        if (namefile == None):
+            namefile = 'occ_{}_{}.log'.format(self.ephem.name, self.tca.isot[:16])
+        f = open(namefile, 'w')
+        f.write(self.__str__())
+        f.close()
+
+    def to_file(self):
+        """ Save the occultation data to a file
+
+        Three files are saved containing the positions and velocities
+        for the observations. They are for the positive, negative and
+        error bars positions.
+
+        The format of the files are: positions in f and g,
+        velocities in f and g, the Julian Date of the observation,
+        and light curve name of the corresponding position.
+        """
+        positions = self.positions
+        pos = []
+        neg =[]
+        err = []
+        for o,l in self.__observations:
+            status = positions[o.name][l.name]['status']
+            l_name = l.name.replace(' ', '_')
+            if status == 'positive':
+                im = positions[o.name][l.name]['immersion']
+                f,g = im['value']
+                err1, err2 = im['error']
+                f1,g1 = err1
+                f2,g2 = err2
+                vf,vg = im['vel']
+                pos.append([f,g,vf,vg, im['time'].jd, l_name+'_immersion'])
+                err.append([f1,g1,vf,vg,(im['time']-im['time_err']*u.s).jd,l_name+'_immersion_err-'])
+                err.append([f2,g2,vf,vg,(im['time']+im['time_err']*u.s).jd,l_name+'_immersion_err+'])
+
+                em = positions[o.name][l.name]['emersion']
+                f,g = em['value']
+                err1, err2 = em['error']
+                f1,g1 = err1
+                f2,g2 = err2
+                vf,vg = em['vel']
+                pos.append([f,g,vf,vg, em['time'].jd, l_name+'_emersion'])
+                err.append([f1,g1,vf,vg,(em['time']-em['time_err']*u.s).jd,l_name+'_emersion_err-'])
+                err.append([f2,g2,vf,vg,(em['time']+em['time_err']*u.s).jd,l_name+'_emersion_err+'])
+            if status == 'negative':
+                ini = positions[o.name][l.name]['start_obs']
+                f,g = ini['value']
+                vf,vg = ini['vel']
+                neg.append([f,g,vf,vg,ini['time'].jd,l_name+'_start'])
+
+                end = positions[o.name][l.name]['end_obs']
+                f,g = end['value']
+                vf,vg = end['vel']
+                neg.append([f,g,vf,vg,end['time'].jd,l_name+'_end'])
+        if len(pos) > 0:
+            f = open('occ_{}_pos.txt'.format(self.ephem.name), 'w')
+            for line in pos:
+                f.write('{:9.3f} {:9.3f} {:-6.2f} {:-6.2f} {:16.8f} {}\n'.format(*line))
+            f.close()
+            f = open('occ_{}_err.txt'.format(self.ephem.name), 'w')
+            for line in err:
+                f.write('{:9.3f} {:9.3f} {:-6.2f} {:-6.2f} {:16.8f} {}\n'.format(*line))
+            f.close()
+        if len(neg) > 0:
+            f = open('occ_{}_neg.txt'.format(self.ephem.name), 'w')
+            for line in neg:
+                f.write('{:9.3f} {:9.3f} {:-6.2f} {:-6.2f} {:16.8f} {}\n'.format(*line))
+            f.close()
 
     def __str__(self):
         """String representation of the Star class

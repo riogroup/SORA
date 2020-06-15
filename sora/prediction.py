@@ -1,9 +1,9 @@
 from .star import Star
 from .ephem import EphemKernel, EphemJPL, EphemPlanete
-from .observer import Observer
 import astropy.units as u
 import astropy.constants as const
-from astropy.coordinates import SkyCoord, EarthLocation, Angle, get_sun, GCRS, ITRS, SkyOffsetFrame
+from astropy.coordinates import SkyCoord, EarthLocation, Angle, get_sun
+from astropy.coordinates import get_moon, GCRS, ITRS, SkyOffsetFrame
 from astropy.time import Time
 from astropy.table import Table, Row, Column
 from astroquery.vizier import Vizier
@@ -76,6 +76,7 @@ class PredictRow(Row):
             cscale Arbitrary scale for the name of the country.
             sscale Arbitrary scale for the size of point of the site.
             pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+            arrow (bool): If true, it plots the arrow with the occultation direction.
 
             Comment: Only one of centermap_geo and centermap_delta can be given
         """
@@ -86,7 +87,7 @@ class PredictRow(Row):
                      ca=float(self['C/A']), pa=float(self['P/A']), vel=float(self['Vel']), dist=float(self['Dist']),
                      mag=float(self['G*']), longi=float(self['long']), **kwargs)
 
-class Prediction(Table):
+class PredictionTable(Table):
     """An Astropy Table object modified for Prediction purposes.
     """
     Row = PredictRow
@@ -141,6 +142,10 @@ class Prediction(Table):
                 longi = (coord.ra - time.sidereal_time('mean', 'greenwich')).wrap_at(360*u.deg)
                 ntime = time + longi.hour*u.hour
                 values['loct'] = Column(['{}'.format(t.iso[11:16]) for t in ntime], unit='hh:mm')
+            moon_pos = get_moon(time)
+            values['M-G-T'] = Column(moon_pos.separation(coord), unit='deg', format='3.0f')
+            sun_pos = get_sun(time)
+            values['S-G-T'] = Column(sun_pos.separation(coord), unit='deg', format='3.0f')
             if 'source' in kwargs.keys():
                 values['GAIA-DR2 Source ID'] = Column(kwargs['source'])
                 del kwargs['source']
@@ -166,17 +171,17 @@ class Prediction(Table):
 
     @classmethod
     def from_praia(cls, filename, name, **kwargs):
-        """ Create a Prediction Table reading from a PRAIA table
+        """ Create a PredictionTable Table reading from a PRAIA table
 
         INPUT:
             filename (str): path to the PRAIA table file.
-            name (str): Name of the Object of the Prediction.
+            name (str): Name of the Object of the prediction.
             radius (int,float): Object radius. (not required)
-                If not given it search in online database.
+                If not given it's searched in online database.
                 If not found online, the defaults is set to zero.
 
         OUTPUT:
-            A Prediction Table
+            A PredictionTable
         """
         from .ephem import read_obj_data
         occs = {}
@@ -230,7 +235,7 @@ class Prediction(Table):
                    vel=dados['vel'], mag_20=dados['mR'], dist=dados['delta'], long=dados['long'], loct=dados['loct'], meta=meta)
 
     def to_praia(self, filename):
-        """ Write prediction table to PRAIA format.
+        """ Write PredictionTable to PRAIA format.
 
         INPUT:
             filename(str): name of the file to save table
@@ -238,7 +243,7 @@ class Prediction(Table):
         from .config import praia_occ_head
         f = open(filename, 'w')
         f.write(praia_occ_head.format(max_ca=self.meta['max_ca'].to(u.arcsec), size=len(self), ephem=self.meta.get('ephem', 'ephem')))
-        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, source in self.iterrows():
+        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, md, sd, source in self.iterrows():
             dmag = mag_20-mag
             f.write("\n {} {} {}  {}  {}   {}   {:5.3f}  {:6.2f} {:-6.2f} {:5.2f} {:4.1f} {:-4.1f} {:-4.1f} {:-4.1f}   {:3.0f}. {}       0.0      0.0 ok g2 0    0    0    0    0".
                     format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:21].replace(':', ' '), coord.to_string('hmsdms', precision=4, sep=' '),
@@ -247,7 +252,7 @@ class Prediction(Table):
         f.close()
 
     def to_ow(self, ow_des, mode='append'):
-        """ Write Prediction Table to OccultWatcher feeder update files.
+        """ Write PredictionTable to OccultWatcher feeder update files.
         Tables will be saved in two files: "tableOccult_update.txt" and "LOG.dat"
 
         INPUT:
@@ -263,7 +268,7 @@ class Prediction(Table):
         f = open('tableOccult_update.txt', modes[mode])
         f.write(ow_occ_head.format(name=self.meta['name'], ephem=self.meta.get('ephem', 'ephem'), max_ca=self.meta['max_ca'].to(u.arcsec),
                                    size=len(self), radius=self.meta['radius'], ow_des=ow_des))
-        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, source in self.iterrows():
+        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, md, sd, source in self.iterrows():
             dmag = mag_20-mag
             f.write('{} {} {}  {}   {} {}   {} {}   {:5.3f}  {:6.2f} {:-7.3f} {:7.3f} {:4.1f} {:-4.1f}   {:3.0f}. {}  {:4.0f}  {:4.0f}\n'.
                     format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:20].replace(':', ' '), coord.ra.to_string('hour', precision=4, sep=' '),
@@ -341,6 +346,7 @@ class Prediction(Table):
             cscale Arbitrary scale for the name of the country.
             sscale Arbitrary scale for the size of point of the site.
             pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+            arrow (bool): If true, it plots the arrow with the occultation direction.
 
             Comment: Only one of centermap_geo and centermap_delta can be given
         """
@@ -360,6 +366,8 @@ def occ_params(star, ephem, time):
     instant of CA (Time): Instant of Closest Approach
     CA (arcsec): Distance of Closest Approach
     PA (deg): Position Angle at Closest Approach
+    vel (km/s): Velocity of the occultation
+    dist (AU): the object distance.
     """
     
     delta_t = 0.05
@@ -369,6 +377,7 @@ def occ_params(star, ephem, time):
     if type(ephem) not in [EphemKernel, EphemJPL, EphemPlanete]:
         raise ValueError('ephem must be an Ephemeris object')
         
+    time = Time(time)
     tt = time + np.arange(-600, 600, delta_t)*u.s
     coord = star.geocentric(tt[0])
     if type(ephem) == EphemPlanete:
@@ -404,7 +413,7 @@ def occ_params(star, ephem, time):
     return tt[min], ca, pa, vel, dist.to(u.AU)
 
 
-def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma=1, log=True):
+def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1, log=True):
     """ Predicts stellar occultations
 
     Parameters:
@@ -412,11 +421,13 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     time_beg (Time): Initial time for prediction
     time_beg (Time): Final time for prediction
     mag_lim (int,float): Faintest Gmag for search
-    interv (int, float): interval, in seconds, of ephem times for search
-    divs (int,float): interal, in deg, for max search of stars
+    step (int, float): step, in seconds, of ephem times for search
+    divs (int): number of regions the ephemeris will be splitted
+        for better search of occultations
+    log (bool): To show what is being done at the moment.
 
     Return:
-    occ_params (Table): Astropy Table with the occultation params for each event
+    occ_params (Table): PredictionTable with the occultation params for each event
     """
     # generate ephemeris
     if type(ephem) is not EphemKernel:
@@ -424,7 +435,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     if log: print("Generating Ephemeris ...")
     time_beg = Time(time_beg)
     time_end = Time(time_end)
-    dt = np.arange(0, (time_end-time_beg).sec, interv)*u.s
+    dt = np.arange(0, (time_end-time_beg).sec, step)*u.s
     t = time_beg + dt
     coord = ephem.get_position(t)
 
@@ -440,19 +451,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     # determine suitable divisions for star search
     radius = ephem.radius + const.R_earth
     mindist = np.arcsin(radius/coord.distance).max() + sigma*np.max([ephem.error_ra.value,ephem.error_dec.value])*u.arcsec
-    divisions = []
-    n=0
-    while True:
-        dif = coord.separation(coord[n])
-        k = np.where(dif < divs*u.deg)[0]
-        l = np.where(k[1:]-k[:-1] > 1)[0]
-        l = np.append(l,len(k)-1)
-        m = np.where(k[l] - n > 0)[0].min()
-        k = k[l][m]
-        divisions.append([n,k])
-        if k == len(coord)-1:
-            break
-        n = k
+
+    divisions = np.array_split(np.arange(len(coord)), divs)
 
     if log: print('Ephemeris was split in {} parts for better search of stars'.format(len(divisions)))
 
@@ -460,8 +460,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
     occs = []
     for i,vals in enumerate(divisions):
         if log: print('\nSearching occultations in part {}/{}'.format(i+1,len(divisions)))
-        nt = t[vals[0]:vals[1]]
-        ncoord = coord[vals[0]:vals[1]]
+        nt = t[vals]
+        ncoord = coord[vals]
         ra = np.mean([ncoord.ra.min().deg,ncoord.ra.max().deg])
         dec = np.mean([ncoord.dec.min().deg,ncoord.dec.max().deg])
         width = ncoord.ra.max() - ncoord.ra.min() + 2*mindist
@@ -493,15 +493,17 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, interv=60, divs=1, sigma
             'radius':ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value, 'error_dec': ephem.error_dec.to(u.mas).value}
     if not occs:
         warnings.warn('No stellar occultation was found')
-        return Prediction(meta=meta)
+        return PredictionTable(meta=meta)
     # create astropy table with the params
     occs2 = np.transpose(occs)
     time = Time(occs2[3])
     geocentric = ephem.get_position(time)
     k = np.argsort(time)
-    t = Prediction(time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
+    t = PredictionTable(time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
         pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
         dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
+    if log:
+        print('{} occultations found'.format(len(t)))
     return t
 
 
@@ -658,6 +660,7 @@ def plot_occ_map(name, radius, **kwargs):
         cscale Arbitrary scale for the name of the country.
         sscale Arbitrary scale for the size of point of the site.
         pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+        arrow (bool): If true, it plots the arrow with the occultation direction.
 
         Comment: Only one of centermap_geo and centermap_delta can be given
     """
@@ -724,6 +727,7 @@ def plot_occ_map(name, radius, **kwargs):
         raise ValueError('User must give "centermap_geo" OR "centermap_delta"')
     zoom = kwargs.get('zoom', 1)
     off_ra, off_de = kwargs.get('offset', [0.0, 0.0])*u.mas
+    arrow = kwargs.get('arrow', True)
 
     sites = {}
     if 'sites' in kwargs.keys():
@@ -987,12 +991,13 @@ def plot_occ_map(name, radius, **kwargs):
             plt.plot(bordx*np.cos(h*u.deg),bordy*np.cos(h*u.deg), linestyle='dotted', color=hcolor)
 
 ########### plots the the direction arrow ##################
-    if limits is None:
-        plt.quiver(5500000,-5500000, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
-                  (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005)
-    else:
-        plt.quiver(lx + (ux-lx)*0.9,ly + (uy-ly)*0.1, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
-                  (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005, zorder = 1.3)
+    if arrow:
+        if limits is None:
+            plt.quiver(5500000,-5500000, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
+                      (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005)
+        else:
+            plt.quiver(lx + (ux-lx)*0.9,ly + (uy-ly)*0.1, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
+                      (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005, zorder = 1.3)
 
 ####### plots the countries names #####
     for country in countries.keys():
