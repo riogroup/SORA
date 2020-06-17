@@ -525,7 +525,7 @@ class LightCurve():
         flux_max (int,float): Base flux (object plus star), default equal to 1.0
         immersion_time  (int, float): Initial guess for immersion time, in seconds.
         emersion_time   (int, float): Initial guess for emersion time, in seconds.
-        opacity  (int, float): Initial guess for opacity, opaque = 1.0, transparent = 0.0, default equal to 0.0.
+        opacity  (int, float): Initial guess for opacity, opaque = 1.0, transparent = 0.0, default equal to 1.0.
         delta_t (int, float): Interval to fit immersion or emersion time
         dopacity   (int, float): Interval to fit opacity, default equal to 0, no fit.
         loop       (int): Number of tests to be done, default equal to 10000.
