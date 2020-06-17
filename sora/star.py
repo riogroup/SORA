@@ -169,7 +169,7 @@ class Star():
         '''
         Determine the diameter of a star in mas using equations from van Belle (1999)
         -- Publi. Astron. Soc. Pacific 111, 1515-1523:
-       '''
+        '''
         return van_belle(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
 
     def kervella(self):
@@ -265,12 +265,10 @@ class Star():
     def __searchgaia(self):
         """search for the star position in the gaia catalogue and save informations
         """
-        columns = ['Source', 'RA_ICRS', 'e_RA_ICRS', 'DE_ICRS', 'e_DE_ICRS', 'Plx', 'pmRA',
-                   'e_pmRA', 'pmDE', 'e_pmDE', 'Gmag', 'e_Gmag', 'Dup', 'Epoch', 'Rad']
         if hasattr(self, 'code'):
-            catalogue = search_star(code=self.code, columns=columns, catalog='I/345/gaia2', log=self.__log)
+            catalogue = search_star(code=self.code, columns=['**'], catalog='I/345/gaia2', log=self.__log)
         else:
-            catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec,
+            catalogue = search_star(coord=self.coord, columns=['**'], radius=2*u.arcsec,
                                     catalog='I/345/gaia2', log=self.__log)
         if len(catalogue) == 0:
             raise ValueError('No star was found within 2 arcsec from given coordinate')
@@ -317,6 +315,7 @@ class Star():
         self.errors['pmRA'] = catalogue['e_pmRA'][0]*(u.mas/u.yr)
         self.errors['pmDEC'] = catalogue['e_pmDE'][0]*(u.mas/u.yr)
         rad = catalogue['Rad'][0]
+        self.meta_gaia = {c: catalogue[c][0] for c in catalogue.columns}
         if np.ma.core.is_masked(rad) or np.ma.core.is_masked(catalogue['Plx'][0]):
             if self.__log:
                 warnings.warn('Gaia catalogue does not have star radius.')
@@ -459,11 +458,16 @@ class Star():
     def __str__(self):
         """String representation of the Star class
         """
-        out = 'ICRS star coordinate at J{}:\nRA={} +/- {:.4f}, DEC={} +/- {:.4f}\n\n'.format(
-            self.coord.obstime.jyear, self.coord.ra.to_string(u.hourangle, sep='hms', precision=5),
-            self.errors['RA'], self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'])
+        out = ''
         if hasattr(self, 'code'):
             out += 'Gaia-DR2 star Source ID: {}\n'.format(self.code)
+        out += ('ICRS star coordinate at J{}:\n'
+                'RA={} +/- {:.4f}, DEC={} +/- {:.4f}\n'
+                'pmRA={:.3f} +/- {:.3f} mas/yr, pmDEC={:.3f} +/- {:.3f} mas/yr, Plx={:.4f} +/- {:.4f} mas\n\n'.format(
+                    self.coord.obstime.jyear, self.coord.ra.to_string(u.hourangle, sep='hms', precision=5),
+                    self.errors['RA'], self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'],
+                    self.meta_gaia['pmRA'], self.meta_gaia['e_pmRA'], self.meta_gaia['e_pmDE'], self.meta_gaia['pmRA'],
+                    self.meta_gaia['Plx'], self.meta_gaia['e_Plx']))
         if hasattr(self, 'offset'):
             out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}\n'.format(
                 self.offset.d_lon_coslat, self.offset.d_lat)
