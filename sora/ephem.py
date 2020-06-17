@@ -11,7 +11,8 @@ from sora.config.decorators import deprecated_alias, deprecated_function
 import spiceypy as spice
 import urllib.request
 import warnings
-
+import requests
+import shutil
 
 warnings.simplefilter('always', UserWarning)
 
@@ -37,6 +38,52 @@ def read_obj_data():
     except:
         warnings.warn('Online object data table could not be found. Please check internet connection.')
     return obj
+
+
+def downloadBSPfromJPL(identifier, initial_date, final_date, email, filename=None):
+    """ Download bsp file from JPL database
+    Parameters:
+    identifier (str): Object identifier. It must be the name, number or SPK ID
+        Examples:
+            "2137295"
+            "1999 RB216"
+            "137295"
+    initial_date (str): Date the bsp file is to begin, within span [1900-2100].
+        Examples:
+            "2003-Feb-1"
+            "2003-Feb-1 16:00"
+    final_date (str): Date the bsp file is to end, within span [1900-2100].
+        Must be more than 32 days later than [initial_date].
+        Examples:
+            "2006-Jan-12"
+            "2006-Jan-12 12:00"
+    email (str): User's e-mail contact address.
+        Example: username@user.domain.name
+    filename (str): Optional. Output file name.
+        If not specified, it uses the [identifier] to assign a
+        name in the current directory.
+        Default form (without spaces):
+            [identifier].bsp
+    Return:
+    binary file (bsp): bsp file with information of the object
+        to generate the respective ephemerides
+    Information:
+        it is able to download bsp files of neither planets nor satellites
+    """
+    if not filename:
+        filename = identifier.replace(' ','') + '.bsp'
+
+    parameters = {'OBJECT':identifier, 'START': initial_date, 'STOP':final_date,
+                  'EMAIL': email, 'TYPE': '-B'}
+
+    urlJPL = 'https://ssd.jpl.nasa.gov/x/smb_spk.cgi?OPTION=Make+SPK'
+
+    r = requests.get(urlJPL, params=parameters, stream=True)
+
+    if r.status_code == requests.codes.ok:
+        with open(filename, 'wb') as f:
+            r.raw.decode_content = True
+            shutil.copyfileobj(r.raw, f)
 
 
 def apparent_mag(H, G, dist, sundist, phase=0.0):
