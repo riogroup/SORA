@@ -1,4 +1,4 @@
-from astropy.coordinates import SkyCoord, EarthLocation, GCRS
+from astropy.coordinates import SkyCoord, EarthLocation, GCRS, AltAz
 from astropy.coordinates.matrix_utilities import rotation_matrix
 from astropy.time import Time
 import astropy.units as u
@@ -133,6 +133,24 @@ class Observer():
         else:
             raise ValueError('mode must be "local" or "greenwich"')
 
+            
+    def altaz(self,time,coord):
+        """Calculates the Altitude and Azimuth at a certain time for a coordinate
+
+        Parameters:
+            time (str,Time): Time to calculate sidereal time.
+            coord (str, astropy.SkyCoord):Coordinate of the target ICRS.
+
+        Returns:
+            altitude (float): in degrees.
+            azimuth (float): in degrees.
+        """
+        time = test_attr(time, Time, 'time')
+        if type(coord) == str:
+            coord = SkyCoord(coord, unit=(u.hourangle, u.deg))
+        ephem_altaz = coord.transform_to(AltAz(obstime=time, location=self.site))
+        return ephem_altaz.alt.deg, ephem_altaz.az.deg 
+            
     @property
     def name(self):
         return self.__name
