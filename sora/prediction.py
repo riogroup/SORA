@@ -240,7 +240,8 @@ class PredictionTable(Table):
         meta = {'name': name, 'radius': radius, 'max_ca': max_ca, 'ephem': lines[17].split()[-1],
                 'error_ra': error_ra*1000, 'error_dec': error_dec*1000}
         return cls(time=time, coord_star=coord_star, coord_obj=coord_obj, ca=dados['ca'], pa=dados['pa'],
-                   vel=dados['vel'], mag_20=dados['mR'], dist=dados['delta'], long=dados['long'], loct=dados['loct'], meta=meta)
+                   vel=dados['vel'], mag_20=dados['mR'], dist=dados['delta'],
+                   long=dados['long'], loct=dados['loct'], meta=meta)
 
     def to_praia(self, filename):
         """ Write PredictionTable to PRAIA format.
@@ -281,13 +282,11 @@ class PredictionTable(Table):
                                    radius=self.meta['radius'], ow_des=ow_des))
         for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, md, sd, source in self.iterrows():
             dmag = mag_20-mag
-            f.write('{} {} {}  {}   {} {}   {} {}   {:5.3f}  {:6.2f} {:-7.3f} {:7.3f} '
+            f.write('{} {} {}  {}   {}   {}   {:5.3f}  {:6.2f} {:-7.3f} {:7.3f} '
                     '{:4.1f} {:-4.1f}   {:3.0f}. {}  {:4.0f}  {:4.0f}\n'.
                     format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:20].replace(':', ' '),
-                           coord.ra.to_string('hour', precision=4, sep=' '),
-                           coord.dec.to_string('deg', precision=3, sep=' '),
-                           coord_geo.ra.to_string('hour', precision=4, sep=' '),
-                           coord_geo.dec.to_string('deg', precision=3, sep=' '),
+                           coord.to_string('hmsdms', precision=4, sep=' ')[:-1],
+                           coord_geo.to_string('hmsdms', precision=4, sep=' ')[:-1],
                            ca, pa, vel, dist, mag_20, dmag, longi, loct,
                            self.meta.get('error_ra', 0), self.meta.get('error_dec', 0))
                     )
