@@ -79,12 +79,12 @@ def fit_ellipse(*args, **kwargs):
         doblateness (int,float)
         dpos_angle (int,float)
 
-        loop: The number of ellipsis to attempt fitting. Default: 10,000,000
-        dchi_min: If given, it will only save ellipsis which chi square are
+        loop (int): The number of ellipsis to attempt fitting. Default: 10,000,000
+        dchi_min (intt,float): If given, it will only save ellipsis which chi square are
             smaller than chi_min + dchi_min.
-        number_chi: if dchi_min is given, the procedure is repeated until
+        number_chi (int): if dchi_min is given, the procedure is repeated until
             number_chi is reached. Default: 10,000
-        log: If True, it prints information while fitting. Default: False.
+        log (bool): If True, it prints information while fitting. Default: False.
 
     Return:
         chisquare: A ChiSquare object with all parameters.
@@ -305,7 +305,7 @@ class Occultation():
 
         Parameters:
             obs (Observer):The Observer object to be added.
-            status (string): it can be "positive", "negative", "visual" or "undefined"
+            lightcurve (LightCurve): The LightCurve object to be addec
         """
         if type(obs) != Observer:
             raise ValueError('obs must be an Observer object')
@@ -328,8 +328,8 @@ class Occultation():
         """ Removes observation from the Occultation object.
 
         Parameters:
-            key: The name given to Observer or LightCurve to remove from the list.
-            keylc: In the case where repeated names are present for different observations,
+            key (str): The name given to Observer or LightCurve to remove from the list.
+            keylc (str): In the case where repeated names are present for different observations,
                 keylc must be given for the name of the LightCurve
                 and key will be used for the name of the Observer.
         """
@@ -391,12 +391,12 @@ class Occultation():
             doblateness (int,float)
             dpos_angle (int,float)
 
-            loop: The number of ellipsis to attempt fitting. Default: 10,000,000
-            dchi_min: If given, it will only save ellipsis which chi square are
+            loop (int): The number of ellipsis to attempt fitting. Default: 10,000,000
+            dchi_min (int,float): If given, it will only save ellipsis which chi square are
                 smaller than chi_min + dchi_min.
-            number_chi: if dchi_min is given, the procedure is repeated until
+            number_chi (int): if dchi_min is given, the procedure is repeated until
                 number_chi is reached. Default: 10,000
-            log: If True, it prints information while fitting. Default: False.
+            log (bool): If True, it prints information while fitting. Default: False.
 
         Return:
             chisquare: A ChiSquare object with all parameters.
@@ -558,7 +558,7 @@ class Occultation():
         """ Calculates the new astrometric position for the object given fitted params
 
         Parameters:
-            time: Time to which calculate the position. If not given, it uses the instant at C/A.
+            time (str,Time): Time to which calculate the position. If not given, it uses the instant at C/A.
             offset (list): Offset to apply to the position. If not given, it uses the params fitted from ellipse.
                 Offsets must be a list of 3 values being [X, Y, 'unit'], where 'unit' must be an angular or distance unit.
                 Angular units must be in dacosdec, ddec: Ex: [30.6, 20, 'mas'], or [-15, 2, 'arcsec']
@@ -659,9 +659,9 @@ class Occultation():
         Parameters:
             all_chords (bool): if True, it plots all the chords,
                 if False, it sees what was deactivated in self.positions and ignores them
-            positive_color: color for the positive chords. Default: blue
-            negative_color: color for the negative chords. Default: green
-            error_color: color for the error bars of the chords. Default: red
+            positive_color (str): color for the positive chords. Default: blue
+            negative_color (str): color for the negative chords. Default: green
+            error_color (str): color for the error bars of the chords. Default: red
         """
         ax = ax or plt.gca()
         positions = self.positions
@@ -715,57 +715,57 @@ class Occultation():
             states (bool): True to plot the state division of the countries. The states of
                 some countries will only be shown depending on the resolution.
             zoom (int, float): Zooms in or out of the map.
-            centermap_geo: Center the map given coordinates in longitude and latitude.
+            centermap_geo (list): Center the map given coordinates in longitude and latitude.
                 It must be a list with two numbers. Default=None.
-            centermap_delta: Displace the center of the map given displacement
+            centermap_delta (list): Displace the center of the map given displacement
                 in X and Y, in km. It must be a list with two numbers. Default=None.
-            centerproj: Rotates the Earth to show occultation with the center
-                projected at a given longitude and latitude.
-            labels: Plots text above and below the map with the occultation parameters.
+            centerproj (list): Rotates the Earth to show occultation with the center
+                projected at a given longitude and latitude. It must be a list with two numbers
+            labels (bool): Plots text above and below the map with the occultation parameters.
                 Default=True.
-            meridians: Plots lines representing the meridians for given interval. Default=30 deg
-            parallels: Plots lines representing the parallels for given interval. Default=30 deg
-            sites: Plots site positions in map. It must be a python dictionary where the key is
+            meridians (int): Plots lines representing the meridians for given interval. Default=30 deg
+            parallels (int): Plots lines representing the parallels for given interval. Default=30 deg
+            sites (dict): Plots site positions in map. It must be a python dictionary where the key is
                 the name of the site, and the value is a list with longitude, latitude, delta_x,
                 delta_y and color. delta_x and delta_y are displacement, in km, from the point
                 of the site in the map and the name. color is the color of the point.
                 If not given, it calculates from observations added to Occultation
-            countries: Plots the names of countries. It must be a python dictionary where the key
+            countries (dict): Plots the names of countries. It must be a python dictionary where the key
                 is the name of the country and the value is a list with longitude and latitude
                 of the lower left part of the text.
-            offset: applies an offset to the ephemeris, calculating new CA and instant of CA.
+            offset (list): applies an offset to the ephemeris, calculating new CA and instant of CA.
                 It is a pair of delta_RA*cosDEC and delta_DEC.
                 If not given it uses the center from ellipse fitted.
-            mapstyle: Define the color style of the map. 1 is the default black and white scale.
+            mapstyle (int): Define the color style of the map. 1 is the default black and white scale.
                 2 is a colored map.
-            error: Ephemeris error in mas. It plots a dashed line representing radius + error.
-            lncolor: Changes the color of the lines of the error bar.
-            ring: It plots a dashed line representing the location of a ring.
+            error (int,float): Ephemeris error in mas. It plots a dashed line representing radius + error.
+            ercolor (str): Changes the color of the lines of the error bar.
+            ring (int,float): It plots a dashed line representing the location of a ring.
                 It is given in km, from the center.
-            rncolor: Changes the color of ring lines.
-            atm: It plots a dashed line representing the location of an atmosphere.
+            rncolor (str): Changes the color of ring lines.
+            atm (int,float): It plots a dashed line representing the location of an atmosphere.
                 It is given in km, from the center.
-            rncolor: Changes the color of atm lines.
-            heights: It plots a circular dashed line showing the locations where the observer
+            atcolor (str): Changes the color of atm lines.
+            heights (list): It plots a circular dashed line showing the locations where the observer
                 would observe the occultation at a given height above the horizons.
                 This must be a list.
-            hcolor: Changes the color of the height lines.
-            mapsize: The size of figure, in cm. It must be a list with two values.
+            hcolor (str): Changes the color of the height lines.
+            mapsize (list): The size of figure, in cm. It must be a list with two values.
                 Default = [46.0, 38.0].
-            cpoints: Interval for the small points marking the center of shadow,
+            cpoints (int,float): Interval for the small points marking the center of shadow,
                 in seconds. Default=60.
-            ptcolor: Change the color of the center points.
-            alpha: The transparency of the night shade, where 0.0 is full transparency
+            ptcolor (str): Change the color of the center points.
+            alpha (float): The transparency of the night shade, where 0.0 is full transparency
                 and 1.0 is full black. Default = 0.2.
-            fmt: The format to save the image. It is parsed directly by matplotlib.pyplot.
+            fmt (str): The format to save the image. It is parsed directly by matplotlib.pyplot.
                 Default = 'png'
-            dpi: "Dots per inch". It defines the quality of the image. Default = 100.
-            lncolor: Changes the color of the line that represents the limits of the shadow over Earth.
-            outcolor: Changes the color of the lines that represents the limits of the shadow outside Earth
-            nscale: Arbitrary scale for the size for the name of the site.
-            cscale Arbitrary scale for the name of the country.
-            sscale Arbitrary scale for the size of point of the site.
-            pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+            dpi (int): "Dots per inch". It defines the quality of the image. Default = 100.
+            lncolor (str): Changes the color of the line that represents the limits of the shadow over Earth.
+            outcolor (str): Changes the color of the lines that represents the limits of the shadow outside Earth
+            nscale (int,float): Arbitrary scale for the size of the name of the site.
+            cscale (int,float): Arbitrary scale for the name of the country.
+            sscale (int,float): Arbitrary scale for the size of point of the site.
+            pscale (int,float): Arbitrary scale for the size of the points that represent the center of the shadow
             arrow (bool): If true, it plots the arrow with the occultation direction.
 
             Comment: Only one of centermap_geo and centermap_delta can be given

@@ -16,7 +16,7 @@ def search_star(**kwargs):
     """ Search position on Vizier and returns a catalogue.
 
     Parameters:
-        coord (str, astropy.SkyCoord):Coordinate to search around.
+        coord (str, SkyCoord):Coordinate to search around.
         code (str):Gaia Source_id of the star
         columns (list):List of strings with the name of the columns to retrieve.
         radius (int, float, unit.quantity):Radius to search around coord.
@@ -24,7 +24,6 @@ def search_star(**kwargs):
 
     Returns:
         catalogue(astropy.Table):An astropy Table with the catalogue informations.
-
     """
     row_limit = 100
     if 'log' in kwargs and kwargs['log']:
@@ -46,6 +45,7 @@ def van_belle(magB=None, magV=None, magK=None):
 
     Inputs:
         magB, magV, magK: The magnitudes B, V and K of the star
+            If value is None, nan or higher than 49, it is not considered.
     '''
     if magB is None or np.isnan(magB) or magB > 49:
         magB = np.nan
@@ -81,6 +81,7 @@ def kervella(magB=None, magV=None, magK=None):
 
     Inputs:
         magB, magV, magK: The magnitudes B, V and K of the star
+            If value is None, nan or higher than 49, it is not considered.
     '''
     if magB is None or np.isnan(magB) or magB > 49:
         magB = np.nan
@@ -142,7 +143,8 @@ class Star():
         Set the magnitudes of a star.
 
         Inputs:
-            (band name): The magnitude for given band
+            (band name)=(float): The magnitude for given band.
+                The band name can be any string the user wants.
 
         Example:
             set_magnitude(G=10)
@@ -161,7 +163,7 @@ class Star():
         Set a user diameter of a star in mas.
 
         Inputs:
-            diameter = float, in mas
+            diameter (int,float): set the user diameter of the star, in mas
         '''
         self.diameter_user = diameter*u.mas
 
@@ -184,21 +186,21 @@ class Star():
 
         Parameters:
             distance (int, float): Object distance in AU
-            mode: The way to calculate the apparent diameter
+            mode (str): The way to calculate the apparent diameter
                 'user': calculates using user diameter
                 'gaia': calculates using Gaia diameter
                 'kervella': calculates using Kervella equations
                 'van_belle': calculates using van Belle equations
                 'auto' (default): tries all the above methods
                     until it is able to calculate diameter.
-                    The order of try is the same as shows above.
-            'band': If mode is 'kervella' or 'van_belle',
+                    The order of try is the same as shown above.
+            'band' (str): If mode is 'kervella' or 'van_belle',
                 the filter must be given, 'B' or 'V'.
                 In 'auto' mode, 'V' is selected.
-            'star_type': If mode is 'van_belle', the star type must be given.
+            'star_type' (str): If mode is 'van_belle', the star type must be given.
                 It can be 'sg', 'ms' and 'vs' for 'Super Giant', 'Main
                 Sequence' and 'Variable Star'. In 'auto' mode, 'sg' is selected.
-            'log': If True, it prints the mode used by 'auto'.
+            'log' (bool): If True, it prints the mode used by 'auto'.
         """
         try:
             distance = distance.to(u.km)
@@ -328,7 +330,7 @@ class Star():
                   self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
 
     def __getcolors(self):
-        """search for the B,V,K magnitudes of the star on Vizier and saves the result
+        """search for the B,V,K magnitudes of the star in the NOMAD catalogue on Vizier
         """
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
         catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec,
@@ -410,7 +412,7 @@ class Star():
         """ calculate the position of the star using proper motion
 
         Parameters:
-            time (float, Time):time to apply proper motion.
+            time (str, Time):time to apply proper motion.
         """
         try:
             time = Time(time)
@@ -431,7 +433,7 @@ class Star():
         """Estimates star position error at time given
 
         Parameters:
-            time (float, Time):time to apply proper motion.
+            time (str, Time):time to project star error.
 
         Return:
             pair of errors, in RA* and DEC

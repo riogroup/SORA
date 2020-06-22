@@ -69,6 +69,8 @@ class LightCurve():
             lambda (int,float): The band pass of observation (not required)
                 in microns
             delta_lambda (int,float): The band width (not required.)
+            exptime (int,float): The exposure time of the observation.
+                Required only if LightCurve have input fluxes
 
             Input data must be one of the 4 options below:
             file (str): a file with the time and flux in the first
@@ -94,6 +96,12 @@ class LightCurve():
             For a negative occultation
             initial_time: The initial time of observation
             end_time: The end time of observation.
+
+        The user must provide one of the followings:
+        LightCurve(name, flux, time, exptime) # dflux can also be given
+        LightCurve(name, file, exptime)  # dflux can also be given
+        LightCurve(name, immersion, immersion_err, emersion, emersion_err)
+        LightCurve(name, initial_time, end_time)
         """
         input_done = False
         self.dflux = None
@@ -280,7 +288,7 @@ class LightCurve():
         '''
         Set the occultation velocity
         Inputs:
-        vel = float, in km/s
+        vel (int,float): velocity in km/s
         '''
         if type(vel) == u.quantity.Quantity:
             vel = vel.to(u.km/u.s).value
@@ -294,7 +302,7 @@ class LightCurve():
         '''
         Set the object distance
         Inputs:
-        dist = float, in km
+        dist (int,float): distance in km
         '''
         if type(dist) == u.quantity.Quantity:
             dist = dist.to(u.AU).value
@@ -308,7 +316,7 @@ class LightCurve():
         '''
         Set the star diameter
         Inputs:
-        diam = float, in km
+        d_star (float): star diameter, in km
         '''
         if type(d_star) == u.quantity.Quantity:
             d_star = d_star.to(u.km).value
@@ -322,8 +330,8 @@ class LightCurve():
         '''
         Set the filter bandwidth in microns
         Inputs:
-        lambda_0 = float, in microns
-        delta_lambda = float, in microns
+        lambda_0 (float): center band in microns
+        delta_lambda (float): bandwidth in microns
         '''
         if type(lambda_0) == u.quantity.Quantity:
             lambda_0 = lambda_0.to(u.micrometer).value
@@ -346,8 +354,8 @@ class LightCurve():
         ----------
         Parameters
         ----------
-        mag_star (float): Stellar magnitude.
-        mag_obj  (float): Object apparent magnitude to the date.
+        mag_star (int,float): Stellar magnitude.
+        mag_obj  (int,float): Object apparent magnitude to the date.
         ----------
         Returns
         ----------

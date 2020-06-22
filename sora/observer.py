@@ -38,10 +38,10 @@ class Observer():
             name (str): Name for the Observer. (required)
                 Each time an Observer object is defined, the name must be different.
             code (str): The IAU code to look for coordinates in MPC database
-            site (EarthLocation): To provide a EarthLocation object to Object.
-            lon (int, float): The Longitude of the site.
-            lat (int, float): The Latitude of the site.
-            height (int, float): The height of the site.
+            site (EarthLocation): To provide an EarthLocation object.
+            lon (str, float): The Longitude of the site in degrees.
+            lat (str, float): The Latitude of the site in degrees.
+            height (int, float): The height of the site in meters above see level.
 
         The user must provide one of the followings:
         Observer(code)
@@ -90,9 +90,9 @@ class Observer():
 
         Parameters:
         time (str, Time):Time from which to calculate the position.
-        It can be a string in the format "yyyy-mm-dd hh:mm:ss.s" or an astropy Time object
+            It can be a string in the format "yyyy-mm-dd hh:mm:ss.s" or an astropy Time object
         star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
-        It can be a string in the format "hh mm ss.s +dd mm ss.ss" or an astropy SkyCoord object.
+            It can be a string in the format "hh mm ss.s +dd mm ss.ss" or an astropy SkyCoord object.
 
         Returns:
         ksi, eta (float): on-sky orthographic projection of the observer relative to a star

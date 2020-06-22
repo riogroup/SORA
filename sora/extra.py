@@ -4,7 +4,7 @@ import astropy.units as u
 
 
 def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0,
-                 center_g=0.0, position_angle=0.0, ax=None, *args, **kwargs):
+                 center_g=0.0, position_angle=0.0, ax=None, **kwargs):
     """ Plots an ellipse given input parameters
 
     Parameters:
@@ -12,7 +12,8 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0,
         oblateness (float, int): Oblateness of the ellipse. Default=0.0
         center_x (float, int): Coordinate of the ellipse (abscissa). Default=0.0
         center_y (float, int): Coordinate of the ellipse (ordinate). Default=0.0
-        pos_angle (float, int): Pole position angle. Default=0.0
+        position_angle (float, int): Pole position angle. Default=0.0
+        ax (maptlotlib.Axes): Axis where to plot ellipse
         **kwargs: all other parameters will be parsed directly to matplotlib
     """
     equatorial_radius = np.array(equatorial_radius, ndmin=1)
@@ -46,27 +47,27 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0,
         pos_ang = position_angle[i]*u.deg
         ax.plot(+circle_x*np.cos(pos_ang) + circle_y*np.sin(pos_ang) + center_f[i],
                 -circle_x*np.sin(pos_ang) + circle_y*np.cos(pos_ang) + center_g[i],
-                *args, **kwargs)
+                **kwargs)
     plt.axis('equal')
 
 
 class ChiSquare():
-    """ ChiSquare stores the arrays for all inputs and given chi-square.
-
-    Parameters:
-        chi2 (array): Array with all the chi-square values
-        **kwargs: any other given input must be an array with the same size as chi2.
-            the keyword name will be associated as the variable name of the given data
-
-    Example:
-
-    chisquare = ChiSquare(chi2, immersion=t1, emersion=t2)
-    t1 and t2 must be an array with the same size as chi2.
-    the data can be accessed as:
-    chisquare.data['immersion']
-
-    """
     def __init__(self, chi2, npts, **kwargs):
+        """ ChiSquare stores the arrays for all inputs and given chi-square.
+
+        Parameters:
+            chi2 (array): Array with all the chi-square values
+            npts (int): Number of points used in the fit
+            **kwargs: any other given input must be an array with the same size as chi2.
+                the keyword name will be associated as the variable name of the given data
+
+        Example:
+
+        chisquare = ChiSquare(chi2, immersion=t1, emersion=t2)
+        t1 and t2 must be an array with the same size as chi2.
+        the data can be accessed as:
+        chisquare.data['immersion']
+        """
         self.__names = ['chi2']
         self.data = {'chi2': chi2}
         data_size = len(chi2)
@@ -115,7 +116,9 @@ class ChiSquare():
 
         Parameters:
             key (str): Key to plot chi square.
-            if no key  is given, it will plot for all the keywords.
+                if no key  is given, it will plot for all the keywords.
+            ax (maplotlib.Axes): A matplotlib axes to plot,
+                if none is given, it uses the matplotlib pool to identify.
         """
         sigma_1 = self.get_nsigma(sigma=1)
         sigma_3 = self.get_nsigma(sigma=3)
