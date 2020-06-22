@@ -277,6 +277,12 @@ class PredictionTable(Table):
             raise ValueError('mode param must be "append" or "restart".')
 
         f = open('tableOccult_update.txt', modes[mode])
+        if self.meta['radius'] == 0.0:
+            warnings.warn('radius is 0.0, please update the value manually in "tableOccult_update.txt" '
+                          'before submitting the file')
+        if (self.meta['error_ra'] == 0.0) or (self.meta['error_ra'] == 0.0):
+            warnings.warn('error_ra and/or error_dec is 0.0, please update the value manually in '
+                          '"tableOccult_update.txt" before submitting the file')
         f.write(ow_occ_head.format(name=self.meta['name'], ephem=self.meta.get('ephem', 'ephem'),
                                    max_ca=self.meta['max_ca'].to(u.arcsec), size=len(self),
                                    radius=self.meta['radius'], ow_des=ow_des))
@@ -511,7 +517,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
 
     meta = {'name': ephem.name, 'time_beg': time_beg, 'time_end': time_end, 'maglim': mag_lim, 'max_ca': mindist,
             'radius': ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value,
-            'error_dec': ephem.error_dec.to(u.mas).value}
+            'error_dec': ephem.error_dec.to(u.mas).value, 'ephem': ephem.meta['kernels']}
     if not occs:
         print('No stellar occultation was found')
         return PredictionTable(meta=meta)
