@@ -249,7 +249,7 @@ class PredictionTable(Table):
         INPUT:
             filename(str): name of the file to save table
         """
-        from .config import praia_occ_head
+        from sora.config.variables import praia_occ_head
         f = open(filename, 'w')
         f.write(praia_occ_head.format(max_ca=self.meta['max_ca'].to(u.arcsec), size=len(self),
                                       ephem=self.meta.get('ephem', 'ephem')))
@@ -271,7 +271,7 @@ class PredictionTable(Table):
             mode (str): 'append' to append table to already existing file, default
                         'restart' to overwrite existing file.
         """
-        from .config import ow_occ_head
+        from sora.config.variables import ow_occ_head
         modes = {'append': 'a+', 'restart': 'w'}
         if mode not in modes.keys():
             raise ValueError('mode param must be "append" or "restart".')
