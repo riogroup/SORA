@@ -155,12 +155,25 @@ class LightCurve():
 
     @property
     def immersion(self):
-        return self._immersion + self.dt*u.s
-
+        if hasattr(self, '_immersion'):
+            return self._immersion + self.dt*u.s
+        else:
+            warnings.warn('The immersion time was not fitted or instanciated.')
+                          
     @property
     def emersion(self):
-        return self._emersion + self.dt*u.s
+        if hasattr(self, '_emersion'):
+            return self._emersion + self.dt*u.s
+        else:
+            warnings.warn('The emersion time was not fitted or instanciated.')
 
+    @property
+    def time_mean(self):
+        if hasattr(self, '_immersion') and hasattr(self, '_emersion'):
+            return Time((self.immersion.jd+ self.emersion.jd)/2,format='jd')
+        else:
+            return Time((self.initial_time.jd+ self.end_time.jd)/2,format='jd')
+    
     def check_names(self):
         return self.__names
 
