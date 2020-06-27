@@ -133,8 +133,7 @@ class Observer():
         else:
             raise ValueError('mode must be "local" or "greenwich"')
 
-            
-    def altaz(self,time,coord):
+    def altaz(self, time, coord):
         """Calculates the Altitude and Azimuth at a certain time for a coordinate
 
         Parameters:
@@ -149,8 +148,8 @@ class Observer():
         if type(coord) == str:
             coord = SkyCoord(coord, unit=(u.hourangle, u.deg))
         ephem_altaz = coord.transform_to(AltAz(obstime=time, location=self.site))
-        return ephem_altaz.alt.deg, ephem_altaz.az.deg 
-            
+        return ephem_altaz.alt.deg, ephem_altaz.az.deg
+
     @property
     def name(self):
         return self.__name

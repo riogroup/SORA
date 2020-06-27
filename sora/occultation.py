@@ -865,7 +865,6 @@ class Occultation():
                 f.write('{:9.3f} {:9.3f} {:-6.2f} {:-6.2f} {:16.8f} {}\n'.format(*line))
             f.close()
 
-            
     def __str__(self):
         """String representation of the Occultation class
         """
@@ -890,7 +889,7 @@ class Occultation():
                 if count[status] > 0:
                     string[status] += '-'*79 + '\n'
                 string[status] += ob.__str__() + '\n'
-                ephem_altaz = ob.altaz(lc.time_mean,self.ephem.get_position(lc.time_mean))
+                ephem_altaz = ob.altaz(lc.time_mean, self.ephem.get_position(lc.time_mean))
                 string[status] += 'Target altitude: {:.1f} deg\n'.format(ephem_altaz[0])
                 string[status] += 'Target azimuth:  {:.1f} deg\n\n'.format(ephem_altaz[1])
                 string[status] += lc.__str__() + ''
