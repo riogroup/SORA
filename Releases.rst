@@ -16,8 +16,14 @@ sora.extra
 sora.lightcurve
 ^^^^^^^^^^^^^^^
 
+- Property LightCurve.time_mean that returns the mean time of the chord (positive) or
+  the mean time of the observation (negative). [#34]
+
 sora.observer
 ^^^^^^^^^^^^^
+
+- Function Observer.altaz() that calculates the altitude and azimuth for a given target 
+  and instant. [#34]
 
 sora.occultation
 ^^^^^^^^^^^^^^^^
@@ -40,7 +46,7 @@ sora.config
 sora.ephem
 ^^^^^^^^^^
 
-- In EphemKernle, `code` argument was replaced by `spkid`. When using 'code',
+- In EphemKernel, `code` argument was replaced by `spkid`. When using 'code',
   a FutureWarning is raised stating `code` as deprecated and will be removed from v1.0. [#26]
 
 sora.extra
@@ -48,6 +54,9 @@ sora.extra
 
 sora.lightcurve
 ^^^^^^^^^^^^^^^
+
+- In LightCurve.immersion and LightCurve.emersion, an error will rise when these values were not 
+  instanciated or fitted. [#34]
 
 sora.observer
 ^^^^^^^^^^^^^
@@ -59,8 +68,9 @@ sora.occultation
   by more than 1 day from the occultation closest approach. [#21]
 
 - Occultation.to_log() and print(Occultation) added the polar radius, equivalent radius, 
-  the Sun-Geocenter-Target angle and the Moon-Geocenter-Target angle. [#17]
-
+  the Sun-Geocenter-Target angle and the Moon-Geocenter-Target angle, geocentric albedo,
+  the altitude and azimuth of the target for each Observer. [#17]
+  
 sora.prediction
 ^^^^^^^^^^^^^^^
 
@@ -90,7 +100,9 @@ sora.lightcurve
 
 - Fixed error when the file with the light curve has three columns. [#19]
 
-- Fixed error when the exptime within the LightCurve was set as zero or negative [#23]
+- Fixed error when the exptime within the LightCurve was set as zero or negative. [#23]
+
+- Fixed error in the automatic mode of LightCurve.normalize(). [#34]
 
 sora.observer
 ^^^^^^^^^^^^^

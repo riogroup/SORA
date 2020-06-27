@@ -74,6 +74,7 @@ class LightCurve():
             file (str): a file with the time and flux in the first
                 and second columns, respectively. A third columns
                 with error in flux can also be given.
+            usecols (int, tuple, array): Which columns to read, with 0 being the first.
 
             IF file is not given:
             time: time must be a list of times, in seconds from tref,
@@ -154,11 +155,24 @@ class LightCurve():
 
     @property
     def immersion(self):
-        return self._immersion + self.dt*u.s
+        if hasattr(self, '_immersion'):
+            return self._immersion + self.dt*u.s
+        else:
+            raise AttributeError('The immersion time was not fitted or instanciated.')
 
     @property
     def emersion(self):
-        return self._emersion + self.dt*u.s
+        if hasattr(self, '_emersion'):
+            return self._emersion + self.dt*u.s
+        else:
+            raise AttributeError('The emersion time was not fitted or instanciated.')
+
+    @property
+    def time_mean(self):
+        if hasattr(self, '_immersion') and hasattr(self, '_emersion'):
+            return Time((self.immersion.jd + self.emersion.jd)/2, format='jd')
+        else:
+            return Time((self.initial_time.jd + self.end_time.jd)/2, format='jd')
 
     def check_names(self):
         return self.__names
@@ -179,21 +193,33 @@ class LightCurve():
                 It must have the same lenght as time.
             tref (Time,str,float): Instant of reference. It can be
                 in Julian Date, string in ISO format or Time object.
+            usecols (int, tuple, array): Which columns to read, with 0 being the first.
         """
         input_done = False
+        usecols = None
+        if 'usecols' in kwargs:
+            usecols = kwargs['usecols']
         if 'file' in kwargs:
             if not os.path.isfile(kwargs['file']):
                 raise ValueError('{} not found'.format(kwargs['file']))
-            try:
-                time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0, 1, 2], unpack=True)
+            if usecols is not None:
+                if len(usecols) == 2:
+                    time, self.flux = np.loadtxt(kwargs['file'], usecols=usecols, unpack=True)
+                elif len(usecols) == 3:
+                    time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=usecols, unpack=True)
+                else:
+                    raise ValueError('usecols should have 2 or 3 values')
+            else:
+                try:
+                    time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0, 1, 2], unpack=True)
+                except:
+                    pass
+                try:
+                    time, self.flux = np.loadtxt(kwargs['file'], usecols=[0, 1], unpack=True)
+                except:
+                    pass
+            if hasattr(self, 'flux'):
                 self.flux_obs = self.flux
-            except:
-                pass
-            try:
-                time, self.flux = np.loadtxt(kwargs['file'], usecols=[0, 1], unpack=True)
-                self.flux_obs = self.flux
-            except:
-                pass
             if not hasattr(self, 'flux_obs'):
                 raise ValueError('Input file must have 2 or 3 columns')
             input_done = True
@@ -359,7 +385,7 @@ class LightCurve():
         plot = kwargs.get('plot', False)
         lc_flux = (self.flux - flux_min)/(flux_max-flux_min)
         if mask is None:
-            preliminar_occ = self.occ_detect()
+            preliminar_occ = self.occ_detect(maximum_duration=((self.end_time - self.initial_time).value*u.d.to('s'))/3)
             tmax = preliminar_occ['emersion_time']+1.00*preliminar_occ['occultation_duration']
             tmin = preliminar_occ['immersion_time']-1.00*preliminar_occ['occultation_duration']
             chord = preliminar_occ['occultation_duration']
@@ -512,7 +538,7 @@ class LightCurve():
         flux_max (int,float): Base flux (object plus star), default equal to 1.0
         immersion_time  (int, float): Initial guess for immersion time, in seconds.
         emersion_time   (int, float): Initial guess for emersion time, in seconds.
-        opacity  (int, float): Initial guess for opacity, opaque = 1.0, transparent = 0.0, default equal to 0.0.
+        opacity  (int, float): Initial guess for opacity, opaque = 1.0, transparent = 0.0, default equal to 1.0.
         delta_t (int, float): Interval to fit immersion or emersion time
         dopacity   (int, float): Interval to fit opacity, default equal to 0, no fit.
         loop       (int): Number of tests to be done, default equal to 10000.
@@ -607,18 +633,18 @@ class LightCurve():
             self.immersion_err = onesigma['immersion'][1]
             immersion_time = onesigma['immersion'][0]
         else:
-            try: 
+            try:
                 immersion_time = (self._immersion.jd - self.tref.jd)*u.d.to('s')
-            except: 
+            except:
                 pass
         if 'emersion' in onesigma:
             self._emersion = self.tref + onesigma['emersion'][0]*u.s
             self.emersion_err = onesigma['emersion'][1]
             emersion_time = onesigma['emersion'][0]
         else:
-            try: 
+            try:
                 emersion_time = (self._emersion.jd - self.tref.jd)*u.d.to('s')
-            except: 
+            except:
                 pass
         if 'opacity' in onesigma:
             opacity = onesigma['opacity'][0]

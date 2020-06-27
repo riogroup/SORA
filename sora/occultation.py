@@ -866,7 +866,7 @@ class Occultation():
             f.close()
 
     def __str__(self):
-        """String representation of the Star class
+        """String representation of the Occultation class
         """
         out = ('Stellar occultation of star Gaia-DR2 {} by {}.\n\n'
                'Geocentric Closest Approach: {:.3f}\n'
@@ -888,7 +888,10 @@ class Occultation():
                 status = pos[ob.name][lc.name]['status']
                 if count[status] > 0:
                     string[status] += '-'*79 + '\n'
-                string[status] += ob.__str__() + '\n\n'
+                string[status] += ob.__str__() + '\n'
+                ephem_altaz = ob.altaz(lc.time_mean, self.ephem.get_position(lc.time_mean))
+                string[status] += 'Target altitude: {:.1f} deg\n'.format(ephem_altaz[0])
+                string[status] += 'Target azimuth:  {:.1f} deg\n\n'.format(ephem_altaz[1])
                 string[status] += lc.__str__() + ''
                 count[status] += 1
 
@@ -928,6 +931,12 @@ class Occultation():
             equivalent_radius = np.sqrt(self.fitted_params['equatorial_radius'][0]*polar_radius)
             out += 'polar_radius: {:.3f} km \n'.format(polar_radius)
             out += 'equivalent_radius: {:.3f} km \n'.format(equivalent_radius)
+            if self.ephem.H is not np.nan:
+                H_sun = -26.74
+                geometric_albedo = (10**(0.4*(H_sun - self.ephem.H))) * ((u.au.to('km')/equivalent_radius)**2)
+                out += 'geometric albedo (V): {:.3f} ({:.1%}) \n'.format(geometric_albedo, geometric_albedo)
+            else:
+                out += 'geometric albedo (V): not calculated, absolute magnitude (H) is unknown \n'
             out += '\nMinimum chi-square: {:.3f}\n'.format(self.chi2_params['chi2_min'])
             out += 'Number of fitted points: {}\n'.format(self.chi2_params['npts'])
             out += 'Number of fitted parameters: {}\n'.format(self.chi2_params['nparam'])
