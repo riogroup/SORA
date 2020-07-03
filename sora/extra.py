@@ -3,8 +3,8 @@ import numpy as np
 import astropy.units as u
 
 
-def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0,
-                 center_g=0.0, position_angle=0.0, ax=None, **kwargs):
+def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
+                 position_angle=0.0, center_dot=False, ax=None, **kwargs):
     """ Plots an ellipse given input parameters
 
     Parameters:
@@ -12,6 +12,7 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0,
         oblateness (float, int): Oblateness of the ellipse. Default=0.0
         center_x (float, int): Coordinate of the ellipse (abscissa). Default=0.0
         center_y (float, int): Coordinate of the ellipse (ordinate). Default=0.0
+        center_dot (bool): If True, it plots a dot at the center of the ellipse
         position_angle (float, int): Pole position angle. Default=0.0
         ax (maptlotlib.Axes): Axis where to plot ellipse
         **kwargs: all other parameters will be parsed directly to matplotlib
@@ -48,6 +49,8 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0,
         ax.plot(+circle_x*np.cos(pos_ang) + circle_y*np.sin(pos_ang) + center_f[i],
                 -circle_x*np.sin(pos_ang) + circle_y*np.cos(pos_ang) + center_g[i],
                 **kwargs)
+    if center_dot:
+        plt.plot(center_f, center_g, '.', color='black')
     plt.axis('equal')
 
 
