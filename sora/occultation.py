@@ -642,7 +642,8 @@ class Occultation():
         else:
             return out
 
-    def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red', ax=None):
+    def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red',
+                    ax=None, lw=2, labels=True):
         """Plots the chords of the occultation
 
         Parameters:
@@ -651,6 +652,8 @@ class Occultation():
             positive_color (str): color for the positive chords. Default: blue
             negative_color (str): color for the negative chords. Default: green
             error_color (str): color for the error bars of the chords. Default: red
+            ax (maptlotlib.Axes): Axis where to plot chords. Default: Use matplotlib pool.
+            lw (int, float): linewidth of the chords. Default: 2
         """
         ax = ax or plt.gca()
         positions = self.positions
@@ -662,20 +665,24 @@ class Occultation():
                     continue
                 if pos_lc['status'] == 'negative':
                     arr = np.array([pos_lc['start_obs']['value'], pos_lc['end_obs']['value']])
-                    ax.plot(*arr.T, '--', color=negative_color, linewidth=0.7)
+                    ax.plot(*arr.T, '--', color=negative_color, linewidth=lw)
                 else:
                     n = 0
                     if pos_lc['immersion']['on'] or all_chords:
                         arr = np.array([pos_lc['immersion']['error']])
-                        ax.plot(*arr.T, color=error_color, linewidth=1.5)
+                        ax.plot(*arr.T, color=error_color, linewidth=lw*3/2)
                         n += 1
                     if pos_lc['emersion']['on'] or all_chords:
                         arr = np.array([pos_lc['emersion']['error']])
-                        ax.plot(*arr.T, color=error_color, linewidth=1.5)
+                        ax.plot(*arr.T, color=error_color, linewidth=lw*3/2)
                         n += 1
                     if n == 2:
                         arr = np.array([pos_lc['immersion']['value'], pos_lc['emersion']['value']])
-                        ax.plot(*arr.T, color=positive_color, linewidth=0.7)
+                        ax.plot(*arr.T, color=positive_color, linewidth=lw)
+        ax.invert_xaxis()
+        if labels:
+            ax.set_xlabel('f (km)')
+            ax.set_ylabel('g (km)')
         ax.axis('equal')
 
     def get_map_sites(self):
