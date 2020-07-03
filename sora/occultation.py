@@ -706,6 +706,7 @@ class Occultation():
                 instantiating.
 
             nameimg (str): Change the name of the imaged saved.
+            path (str): Path to a directory where to save map.
             resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
                 "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
             states (bool): True to plot the state division of the countries. The states of
@@ -726,6 +727,7 @@ class Occultation():
                 delta_y and color. delta_x and delta_y are displacement, in km, from the point
                 of the site in the map and the name. color is the color of the point.
                 If not given, it calculates from observations added to Occultation
+            site_name (bool): If True, it prints the name of the sites given, else it plots only the points
             countries (dict): Plots the names of countries. It must be a python dictionary where the key
                 is the name of the country and the value is a list with longitude and latitude
                 of the lower left part of the text.
@@ -742,6 +744,9 @@ class Occultation():
             atm (int,float): It plots a dashed line representing the location of an atmosphere.
                 It is given in km, from the center.
             atcolor (str): Changes the color of atm lines.
+            chord_delta (list): list with distances from center to plot chords
+            chord_geo (2d-list): list with pairs of coordinates to plot chords
+            chcolor (str): color of the line of the chords. Default: grey
             heights (list): It plots a circular dashed line showing the locations where the observer
                 would observe the occultation at a given height above the horizons.
                 This must be a list.

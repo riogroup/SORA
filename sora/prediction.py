@@ -23,6 +23,7 @@ class PredictRow(Row):
             radius (int,float): The radius of the shadow. If not given it uses saved value
 
             nameimg (str): Change the name of the imaged saved.
+            path (str): Path to a directory where to save map.
             resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
                 "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
             states (bool): True to plot the state division of the countries. The states of
@@ -42,6 +43,7 @@ class PredictRow(Row):
                 the name of the site, and the value is a list with longitude, latitude, delta_x,
                 delta_y and color. delta_x and delta_y are displacement, in km, from the point
                 of the site in the map and the name. color is the color of the point.
+            site_name (bool): If True, it prints the name of the sites given, else it plots only the points
             countries (dict): Plots the names of countries. It must be a python dictionary where the key
                 is the name of the country and the value is a list with longitude and latitude
                 of the lower left part of the text.
@@ -57,6 +59,9 @@ class PredictRow(Row):
             atm (int,float): It plots a dashed line representing the location of an atmosphere.
                 It is given in km, from the center.
             atcolor (str): Changes the color of atm lines.
+            chord_delta (list): list with distances from center to plot chords
+            chord_geo (2d-list): list with pairs of coordinates to plot chords
+            chcolor (str): color of the line of the chords. Default: grey
             heights (list): It plots a circular dashed line showing the locations where the observer
                 would observe the occultation at a given height above the horizons.
                 This must be a list.
@@ -313,6 +318,7 @@ class PredictionTable(Table):
             radius (int,float): The radius of the shadow. If not given it uses saved value
 
             nameimg (str): Change the name of the imaged saved.
+            path (str): Path to a directory where to save map.
             resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
                 "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
             states (bool): True to plot the state division of the countries. The states of
@@ -332,6 +338,7 @@ class PredictionTable(Table):
                 the name of the site, and the value is a list with longitude, latitude, delta_x,
                 delta_y and color. delta_x and delta_y are displacement, in km, from the point
                 of the site in the map and the name. color is the color of the point.
+            site_name (bool): If True, it prints the name of the sites given, else it plots only the points
             countries (dict): Plots the names of countries. It must be a python dictionary where the key
                 is the name of the country and the value is a list with longitude and latitude
                 of the lower left part of the text.
@@ -347,6 +354,9 @@ class PredictionTable(Table):
             atm (int,float): It plots a dashed line representing the location of an atmosphere.
                 It is given in km, from the center.
             atcolor (str): Changes the color of atm lines.
+            chord_delta (list): list with distances from center to plot chords
+            chord_geo (2d-list): list with pairs of coordinates to plot chords
+            chcolor (str): color of the line of the chords. Default: grey
             heights (list): It plots a circular dashed line showing the locations where the observer
                 would observe the occultation at a given height above the horizons.
                 This must be a list.
@@ -638,6 +648,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
 
         Map configuration:
         nameimg (str): Change the name of the imaged saved.
+        path (str): Path to a directory where to save map.
         resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
             "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
         states (bool): True to plot the state division of the countries. The states of
@@ -657,6 +668,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
             the name of the site, and the value is a list with longitude, latitude, delta_x,
             delta_y and color. delta_x and delta_y are displacement, in km, from the point
             of the site in the map and the name. color is the color of the point.
+        site_name (bool): If True, it prints the name of the sites given, else it plots only the points
         countries (dict): Plots the names of countries. It must be a python dictionary where the key
             is the name of the country and the value is a list with longitude and latitude
             of the lower left part of the text.
@@ -672,6 +684,9 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         atm (int,float): It plots a dashed line representing the location of an atmosphere.
             It is given in km, from the center.
         atcolor (str): Changes the color of atm lines.
+        chord_delta (list): list with distances from center to plot chords
+        chord_geo (2d-list): list with pairs of coordinates to plot chords
+        chcolor (str): color of the line of the chords. Default: grey
         heights (list): It plots a circular dashed line showing the locations where the observer
             would observe the occultation at a given height above the horizons.
             This must be a list.
@@ -700,10 +715,10 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     import cartopy.feature as cfeature
 
     allowed_kwargs = ['alpha', 'arrow', 'atcolor', 'atm', 'centermap_delta', 'centermap_geo', 'centerproj',
-                      'countries', 'cpoints', 'cscale', 'dpi', 'ercolor', 'error', 'fmt', 'hcolor', 'heights',
-                      'labels', 'lncolor', 'mapsize', 'mapstyle', 'meridians', 'nameimg', 'nscale', 'offset',
-                      'outcolor', 'parallels', 'pscale', 'ptcolor', 'resolution', 'ring', 'rncolor', 'sites',
-                      'sscale', 'states', 'zoom']
+                      'chcolor', 'chord_delta', 'chord_geo', 'countries', 'cpoints', 'cscale', 'dpi', 'ercolor',
+                      'error', 'fmt', 'hcolor', 'heights', 'labels', 'lncolor', 'mapsize', 'mapstyle', 'meridians',
+                      'nameimg', 'nscale', 'offset', 'outcolor', 'parallels', 'path', 'pscale', 'ptcolor',
+                      'resolution', 'ring', 'rncolor', 'site_name', 'sites', 'sscale', 'states', 'zoom']
     input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
     if not type(name) == str:
@@ -764,6 +779,17 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     zoom = kwargs.get('zoom', 1)
     off_ra, off_de = kwargs.get('offset', [0.0, 0.0])*u.mas
     arrow = kwargs.get('arrow', True)
+    site_name = kwargs.get('site_name', True)
+    path = kwargs.get('path', '.')
+    chord_delta = np.array(kwargs.get('chord_delta', []), ndmin=1)*u.km
+    chord_geo = kwargs.get('chord_geo', [])
+    if len(chord_geo) > 0:
+        try:
+            b = np.array(chord_geo, ndmin=2)
+            chord_geo = b.reshape(len(b), 2)
+        except:
+            raise ValueError('chord_geo must a set of pairs with longitude and latitude')
+        chord_geo = EarthLocation(*chord_geo.T)
 
     sites = {}
     if 'sites' in kwargs.keys():
@@ -867,6 +893,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         atcolor = 'blue'
         outcolor = 'red'
         hcolor = 'black'
+        chcolor = 'gray'
     elif mapstyle == 2:
         axf.add_feature(ocean, zorder=0, facecolor=cfeature.COLORS['water'])
         axf.add_feature(land, zorder=0, edgecolor='None', facecolor=cfeature.COLORS['land'])
@@ -881,6 +908,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         atcolor = 'black'
         outcolor = 'red'
         hcolor = 'black'
+        chcolor = 'gray'
     if states:
         states_r = cfeature.NaturalEarthFeature('cultural', 'admin_1_states_provinces', resolution)
         axf.add_feature(states_r, zorder=0, edgecolor='0.6', facecolor='None')
@@ -905,6 +933,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     atcolor = kwargs.get('atcolor', atcolor)
     outcolor = kwargs.get('outcolor', outcolor)
     hcolor = kwargs.get('hcolor', hcolor)
+    chcolor = kwargs.get('chcolor', chcolor)
 
 # calculates path
     vec = np.arange(0, int(8000/(np.absolute(occs['vel'].value))), step)
@@ -945,6 +974,27 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     j = np.where(lon2 > 1e+30)
     if 'centerproj' not in kwargs:
         plt.plot(ax3[j].to(u.m).value, by3[j].to(u.m).value, color=outcolor, clip_on=(not centert), zorder=-0.2)
+
+# plots chords_delta
+    for val in chord_delta:
+        ax2 = ax + val*np.sin(paplus)
+        by2 = by + val*np.cos(paplus)
+        lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
+        j = np.where(lon1 < 1e+30)
+        axf.plot(lon1[j], lat1[j], transform=ccrs.Geodetic(), color=chcolor)
+
+# plots chords_geo
+    for coord_geo in chord_geo:
+        xt, yt = latlon2xy(coord_geo.lon.deg, coord_geo.lat.deg, centers.lon.value, centers.lat.value)*u.m
+        val = np.sqrt((xt-ax)**2 + (yt-by)**2)
+        k = val.argmin()
+        ang = np.arctan2((yt-by)[k], (xt-ax)[k])
+        val = np.sign(np.sin(ang))*val[k]
+        ax2 = ax + val*np.sin(paplus)
+        by2 = by + val*np.cos(paplus)
+        lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
+        j = np.where(lon1 < 1e+30)
+        axf.plot(lon1[j], lat1[j], transform=ccrs.Geodetic(), color=chcolor)
 
 # plots error
     if erro is not None:
@@ -1046,12 +1096,13 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
 
 # plots the sites
     for site in sites.keys():
-        s = EarthLocation.from_geodetic(sites[site][0]*u.deg, sites[site][1]*u.deg, 0.0*u.km)
+        s = EarthLocation.from_geodetic(sites[site][0], sites[site][1], 0.0*u.km)
         axf.plot(s.lon.deg, s.lat.deg, 'o', transform=ccrs.Geodetic(),
                  markersize=mapsize[0].value*sscale*10.0/46.0, color=sites[site][4])
-        xt, yt = latlon2xy(s.lon.deg, s.lat.deg, center_map.lon.value, center_map.lat.value)
-        axf.text(xt + sites[site][2]*1000, yt+sites[site][3]*1000, site, weight='bold',
-                 fontsize=25*nscale, family='monospace')
+        if site_name:
+            xt, yt = latlon2xy(s.lon.deg, s.lat.deg, center_map.lon.value, center_map.lat.value)
+            axf.text(xt + sites[site][2]*1000, yt+sites[site][3]*1000, site, weight='bold',
+                     fontsize=25*nscale, family='monospace')
 
 # Define the title and label of the output
     title = ('Object        Diam   Tmax   dots <> ra_offset_dec\n'
@@ -1070,7 +1121,8 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         axf.set_title(title, family='monospace', weight='bold', fontsize=22)
         axf.text(0.5, -0.1, labelx, va='bottom', ha='center', rotation='horizontal', rotation_mode='anchor',
                  transform=axf.transAxes, family='monospace', weight='bold', fontsize=22)
-    plt.savefig('{}.{}'.format(nameimg, fmt), format=fmt, dpi=dpi)
+    filepath = os.path.join(path, '{}.{}'.format(nameimg, fmt))
+    plt.savefig(filepath, format=fmt, dpi=dpi)
     print('{}.{} generated'.format(nameimg, fmt))
     plt.clf()
     plt.close()
