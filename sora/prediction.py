@@ -1,5 +1,6 @@
 from .star import Star
 from .ephem import EphemKernel, EphemJPL, EphemPlanete
+from sora.config import input_tests
 import astropy.units as u
 import astropy.constants as const
 from astropy.coordinates import SkyCoord, EarthLocation, Angle, get_sun
@@ -80,9 +81,7 @@ class PredictRow(Row):
 
             Comment: Only one of centermap_geo and centermap_delta can be given
         """
-        radius = kwargs.get('radius', self.meta['radius'])
-        if 'radius' in kwargs:
-            del kwargs['radius']
+        radius = kwargs.pop('radius', self.meta['radius'])
         plot_occ_map(self.meta['name'], radius, coord=self['ICRS Star Coord at Epoch'], time=self['Epoch'],
                      ca=float(self['C/A']), pa=float(self['P/A']), vel=float(self['Vel']), dist=float(self['Dist']),
                      mag=float(self['G*']), longi=float(self['long']), **kwargs)
@@ -184,7 +183,7 @@ class PredictionTable(Table):
             name (str): Name of the Object of the prediction.
             radius (int,float): Object radius, in km. (not required)
                 If not given it's searched in online database.
-                If not found online, the defaults is set to zero.
+                If not found online, the default is set to zero.
 
         OUTPUT:
             A PredictionTable
@@ -192,6 +191,7 @@ class PredictionTable(Table):
         from .ephem import read_obj_data
         if not os.path.isfile(filename):
             raise IOError('File {} not found'.format(filename))
+        input_tests.check_kwargs(kwargs, allowed_kwargs=['radius'])
         try:
             dados = np.loadtxt(
                 filename, skiprows=41,
@@ -482,7 +482,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         nt = t[vals]
         if log:
             print('\nSearching occultations in part {}/{}'.format(i+1, len(divisions)))
-            print("Generating Ephemeris between {} and {} ...".format(nt.min(),nt.max()))
+            print("Generating Ephemeris between {} and {} ...".format(nt.min(), nt.max()))
         ncoord = ephem.get_position(nt)
         ra = np.mean([ncoord.ra.min().deg, ncoord.ra.max().deg])
         dec = np.mean([ncoord.dec.min().deg, ncoord.dec.max().deg])
@@ -617,7 +617,7 @@ def latlon2xy(lon, lat, loncen, latcen):
     return y, z
 
 
-def plot_occ_map(name, radius, **kwargs):
+def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, **kwargs):
     """ Plots map of the occultation
 
     Parameters:
@@ -631,6 +631,10 @@ def plot_occ_map(name, radius, **kwargs):
         pa (int, float): Position Angle at C/A (deg)
         vel (int, vel): Velocity of the event (km/s)
         dist (int, float): Object distance at C/A (AU)
+
+        Not required params (only printed in label):
+        mag (int,float): Mag* = Normalized magnitude to vel=20km/s
+        longi (int,float): East longitude of sub-planet point, deg, positive towards East
 
         Map configuration:
         nameimg (str): Change the name of the imaged saved.
@@ -695,30 +699,34 @@ def plot_occ_map(name, radius, **kwargs):
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
 
+    allowed_kwargs = ['alpha', 'arrow', 'atcolor', 'atm', 'centermap_delta', 'centermap_geo', 'centerproj',
+                      'countries', 'cpoints', 'cscale', 'dpi', 'ercolor', 'error', 'fmt', 'hcolor', 'heights',
+                      'labels', 'lncolor', 'mapsize', 'mapstyle', 'meridians', 'nameimg', 'nscale', 'offset',
+                      'outcolor', 'parallels', 'pscale', 'ptcolor', 'resolution', 'ring', 'rncolor', 'sites',
+                      'sscale', 'states', 'zoom']
+    input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
+
     if not type(name) == str:
         raise TypeError('name keyword must be a string')
 
     radius = radius*u.km
 
     occs = {}
-    if not all([i in kwargs for i in ['coord', 'time', 'ca', 'pa', 'vel', 'dist']]):
-        raise KeyError("It's missing input parameters. Please read the tutorial")
-
     try:
-        occs['stars'] = SkyCoord(kwargs['coord'], frame='icrs', unit=(u.hourangle, u.degree))
+        occs['stars'] = SkyCoord(coord, frame='icrs', unit=(u.hourangle, u.degree))
     except:
         raise KeyError('"star" keyword is not in the format: "hh mm ss.sss dd mm ss.sss" or "hh.hhhhhhhh dd.dddddddd"')
 
     try:
-        occs['datas'] = Time(kwargs['time'])
+        occs['datas'] = Time(time)
     except:
         raise KeyError('"time" keyword is not a iso or isot time format')
-    occs['ca'] = kwargs['ca']*u.arcsec
-    occs['posa'] = kwargs['pa']*u.deg
-    occs['vel'] = kwargs['vel']*(u.km/u.s)
-    occs['dist'] = kwargs['dist']*u.AU
-    occs['magG'] = kwargs.get('mag', 0.0)
-    occs['longi'] = kwargs.get('longi', 0.0)
+    occs['ca'] = ca*u.arcsec
+    occs['posa'] = pa*u.deg
+    occs['vel'] = vel*(u.km/u.s)
+    occs['dist'] = dist*u.AU
+    occs['magG'] = mag
+    occs['longi'] = longi
 
     mapstyle = kwargs.get('mapstyle', 1)
     if mapstyle not in [1, 2]:

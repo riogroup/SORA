@@ -4,6 +4,7 @@ from .observer import Observer
 from .lightcurve import LightCurve
 from .prediction import occ_params, PredictionTable
 from .extra import ChiSquare
+from sora.config.decorators import deprecated_alias
 import astropy.units as u
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
 from astropy.time import Time
@@ -59,7 +60,10 @@ def positionv(star, ephem, observer, time):
     return f, g, vf, vg
 
 
-def fit_ellipse(*args, **kwargs):
+@deprecated_alias(pos_angle='position_angle', dpos_angle='dposition_angle')  # remove this line for v1.0
+def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
+                dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
+                loop=10000000, number_chi=10000, dchi_min=None, log=False):
     """ Fits an ellipse to given occultation
 
     Parameters:
@@ -69,7 +73,7 @@ def fit_ellipse(*args, **kwargs):
         center_g (int,float): The coordinate in g of the ellipse.
         equatorial_radius (int,float): The Equatorial radius of the ellipse.
         oblateness (int,float): The oblateness of the ellipse.
-        pos_angle (int,float): The pole position angle of the ellipse.
+        position_angle (int,float): The pole position angle of the ellipse.
 
         Params for the interval of search, if not given, default is set to zero.
         Search between (value - dvalue) and (value + dvalue):
@@ -77,7 +81,7 @@ def fit_ellipse(*args, **kwargs):
         dcenter_g (int,float)
         dequatorial_radius (int,float)
         doblateness (int,float)
-        dpos_angle (int,float)
+        dposition_angle (int,float)
 
         loop (int): The number of ellipsis to attempt fitting. Default: 10,000,000
         dchi_min (intt,float): If given, it will only save ellipsis which chi square are
@@ -94,23 +98,6 @@ def fit_ellipse(*args, **kwargs):
         fit_ellipse(occ1, occ2, **kwargs) to fit the ellipse to the chords
             of occ1 and occ2 Occultation objects together
     """
-    params_needed = ['center_f', 'center_g', 'equatorial_radius', 'oblateness', 'pos_angle']
-    if not all([param in kwargs for param in params_needed]):
-        raise ValueError('Input conditions not satisfied. Please refer to the tutorial.')
-    center_f = kwargs['center_f']
-    dcenter_f = kwargs.get('dcenter_f', 0.0)
-    center_g = kwargs['center_g']
-    dcenter_g = kwargs.get('dcenter_g', 0.0)
-    equatorial_radius = kwargs['equatorial_radius']
-    dequatorial_radius = kwargs.get('dequatorial_radius', 0.0)
-    oblateness = kwargs['oblateness']
-    doblateness = kwargs.get('doblateness', 0.0)
-    pos_angle = kwargs['pos_angle']
-    dpos_angle = kwargs.get('dpos_angle', 0.0)
-    loop = kwargs.get('loop', 10000000)
-    number_chi = kwargs.get('number_chi', 10000)
-    log = kwargs.get('log', False)
-
     values = []
     for occ in args:
         if type(occ) != Occultation:
@@ -149,7 +136,7 @@ def fit_ellipse(*args, **kwargs):
         a = equatorial_radius + dequatorial_radius*(2*np.random.random(loop) - 1)
         obla = oblateness + doblateness*(2*np.random.random(loop) - 1)
         obla[obla < 0], obla[obla > 1] = 0, 1
-        phi_deg = pos_angle + dpos_angle*(2*np.random.random(loop) - 1)
+        phi_deg = position_angle + dposition_angle*(2*np.random.random(loop) - 1)
         controle_f1 = Time.now()
 
         for fi, gi, si in values:
@@ -166,8 +153,8 @@ def fit_ellipse(*args, **kwargs):
             chi2 += ((fi - f_model)**2 + (gi - g_model)**2)/(si**2)
 
         controle_f2 = Time.now()
-        if 'dchi_min' in kwargs:
-            region = np.where(chi2 < chi2.min() + kwargs['dchi_min'])[0]
+        if dchi_min is not None:
+            region = np.where(chi2 < chi2.min() + dchi_min)[0]
         else:
             region = np.arange(len(chi2))
         chi2_best = np.append(chi2_best, chi2[region])
@@ -381,7 +368,7 @@ class Occultation():
             center_g (int,float): The coordinate in g of the ellipse.
             equatorial_radius (int,float): The Equatorial radius of the ellipse.
             oblateness (int,float): The oblateness of the ellipse.
-            pos_angle (int,float): The pole position angle of the ellipse.
+            position_angle (int,float): The pole position angle of the ellipse.
 
             Params for the interval of search, if not given, default is set to zero.
             Search between (value - dvalue) and (value + dvalue):
@@ -389,7 +376,7 @@ class Occultation():
             dcenter_g (int,float)
             dequatorial_radius (int,float)
             doblateness (int,float)
-            dpos_angle (int,float)
+            dposition_angle (int,float)
 
             loop (int): The number of ellipsis to attempt fitting. Default: 10,000,000
             dchi_min (int,float): If given, it will only save ellipsis which chi square are

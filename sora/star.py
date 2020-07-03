@@ -6,7 +6,7 @@ import astropy.units as u
 from astroquery.vizier import Vizier
 import warnings
 import numpy as np
-from .config import test_attr
+from sora.config import test_attr, input_tests
 
 
 warnings.simplefilter('always', UserWarning)
@@ -25,6 +25,7 @@ def search_star(**kwargs):
     Returns:
         catalogue(astropy.Table):An astropy Table with the catalogue informations.
     """
+    input_tests.check_kwargs(kwargs, allowed_kwargs=['catalog', 'code', 'columns', 'coord', 'log', 'radius'])
     row_limit = 100
     if 'log' in kwargs and kwargs['log']:
         print('Downloading star parameters from {}'.format(kwargs['catalog']))
@@ -119,6 +120,7 @@ class Star():
         self.mag = {}
         self.errors = {}
         self.__log = True
+        input_tests.check_kwargs(kwargs, allowed_kwargs=['code', 'coord', 'local', 'log', 'nomad'])
         if 'log' in kwargs:
             self.__log = kwargs['log']
         if 'local' in kwargs:
@@ -181,7 +183,7 @@ class Star():
         '''
         return kervella(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
 
-    def apparent_diameter(self, distance, mode='auto', log=True, **kwargs):
+    def apparent_diameter(self, distance, mode='auto', band='V', star_type='sg', log=True):
         """Calculate the apparent diameter of the star at given distance
 
         Parameters:
@@ -207,9 +209,6 @@ class Star():
         except:
             distance = distance*u.AU
 
-        kwargs['band'] = kwargs.get('band', 'V')
-        kwargs['star_type'] = kwargs.get('star_type', 'sg')
-
         if mode in ['user', 'auto']:
             try:
                 diam = distance*np.tan(self.diameter_user)
@@ -234,11 +233,11 @@ class Star():
         if mode == 'gaia':
             raise ValueError('It is not possible to calculate star diameter from Gaia.')
 
-        if kwargs['band'] not in ['B', 'V']:
+        if band not in ['B', 'V']:
             raise KeyError('band must be informed as "B", or "V"')
 
         if mode in ['kervella', 'auto']:
-            diam_kerv = self.kervella().get(kwargs['band'])
+            diam_kerv = self.kervella().get(band)
             if diam_kerv is None:
                 raise ValueError('Diameter could not be calculated for given band')
             if log:
@@ -246,14 +245,14 @@ class Star():
             diam = distance*np.tan(diam_kerv)
             return diam.to(u.km)
 
-        if kwargs['star_type'] not in ['sg', 'ms', 'vs']:
+        if star_type not in ['sg', 'ms', 'vs']:
             raise KeyError('star_type must be informed as "sg", "ms" or "vs"')
 
         if mode in ['van_belle', 'auto']:
-            diam_van = self.van_belle().get(kwargs['star_type'])
+            diam_van = self.van_belle().get(star_type)
             if diam_van is None:
                 raise ValueError('Diameter could not be calculated using Van Belle')
-            diam_van = diam_van.get(kwargs['band'])
+            diam_van = diam_van.get(band)
             if diam_van is None:
                 raise ValueError('Diameter could not be calculated for given band')
             if log:

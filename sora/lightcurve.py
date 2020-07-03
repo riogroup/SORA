@@ -7,6 +7,7 @@ import scipy.special as scsp
 from scipy.odr import odrpack as odr
 from scipy.odr import models
 from .extra import ChiSquare
+from sora.config import input_tests
 import os
 import warnings
 
@@ -103,6 +104,10 @@ class LightCurve():
         LightCurve(name, immersion, immersion_err, emersion, emersion_err)
         LightCurve(name, initial_time, end_time)
         """
+        allowed_kwargs = ['emersion', 'emersion_err', 'immersion', 'immersion_err', 'initial_time', 'end_time',
+                          'file', 'time', 'flux', 'exptime', 'lambda', 'delta_lambda', 'tref', 'dflux', 'usecols']
+        input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
+
         input_done = False
         self.dflux = None
         self.__name = name
@@ -370,16 +375,13 @@ class LightCurve():
         self.bottom_flux = bottom_flux
         return
 
-    def normalize(self, poly_deg=None, mask=None, **kwargs):
+    def normalize(self, poly_deg=None, mask=None, flux_min=0.0, flux_max=1.0, plot=False):
         """ Returns the fresnel scale.
         ----------
         Parameters
         ----------
         poly_deg  (int): degree of the polynom to be fitted
         mask   (array of Bolleans): which values to be fitted
-        ----------
-        kwargs
-        ----------
         flux_min (int,float): event flux to be setted as 0.0
         flux_max (int,float): baseline flux to be setted as 1.0
         plot (Bollean): If True plot the steps for visual aid
@@ -388,9 +390,6 @@ class LightCurve():
         if not all(self.flux):
             raise ValueError('Normalization is only possible when a LightCurve is instatiated with time and flux.')
         self.reset_flux()
-        flux_min = kwargs.get('flux_min', 0.0)
-        flux_max = kwargs.get('flux_max', 1.0)
-        plot = kwargs.get('plot', False)
         lc_flux = (self.flux - flux_min)/(flux_max-flux_min)
         if mask is None:
             preliminar_occ = self.occ_detect(maximum_duration=((self.end_time - self.initial_time).value*u.d.to('s'))/3)
@@ -540,8 +539,8 @@ class LightCurve():
         ----------
         Parameters
         ----------
-        tmin (int,float): Minimum time to consider in the fit prcedure
-        tmax (int,float): Maximum time to consider in the fit prcedure
+        tmin (int,float): Minimum time to consider in the fit procedure, in seconds
+        tmax (int,float): Maximum time to consider in the fit procedure, in seconds
         flux_min (int,float): Bottom flux (only object), default equal to 0.0
         flux_max (int,float): Base flux (object plus star), default equal to 1.0
         immersion_time  (int, float): Initial guess for immersion time, in seconds.
@@ -555,11 +554,14 @@ class LightCurve():
         ----------
         chi2 (ChiSquare): ChiSquare object
         """
+        allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max', 'immersion_time', 'emersion_time', 'opacity',
+                          'delta_t', 'dopacity', 'loop']
+        input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if not hasattr(self, 'flux'):
             raise ValueError('Fit curve is only possible when a LightCurve is instatiated with time and flux.')
         delta_t = 2*self.cycle
-        loop = 10000
+        loop = kwargs.get('loop', 10000)
         t_i = np.zeros(loop)
         t_e = np.zeros(loop)
         tmax = self.time.max()
@@ -568,11 +570,9 @@ class LightCurve():
         do_immersion = False
         emersion_time = tmax + self.exptime
         do_emersion = False
-        opacity = 1.0
+        opacity = kwargs.get('opacity', 1.0)
         delta_opacity = 0.0
         do_opacity = False
-        if 'loop' in kwargs:
-            loop = kwargs['loop']
         if ('immersion_time' not in kwargs) and ('emersion_time' not in kwargs):
             preliminar_occ = self.occ_detect()
             immersion_time = preliminar_occ['immersion_time']
@@ -602,11 +602,7 @@ class LightCurve():
         mask = (self.time >= tmin) & (self.time <= tmax)
         mask_sigma = (((self.time >= tmin) & (self.time < immersion_time - self.exptime)) +
                       ((self.time > emersion_time + self.exptime) & (self.time <= tmax)))
-        sigma = self.flux[mask_sigma].std(ddof=1)
-        if 'sigma' in kwargs:
-            sigma = kwargs['sigma']
-        if 'opacity' in kwargs:
-            opacity = kwargs['opacity']
+        sigma = kwargs.get('sigma', self.flux[mask_sigma].std(ddof=1))
         if 'dopacity' in kwargs:
             delta_opacity = kwargs['dopacity']
             do_opacity = True

@@ -6,8 +6,8 @@ from astropy.table import vstack
 import astropy.units as u
 import astropy.constants as const
 from astroquery.jplhorizons import Horizons
-from .config import test_attr
-from .config.decorators import deprecated_alias
+from sora.config import test_attr, input_tests
+from sora.config.decorators import deprecated_alias
 import spiceypy as spice
 import urllib.request
 import warnings
@@ -115,6 +115,7 @@ class EphemPlanete():
             H (int,float): Object Absolute Magnitude (Default: NaN)
             G (int,float): Object Phase slope (Default: NaN)
         """
+        input_tests.check_kwargs(kwargs, allowed_kwargs=['error_dec', 'error_ra', 'H', 'G', 'mass', 'radius'])
         data = np.loadtxt(ephem, unpack=True)
         self.name = name
         self.time = Time(data[0], format='jd')
@@ -302,6 +303,7 @@ class EphemJPL():
             H (int,float): Object Absolute Magnitude (Default: NaN)
             G (int,float): Object Phase slope (Default: NaN)
         """
+        input_tests.check_kwargs(kwargs, allowed_kwargs=['error_dec', 'error_ra', 'H', 'G', 'mass', 'radius'])
         self.name = name
         self.id_type = 'majorbody'
         try:
@@ -458,6 +460,7 @@ class EphemKernel():
             H (int,float): Object Absolute Magnitude (Default: NaN)
             G (int,float): Object Phase slope (Default: NaN)
         """
+        input_tests.check_kwargs(kwargs, allowed_kwargs=['error_dec', 'error_ra', 'H', 'G', 'mass', 'radius'])
         self.name = name
         self.spkid = str(spkid)
         self.code = self.spkid  # remove this line for v1.0

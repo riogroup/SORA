@@ -4,7 +4,7 @@ from astropy.time import Time
 import astropy.units as u
 from astroquery.mpc import MPC
 import numpy as np
-from .config import test_attr
+from sora.config import test_attr, input_tests
 
 
 def search_code_mpc():
@@ -32,7 +32,7 @@ class Observer():
     """
     __names = []
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """
         Parameters:
             name (str): Name for the Observer. (required)
@@ -49,33 +49,18 @@ class Observer():
         Observer(name, site)
         Observer(name, lon, lat, height)
         """
-        if len(args) == 1 or 'code' in kwargs:
-            if len(args) == 1:
-                code = args[0]
-                try:
-                    code = test_attr(args[0], float, 'code')
-                    code = '{:03.0f}'.format(code)
-                    kwargs['code'] = code
-                except:
-                    pass
+        input_tests.check_kwargs(kwargs, allowed_kwargs=['code', 'height', 'lat', 'lon', 'name', 'site'])
+        if 'code' in kwargs:
             self.code = kwargs['code']
             try:
                 name, self.site = search_code_mpc()[self.code]
                 self.__name = kwargs.get('name', name)
             except:
                 raise ValueError('code {} could not be located in MPC database'.format(self.code))
-        elif len(args) == 2 or all(i in kwargs for i in ['name', 'site']):
-            if len(args) == 2:
-                kwargs['name'] = args[0]
-                kwargs['site'] = args[1]
+        elif all(i in kwargs for i in ['name', 'site']):
             self.__name = kwargs['name']
             self.site = test_attr(kwargs['site'], EarthLocation, 'site')
-        elif len(args) == 4 or all(i in kwargs for i in ['name', 'lon', 'lat', 'height']):
-            if len(args) == 4:
-                kwargs['name'] = args[0]
-                kwargs['lon'] = args[1]
-                kwargs['lat'] = args[2]
-                kwargs['height'] = args[3]
+        elif all(i in kwargs for i in ['name', 'lon', 'lat', 'height']):
             self.__name = kwargs['name']
             self.site = EarthLocation(kwargs['lon'], kwargs['lat'], kwargs['height'])
         else:
