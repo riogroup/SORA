@@ -116,31 +116,19 @@ class LightCurve():
         if self.__name in self.__names:
             raise ValueError('name {} already defined for another LightCurve object. Please choose a different one.'.
                              format(self.__name))
-        if 'immersion' in kwargs and 'emersion' in kwargs:
-            if type(kwargs['immersion']) == str:
-                self._immersion = Time(kwargs['immersion'])
-            else:
-                self._immersion = kwargs['immersion']
-            if type(kwargs['emersion']) == str:
-                self._emersion = Time(kwargs['emersion'])
-            else:
-                self._emersion = kwargs['emersion']
-            self.immersion_err = 0.0
-            if 'immersion_err' in kwargs:
-                self.immersion_err = kwargs['immersion_err']
-            self.emersion_err = 0.0
-            if 'emersion_err' in kwargs:
-                self.emersion_err = kwargs['emersion_err']
+        if 'tref' in kwargs:
+            self.tref = kwargs['tref']
+        if 'immersion' in kwargs:
+            self.immersion = kwargs['immersion']
+            self.immersion_err = kwargs.get('immersion_err', 0.0)
+            input_done = True
+        if 'emersion' in kwargs:
+            self.emersion = kwargs['emersion']
+            self.emersion_err = kwargs.get('emersion_err', 0.0)
             input_done = True
         if 'initial_time' in kwargs and 'end_time' in kwargs:
-            if type(kwargs['initial_time']) == str:
-                self.initial_time = Time(kwargs['initial_time'])
-            else:
-                self.initial_time = kwargs['initial_time']
-            if type(kwargs['end_time']) == str:
-                self.end_time = Time(kwargs['end_time'])
-            else:
-                self.end_time = kwargs['end_time']
+            self.initial_time = kwargs['initial_time']
+            self.end_time = kwargs['end_time']
             input_done = True
         if not input_done:
             try:
@@ -167,11 +155,43 @@ class LightCurve():
         return self.__name
 
     @property
+    def tref(self):
+        if hasattr(self, '_tref'):
+            return self._tref
+        else:
+            raise AttributeError("'LightCurve' object has no attribute 'tref'")
+
+    @tref.setter
+    def tref(self, value):
+        if type(value) in [int, float]:
+            self.tref = Time(value, format='jd')
+        else:
+            try:
+                self._tref = Time(value)
+            except ValueError:
+                raise ValueError('{} is not a valid time format accepted by immersion'.format(value))
+
+    @property
     def immersion(self):
         if hasattr(self, '_immersion'):
             return self._immersion + self.dt*u.s
         else:
             raise AttributeError('The immersion time was not fitted or instanciated.')
+
+    @immersion.setter
+    def immersion(self, value):
+        if type(value) in [int, float]:
+            if value > 2400000:
+                self.immersion = Time(value, format='jd')
+            elif hasattr(self, 'tref'):
+                self.immersion = self.tref + value*u.s
+            else:
+                raise ValueError('{} can not be set without a reference time'.format(value))
+        else:
+            try:
+                self._immersion = Time(value)
+            except ValueError:
+                raise ValueError('{} is not a valid time format accepted by immersion'.format(value))
 
     @property
     def emersion(self):
@@ -179,6 +199,65 @@ class LightCurve():
             return self._emersion + self.dt*u.s
         else:
             raise AttributeError('The emersion time was not fitted or instanciated.')
+
+    @emersion.setter
+    def emersion(self, value):
+        if type(value) in [int, float]:
+            if value > 2400000:
+                self.emersion = Time(value, format='jd')
+            elif hasattr(self, 'tref'):
+                self.emersion = self.tref + value*u.s
+            else:
+                raise ValueError('{} can not be set without a reference time'.format(value))
+        else:
+            try:
+                self._emersion = Time(value)
+            except ValueError:
+                raise ValueError('{} is not a valid time format accepted by emersion'.format(value))
+
+    @property
+    def initial_time(self):
+        if hasattr(self, '_initial_time'):
+            return self._initial_time
+        else:
+            raise AttributeError("'LightCurve' object has no attribute 'initial_time'")
+
+    @initial_time.setter
+    def initial_time(self, value):
+        if type(value) in [int, float]:
+            if value > 2400000:
+                self.initial_time = Time(value, format='jd')
+            elif hasattr(self, 'tref'):
+                self.initial_time = self.tref + value*u.s
+            else:
+                raise ValueError('{} can not be set without a reference time'.format(value))
+        else:
+            try:
+                self._initial_time = Time(value)
+            except ValueError:
+                raise ValueError('{} is not a valid time format accepted by initial_time'.format(value))
+
+    @property
+    def end_time(self):
+        if hasattr(self, '_end_time'):
+            return self._end_time
+        else:
+            raise AttributeError("'LightCurve' object has no attribute 'end_time'")
+
+    @end_time.setter
+    def end_time(self, value):
+        if type(value) in [int, float]:
+            if value > 2400000:
+                self.end_time = Time(value, format='jd')
+            elif hasattr(self, 'tref'):
+                self.end_time = self.tref + value*u.s
+            else:
+                raise ValueError('{} can not be set without a reference time'.format(value))
+        else:
+            try:
+                self._end_time = Time(value)
+            except ValueError:
+                raise ValueError('{} is not a valid time format accepted by end_time'.format(value))
 
     @property
     def time_mean(self):
@@ -255,20 +334,14 @@ class LightCurve():
         else:
             self.exptime = kwargs['exptime']
         if 'tref' in kwargs:
-            try:
-                if type(kwargs['tref']) in [Time, str]:
-                    self.tref = Time(kwargs['tref'])
-                elif type(kwargs['tref']) in [int, float]:
-                    self.tref = Time(kwargs['tref'], format='jd')
-            except:
-                raise ValueError('tref must be an Julian Date or ISO format Date')
+            self.tref = kwargs['tref']
         if 'time' in locals():
             if type(time) == Time:
-                if 'tref' not in kwargs:
+                if not hasattr(self, 'tref'):
                     self.tref = Time(time[0].iso.split(' ')[0] + ' 00:00:00.000')
             elif all(time > 2400000):
                 time = Time(time, format='jd')
-                if 'tref' not in kwargs:
+                if not hasattr(self, 'tref'):
                     self.tref = Time(time[0].iso.split(' ')[0] + ' 00:00:00.000')
             elif not hasattr(self, 'tref'):
                 raise ValueError('tref must be given')
@@ -1065,15 +1138,17 @@ class LightCurve():
     def __str__(self):
         """ String representation of the LightCurve Object
         """
-        output = ('Light curve name: {}\n'
-                  'Initial time: {} UTC\n'
-                  'End time:     {} UTC\n'
-                  'Duration:     {:.3f} minutes\n'
-                  'Time offset:  {:.3f} seconds\n\n'.format(
-                      self.name, self.initial_time.iso, self.end_time.iso,
-                      (self.end_time - self.initial_time).value*u.d.to('min'),
-                      self.dt)
-                  )
+        output = 'Light curve name: {}\n'.format(self.name)
+        try:
+            output += ('Initial time: {} UTC\n'
+                       'End time:     {} UTC\n'
+                       'Duration:     {:.3f} minutes\n'.format(
+                           self.initial_time.iso, self.end_time.iso,
+                           (self.end_time - self.initial_time).value*u.d.to('min'))
+                       )
+        except:
+            pass
+        output += 'Time offset:  {:.3f} seconds\n\n'.format(self.dt)
         try:
             output += 'Exposure time:    {:.4f} seconds\n'.format(self.exptime)
             output += 'Cycle time:       {:.4f} seconds\n'.format(self.cycle)
