@@ -174,17 +174,14 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         print('Total elapsed time: {:.3f} seconds.'.format((controle_f4 - controle_f0).sec))
 
     onesigma = chisquare.get_nsigma(sigma=1)
-    for occ in args:
-        if type(occ) == Occultation:
-            occ.fitted_params = {i: onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
-                                                          'oblateness', 'position_angle']}
-    a = occ.fitted_params['equatorial_radius'][0]
-    f0 = occ.fitted_params['center_f'][0]
-    g0 = occ.fitted_params['center_g'][0]
-    obla = occ.fitted_params['oblateness'][0]
-    phi_deg = occ.fitted_params['position_angle'][0]
+    a = onesigma['equatorial_radius'][0]
+    f0 = onesigma['center_f'][0]
+    g0 = onesigma['center_g'][0]
+    obla = onesigma['oblateness'][0]
+    phi_deg = onesigma['position_angle'][0]
     radial_dispersion = np.array([])
     error_bar = np.array([])
+
     for fi, gi, si in values:
         b = a - a*obla
         phi = phi_deg*(np.pi/180.0)
@@ -198,11 +195,16 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         g_model = g0 + r_model*np.sin(theta)
         radial_dispersion = np.append(radial_dispersion, r - r_model)
         error_bar = np.append(error_bar, si)
-    occ.chi2_params = {'radial_dispersion': [radial_dispersion.mean(), radial_dispersion.std(ddof=1)]}
-    occ.chi2_params['mean_error'] = [error_bar.mean(), error_bar.std()]
-    occ.chi2_params['chi2_min'] = chisquare.get_nsigma()['chi2_min']
-    occ.chi2_params['nparam'] = chisquare.nparam
-    occ.chi2_params['npts'] = chisquare.npts
+
+    for occ in args:
+        if type(occ) == Occultation:
+            occ.fitted_params = {i: onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
+                                                          'oblateness', 'position_angle']}
+            occ.chi2_params = {'radial_dispersion': [radial_dispersion.mean(), radial_dispersion.std(ddof=1)]}
+            occ.chi2_params['mean_error'] = [error_bar.mean(), error_bar.std()]
+            occ.chi2_params['chi2_min'] = chisquare.get_nsigma()['chi2_min']
+            occ.chi2_params['nparam'] = chisquare.nparam
+            occ.chi2_params['npts'] = chisquare.npts
     return chisquare
 
 
