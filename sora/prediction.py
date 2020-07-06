@@ -547,8 +547,9 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
 
         if log:
             print('Downloading stars ...')
-        catalogue = vquery.query_region(pos_search, width=width, height=height, catalog='I/345/gaia2')
+        catalogue = vquery.query_region(pos_search, width=width, height=height, catalog='I/345/gaia2', cache=False)
         if len(catalogue) == 0:
+            print('    No star found. The region is too small or Vizier is out.')
             continue
         catalogue = catalogue[0]
         if log:

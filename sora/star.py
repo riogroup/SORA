@@ -31,9 +31,9 @@ def search_star(**kwargs):
         print('Downloading star parameters from {}'.format(kwargs['catalog']))
     vquery = Vizier(columns=kwargs['columns'], row_limit=row_limit, timeout=600)
     if 'code' in kwargs:
-        catalogue = vquery.query_constraints(catalog=kwargs['catalog'], Source=kwargs['code'])
+        catalogue = vquery.query_constraints(catalog=kwargs['catalog'], Source=kwargs['code'], cache=False)
     elif 'coord' in kwargs:
-        catalogue = vquery.query_region(kwargs['coord'], radius=kwargs['radius'], catalog=kwargs['catalog'])
+        catalogue = vquery.query_region(kwargs['coord'], radius=kwargs['radius'], catalog=kwargs['catalog'], cache=False)
     else:
         raise ValueError('At least a code or coord should be given as input')
     return catalogue
@@ -272,7 +272,7 @@ class Star():
             catalogue = search_star(coord=self.coord, columns=['**'], radius=2*u.arcsec,
                                     catalog='I/345/gaia2', log=self.__log)
         if len(catalogue) == 0:
-            raise ValueError('No star was found within 2 arcsec from given coordinate')
+            raise ValueError('No star was found. It does not exist or Vizier is out.')
         catalogue = catalogue[0]
         if len(catalogue) > 1:
             if self.__log:
