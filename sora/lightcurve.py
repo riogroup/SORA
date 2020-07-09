@@ -169,7 +169,7 @@ class LightCurve():
             try:
                 self._tref = Time(value)
             except ValueError:
-                raise ValueError('{} is not a valid time format accepted by immersion'.format(value))
+                raise ValueError('{} is not a valid time format accepted by tref'.format(value))
 
     @property
     def immersion(self):
@@ -266,6 +266,13 @@ class LightCurve():
         else:
             return Time((self.initial_time.jd + self.end_time.jd)/2, format='jd')
 
+    @property
+    def time(self):
+        try:
+            return (self._time - self.tref).sec
+        except:
+            raise AttributeError("'LightCurve' object has no attribute 'time'")
+
     def check_names(self):
         return self.__names
 
@@ -347,17 +354,16 @@ class LightCurve():
                 raise ValueError('tref must be given')
             else:
                 time = self.tref + time*u.s
-            self.time = (time - self.tref).sec
-            order = np.argsort(self.time)
-            self.model = np.ones(len(self.time))
+            order = np.argsort(time)
+            self._time = time[order]
+            self.model = np.ones(len(time))
             self.flux = self.flux[order]
             self.flux_obs = self.flux
-            self.time = self.time[order]
             if self.dflux is not None:
                 self.dflux = self.dflux[order]
             self.initial_time = np.min(time)
             self.end_time = np.max(time)
-            self.cycle = np.median(self.time[1:] - self.time[:-1])
+            self.cycle = np.median(time[1:] - time[:-1]).sec
             if self.cycle < self.exptime:
                 warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
                               format(self.exptime, self.cycle))

@@ -50,7 +50,8 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
                 -circle_x*np.sin(pos_ang) + circle_y*np.cos(pos_ang) + center_g[i],
                 **kwargs)
     if center_dot:
-        plt.plot(center_f, center_g, '.', color='black')
+        kwargs.pop('lw')
+        plt.plot(center_f, center_g, '.', **kwargs)
     plt.axis('equal')
 
 

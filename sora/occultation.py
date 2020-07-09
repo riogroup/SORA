@@ -643,7 +643,7 @@ class Occultation():
             return out
 
     def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red',
-                    ax=None, lw=2, labels=True):
+                    ax=None, lw=2, axis_labels=True):
         """Plots the chords of the occultation
 
         Parameters:
@@ -654,6 +654,7 @@ class Occultation():
             error_color (str): color for the error bars of the chords. Default: red
             ax (maptlotlib.Axes): Axis where to plot chords. Default: Use matplotlib pool.
             lw (int, float): linewidth of the chords. Default: 2
+            axis_labels (bool): If True it prints the labels of the axis of the image.
         """
         ax = ax or plt.gca()
         positions = self.positions
@@ -680,7 +681,7 @@ class Occultation():
                         arr = np.array([pos_lc['immersion']['value'], pos_lc['emersion']['value']])
                         ax.plot(*arr.T, color=positive_color, linewidth=lw)
         ax.invert_xaxis()
-        if labels:
+        if axis_labels:
             ax.set_xlabel('f (km)')
             ax.set_ylabel('g (km)')
         ax.axis('equal')
