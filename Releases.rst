@@ -7,11 +7,16 @@ New Features
 sora.config
 ^^^^^^^^^^^
 
+- Module to verify if kwargs are allowed was created. This was included throughout the code. [#8]
+
 sora.ephem
 ^^^^^^^^^^
 
 sora.extra
 ^^^^^^^^^^
+
+- Added a parameter that allows the used to plot a dot corresponding
+  the center of the ellipse [#35]
 
 sora.lightcurve
 ^^^^^^^^^^^^^^^
@@ -31,6 +36,17 @@ sora.occultation
 sora.prediction
 ^^^^^^^^^^^^^^^
 
+- Four new parameters were added to `plot_occ_map()`: `path`: for the user to select
+  a directory where to save the plots; `site_name`: If True, the name of the sites
+  will be plotted; `chord_delta` and `chord_geo`: for the user to plot the path of
+  a chord from distance of the center or passing by some coordinate, respectively. [#35]
+
+- Two method were added to `PredictionTable()` to help the user to remove bad events
+  from table: `keep_from_selected_images()` and `remove_occ()`. [#35]
+
+sora.star
+^^^^^^^^^^^^^^^
+
 documentation
 ^^^^^^^^^^^^^
 
@@ -41,7 +57,8 @@ API Changes
 sora.config
 ^^^^^^^^^^^
 
-- config module is now a directory. It now includes a module with decorators. [#31]
+- config module is now a directory. It now includes a module with decorators
+  and another for variables. [#31,#35]
 
 sora.ephem
 ^^^^^^^^^^
@@ -58,6 +75,9 @@ sora.lightcurve
 - In LightCurve.immersion and LightCurve.emersion, an error will rise when these values were not 
   instanciated or fitted. [#34]
 
+- Now the user has the possibility to redefine `tref`, `immersion`, `emersion`,
+  `initial_time` and `end_time` after instantiated. [#35]
+
 sora.observer
 ^^^^^^^^^^^^^
 
@@ -70,11 +90,25 @@ sora.occultation
 - Occultation.to_log() and print(Occultation) added the polar radius, equivalent radius, 
   the Sun-Geocenter-Target angle and the Moon-Geocenter-Target angle, geocentric albedo,
   the altitude and azimuth of the target for each Observer. [#17]
+
+- In `fit_ellipse()`, `pos_angle` and `dpos_angle` were deprecated in favor of
+  `position_angle` and `dposition_angle`. [#35]
+
+- Changed "GCRS" to "Geocentric" in the string representation to avoid confusion
+  about the reference frame. [#35]
   
 sora.prediction
 ^^^^^^^^^^^^^^^
 
 - prediction() now calculates the ephemeris inside each division to avoid memory overflow. [#31]
+
+- PredictionTable.to_ow() will now raise a warning if the radius or the error of
+  the ephemeris is not present. [#35]
+
+sora.star
+^^^^^^^^^^^^^^^
+
+- Now Star downloads all parameters from Gaia and saves them in the `meta_gaia` attribute [#35]
 
 documentation
 ^^^^^^^^^^^^^
@@ -104,6 +138,9 @@ sora.lightcurve
 
 - Fixed error in the automatic mode of LightCurve.normalize(). [#34]
 
+- Fixed bug that was raised in LightCurve.log() when there were no initial or end times
+  for lightcurves instantiated with immersion and emersion. [#35]
+
 sora.observer
 ^^^^^^^^^^^^^
 
@@ -117,10 +154,20 @@ sora.occultation
 - Corrected bug that raised an error whe calling Occultation.get_map_sites()
   and there were no observation added to Occultation. [#31]
 
+- Corrected bug that did not save the fitted params in all occultations when
+  more than one occultation is used in fit_ellipse(). [#35]
+
+- Added `axis_labels` and `lw` (linewidth) to Occultation.plot_chords(). [#35]
+
 sora.prediction
 ^^^^^^^^^^^^^^^
 
 - Fixed error that was generated when only on prediction was found. [#16]
+
+- Fixed error in the output format of PredictionTable.to_ow() when coordinate was positive [#35]
+
+sora.star
+^^^^^^^^^^^^^^^
 
 documentation
 ^^^^^^^^^^^^^

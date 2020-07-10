@@ -7,6 +7,7 @@ import scipy.special as scsp
 from scipy.odr import odrpack as odr
 from scipy.odr import models
 from .extra import ChiSquare
+from sora.config import input_tests
 import os
 import warnings
 
@@ -69,6 +70,8 @@ class LightCurve():
             lambda (int,float): The band pass of observation (not required)
                 in microns
             delta_lambda (int,float): The band width (not required.)
+            exptime (int,float): The exposure time of the observation.
+                Required only if LightCurve have input fluxes
 
             Input data must be one of the 4 options below:
             file (str): a file with the time and flux in the first
@@ -94,7 +97,17 @@ class LightCurve():
             For a negative occultation
             initial_time: The initial time of observation
             end_time: The end time of observation.
+
+        The user must provide one of the followings:
+        LightCurve(name, flux, time, exptime) # dflux can also be given
+        LightCurve(name, file, exptime)  # dflux can also be given
+        LightCurve(name, immersion, immersion_err, emersion, emersion_err)
+        LightCurve(name, initial_time, end_time)
         """
+        allowed_kwargs = ['emersion', 'emersion_err', 'immersion', 'immersion_err', 'initial_time', 'end_time',
+                          'file', 'time', 'flux', 'exptime', 'lambda', 'delta_lambda', 'tref', 'dflux', 'usecols']
+        input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
+
         input_done = False
         self.dflux = None
         self.__name = name
@@ -103,31 +116,19 @@ class LightCurve():
         if self.__name in self.__names:
             raise ValueError('name {} already defined for another LightCurve object. Please choose a different one.'.
                              format(self.__name))
-        if 'immersion' in kwargs and 'emersion' in kwargs:
-            if type(kwargs['immersion']) == str:
-                self._immersion = Time(kwargs['immersion'])
-            else:
-                self._immersion = kwargs['immersion']
-            if type(kwargs['emersion']) == str:
-                self._emersion = Time(kwargs['emersion'])
-            else:
-                self._emersion = kwargs['emersion']
-            self.immersion_err = 0.0
-            if 'immersion_err' in kwargs:
-                self.immersion_err = kwargs['immersion_err']
-            self.emersion_err = 0.0
-            if 'emersion_err' in kwargs:
-                self.emersion_err = kwargs['emersion_err']
+        if 'tref' in kwargs:
+            self.tref = kwargs['tref']
+        if 'immersion' in kwargs:
+            self.immersion = kwargs['immersion']
+            self.immersion_err = kwargs.get('immersion_err', 0.0)
+            input_done = True
+        if 'emersion' in kwargs:
+            self.emersion = kwargs['emersion']
+            self.emersion_err = kwargs.get('emersion_err', 0.0)
             input_done = True
         if 'initial_time' in kwargs and 'end_time' in kwargs:
-            if type(kwargs['initial_time']) == str:
-                self.initial_time = Time(kwargs['initial_time'])
-            else:
-                self.initial_time = kwargs['initial_time']
-            if type(kwargs['end_time']) == str:
-                self.end_time = Time(kwargs['end_time'])
-            else:
-                self.end_time = kwargs['end_time']
+            self.initial_time = kwargs['initial_time']
+            self.end_time = kwargs['end_time']
             input_done = True
         if not input_done:
             try:
@@ -154,11 +155,43 @@ class LightCurve():
         return self.__name
 
     @property
+    def tref(self):
+        if hasattr(self, '_tref'):
+            return self._tref
+        else:
+            raise AttributeError("'LightCurve' object has no attribute 'tref'")
+
+    @tref.setter
+    def tref(self, value):
+        if type(value) in [int, float]:
+            self.tref = Time(value, format='jd')
+        else:
+            try:
+                self._tref = Time(value)
+            except ValueError:
+                raise ValueError('{} is not a valid time format accepted by tref'.format(value))
+
+    @property
     def immersion(self):
         if hasattr(self, '_immersion'):
             return self._immersion + self.dt*u.s
         else:
             raise AttributeError('The immersion time was not fitted or instanciated.')
+
+    @immersion.setter
+    def immersion(self, value):
+        if type(value) in [int, float]:
+            if value > 2400000:
+                self.immersion = Time(value, format='jd')
+            elif hasattr(self, 'tref'):
+                self.immersion = self.tref + value*u.s
+            else:
+                raise ValueError('{} can not be set without a reference time'.format(value))
+        else:
+            try:
+                self._immersion = Time(value)
+            except ValueError:
+                raise ValueError('{} is not a valid time format accepted by immersion'.format(value))
 
     @property
     def emersion(self):
@@ -167,12 +200,78 @@ class LightCurve():
         else:
             raise AttributeError('The emersion time was not fitted or instanciated.')
 
+    @emersion.setter
+    def emersion(self, value):
+        if type(value) in [int, float]:
+            if value > 2400000:
+                self.emersion = Time(value, format='jd')
+            elif hasattr(self, 'tref'):
+                self.emersion = self.tref + value*u.s
+            else:
+                raise ValueError('{} can not be set without a reference time'.format(value))
+        else:
+            try:
+                self._emersion = Time(value)
+            except ValueError:
+                raise ValueError('{} is not a valid time format accepted by emersion'.format(value))
+
+    @property
+    def initial_time(self):
+        if hasattr(self, '_initial_time'):
+            return self._initial_time
+        else:
+            raise AttributeError("'LightCurve' object has no attribute 'initial_time'")
+
+    @initial_time.setter
+    def initial_time(self, value):
+        if type(value) in [int, float]:
+            if value > 2400000:
+                self.initial_time = Time(value, format='jd')
+            elif hasattr(self, 'tref'):
+                self.initial_time = self.tref + value*u.s
+            else:
+                raise ValueError('{} can not be set without a reference time'.format(value))
+        else:
+            try:
+                self._initial_time = Time(value)
+            except ValueError:
+                raise ValueError('{} is not a valid time format accepted by initial_time'.format(value))
+
+    @property
+    def end_time(self):
+        if hasattr(self, '_end_time'):
+            return self._end_time
+        else:
+            raise AttributeError("'LightCurve' object has no attribute 'end_time'")
+
+    @end_time.setter
+    def end_time(self, value):
+        if type(value) in [int, float]:
+            if value > 2400000:
+                self.end_time = Time(value, format='jd')
+            elif hasattr(self, 'tref'):
+                self.end_time = self.tref + value*u.s
+            else:
+                raise ValueError('{} can not be set without a reference time'.format(value))
+        else:
+            try:
+                self._end_time = Time(value)
+            except ValueError:
+                raise ValueError('{} is not a valid time format accepted by end_time'.format(value))
+
     @property
     def time_mean(self):
         if hasattr(self, '_immersion') and hasattr(self, '_emersion'):
             return Time((self.immersion.jd + self.emersion.jd)/2, format='jd')
         else:
             return Time((self.initial_time.jd + self.end_time.jd)/2, format='jd')
+
+    @property
+    def time(self):
+        try:
+            return (self._time - self.tref).sec
+        except:
+            raise AttributeError("'LightCurve' object has no attribute 'time'")
 
     def check_names(self):
         return self.__names
@@ -242,36 +341,29 @@ class LightCurve():
         else:
             self.exptime = kwargs['exptime']
         if 'tref' in kwargs:
-            try:
-                if type(kwargs['tref']) in [Time, str]:
-                    self.tref = Time(kwargs['tref'])
-                elif type(kwargs['tref']) in [int, float]:
-                    self.tref = Time(kwargs['tref'], format='jd')
-            except:
-                raise ValueError('tref must be an Julian Date or ISO format Date')
+            self.tref = kwargs['tref']
         if 'time' in locals():
             if type(time) == Time:
-                if 'tref' not in kwargs:
+                if not hasattr(self, 'tref'):
                     self.tref = Time(time[0].iso.split(' ')[0] + ' 00:00:00.000')
             elif all(time > 2400000):
                 time = Time(time, format='jd')
-                if 'tref' not in kwargs:
+                if not hasattr(self, 'tref'):
                     self.tref = Time(time[0].iso.split(' ')[0] + ' 00:00:00.000')
             elif not hasattr(self, 'tref'):
                 raise ValueError('tref must be given')
             else:
                 time = self.tref + time*u.s
-            self.time = (time - self.tref).sec
-            order = np.argsort(self.time)
-            self.model = np.ones(len(self.time))
+            order = np.argsort(time)
+            self._time = time[order]
+            self.model = np.ones(len(time))
             self.flux = self.flux[order]
             self.flux_obs = self.flux
-            self.time = self.time[order]
             if self.dflux is not None:
                 self.dflux = self.dflux[order]
             self.initial_time = np.min(time)
             self.end_time = np.max(time)
-            self.cycle = np.median(self.time[1:] - self.time[:-1])
+            self.cycle = np.median(time[1:] - time[:-1]).sec
             if self.cycle < self.exptime:
                 warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
                               format(self.exptime, self.cycle))
@@ -280,7 +372,7 @@ class LightCurve():
         '''
         Set the occultation velocity
         Inputs:
-        vel = float, in km/s
+        vel (int,float): velocity in km/s
         '''
         if type(vel) == u.quantity.Quantity:
             vel = vel.to(u.km/u.s).value
@@ -294,7 +386,7 @@ class LightCurve():
         '''
         Set the object distance
         Inputs:
-        dist = float, in km
+        dist (int,float): distance in km
         '''
         if type(dist) == u.quantity.Quantity:
             dist = dist.to(u.AU).value
@@ -308,7 +400,7 @@ class LightCurve():
         '''
         Set the star diameter
         Inputs:
-        diam = float, in km
+        d_star (float): star diameter, in km
         '''
         if type(d_star) == u.quantity.Quantity:
             d_star = d_star.to(u.km).value
@@ -322,8 +414,8 @@ class LightCurve():
         '''
         Set the filter bandwidth in microns
         Inputs:
-        lambda_0 = float, in microns
-        delta_lambda = float, in microns
+        lambda_0 (float): center band in microns
+        delta_lambda (float): bandwidth in microns
         '''
         if type(lambda_0) == u.quantity.Quantity:
             lambda_0 = lambda_0.to(u.micrometer).value
@@ -346,8 +438,8 @@ class LightCurve():
         ----------
         Parameters
         ----------
-        mag_star (float): Stellar magnitude.
-        mag_obj  (float): Object apparent magnitude to the date.
+        mag_star (int,float): Stellar magnitude.
+        mag_obj  (int,float): Object apparent magnitude to the date.
         ----------
         Returns
         ----------
@@ -362,16 +454,13 @@ class LightCurve():
         self.bottom_flux = bottom_flux
         return
 
-    def normalize(self, poly_deg=None, mask=None, **kwargs):
+    def normalize(self, poly_deg=None, mask=None, flux_min=0.0, flux_max=1.0, plot=False):
         """ Returns the fresnel scale.
         ----------
         Parameters
         ----------
         poly_deg  (int): degree of the polynom to be fitted
         mask   (array of Bolleans): which values to be fitted
-        ----------
-        kwargs
-        ----------
         flux_min (int,float): event flux to be setted as 0.0
         flux_max (int,float): baseline flux to be setted as 1.0
         plot (Bollean): If True plot the steps for visual aid
@@ -380,9 +469,6 @@ class LightCurve():
         if not all(self.flux):
             raise ValueError('Normalization is only possible when a LightCurve is instatiated with time and flux.')
         self.reset_flux()
-        flux_min = kwargs.get('flux_min', 0.0)
-        flux_max = kwargs.get('flux_max', 1.0)
-        plot = kwargs.get('plot', False)
         lc_flux = (self.flux - flux_min)/(flux_max-flux_min)
         if mask is None:
             preliminar_occ = self.occ_detect(maximum_duration=((self.end_time - self.initial_time).value*u.d.to('s'))/3)
@@ -532,8 +618,8 @@ class LightCurve():
         ----------
         Parameters
         ----------
-        tmin (int,float): Minimum time to consider in the fit prcedure
-        tmax (int,float): Maximum time to consider in the fit prcedure
+        tmin (int,float): Minimum time to consider in the fit procedure, in seconds
+        tmax (int,float): Maximum time to consider in the fit procedure, in seconds
         flux_min (int,float): Bottom flux (only object), default equal to 0.0
         flux_max (int,float): Base flux (object plus star), default equal to 1.0
         immersion_time  (int, float): Initial guess for immersion time, in seconds.
@@ -547,11 +633,14 @@ class LightCurve():
         ----------
         chi2 (ChiSquare): ChiSquare object
         """
+        allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max', 'immersion_time', 'emersion_time', 'opacity',
+                          'delta_t', 'dopacity', 'loop']
+        input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if not hasattr(self, 'flux'):
             raise ValueError('Fit curve is only possible when a LightCurve is instatiated with time and flux.')
         delta_t = 2*self.cycle
-        loop = 10000
+        loop = kwargs.get('loop', 10000)
         t_i = np.zeros(loop)
         t_e = np.zeros(loop)
         tmax = self.time.max()
@@ -560,11 +649,9 @@ class LightCurve():
         do_immersion = False
         emersion_time = tmax + self.exptime
         do_emersion = False
-        opacity = 1.0
+        opacity = kwargs.get('opacity', 1.0)
         delta_opacity = 0.0
         do_opacity = False
-        if 'loop' in kwargs:
-            loop = kwargs['loop']
         if ('immersion_time' not in kwargs) and ('emersion_time' not in kwargs):
             preliminar_occ = self.occ_detect()
             immersion_time = preliminar_occ['immersion_time']
@@ -594,11 +681,7 @@ class LightCurve():
         mask = (self.time >= tmin) & (self.time <= tmax)
         mask_sigma = (((self.time >= tmin) & (self.time < immersion_time - self.exptime)) +
                       ((self.time > emersion_time + self.exptime) & (self.time <= tmax)))
-        sigma = self.flux[mask_sigma].std(ddof=1)
-        if 'sigma' in kwargs:
-            sigma = kwargs['sigma']
-        if 'opacity' in kwargs:
-            opacity = kwargs['opacity']
+        sigma = kwargs.get('sigma', self.flux[mask_sigma].std(ddof=1))
         if 'dopacity' in kwargs:
             delta_opacity = kwargs['dopacity']
             do_opacity = True
@@ -1061,15 +1144,17 @@ class LightCurve():
     def __str__(self):
         """ String representation of the LightCurve Object
         """
-        output = ('Light curve name: {}\n'
-                  'Initial time: {} UTC\n'
-                  'End time:     {} UTC\n'
-                  'Duration:     {:.3f} minutes\n'
-                  'Time offset:  {:.3f} seconds\n\n'.format(
-                      self.name, self.initial_time.iso, self.end_time.iso,
-                      (self.end_time - self.initial_time).value*u.d.to('min'),
-                      self.dt)
-                  )
+        output = 'Light curve name: {}\n'.format(self.name)
+        try:
+            output += ('Initial time: {} UTC\n'
+                       'End time:     {} UTC\n'
+                       'Duration:     {:.3f} minutes\n'.format(
+                           self.initial_time.iso, self.end_time.iso,
+                           (self.end_time - self.initial_time).value*u.d.to('min'))
+                       )
+        except:
+            pass
+        output += 'Time offset:  {:.3f} seconds\n\n'.format(self.dt)
         try:
             output += 'Exposure time:    {:.4f} seconds\n'.format(self.exptime)
             output += 'Cycle time:       {:.4f} seconds\n'.format(self.cycle)

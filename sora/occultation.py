@@ -4,6 +4,7 @@ from .observer import Observer
 from .lightcurve import LightCurve
 from .prediction import occ_params, PredictionTable
 from .extra import ChiSquare
+from sora.config.decorators import deprecated_alias
 import astropy.units as u
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
 from astropy.time import Time
@@ -59,7 +60,10 @@ def positionv(star, ephem, observer, time):
     return f, g, vf, vg
 
 
-def fit_ellipse(*args, **kwargs):
+@deprecated_alias(pos_angle='position_angle', dpos_angle='dposition_angle')  # remove this line for v1.0
+def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
+                dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
+                loop=10000000, number_chi=10000, dchi_min=None, log=False):
     """ Fits an ellipse to given occultation
 
     Parameters:
@@ -69,7 +73,7 @@ def fit_ellipse(*args, **kwargs):
         center_g (int,float): The coordinate in g of the ellipse.
         equatorial_radius (int,float): The Equatorial radius of the ellipse.
         oblateness (int,float): The oblateness of the ellipse.
-        pos_angle (int,float): The pole position angle of the ellipse.
+        position_angle (int,float): The pole position angle of the ellipse.
 
         Params for the interval of search, if not given, default is set to zero.
         Search between (value - dvalue) and (value + dvalue):
@@ -77,14 +81,14 @@ def fit_ellipse(*args, **kwargs):
         dcenter_g (int,float)
         dequatorial_radius (int,float)
         doblateness (int,float)
-        dpos_angle (int,float)
+        dposition_angle (int,float)
 
-        loop: The number of ellipsis to attempt fitting. Default: 10,000,000
-        dchi_min: If given, it will only save ellipsis which chi square are
+        loop (int): The number of ellipsis to attempt fitting. Default: 10,000,000
+        dchi_min (intt,float): If given, it will only save ellipsis which chi square are
             smaller than chi_min + dchi_min.
-        number_chi: if dchi_min is given, the procedure is repeated until
+        number_chi (int): if dchi_min is given, the procedure is repeated until
             number_chi is reached. Default: 10,000
-        log: If True, it prints information while fitting. Default: False.
+        log (bool): If True, it prints information while fitting. Default: False.
 
     Return:
         chisquare: A ChiSquare object with all parameters.
@@ -94,23 +98,6 @@ def fit_ellipse(*args, **kwargs):
         fit_ellipse(occ1, occ2, **kwargs) to fit the ellipse to the chords
             of occ1 and occ2 Occultation objects together
     """
-    params_needed = ['center_f', 'center_g', 'equatorial_radius', 'oblateness', 'pos_angle']
-    if not all([param in kwargs for param in params_needed]):
-        raise ValueError('Input conditions not satisfied. Please refer to the tutorial.')
-    center_f = kwargs['center_f']
-    dcenter_f = kwargs.get('dcenter_f', 0.0)
-    center_g = kwargs['center_g']
-    dcenter_g = kwargs.get('dcenter_g', 0.0)
-    equatorial_radius = kwargs['equatorial_radius']
-    dequatorial_radius = kwargs.get('dequatorial_radius', 0.0)
-    oblateness = kwargs['oblateness']
-    doblateness = kwargs.get('doblateness', 0.0)
-    pos_angle = kwargs['pos_angle']
-    dpos_angle = kwargs.get('dpos_angle', 0.0)
-    loop = kwargs.get('loop', 10000000)
-    number_chi = kwargs.get('number_chi', 10000)
-    log = kwargs.get('log', False)
-
     values = []
     for occ in args:
         if type(occ) != Occultation:
@@ -149,7 +136,7 @@ def fit_ellipse(*args, **kwargs):
         a = equatorial_radius + dequatorial_radius*(2*np.random.random(loop) - 1)
         obla = oblateness + doblateness*(2*np.random.random(loop) - 1)
         obla[obla < 0], obla[obla > 1] = 0, 1
-        phi_deg = pos_angle + dpos_angle*(2*np.random.random(loop) - 1)
+        phi_deg = position_angle + dposition_angle*(2*np.random.random(loop) - 1)
         controle_f1 = Time.now()
 
         for fi, gi, si in values:
@@ -166,8 +153,8 @@ def fit_ellipse(*args, **kwargs):
             chi2 += ((fi - f_model)**2 + (gi - g_model)**2)/(si**2)
 
         controle_f2 = Time.now()
-        if 'dchi_min' in kwargs:
-            region = np.where(chi2 < chi2.min() + kwargs['dchi_min'])[0]
+        if dchi_min is not None:
+            region = np.where(chi2 < chi2.min() + dchi_min)[0]
         else:
             region = np.arange(len(chi2))
         chi2_best = np.append(chi2_best, chi2[region])
@@ -187,17 +174,14 @@ def fit_ellipse(*args, **kwargs):
         print('Total elapsed time: {:.3f} seconds.'.format((controle_f4 - controle_f0).sec))
 
     onesigma = chisquare.get_nsigma(sigma=1)
-    for occ in args:
-        if type(occ) == Occultation:
-            occ.fitted_params = {i: onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
-                                                          'oblateness', 'position_angle']}
-    a = occ.fitted_params['equatorial_radius'][0]
-    f0 = occ.fitted_params['center_f'][0]
-    g0 = occ.fitted_params['center_g'][0]
-    obla = occ.fitted_params['oblateness'][0]
-    phi_deg = occ.fitted_params['position_angle'][0]
+    a = onesigma['equatorial_radius'][0]
+    f0 = onesigma['center_f'][0]
+    g0 = onesigma['center_g'][0]
+    obla = onesigma['oblateness'][0]
+    phi_deg = onesigma['position_angle'][0]
     radial_dispersion = np.array([])
     error_bar = np.array([])
+
     for fi, gi, si in values:
         b = a - a*obla
         phi = phi_deg*(np.pi/180.0)
@@ -211,11 +195,16 @@ def fit_ellipse(*args, **kwargs):
         g_model = g0 + r_model*np.sin(theta)
         radial_dispersion = np.append(radial_dispersion, r - r_model)
         error_bar = np.append(error_bar, si)
-    occ.chi2_params = {'radial_dispersion': [radial_dispersion.mean(), radial_dispersion.std(ddof=1)]}
-    occ.chi2_params['mean_error'] = [error_bar.mean(), error_bar.std()]
-    occ.chi2_params['chi2_min'] = chisquare.get_nsigma()['chi2_min']
-    occ.chi2_params['nparam'] = chisquare.nparam
-    occ.chi2_params['npts'] = chisquare.npts
+
+    for occ in args:
+        if type(occ) == Occultation:
+            occ.fitted_params = {i: onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
+                                                          'oblateness', 'position_angle']}
+            occ.chi2_params = {'radial_dispersion': [radial_dispersion.mean(), radial_dispersion.std(ddof=1)]}
+            occ.chi2_params['mean_error'] = [error_bar.mean(), error_bar.std()]
+            occ.chi2_params['chi2_min'] = chisquare.get_nsigma()['chi2_min']
+            occ.chi2_params['nparam'] = chisquare.nparam
+            occ.chi2_params['npts'] = chisquare.npts
     return chisquare
 
 
@@ -305,7 +294,7 @@ class Occultation():
 
         Parameters:
             obs (Observer):The Observer object to be added.
-            status (string): it can be "positive", "negative", "visual" or "undefined"
+            lightcurve (LightCurve): The LightCurve object to be addec
         """
         if type(obs) != Observer:
             raise ValueError('obs must be an Observer object')
@@ -328,8 +317,8 @@ class Occultation():
         """ Removes observation from the Occultation object.
 
         Parameters:
-            key: The name given to Observer or LightCurve to remove from the list.
-            keylc: In the case where repeated names are present for different observations,
+            key (str): The name given to Observer or LightCurve to remove from the list.
+            keylc (str): In the case where repeated names are present for different observations,
                 keylc must be given for the name of the LightCurve
                 and key will be used for the name of the Observer.
         """
@@ -381,7 +370,7 @@ class Occultation():
             center_g (int,float): The coordinate in g of the ellipse.
             equatorial_radius (int,float): The Equatorial radius of the ellipse.
             oblateness (int,float): The oblateness of the ellipse.
-            pos_angle (int,float): The pole position angle of the ellipse.
+            position_angle (int,float): The pole position angle of the ellipse.
 
             Params for the interval of search, if not given, default is set to zero.
             Search between (value - dvalue) and (value + dvalue):
@@ -389,14 +378,14 @@ class Occultation():
             dcenter_g (int,float)
             dequatorial_radius (int,float)
             doblateness (int,float)
-            dpos_angle (int,float)
+            dposition_angle (int,float)
 
-            loop: The number of ellipsis to attempt fitting. Default: 10,000,000
-            dchi_min: If given, it will only save ellipsis which chi square are
+            loop (int): The number of ellipsis to attempt fitting. Default: 10,000,000
+            dchi_min (int,float): If given, it will only save ellipsis which chi square are
                 smaller than chi_min + dchi_min.
-            number_chi: if dchi_min is given, the procedure is repeated until
+            number_chi (int): if dchi_min is given, the procedure is repeated until
                 number_chi is reached. Default: 10,000
-            log: If True, it prints information while fitting. Default: False.
+            log (bool): If True, it prints information while fitting. Default: False.
 
         Return:
             chisquare: A ChiSquare object with all parameters.
@@ -558,7 +547,7 @@ class Occultation():
         """ Calculates the new astrometric position for the object given fitted params
 
         Parameters:
-            time: Time to which calculate the position. If not given, it uses the instant at C/A.
+            time (str,Time): Time to which calculate the position. If not given, it uses the instant at C/A.
             offset (list): Offset to apply to the position. If not given, it uses the params fitted from ellipse.
                 Offsets must be a list of 3 values being [X, Y, 'unit'], where 'unit' must be an angular or distance unit.
                 Angular units must be in dacosdec, ddec: Ex: [30.6, 20, 'mas'], or [-15, 2, 'arcsec']
@@ -653,15 +642,19 @@ class Occultation():
         else:
             return out
 
-    def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red', ax=None):
+    def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red',
+                    ax=None, lw=2, axis_labels=True):
         """Plots the chords of the occultation
 
         Parameters:
             all_chords (bool): if True, it plots all the chords,
                 if False, it sees what was deactivated in self.positions and ignores them
-            positive_color: color for the positive chords. Default: blue
-            negative_color: color for the negative chords. Default: green
-            error_color: color for the error bars of the chords. Default: red
+            positive_color (str): color for the positive chords. Default: blue
+            negative_color (str): color for the negative chords. Default: green
+            error_color (str): color for the error bars of the chords. Default: red
+            ax (maptlotlib.Axes): Axis where to plot chords. Default: Use matplotlib pool.
+            lw (int, float): linewidth of the chords. Default: 2
+            axis_labels (bool): If True it prints the labels of the axis of the image.
         """
         ax = ax or plt.gca()
         positions = self.positions
@@ -673,20 +666,24 @@ class Occultation():
                     continue
                 if pos_lc['status'] == 'negative':
                     arr = np.array([pos_lc['start_obs']['value'], pos_lc['end_obs']['value']])
-                    ax.plot(*arr.T, '--', color=negative_color, linewidth=0.7)
+                    ax.plot(*arr.T, '--', color=negative_color, linewidth=lw)
                 else:
                     n = 0
                     if pos_lc['immersion']['on'] or all_chords:
                         arr = np.array([pos_lc['immersion']['error']])
-                        ax.plot(*arr.T, color=error_color, linewidth=1.5)
+                        ax.plot(*arr.T, color=error_color, linewidth=lw*3/2)
                         n += 1
                     if pos_lc['emersion']['on'] or all_chords:
                         arr = np.array([pos_lc['emersion']['error']])
-                        ax.plot(*arr.T, color=error_color, linewidth=1.5)
+                        ax.plot(*arr.T, color=error_color, linewidth=lw*3/2)
                         n += 1
                     if n == 2:
                         arr = np.array([pos_lc['immersion']['value'], pos_lc['emersion']['value']])
-                        ax.plot(*arr.T, color=positive_color, linewidth=0.7)
+                        ax.plot(*arr.T, color=positive_color, linewidth=lw)
+        ax.invert_xaxis()
+        if axis_labels:
+            ax.set_xlabel('f (km)')
+            ax.set_ylabel('g (km)')
         ax.axis('equal')
 
     def get_map_sites(self):
@@ -710,62 +707,67 @@ class Occultation():
                 instantiating.
 
             nameimg (str): Change the name of the imaged saved.
+            path (str): Path to a directory where to save map.
             resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
                 "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
             states (bool): True to plot the state division of the countries. The states of
                 some countries will only be shown depending on the resolution.
             zoom (int, float): Zooms in or out of the map.
-            centermap_geo: Center the map given coordinates in longitude and latitude.
+            centermap_geo (list): Center the map given coordinates in longitude and latitude.
                 It must be a list with two numbers. Default=None.
-            centermap_delta: Displace the center of the map given displacement
+            centermap_delta (list): Displace the center of the map given displacement
                 in X and Y, in km. It must be a list with two numbers. Default=None.
-            centerproj: Rotates the Earth to show occultation with the center
-                projected at a given longitude and latitude.
-            labels: Plots text above and below the map with the occultation parameters.
+            centerproj (list): Rotates the Earth to show occultation with the center
+                projected at a given longitude and latitude. It must be a list with two numbers
+            labels (bool): Plots text above and below the map with the occultation parameters.
                 Default=True.
-            meridians: Plots lines representing the meridians for given interval. Default=30 deg
-            parallels: Plots lines representing the parallels for given interval. Default=30 deg
-            sites: Plots site positions in map. It must be a python dictionary where the key is
+            meridians (int): Plots lines representing the meridians for given interval. Default=30 deg
+            parallels (int): Plots lines representing the parallels for given interval. Default=30 deg
+            sites (dict): Plots site positions in map. It must be a python dictionary where the key is
                 the name of the site, and the value is a list with longitude, latitude, delta_x,
                 delta_y and color. delta_x and delta_y are displacement, in km, from the point
                 of the site in the map and the name. color is the color of the point.
                 If not given, it calculates from observations added to Occultation
-            countries: Plots the names of countries. It must be a python dictionary where the key
+            site_name (bool): If True, it prints the name of the sites given, else it plots only the points
+            countries (dict): Plots the names of countries. It must be a python dictionary where the key
                 is the name of the country and the value is a list with longitude and latitude
                 of the lower left part of the text.
-            offset: applies an offset to the ephemeris, calculating new CA and instant of CA.
+            offset (list): applies an offset to the ephemeris, calculating new CA and instant of CA.
                 It is a pair of delta_RA*cosDEC and delta_DEC.
                 If not given it uses the center from ellipse fitted.
-            mapstyle: Define the color style of the map. 1 is the default black and white scale.
+            mapstyle (int): Define the color style of the map. 1 is the default black and white scale.
                 2 is a colored map.
-            error: Ephemeris error in mas. It plots a dashed line representing radius + error.
-            lncolor: Changes the color of the lines of the error bar.
-            ring: It plots a dashed line representing the location of a ring.
+            error (int,float): Ephemeris error in mas. It plots a dashed line representing radius + error.
+            ercolor (str): Changes the color of the lines of the error bar.
+            ring (int,float): It plots a dashed line representing the location of a ring.
                 It is given in km, from the center.
-            rncolor: Changes the color of ring lines.
-            atm: It plots a dashed line representing the location of an atmosphere.
+            rncolor (str): Changes the color of ring lines.
+            atm (int,float): It plots a dashed line representing the location of an atmosphere.
                 It is given in km, from the center.
-            rncolor: Changes the color of atm lines.
-            heights: It plots a circular dashed line showing the locations where the observer
+            atcolor (str): Changes the color of atm lines.
+            chord_delta (list): list with distances from center to plot chords
+            chord_geo (2d-list): list with pairs of coordinates to plot chords
+            chcolor (str): color of the line of the chords. Default: grey
+            heights (list): It plots a circular dashed line showing the locations where the observer
                 would observe the occultation at a given height above the horizons.
                 This must be a list.
-            hcolor: Changes the color of the height lines.
-            mapsize: The size of figure, in cm. It must be a list with two values.
+            hcolor (str): Changes the color of the height lines.
+            mapsize (list): The size of figure, in cm. It must be a list with two values.
                 Default = [46.0, 38.0].
-            cpoints: Interval for the small points marking the center of shadow,
+            cpoints (int,float): Interval for the small points marking the center of shadow,
                 in seconds. Default=60.
-            ptcolor: Change the color of the center points.
-            alpha: The transparency of the night shade, where 0.0 is full transparency
+            ptcolor (str): Change the color of the center points.
+            alpha (float): The transparency of the night shade, where 0.0 is full transparency
                 and 1.0 is full black. Default = 0.2.
-            fmt: The format to save the image. It is parsed directly by matplotlib.pyplot.
+            fmt (str): The format to save the image. It is parsed directly by matplotlib.pyplot.
                 Default = 'png'
-            dpi: "Dots per inch". It defines the quality of the image. Default = 100.
-            lncolor: Changes the color of the line that represents the limits of the shadow over Earth.
-            outcolor: Changes the color of the lines that represents the limits of the shadow outside Earth
-            nscale: Arbitrary scale for the size for the name of the site.
-            cscale Arbitrary scale for the name of the country.
-            sscale Arbitrary scale for the size of point of the site.
-            pscale: Arbitrary scale for the size of the points that represent the center of the shadow
+            dpi (int): "Dots per inch". It defines the quality of the image. Default = 100.
+            lncolor (str): Changes the color of the line that represents the limits of the shadow over Earth.
+            outcolor (str): Changes the color of the lines that represents the limits of the shadow outside Earth
+            nscale (int,float): Arbitrary scale for the size of the name of the site.
+            cscale (int,float): Arbitrary scale for the name of the country.
+            sscale (int,float): Arbitrary scale for the size of point of the site.
+            pscale (int,float): Arbitrary scale for the size of the points that represent the center of the shadow
             arrow (bool): If true, it plots the arrow with the occultation direction.
 
             Comment: Only one of centermap_geo and centermap_delta can be given
@@ -907,7 +909,7 @@ class Occultation():
 
         coord = self.star.geocentric(self.tca)
         error_star = self.star.error_at(self.tca)
-        out += 'GCRS star coordinate at occultation Epoch ({}):\n'.format(self.tca.iso)
+        out += 'Geocentric star coordinate at occultation Epoch ({}):\n'.format(self.tca.iso)
         out += 'RA={} +/- {:.4f}, DEC={} +/- {:.4f}\n\n'.format(
             coord.ra.to_string(u.hourangle, sep='hms', precision=5), error_star[0],
             coord.dec.to_string(u.deg, sep='dms', precision=4), error_star[1])
