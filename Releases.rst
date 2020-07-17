@@ -1,13 +1,182 @@
-# SORA
+SORA v0.1.1 (unreleased)
+========================
 
-# VERSION RELEASES AND UPDATES
+New Features
+------------
+
+sora.config
+^^^^^^^^^^^
+
+- Module to verify if kwargs are allowed was created. This was included throughout the code. [#8]
+
+sora.ephem
+^^^^^^^^^^
+
+sora.extra
+^^^^^^^^^^
+
+- Added a parameter that allows the used to plot a dot corresponding
+  the center of the ellipse [#35]
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Property LightCurve.time_mean that returns the mean time of the chord (positive) or
+  the mean time of the observation (negative). [#34]
+
+sora.observer
+^^^^^^^^^^^^^
+
+- Function Observer.altaz() that calculates the altitude and azimuth for a given target 
+  and instant. [#34]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Four new parameters were added to `plot_occ_map()`: `path`: for the user to select
+  a directory where to save the plots; `site_name`: If True, the name of the sites
+  will be plotted; `chord_delta` and `chord_geo`: for the user to plot the path of
+  a chord from distance of the center or passing by some coordinate, respectively. [#35]
+
+- Two method were added to `PredictionTable()` to help the user to remove bad events
+  from table: `keep_from_selected_images()` and `remove_occ()`. [#35]
+
+sora.star
+^^^^^^^^^^^^^^^
+
+documentation
+^^^^^^^^^^^^^
 
 
-## RELEASES
+API Changes
+-----------
 
-- SORA v0.1 - 2020/May/20
+sora.config
+^^^^^^^^^^^
 
-## SORA v0.1 - Initial Release
+- config module is now a directory. It now includes a module with decorators
+  and another for variables. [#31,#35]
+
+sora.ephem
+^^^^^^^^^^
+
+- In EphemKernel, `code` argument was replaced by `spkid`. When using 'code',
+  a FutureWarning is raised stating `code` as deprecated and will be removed from v1.0. [#26]
+
+sora.extra
+^^^^^^^^^^
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- In LightCurve.immersion and LightCurve.emersion, an error will rise when these values were not 
+  instanciated or fitted. [#34]
+
+- Now the user has the possibility to redefine `tref`, `immersion`, `emersion`,
+  `initial_time` and `end_time` after instantiated. [#35]
+
+sora.observer
+^^^^^^^^^^^^^
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Occultation.new_astrometric_positions() now show a warning when time is far
+  by more than 1 day from the occultation closest approach. [#21]
+
+- Occultation.to_log() and print(Occultation) added the polar radius, equivalent radius, 
+  the Sun-Geocenter-Target angle and the Moon-Geocenter-Target angle, geocentric albedo,
+  the altitude and azimuth of the target for each Observer. [#17]
+
+- In `fit_ellipse()`, `pos_angle` and `dpos_angle` were deprecated in favor of
+  `position_angle` and `dposition_angle`. [#35]
+
+- Changed "GCRS" to "Geocentric" in the string representation to avoid confusion
+  about the reference frame. [#35]
+  
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- prediction() now calculates the ephemeris inside each division to avoid memory overflow. [#31]
+
+- PredictionTable.to_ow() will now raise a warning if the radius or the error of
+  the ephemeris is not present. [#35]
+
+sora.star
+^^^^^^^^^^^^^^^
+
+- Now Star downloads all parameters from Gaia and saves them in the `meta_gaia` attribute [#35]
+
+documentation
+^^^^^^^^^^^^^
+
+
+Bug Fixes
+---------
+
+sora.config
+^^^^^^^^^^^
+
+sora.ephem
+^^^^^^^^^^
+
+sora.extra
+^^^^^^^^^^
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Fixed error that appears when the fit was done separately (immersion and emersion times). 
+  Now the final model agrees with the fitted values.   [#9]
+
+- Fixed error when the file with the light curve has three columns. [#19]
+
+- Fixed error when the exptime within the LightCurve was set as zero or negative. [#23]
+
+- Fixed error in the automatic mode of LightCurve.normalize(). [#34]
+
+- Fixed bug that was raised in LightCurve.log() when there were no initial or end times
+  for lightcurves instantiated with immersion and emersion. [#35]
+
+sora.observer
+^^^^^^^^^^^^^
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Corrected error calculation using err = sqrt(star_err^2 + fit_err^2) [#18]
+
+- Occultation.plot_occ_map() now uses the fitted ellipse to calculate the projected shadow radius [#22]
+
+- Corrected bug that raised an error whe calling Occultation.get_map_sites()
+  and there were no observation added to Occultation. [#31]
+
+- Corrected bug that did not save the fitted params in all occultations when
+  more than one occultation is used in fit_ellipse(). [#35]
+
+- Added `axis_labels` and `lw` (linewidth) to Occultation.plot_chords(). [#35]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Fixed error that was generated when only on prediction was found. [#16]
+
+- Fixed error in the output format of PredictionTable.to_ow() when coordinate was positive [#35]
+
+sora.star
+^^^^^^^^^^^^^^^
+
+documentation
+^^^^^^^^^^^^^
+
+- Modified code to PEP8 standards. [#7]
+
+
+SORA v0.1 - Initial Release (2020/May/20)
+=========================================
 
 ### Object Classes
 
@@ -83,92 +252,90 @@ Assafin et al., 2011 - https://ui.adsabs.harvard.edu/abs/2011gfun.conf...85A/abs
 
 ##### OUTPUTS
 
-  - Generic Information (for a specific occultation):
+  - Star
  
-  > Star
- 
-      - Star Gaia-DR2 ID
-      - Star coordinates at 2015.5 and uncertainty - RA and DEC (hh mm ss.sss , +dd mm ss.sss, mas, mas)
-      - Star proper motion - in RA, DEC - and uncertainties (mas/yr)
-      - Star parallax and uncertainty (mas)
-      - Star coordinates propagated to event epoch and uncertainty - RA and DEC (hh mm ss.sss , +dd mm ss.sss, mas, mas)
-      - Star magnitudes G, B, V, R, J, H, K (mag)
-      - Star projected diameter and model (km and mas, model: GDR2, Van Belle, Kervella)
-      - Star offset applied in RA and DEC (mas, mas)
+    - Star Gaia-DR2 ID
+    - Star coordinates at 2015.5 and uncertainty - RA and DEC (hh mm ss.sss , +dd mm ss.sss, mas, mas)
+    - Star proper motion - in RA, DEC - and uncertainties (mas/yr)
+    - Star parallax and uncertainty (mas)
+    - Star coordinates propagated to event epoch and uncertainty - RA and DEC (hh mm ss.sss , +dd mm ss.sss, mas, mas)
+    - Star magnitudes G, B, V, R, J, H, K (mag)
+    - Star projected diameter and model (km and mas, model: GDR2, Van Belle, Kervella)
+    - Star offset applied in RA and DEC (mas, mas)
 
 
-  > Object and Ephemeris
+  - Object and Ephemeris
 
-      - Object Name
-      - Object radius (km)
-      - Object mass (kg)
-      - Ephemeris kernel (version and DE)
-      - Offset applied in RA/DEC (mas, mas)
-      - Object’s distance (AU)
-      - Object apparent magnitude for the date (mag)
+    - Object Name
+    - Object radius (km)
+    - Object mass (kg)
+    - Ephemeris kernel (version and DE)
+    - Offset applied in RA/DEC (mas, mas)
+    - Object’s distance (AU)
+    - Object apparent magnitude for the date (mag)
 
-  > Occultation
+  - Occultation
 
-      - Event date and time (yyyy-mm-dd hh:mm:ss.sss)
-      - Closest approach Angle - CA (arcsec)
-      - Reference time (yyyy-mm-dd hh:mm:ss.sss)
-      - Position Angle - PA (degree)
-      - Shadow’s velocity relative to the geocenter (km/s)
-      - Number of positive observations
-      - Number of negative observations
+    - Event date and time (yyyy-mm-dd hh:mm:ss.sss)
+    - Closest approach Angle - CA (arcsec)
+    - Reference time (yyyy-mm-dd hh:mm:ss.sss)
+    - Position Angle - PA (degree)
+    - Shadow’s velocity relative to the geocenter (km/s)
+    - Number of positive observations
+    - Number of negative observations
 
 
   - Observer Information
  
-      - Detection status (positive, negative, overcast, tech. problem, other)
-      - Site Name
-      - Site MPC/IAU code (if any)
-      - Site coordinates - Latitude, Longitude and height  (dd mm ss.s ; dd mm ss.s ; m)
-      - Light curve file name
-      - Number of images (lines in LC)
+    - Detection status (positive, negative, overcast, tech. problem, other)
+    - Site Name
+    - Site MPC/IAU code (if any)
+    - Site coordinates - Latitude, Longitude and height  (dd mm ss.s ; dd mm ss.s ; m)
+    - Light curve file name
+    - Number of images (lines in LC)
 
   - Light curve fitting information (for each positive detection)
 
-      - Acquisition start time (yyyy-mm-dd hh:mm:ss.sss)
-      - Acquisition end time (yyyy-mm-dd hh:mm:ss.sss)
-      - Exposure time (s)
-      - Cycle time (s)
-      - Time offset applied in LC (s)
-      - Light curve calculated RMS
-      - Calculated normalised flux and bottom flux (standard = 1, 0)
-      - Band width and uncertainty (microns)
-      - Shadow's velocity relative to the station (km/s)
-      - Fresnel scale (s and km)
-      - Projected stellar size scale (s and km)
-      - Integration time scale (s and km)
-      - Dead time scale (s and km)
-      - Model resolution - size of synthetic LC point (s and km)
-      - Immersion Time and uncertainty (yyyy-mm-dd hh:mm:ss.sss +/- s.sss)
-      - Immersion Time and uncertainty - 1$\sigma$ and 3$\sigma$ (s)
-      - Emersion Time and uncertainty (yyyy-mm-dd hh:mm:ss.sss +/- s.sss)
-      - $\chi^2$ fit model
-      - Emersion Time and uncertainty - 1$\sigma$ and 3$\sigma$ (s)
-      - Minimum Chi-square - $\chi^2_{min}$
-      - Number of fitted points for im- and emersion
-      - Number of fitted parameters
-      - Minimum Chi-square per degree of freedom - $\chi^2_{min-pdf}$
+    - Acquisition start time (yyyy-mm-dd hh:mm:ss.sss)
+    - Acquisition end time (yyyy-mm-dd hh:mm:ss.sss)
+    - Exposure time (s)
+    - Cycle time (s)
+    - Time offset applied in LC (s)
+    - Light curve calculated RMS
+    - Calculated normalised flux and bottom flux (standard = 1, 0)
+    - Band width and uncertainty (microns)
+    - Shadow's velocity relative to the station (km/s)
+    - Fresnel scale (s and km)
+    - Projected stellar size scale (s and km)
+    - Integration time scale (s and km)
+    - Dead time scale (s and km)
+    - Model resolution - size of synthetic LC point (s and km)
+    - Immersion Time and uncertainty (yyyy-mm-dd hh:mm:ss.sss +/- s.sss)
+    - Immersion Time and uncertainty - 1$\sigma$ and 3$\sigma$ (s)
+    - Emersion Time and uncertainty (yyyy-mm-dd hh:mm:ss.sss +/- s.sss)
+    - $\chi^2$ fit model
+    - Emersion Time and uncertainty - 1$\sigma$ and 3$\sigma$ (s)
+    - Minimum Chi-square - $\chi^2_{min}$
+    - Number of fitted points for im- and emersion
+    - Number of fitted parameters
+    - Minimum Chi-square per degree of freedom - $\chi^2_{min-pdf}$
 
   - Elipse fit procedure
  
-      - Fitted parameters: Equatorial radius and uncertainty (km); Center position ($f_0$, $g_0$) and 1$\sigma$ uncertainties (km, km); Oblateness and uncertainty; Position angle and uncertainty (degree)
-      - Minimum Chi-square -  $\chi^2_{min}$
-      - Minimum Chi-square per degree of freedom - $\chi^2_{min-pdf}$
-      - Number points used to fit ( X points from Y chords )
-      - Astrometric object center position at occ. time and uncertainty (hh mm ss.sss +dd mm ss.sss $\pm$ mas)
+    - Fitted parameters: Equatorial radius and uncertainty (km); Center position ($f_0$, $g_0$) and 1$\sigma$ uncertainties (km, km); Oblateness and uncertainty; Position angle and uncertainty (degree)
+    - Minimum Chi-square -  $\chi^2_{min}$
+    - Minimum Chi-square per degree of freedom - $\chi^2_{min-pdf}$
+    - Number points used to fit ( X points from Y chords )
+    - Astrometric object center position at occ. time and uncertainty (hh mm ss.sss +dd mm ss.sss $\pm$ mas)
 
   - Plots and files (some are optional)
 
-      - Prediction map (Lucky Star model)
-      - Normalised light curve - for each site (x = time; y = flux)
-      - Chi-square map for immersion and emersion times (x = time; y = $\chi^2$)
-      - Light curve and synthetic LC- for each site (x = time; y = flux)
-      - Chords projected in sky plane (x = $\xi$ (km); y = $\eta$ (km) )
-      - Chi-square map for each ellipse parameter (x = time; y = $\chi^2_{param}$)
-      - Chords projected in sky plane and the best ellipse fitted with 1$\sigma$ uncertainties (x = $\xi$ (km); y = $\eta$ (km) )
-      - Log file with all information
+    - Prediction map (Lucky Star model)
+    - Normalised light curve - for each site (x = time; y = flux)
+    - Chi-square map for immersion and emersion times (x = time; y = $\chi^2$)
+    - Light curve and synthetic LC- for each site (x = time; y = flux)
+    - Chords projected in sky plane (x = $\xi$ (km); y = $\eta$ (km) )
+    - Chi-square map for each ellipse parameter (x = time; y = $\chi^2_{param}$)
+    - Chords projected in sky plane and the best ellipse fitted with 1$\sigma$ uncertainties (x = $\xi$ (km); y = $\eta$ (km) )
+    - Log file with all information
 
