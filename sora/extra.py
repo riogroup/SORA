@@ -5,14 +5,14 @@ import astropy.units as u
 
 def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
                  position_angle=0.0, center_dot=False, ax=None, **kwargs):
-    """ Plots an ellipse given input parameters
+    """ Plots an ellipse with the given input parameters
 
     Parameters:
         radius (float, int): Semi-major axis of the ellipse.
-        oblateness (float, int): Oblateness of the ellipse. Default=0.0
+        oblateness (float, int): Oblateness of the ellipse. Default=0.0 (circle)
         center_x (float, int): Coordinate of the ellipse (abscissa). Default=0.0
         center_y (float, int): Coordinate of the ellipse (ordinate). Default=0.0
-        center_dot (bool): If True, it plots a dot at the center of the ellipse
+        center_dot (bool): If True, plots a dot at the center of the ellipse. Default=False
         position_angle (float, int): Pole position angle. Default=0.0
         ax (maptlotlib.Axes): Axis where to plot ellipse
         **kwargs: all other parameters will be parsed directly to matplotlib
@@ -57,13 +57,13 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
 
 class ChiSquare():
     def __init__(self, chi2, npts, **kwargs):
-        """ ChiSquare stores the arrays for all inputs and given chi-square.
+        """ Stores the arrays for all inputs and given chi-square.
 
         Parameters:
             chi2 (array): Array with all the chi-square values
             npts (int): Number of points used in the fit
             **kwargs: any other given input must be an array with the same size as chi2.
-                the keyword name will be associated as the variable name of the given data
+                      the keyword name will be associated as the variable name of the given data
 
         Example:
 
@@ -91,7 +91,7 @@ class ChiSquare():
 
         Parameters:
             sigma (float, int): Value of sigma to calculate.
-            key (str): keyword the user desire to obtain results.
+            key (str): keyword the user desire to obtain results. Default=None
 
         Return:
             - if a key is given, it returns two values: the mean value within the n-sigma
@@ -116,7 +116,7 @@ class ChiSquare():
         return output
 
     def plot_chi2(self, key=None, ax=None):
-        """ Plots an ellipse given input parameters
+        """ Plots an ellipse using the given input parameters
 
         Parameters:
             key (str): Key to plot chi square.
@@ -149,7 +149,7 @@ class ChiSquare():
                 plt.show()
 
     def to_file(self, namefile):
-        """ Save the data to a file
+        """ Saves the data to a file
 
         Parameters:
             namefile (str): Filename to save the data
@@ -165,7 +165,7 @@ class ChiSquare():
         """ Returns all values where the chi-square is within the n-th sigma
 
         Parameters:
-            sigma (float, int): Value of sigma to calculate.
+            sigma (float, int): Value of sigma to cut values.
             key (str): keyword the user desire to obtain results.
 
         Return:
