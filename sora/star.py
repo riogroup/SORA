@@ -13,17 +13,17 @@ warnings.simplefilter('always', UserWarning)
 
 
 def search_star(**kwargs):
-    """ Search position on Vizier and returns a catalogue.
+    """ Searches position on VizieR and returns a catalogue.
 
     Parameters:
-        coord (str, SkyCoord):Coordinate to search around.
-        code (str):Gaia Source_id of the star
-        columns (list):List of strings with the name of the columns to retrieve.
-        radius (int, float, unit.quantity):Radius to search around coord.
-        catalog (str):Vizier catalogue to search.
+        coord (str, SkyCoord): Coordinate to perform the search.
+        code (str): Gaia Source_id of the star
+        columns (list): List of strings with the name of the columns to retrieve.
+        radius (int, float, unit.quantity): Radius to search around coordinate
+        catalog (str): VizieR catalogue to search.
 
     Returns:
-        catalogue(astropy.Table):An astropy Table with the catalogue informations.
+        catalogue(astropy.Table): An astropy Table with the catalogue informations.
     """
     input_tests.check_kwargs(kwargs, allowed_kwargs=['catalog', 'code', 'columns', 'coord', 'log', 'radius'])
     row_limit = 100
@@ -40,14 +40,15 @@ def search_star(**kwargs):
 
 
 def van_belle(magB=None, magV=None, magK=None):
-    '''
-    Determine the diameter of a star in mas using equations from van Belle (1999)
+    """ Determines the diameter of a star in mas using equations from van Belle (1999)
     -- Publi. Astron. Soc. Pacific 111, 1515-1523:
 
-    Inputs:
-        magB, magV, magK: The magnitudes B, V and K of the star
-            If value is None, nan or higher than 49, it is not considered.
-    '''
+    Parameters:
+        magB: The magnitude B of the star
+	magV: The magnitude V of the star
+	magK: The magnitude K of the star
+        If any of those values is 'None', 'nan' or higher than 49, it is not considered.
+    """
     if magB is None or np.isnan(magB) or magB > 49:
         magB = np.nan
     if magV is None or np.isnan(magV) or magV > 49:
@@ -76,14 +77,15 @@ def van_belle(magB=None, magV=None, magK=None):
 
 
 def kervella(magB=None, magV=None, magK=None):
-    '''
-    Determine the diameter of a star in mas using equations from Kervella et. al (2004)
-    -- A&A Vol.  426, No.  1:
+    """ Determines the diameter of a star in mas using equations from Kervella et. al (2004)
+    -- A&A Vol. 426, No.  1:
 
-    Inputs:
-        magB, magV, magK: The magnitudes B, V and K of the star
-            If value is None, nan or higher than 49, it is not considered.
-    '''
+    Parameters:
+        magB: The magnitude B of the star
+	magV: The magnitude V of the star
+	magK: The magnitudes K of the star
+        If any of those values is 'None', 'nan' or higher than 49, it is not considered.
+    """
     if magB is None or np.isnan(magB) or magB > 49:
         magB = np.nan
     if magV is None or np.isnan(magV) or magV > 49:
@@ -104,18 +106,16 @@ def kervella(magB=None, magV=None, magK=None):
 
 class Star():
     def __init__(self, **kwargs):
-        '''Define a star
+        """ Defines a star
 
         Parameters:
-            code (str): Gaia-DR2 Source code for searching in Vizier.
+            code (str): Gaia-DR2 Source code for searching in VizieR.
             coord (str, SkyCoord): if code is not given, coord nust have
-                the coordinate to search in Vizier: 'hh mm ss.ss +dd mm ss.ss'
-            nomad (bool): If true, it tries to download the magnitudes
-                from NOMAD catalogue.
+                the coordinates RA and DEC of the star to search in VizieR: 'hh mm ss.ss +dd mm ss.ss'
+            nomad (bool): If true, it tries to download the magnitudes from NOMAD catalogue.
             log (bool): If true, it prints the downloaded information.
-            local (bool): If true, it uses the given coordinate in 'coord'
-                as final coordinate.
-        '''
+            local (bool): If true, it uses the given coordinate in 'coord' as final coordinate.
+        """
         self.__local = False
         self.mag = {}
         self.errors = {}
@@ -141,18 +141,17 @@ class Star():
             self.__getcolors()
 
     def set_magnitude(self, **kwargs):
-        '''
-        Set the magnitudes of a star.
+        """ Sets the magnitudes of a star.
 
-        Inputs:
-            (band name)=(float): The magnitude for given band.
+        Parameters:
+            (band name)=(float): The star magnitude for given band.
                 The band name can be any string the user wants.
 
-        Example:
+        Examples:
             set_magnitude(G=10)
             set_magnitude(K=15)
             set_magnitude(newband=6)
-        '''
+        """
         for key in kwargs:
             mag = test_attr(kwargs[key], float, key)
             if key in self.mag:
@@ -161,47 +160,47 @@ class Star():
             self.mag[key] = mag
 
     def set_diameter(self, diameter):
-        '''
-        Set a user diameter of a star in mas.
+        """ Sets an user diameter for the star, in mas.
 
-        Inputs:
-            diameter (int,float): set the user diameter of the star, in mas
-        '''
+        Parameters:
+            diameter (int,float): sets the user diameter of the star, in mas
+        """
         self.diameter_user = diameter*u.mas
 
     def van_belle(self):
-        '''
-        Determine the diameter of a star in mas using equations from van Belle (1999)
+        """ Determines the diameter of a star in mas using equations from van Belle (1999)
         -- Publi. Astron. Soc. Pacific 111, 1515-1523:
-        '''
+        """
         return van_belle(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
 
     def kervella(self):
-        '''
-        Determine the diameter of a star in mas using equations from Kervella et. al (2004)
+        """ Determines the diameter of a star in mas using equations from Kervella et. al (2004)
         -- A&A Vol.  426, No.  1:
-        '''
+        """
         return kervella(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
 
     def apparent_diameter(self, distance, mode='auto', band='V', star_type='sg', log=True):
-        """Calculate the apparent diameter of the star at given distance
+        """ Calculates the apparent diameter of the star at a given distance
 
         Parameters:
-            distance (int, float): Object distance in AU
-            mode (str): The way to calculate the apparent diameter
-                'user': calculates using user diameter
-                'gaia': calculates using Gaia diameter
+            distance (int, float): Object geocentric distance, in AU
+            mode (str): The mode to calculate the apparent diameter
+                'user': calculates using user given diameter
+                'gaia': calculates using diameter obtained from Gaia
                 'kervella': calculates using Kervella equations
                 'van_belle': calculates using van Belle equations
-                'auto' (default): tries all the above methods
-                    until it is able to calculate diameter.
-                    The order of try is the same as shown above.
-            'band' (str): If mode is 'kervella' or 'van_belle',
-                the filter must be given, 'B' or 'V'.
-                In 'auto' mode, 'V' is selected.
-            'star_type' (str): If mode is 'van_belle', the star type must be given.
-                It can be 'sg', 'ms' and 'vs' for 'Super Giant', 'Main
-                Sequence' and 'Variable Star'. In 'auto' mode, 'sg' is selected.
+                'auto' (default): tries all the above methods until it is able to calculate diameter.
+                    The order of try is the same as shown above (user, Gaia, Kervella, Van Belle).
+            'band' (str): The band filter to calculate the diameter.
+		If mode is 'kervella' or 'van_belle', the filter must be given, 'B' or 'V'.
+                If mode 'auto', 'V' is selected.
+            'star_type' (str): type of star to calculate the diameter.
+		If mode is 'van_belle', the star type must be given.
+		If mode is 'auto', type = 'sg'.
+		Types can be:
+			- 'sg' for 'Super Giant'
+			- 'ms' for 'Main Sequence'
+			- 'vs' for 'Variable Star'
             'log' (bool): If True, it prints the mode used by 'auto'.
         """
         try:
@@ -264,7 +263,7 @@ class Star():
                              "Please define star diameter or B,V,K magnitudes.")
 
     def __searchgaia(self):
-        """search for the star position in the gaia catalogue and save informations
+        """ Searches for the star position in the Gaia catalogue and save informations
         """
         if hasattr(self, 'code'):
             catalogue = search_star(code=self.code, columns=['**'], catalog='I/345/gaia2', log=self.__log)
@@ -272,7 +271,7 @@ class Star():
             catalogue = search_star(coord=self.coord, columns=['**'], radius=2*u.arcsec,
                                     catalog='I/345/gaia2', log=self.__log)
         if len(catalogue) == 0:
-            raise ValueError('No star was found. It does not exist or Vizier is out.')
+            raise ValueError('No star was found. It does not exist or VizieR is out.')
         catalogue = catalogue[0]
         if len(catalogue) > 1:
             if self.__log:
@@ -319,7 +318,7 @@ class Star():
         self.meta_gaia = {c: catalogue[c][0] for c in catalogue.columns}
         if np.ma.core.is_masked(rad) or np.ma.core.is_masked(catalogue['Plx'][0]):
             if self.__log:
-                warnings.warn('Gaia catalogue does not have star radius.')
+                warnings.warn('Gaia catalogue does not have the star radius.')
         else:
             self.diameter_gaia = 2*np.arctan((rad*u.solRad)/distance[0]).to(u.mas)
         if self.__log:
@@ -329,7 +328,7 @@ class Star():
                   self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
 
     def __getcolors(self):
-        """search for the B,V,K magnitudes of the star in the NOMAD catalogue on Vizier
+        """ Searches for the B,V,K magnitudes of the star in the NOMAD catalogue on VizieR
         """
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
         catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec,
@@ -381,10 +380,10 @@ class Star():
             warnings.warn('Magnitudes in {} were not located in NOMAD'.format(errors))
 
     def geocentric(self, time):
-        """ calculate the position of the star using parallax and proper motion
+        """ Calculates the position of the star, propagating the position using parallax and proper motion
 
         Parameters:
-            time (float, Time):time to apply proper motion and calculate paralax.
+            time (float, Time): reference time to apply proper motion and calculate paralax.
         """
         try:
             time = Time(time)
@@ -408,10 +407,10 @@ class Star():
         return g_coord
 
     def barycentric(self, time):
-        """ calculate the position of the star using proper motion
+        """ Calculates the position of the star using proper motion
 
         Parameters:
-            time (str, Time):time to apply proper motion.
+            time (str, Time): reference time to apply proper motion.
         """
         try:
             time = Time(time)
@@ -429,13 +428,13 @@ class Star():
         return n_coord
 
     def error_at(self, time):
-        """Estimates star position error at time given
+        """ Estimates the star position error at a given time
 
         Parameters:
-            time (str, Time):time to project star error.
+            time (str, Time): reference time to project star error.
 
-        Return:
-            pair of errors, in RA* and DEC
+        Returns:
+            errors in RA* and DEC
         """
         try:
             time = Time(time)
@@ -446,18 +445,18 @@ class Star():
         return e_ra, e_dec
 
     def add_offset(self, da_cosdec, ddec):
-        """Add an offset to star
+        """ Adds an offset to the star position
 
         Parameters:
-            da_cosdec (int, float):Delta_alpha_cos_delta in mas
-            ddec (int, float):Delta_delta in mas
+            da_cosdec (int, float): offset in Delta_alpha_cos_delta in mas
+            ddec (int, float): offset in Delta_delta in mas
         """
         dadc = test_attr(da_cosdec, float, 'da_cosdec')
         dd = test_attr(ddec, float, 'ddec')
         self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
 
     def __str__(self):
-        """String representation of the Star class
+        """ String representation of the Star class
         """
         out = ''
         if hasattr(self, 'code'):
