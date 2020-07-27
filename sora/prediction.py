@@ -287,7 +287,7 @@ class PredictionTable(Table):
         Parameters:
             ow_des (str): Occult Watcher designation for the object.
             mode (str): 'append' to append table to already existing file, default
-                        'restart' to overwrite existing file.
+                'restart' to overwrite existing file.
         """
         from sora.config.variables import ow_occ_head
         modes = {'append': 'a+', 'restart': 'w'}
