@@ -21,7 +21,7 @@ def positionv(star, ephem, observer, time):
 
     Parameters:
         star (Star): The coordinate of the star in the same reference frame as the ephemeris.
-                     It must be a Star object.
+           It must be a Star object.
         ephem (Ephem): The object ephemeris. It must be an Ephemeris object.
         observer (Observer): The Observer information. It must be an Observer object.
         time (Time): Reference instant to calculate position and velocity.
@@ -76,7 +76,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
             equatorial_radius (int,float): The Equatorial radius (semi-major axis) of the ellipse.
             oblateness (int,float): The oblateness of the ellipse. Default=0 (circle)
             position_angle (int,float): The pole position angle of the ellipse in degrees. Default=0
-                        Zero is in the North direction ('g-positive'). Positive clockwise.
+                Zero is in the North direction ('g-positive'). Positive clockwise.
 
         Parameters interval of fitting. Default values are set to zero.
         Search between (value - dvalue) and (value + dvalue):
@@ -88,9 +88,9 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
 
         loop (int): The number of ellipses to attempt fitting. Default: 10,000,000
         dchi_min (intt,float): If given, it will only save ellipsis which chi square are
-                               smaller than chi_min + dchi_min.
+            smaller than chi_min + dchi_min.
         number_chi (int): if dchi_min is given, the procedure is repeated until
-                          number_chi is reached. Default: 10,000
+            number_chi is reached. Default: 10,000
         log (bool): If True, it prints information while fitting. Default: False.
 
     Returns:
@@ -216,9 +216,8 @@ class _PositionDict(dict):
     """
     def __setitem__(self, key, value):
         """ Redefines how to set a value to a key in the dictionary.
-            It only sets a value if the key starts with '_occ_'.
-            Otherwise, it only allows for the user to provide 'on' or 'off' which is passed only to change
-            the 'on' keyword.
+            It only sets a value if the key starts with '_occ_'. Otherwise, it only allows for the user to provide
+            'on' or 'off' which is passed only to change the 'on' keyword.
         """
         status = {'on': True, 'off': False}
         n = 0
@@ -258,11 +257,11 @@ class Occultation():
 
         Parameters:
             star (Star): The coordinate of the star in the same reference frame as the ephemeris.
-                         It must be a Star object.
+                It must be a Star object.
             ephem (Ephem): object ephemeris. It must be an Ephemeris object.
             time (str, Time): Reference time of the occultation.
-                              Time does not need to be exact, but needs to be within approximately 10 minutes
-                              of the occultation closest approach to calculate occultation parameters.
+                Time does not need to be exact, but needs to be within approximately 10 minutes
+                of the occultation closest approach to calculate occultation parameters.
         """
         if type(star) != Star:
             raise ValueError('star must be a Star object')
@@ -320,8 +319,7 @@ class Occultation():
         Parameters:
             key (str): The name given to Observer or LightCurve to remove from the list.
             keylc (str): In the case where repeated names are present for different observations,
-                         keylc must be given for the name of the LightCurve and key will be used for the name
-                         of the Observer.
+                keylc must be given for the name of the LightCurve and key will be used for the name of the Observer.
         """
         rm_list = np.array([])
         same_key = False
@@ -356,7 +354,7 @@ class Occultation():
 
     def observations(self):
         """ Print all the observations added to the Occultation object
-        Pair (Observer, LightCurve)
+            Pair (Observer, LightCurve)
         """
         for o, l in self.__observations:
             print('Observer= {}, LC: {}'.format(o.name, l.name))
@@ -372,7 +370,7 @@ class Occultation():
             equatorial_radius (int,float): The Equatorial radius (semi-major axis) of the ellipse.
             oblateness (int,float): The oblateness of the ellipse.
             position_angle (int,float): The pole position angle of the ellipse in degrees. Default=0
-                                        Zero is in the North direction ('g-positive'). Positive clockwise.
+                Zero is in the North direction ('g-positive'). Positive clockwise.
 
         Parameters interval of fitting. Default values are set to zero.
             Search between (value - dvalue) and (value + dvalue):
@@ -384,9 +382,9 @@ class Occultation():
 
             loop (int): The number of ellipses to attempt fitting. Default: 10,000,000
             dchi_min (int,float): If given, it will only save ellipsis which chi square are
-                                  smaller than chi_min + dchi_min.
+                smaller than chi_min + dchi_min.
             number_chi (int): if dchi_min is given, the procedure is repeated until
-                              number_chi is reached. Default: 10,000
+                number_chi is reached. Default: 10,000
             log (bool): If True, it prints information while fitting. Default: False.
 
         Returns:
@@ -550,18 +548,18 @@ class Occultation():
 
         Parameters:
             time (str,Time): Reference time to calculate the position.
-                             If not given, it uses the instant of the occultation Closest Approach.
+                If not given, it uses the instant of the occultation Closest Approach.
             offset (list): Offset to apply to the position. If not given, uses the parameters from the fitted ellipse.
-                           Must be a list of 3 values being [X, Y, 'unit']
-                               'unit' must be Angular or Distance unit.
-                               - If Distance units for X and Y
-                                 Ex: [100, -200, 'km'], [0.001, 0.002, 'AU']
-                               - If Angular units fox X [d*a*cos(dec)] and Y [d*dec]
-                                 Ex: [30.6, 20, 'mas'], or [-15, 2, 'arcsec']
+                Must be a list of 3 values being [X, Y, 'unit']
+                    'unit' must be Angular or Distance unit.
+                    - If Distance units for X and Y
+                        Ex: [100, -200, 'km'], [0.001, 0.002, 'AU']
+                    - If Angular units fox X [d*a*cos(dec)] and Y [d*dec]
+                        Ex: [30.6, 20, 'mas'], or [-15, 2, 'arcsec']
 
             error (list): Error bar of the given offset. If not given, it uses the 1-sigma value of the fitted ellipse.
-                          Error must be a list of 3 values being [dX, dY, 'unit'], similar to offset.
-                          It does not need to be in the same unit as offset.
+                Error must be a list of 3 values being [dX, dY, 'unit'], similar to offset.
+                It does not need to be in the same unit as offset.
             log (bool): If true, it Prints text, else it Returns text.
         """
         if time is not None:
@@ -655,7 +653,7 @@ class Occultation():
 
         Parameters:
             all_chords (bool): if True, it plots all the chords,
-                               if False, it sees what was deactivated in self.positions and ignores them
+                if False, it sees what was deactivated in self.positions and ignores them
             positive_color (str): color for the positive chords. Default: blue
             negative_color (str): color for the negative chords. Default: green
             error_color (str): color for the error bars of the chords. Default: red
@@ -710,62 +708,62 @@ class Occultation():
 
         Parameters:
             radius: The radius of the shadow. If not given it uses the equatorial radius
-                    from the ellipse fit, else it uses the radius obtained from ephem upon instantiating.
+                from the ellipse fit, else it uses the radius obtained from ephem upon instantiating.
             nameimg (str): Change the name of the image saved.
             path (str): Path to a directory where to save map.
             resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
-                              "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
+                "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
             states (bool): True to plot the state division of the countries. The states of
-                           some countries will only be shown depending on the resolution.
+                some countries will only be shown depending on the resolution.
             zoom (int, float): Zooms in or out of the map.
             centermap_geo (list): Center the map for a given coordinates in longitude and latitude.
-                                  It must be a list with two numbers. Default=None.
+                It must be a list with two numbers. Default=None.
             centermap_delta (list): Displace the center of the map given displacement
-                                    in X and Y, in km. It must be a list with two numbers. Default=None.
+                in X and Y, in km. It must be a list with two numbers. Default=None.
             centerproj (list): Rotates the Earth to show occultation with the center
-                               projected at a given longitude and latitude. It must be a list with two numbers
+                projected at a given longitude and latitude. It must be a list with two numbers
             labels (bool): Plots text above and below the map with the occultation parameters.
-                           Default=True.
+                Default=True.
             meridians (int): Plots lines representing the meridians for given interval. Default=30 deg
             parallels (int): Plots lines representing the parallels for given interval. Default=30 deg
             sites (dict): Plots site positions in map. It must be a python dictionary where the key is
-                          the name of the site, and the value is a list with longitude, latitude, delta_x,
-                          delta_y and color. delta_x and delta_y are displacement, in km, from the point
-                          of the site in the map and the name. color is the color of the point.
-                          If not given, it calculates from observations added to Occultation
+                the name of the site, and the value is a list with longitude, latitude, delta_x,
+                delta_y and color. delta_x and delta_y are displacement, in km, from the point
+                of the site in the map and the name. color is the color of the point.
+                If not given, it calculates from observations added to Occultation
             site_name (bool): If True, it prints the name of the sites given, else it plots only the points
             countries (dict): Plots the names of countries. It must be a python dictionary where the key
-                              is the name of the country and the value is a list with longitude and latitude
-                              of the lower left part of the text.
+                is the name of the country and the value is a list with longitude and latitude
+                of the lower left part of the text.
             offset (list): applies an offset to the ephemeris, calculating new CA and instant of CA.
-                           It is a pair of delta_RA*cosDEC and delta_DEC.
-                           If not given it uses the center from ellipse fitted.
+                It is a pair of delta_RA*cosDEC and delta_DEC.
+                If not given it uses the center from ellipse fitted.
             mapstyle (int): Define the color style of the map. 1 is the default black and white scale.
-                            "2" is a colored map.
+                "2" is a colored map.
             error (int,float): Ephemeris error in mas. It plots a dashed line representing radius + error.
             ercolor (str): Changes the color of the lines of the error bar.
             ring (int,float): It plots a dashed line representing the location of a ring.
-                              It is given in km, from the center.
+                It is given in km, from the center.
             rncolor (str): Changes the color of ring lines.
             atm (int,float): plots a dashed line representing the location of an atmosphere.
-                             It is given in km, from the center.
+                It is given in km, from the center.
             atcolor (str): Changes the color of atm lines.
             chord_delta (list): list with distances from center to plot chords
             chord_geo (2d-list): list with pairs of coordinates to plot chords
             chcolor (str): color of the line of the chords. Default: grey
             heights (list): plots a circular dashed line showing the locations where the observer
-                            would observe the occultation at a given height above the horizons.
-                            This must be a list.
+                would observe the occultation at a given height above the horizons.
+                This must be a list.
             hcolor (str): Changes the color of the height lines.
             mapsize (list): The size of figure, in cm. It must be a list with two values.
-                            Default = [46.0, 38.0].
+                Default = [46.0, 38.0].
             cpoints (int,float): Interval for the small points marking the center of shadow,
-                                 in seconds. Default=60.
+                in seconds. Default=60.
             ptcolor (str): Change the color of the center points.
             alpha (float): The transparency of the night shade, where 0.0 is full transparency
-                           and 1.0 is full black. Default = 0.2.
+                and 1.0 is full black. Default = 0.2.
             fmt (str): The format to save the image. It is parsed directly by matplotlib.pyplot.
-                       Default = 'png'
+                Default = 'png'
             dpi (int): "Dots per inch". It defines the quality of the image. Default = 100.
             lncolor (str): Changes the color of the line that represents the limits of the shadow over Earth.
             outcolor (str): Changes the color of the lines that represents the limits of the shadow outside Earth
