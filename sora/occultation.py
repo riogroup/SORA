@@ -20,14 +20,16 @@ def positionv(star, ephem, observer, time):
     """ Calculates the position and velocity of the occultation shadow relative to the observer.
 
     Parameters:
-        star (Star): The coordinate of the star in the same frame as the ephemeris.
-        It must be a Star object.
-        ephem (Ephem): Ephemeris. It must be an Ephemeris object.
-        observer (Observer): The Observer object to be added.
-        time (Time): Instant to calculate position and velocity
+        star (Star): The coordinate of the star in the same reference frame as the ephemeris.
+           It must be a Star object.
+        ephem (Ephem): The object ephemeris. It must be an Ephemeris object.
+        observer (Observer): The Observer information. It must be an Observer object.
+        time (Time): Reference instant to calculate position and velocity.
 
     Return:
-        f, g (float): The orthographic projection of the shadow relative to the observer
+        f, g (float): The orthographic projection of the shadow relative to the observer.
+            f is in the x-axis (East-West direction; East positive)
+            g is in the y-axis (North-South direction; North positive)
     """
     if type(star) != Star:
         raise ValueError('star must be a Star object')
@@ -64,39 +66,39 @@ def positionv(star, ephem, observer, time):
 def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
                 dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
                 loop=10000000, number_chi=10000, dchi_min=None, log=False):
-    """ Fits an ellipse to given occultation
+    """ Fits an ellipse to given occultation using given parameters
 
     Parameters:
         required params:
         Each occultation is added as the first arguments directly.
-        center_f (int,float): The coordinate in f of the ellipse.
-        center_g (int,float): The coordinate in g of the ellipse.
-        equatorial_radius (int,float): The Equatorial radius of the ellipse.
-        oblateness (int,float): The oblateness of the ellipse.
-        position_angle (int,float): The pole position angle of the ellipse.
+            center_f (int,float): The coordinate in f of the ellipse center. Default=0
+            center_g (int,float): The coordinate in g of the ellipse center. Default=0
+            equatorial_radius (int,float): The Equatorial radius (semi-major axis) of the ellipse.
+            oblateness (int,float): The oblateness of the ellipse. Default=0 (circle)
+            position_angle (int,float): The pole position angle of the ellipse in degrees. Default=0
+                Zero is in the North direction ('g-positive'). Positive clockwise.
 
-        Params for the interval of search, if not given, default is set to zero.
+        Parameters interval of fitting. Default values are set to zero.
         Search between (value - dvalue) and (value + dvalue):
-        dcenter_f (int,float)
-        dcenter_g (int,float)
-        dequatorial_radius (int,float)
-        doblateness (int,float)
-        dposition_angle (int,float)
+            dcenter_f (int,float): Interval for coordinate f of the ellipse center
+            dcenter_g (int,float): Interval for coordinate g of the ellipse center
+            dequatorial_radius (int,float): Interval for the Equatorial radius (semi-major axis) of the ellipse
+            doblateness (int,float): Interval for the oblateness of the ellipse
+            dposition_angle (int,float): Interval for the pole position angle of the ellipse in degrees
 
-        loop (int): The number of ellipsis to attempt fitting. Default: 10,000,000
+        loop (int): The number of ellipses to attempt fitting. Default: 10,000,000
         dchi_min (intt,float): If given, it will only save ellipsis which chi square are
             smaller than chi_min + dchi_min.
         number_chi (int): if dchi_min is given, the procedure is repeated until
             number_chi is reached. Default: 10,000
         log (bool): If True, it prints information while fitting. Default: False.
 
-    Return:
+    Returns:
         chisquare: A ChiSquare object with all parameters.
 
-    Example:
+    Examples:
         fit_ellipse(occ1, **kwargs) to fit the ellipse to the chords of occ1 Occultation object
-        fit_ellipse(occ1, occ2, **kwargs) to fit the ellipse to the chords
-            of occ1 and occ2 Occultation objects together
+        fit_ellipse(occ1, occ2, **kwargs) to fit the ellipse to the chords of occ1 and occ2 Occultation objects together
     """
     values = []
     for occ in args:
@@ -209,14 +211,13 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
 
 
 class _PositionDict(dict):
-    """ This is a modified Dictionary object to allow for switch on/off of data points,
-    it also avoids for user to change data.
+    """ This is a modified Dictionary object to allow switching on/off of data points.
+        It also avoids user to change data.
     """
     def __setitem__(self, key, value):
-        """Redefine how to set a value to a key in the dictionary.
-        it only sets a value if the key starts with '_occ_'.
-        Otherwise, it only allows for the user to provide 'on' or 'off'
-        which is passed only to change the 'on' keyword.
+        """ Redefines how to set a value to a key in the dictionary.
+            It only sets a value if the key starts with '_occ_'. Otherwise, it only allows for the user to provide
+            'on' or 'off' which is passed only to change the 'on' keyword.
         """
         status = {'on': True, 'off': False}
         n = 0
@@ -249,19 +250,18 @@ class _PositionDict(dict):
 
 
 class Occultation():
-    '''
-    Docstring
-    Do the reduction of the occultation
-    '''
+    """ Does the reduction of the occultation
+    """
     def __init__(self, star, ephem, time):
-        """ Instantiate Occultation object.
+        """ Instantiates the Occultation object.
 
         Parameters:
-            star (Star):The coordinate of the star in the same frame as the ephemeris.
-            It must be a Star object.
-            ephem (Ephem):Ephemeris. It must be an Ephemeris object.
-            time (str, Time): The approximate time of the occultation (~10min)
-                to calculate occultation params.
+            star (Star): The coordinate of the star in the same reference frame as the ephemeris.
+                It must be a Star object.
+            ephem (Ephem): object ephemeris. It must be an Ephemeris object.
+            time (str, Time): Reference time of the occultation.
+                Time does not need to be exact, but needs to be within approximately 10 minutes
+                of the occultation closest approach to calculate occultation parameters.
         """
         if type(star) != Star:
             raise ValueError('star must be a Star object')
@@ -290,11 +290,11 @@ class Occultation():
         self._position = _PositionDict()
 
     def add_observation(self, obs, lightcurve):
-        """ Add observations to the Occultation object.
+        """ Adds observations to the Occultation object.
 
         Parameters:
-            obs (Observer):The Observer object to be added.
-            lightcurve (LightCurve): The LightCurve object to be addec
+            obs (Observer): The Observer object to be added.
+            lightcurve (LightCurve): The LightCurve object to be added
         """
         if type(obs) != Observer:
             raise ValueError('obs must be an Observer object')
@@ -314,13 +314,12 @@ class Occultation():
             warnings.warn('Magnitude drop was not calculated. Using bottom flux as 0.0 instead.')
 
     def remove_observation(self, key, key_lc=None):
-        """ Removes observation from the Occultation object.
+        """ Removes an observation from the Occultation object.
 
         Parameters:
             key (str): The name given to Observer or LightCurve to remove from the list.
             keylc (str): In the case where repeated names are present for different observations,
-                keylc must be given for the name of the LightCurve
-                and key will be used for the name of the Observer.
+                keylc must be given for the name of the LightCurve and key will be used for the name of the Observer.
         """
         rm_list = np.array([])
         same_key = False
@@ -355,7 +354,7 @@ class Occultation():
 
     def observations(self):
         """ Print all the observations added to the Occultation object
-        Pair (Observer, LightCurve)
+            Pair (Observer, LightCurve)
         """
         for o, l in self.__observations:
             print('Observer= {}, LC: {}'.format(o.name, l.name))
@@ -364,30 +363,31 @@ class Occultation():
         """ Fits an ellipse to the chords of this occultation
 
         Parameters:
-            required params:
+        Required parameters:
             Each occultation is added as the first arguments directly.
-            center_f (int,float): The coordinate in f of the ellipse.
-            center_g (int,float): The coordinate in g of the ellipse.
-            equatorial_radius (int,float): The Equatorial radius of the ellipse.
+            center_f (int,float): The coordinate in f of the ellipse center.
+            center_g (int,float): The coordinate in g of the ellipse center.
+            equatorial_radius (int,float): The Equatorial radius (semi-major axis) of the ellipse.
             oblateness (int,float): The oblateness of the ellipse.
-            position_angle (int,float): The pole position angle of the ellipse.
+            position_angle (int,float): The pole position angle of the ellipse in degrees. Default=0
+                Zero is in the North direction ('g-positive'). Positive clockwise.
 
-            Params for the interval of search, if not given, default is set to zero.
+        Parameters interval of fitting. Default values are set to zero.
             Search between (value - dvalue) and (value + dvalue):
-            dcenter_f (int,float)
-            dcenter_g (int,float)
-            dequatorial_radius (int,float)
-            doblateness (int,float)
-            dposition_angle (int,float)
+            dcenter_f (int,float): Interval for coordinate f of the ellipse center
+            dcenter_g (int,float): Interval for coordinate g of the ellipse center
+            dequatorial_radius (int,float): Interval for the Equatorial radius (semi-major axis) of the ellipse
+            doblateness (int,float): Interval for the oblateness of the ellipse
+            dposition_angle (int,float): Interval for the pole position angle of the ellipse in degrees
 
-            loop (int): The number of ellipsis to attempt fitting. Default: 10,000,000
+            loop (int): The number of ellipses to attempt fitting. Default: 10,000,000
             dchi_min (int,float): If given, it will only save ellipsis which chi square are
                 smaller than chi_min + dchi_min.
             number_chi (int): if dchi_min is given, the procedure is repeated until
                 number_chi is reached. Default: 10,000
             log (bool): If True, it prints information while fitting. Default: False.
 
-        Return:
+        Returns:
             chisquare: A ChiSquare object with all parameters.
         """
         chisquare = fit_ellipse(self, **kwargs)
@@ -395,8 +395,8 @@ class Occultation():
 
     @property
     def positions(self):
-        """ Calculates the positions and velocities for all chords.
-        Saves it into an _PositionDict object.
+        """ Calculates the position and velocity for all chords.
+            Saves it into an _PositionDict object.
         """
         position = self._position
         if len(self.__observations) == 0:
@@ -511,7 +511,7 @@ class Occultation():
     @positions.setter
     def positions(self, value):
         """ If the users tries to set a value to position, it must be 'on' or 'off',
-        and it will be assigned to all chords.
+            and it will be assigned to all chords.
         """
         if value not in ['on', 'off']:
             raise ValueError("Value must be 'on' or 'off' only.")
@@ -520,7 +520,7 @@ class Occultation():
             pos[key] = value
 
     def check_velocities(self):
-        """ Print the current velocity used by the LightCurves and the Radial velocity.
+        """ Prints the current velocity used by the LightCurves and its Radial velocity.
         """
         if hasattr(self, 'fitted_params'):
             center = np.array([self.fitted_params['center_f'][0], self.fitted_params['center_g'][0]])
@@ -544,18 +544,23 @@ class Occultation():
                       format(np.abs(np.dot(np.array(em['vel']), delta)/np.linalg.norm(delta))))
 
     def new_astrometric_position(self, time=None, offset=None, error=None, log=True):
-        """ Calculates the new astrometric position for the object given fitted params
+        """ Calculates the new astrometric position for the object given fitted parameters
 
         Parameters:
-            time (str,Time): Time to which calculate the position. If not given, it uses the instant at C/A.
-            offset (list): Offset to apply to the position. If not given, it uses the params fitted from ellipse.
-                Offsets must be a list of 3 values being [X, Y, 'unit'], where 'unit' must be an angular or distance unit.
-                Angular units must be in dacosdec, ddec: Ex: [30.6, 20, 'mas'], or [-15, 2, 'arcsec']
-                Distance units must be in X and Y: Ex: [100, -200, 'km'], [0.001, 0.002, 'AU']
-            error (list): Error bar of the given offset. If not given, it uses the 1-sigma fitted from ellipse.
+            time (str,Time): Reference time to calculate the position.
+                If not given, it uses the instant of the occultation Closest Approach.
+            offset (list): Offset to apply to the position. If not given, uses the parameters from the fitted ellipse.
+                Must be a list of 3 values being [X, Y, 'unit']
+                    'unit' must be Angular or Distance unit.
+                    - If Distance units for X and Y
+                        Ex: [100, -200, 'km'], [0.001, 0.002, 'AU']
+                    - If Angular units fox X [d*a*cos(dec)] and Y [d*dec]
+                        Ex: [30.6, 20, 'mas'], or [-15, 2, 'arcsec']
+
+            error (list): Error bar of the given offset. If not given, it uses the 1-sigma value of the fitted ellipse.
                 Error must be a list of 3 values being [dX, dY, 'unit'], similar to offset.
                 It does not need to be in the same unit as offset.
-            log (bool): If true, it prints text, else it returns text.
+            log (bool): If true, it Prints text, else it Returns text.
         """
         if time is not None:
             time = Time(time)
@@ -565,7 +570,7 @@ class Occultation():
         tca_diff = np.absolute(time-self.tca)
         if tca_diff > 1*u.day:
             warnings.warn('The difference between the given time and the closest approach instant is {:.1f} days. '
-                          'This position could not have physical meaning.'.format(tca_diff.jd))
+                          'This position could not have a physical meaning.'.format(tca_diff.jd))
 
         if offset is not None:
             off_ra = offset[0]*u.Unit(offset[2])
@@ -644,7 +649,7 @@ class Occultation():
 
     def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red',
                     ax=None, lw=2, axis_labels=True):
-        """Plots the chords of the occultation
+        """ Plots the chords of the occultation
 
         Parameters:
             all_chords (bool): if True, it plots all the chords,
@@ -687,7 +692,7 @@ class Occultation():
         ax.axis('equal')
 
     def get_map_sites(self):
-        """Return Dictionary with sites in the format required by plot_occ_map function
+        """ Returns Dictionary with sites in the format required by plot_occ_map function
 
         Returns:
             sites (dict): Dictionary with the sites in the format required by plot_occ_map function
@@ -699,21 +704,19 @@ class Occultation():
         return sites
 
     def plot_occ_map(self, **kwargs):
-        """Plot occultation map
+        """ Plots the occultation map
 
         Parameters:
             radius: The radius of the shadow. If not given it uses the equatorial radius
-                from an ellipse fit, else it uses the radius obtained from ephem upon
-                instantiating.
-
-            nameimg (str): Change the name of the imaged saved.
+                from the ellipse fit, else it uses the radius obtained from ephem upon instantiating.
+            nameimg (str): Change the name of the image saved.
             path (str): Path to a directory where to save map.
             resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
                 "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
             states (bool): True to plot the state division of the countries. The states of
                 some countries will only be shown depending on the resolution.
             zoom (int, float): Zooms in or out of the map.
-            centermap_geo (list): Center the map given coordinates in longitude and latitude.
+            centermap_geo (list): Center the map for a given coordinates in longitude and latitude.
                 It must be a list with two numbers. Default=None.
             centermap_delta (list): Displace the center of the map given displacement
                 in X and Y, in km. It must be a list with two numbers. Default=None.
@@ -736,19 +739,19 @@ class Occultation():
                 It is a pair of delta_RA*cosDEC and delta_DEC.
                 If not given it uses the center from ellipse fitted.
             mapstyle (int): Define the color style of the map. 1 is the default black and white scale.
-                2 is a colored map.
+                "2" is a colored map.
             error (int,float): Ephemeris error in mas. It plots a dashed line representing radius + error.
             ercolor (str): Changes the color of the lines of the error bar.
             ring (int,float): It plots a dashed line representing the location of a ring.
                 It is given in km, from the center.
             rncolor (str): Changes the color of ring lines.
-            atm (int,float): It plots a dashed line representing the location of an atmosphere.
+            atm (int,float): plots a dashed line representing the location of an atmosphere.
                 It is given in km, from the center.
             atcolor (str): Changes the color of atm lines.
             chord_delta (list): list with distances from center to plot chords
             chord_geo (2d-list): list with pairs of coordinates to plot chords
             chcolor (str): color of the line of the chords. Default: grey
-            heights (list): It plots a circular dashed line showing the locations where the observer
+            heights (list): plots a circular dashed line showing the locations where the observer
                 would observe the occultation at a given height above the horizons.
                 This must be a list.
             hcolor (str): Changes the color of the height lines.
@@ -793,7 +796,7 @@ class Occultation():
         self.predict.plot_occ_map(**kwargs)
 
     def to_log(self, namefile=None):
-        """ Save the occultation log to a file
+        """ Saves the occultation log to a file
 
         Parameters:
             namefile (str): Filename to save the log
@@ -805,15 +808,13 @@ class Occultation():
         f.close()
 
     def to_file(self):
-        """ Save the occultation data to a file
+        """ Saves the occultation data to a file
 
-        Three files are saved containing the positions and velocities
-        for the observations. They are for the positive, negative and
-        error bars positions.
+        Three files are saved containing the positions and velocities for the observations.
+        They are for the positive, negative and error bars positions.
 
-        The format of the files are: positions in f and g,
-        velocities in f and g, the Julian Date of the observation,
-        and light curve name of the corresponding position.
+        The format of the files are: positions in f and g, velocities in f and g, the Julian Date of the observation,
+        light curve name of the corresponding position.
         """
         positions = self.positions
         pos = []
@@ -868,7 +869,7 @@ class Occultation():
             f.close()
 
     def __str__(self):
-        """String representation of the Occultation class
+        """ String representation of the Occultation class
         """
         out = ('Stellar occultation of star Gaia-DR2 {} by {}.\n\n'
                'Geocentric Closest Approach: {:.3f}\n'

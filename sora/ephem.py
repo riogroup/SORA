@@ -17,10 +17,15 @@ warnings.simplefilter('always', UserWarning)
 
 
 def read_obj_data():
-    """ Reads online table with physical parameter for selected objects
-    at http://devel2.linea.gov.br/~altair.gomes/radius.txt
+    """ Reads an online table (link below) with physical parameters for selected objects
 
-    Return:
+    Table url: http://devel2.linea.gov.br/~altair.gomes/radius.txt
+
+    Table content: Object name; radius (km); uncertainty in RA; uncertainty in DEC
+        RA: Delta * alpha * cos (delta)
+        DEC: Delta * delta
+
+    Returns:
         python dictionary
     """
     obj = {}
@@ -35,7 +40,7 @@ def read_obj_data():
 
 
 def apparent_mag(H, G, dist, sundist, phase=0.0):
-    """ Calculates the Apparent Magnitude
+    """ Calculates the Object Apparent Magnitude
 
     Parameters:
         H (int, float): Absolute Magnitude
@@ -44,7 +49,7 @@ def apparent_mag(H, G, dist, sundist, phase=0.0):
         sundist (int, float): Sun-Object distance, in AU
         phase (int, float): Phase Angle: Sun-Target-Observer, in deg
 
-    Return:
+    Returns:
         ap_mag (float): Apparent Magnitude
     """
     phi0 = np.exp(-3.33*(np.tan(0.5*phase*u.deg)**0.63))
@@ -55,15 +60,15 @@ def apparent_mag(H, G, dist, sundist, phase=0.0):
 
 
 def ephem_kernel(time, target, observer, kernels):
-    """Calculate the ephemeris from kernel files
+    """ Calculates the ephemeris from kernel files
 
     Parameters:
-        time (str, Time): instant to calculate ephemeris
+        time (str, Time): reference instant to calculate ephemeris
         target (str): IAU (kernel) code of the target
         observer (str): IAU (kernel) code of the observer
         kernels (list, str): list of paths for all the kernels
 
-    Return:
+    Returns:
         coord (SkyCoord): ICRS coordinate of the target.
     """
     if type(kernels) == str:
@@ -103,11 +108,11 @@ def ephem_kernel(time, target, observer, kernels):
 
 class EphemPlanete():
     def __init__(self, name, ephem, **kwargs):
-        """ EphemPlanete simulates ephem_planete and fit_d2_ksi_eta.
+        """ Simulates the former fortran programs ephem_planete and fit_d2_ksi_eta.
 
         Parameters:
-            name (str): name of the object for search in the JPL database
-            ephem (str):Input file with JD, RA, DEC, distance
+            name (str): name of the object to search in the JPL database
+            ephem (str): Input file with JD (UTC), and geocentric RA, DEC, and distance
             radius (int,float): Object radius, in km (Default: Online database)
             error_ra (int,float): Ephemeris RA*cosDEC error, in arcsec (Default: Online database)
             error_dec (int,float): Ephemeris DEC error, in arcsec (Default: Online database)
@@ -136,10 +141,11 @@ class EphemPlanete():
         self.G = kwargs.get('G', np.nan)
 
     def fit_d2_ksi_eta(self, star, log=True):
-        """ Fits the on-sky ephemeris position relative to a star
+        """ Fits the projected position* of the object in the tangent sky plane relative to a star
+            * ortographic projection.
 
         Parameters:
-            star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+            star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
             log (bool): if True, log is printed. Default: True
         """
         if type(star) == str:
@@ -178,14 +184,18 @@ class EphemPlanete():
             print(output)
 
     def get_ksi_eta(self, time, star=None):
-        """ Returns the on-sky position of the ephemeris relative to a star.
+        """ Returns the projected position* of the object in the tangent sky plane relative to a star.
+            * ortographic projection.
 
         Parameters:
-            time (str, Time):Time from which to calculate the position.
-            star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+            time (str, Time): Reference time to calculate the position.
+            star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
 
         Returns:
-            ksi, eta (float): on-sky position of the ephemeris relative to a star
+            ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
+                relative to a star.
+                Ksi is in the North-South direction (North positive)
+                Eta is in the East-West direction (East positive)
         """
         if star:
             self.fit_d2_ksi_eta(star)
@@ -214,13 +224,13 @@ class EphemPlanete():
             raise ValueError('A "star" parameter is missing. Please run fit_d2_ksi_eta first.')
 
     def apparent_magnitude(self, time):
-        """ Calculates the Apparent Diameter
+        """ Calculates the object Apparent Magnitude
 
         Parameters:
-            time (str, Time):Time from which to calculate the magnitude.
+            time (str, Time): reference time to calculate the apparent magnitude.
 
         Returns:
-            ap_mag (float): Apparent magnitude
+            ap_mag (float): Object apparent magnitude
         """
         time = Time(time)
         obj = Horizons(id=self.name, id_type='majorbody', location='geo', epochs=time.jd)
@@ -234,11 +244,11 @@ class EphemPlanete():
             return eph['V'].tolist()
 
     def add_offset(self, da_cosdec, ddec):
-        """Add an offset to the Ephemeris
+        """ Adds an offset to the Ephemeris
 
         Parameters:
-            da_cosdec (int, float):Delta_alpha_cos_delta in mas
-            ddec (int, float):Delta_delta in mas
+            da_cosdec (int, float): Delta_alpha_cos_delta in mas
+            ddec (int, float): Delta_delta in mas
         """
         dadc = test_attr(da_cosdec, float, 'da_cosdec')
         dd = test_attr(ddec, float, 'ddec')
@@ -288,14 +298,16 @@ class EphemPlanete():
 
 class EphemJPL():
     def __init__(self, name, id_type='smallbody', **kwargs):
-        """ EphemJPL obtains the ephemeris from Horizons service.
+        """ Obtains the ephemeris from Horizons/JPL service.
+
+        Web tool URL = https://ssd.jpl.nasa.gov/horizons.cgi
 
         Parameters:
-            name (str): name of the object for search in the JPL database
+            name (str): name of the object to search in the JPL database
             id_type (str): type of object options: 'smallbody', 'majorbody'
-            (planets but also anything that is not a small body), 'designation',
-            'name', 'asteroid_name', 'comet_name', 'id' (Horizons id number),
-            or 'smallbody' (find the closest match under any id_type), default: 'smallbody'
+                (planets but also anything that is not a small body), 'designation',
+                'name', 'asteroid_name', 'comet_name', 'id' (Horizons id number),
+                or 'smallbody' (find the closest match under any id_type). Default: 'smallbody'
             radius (int,float): Object radius, in km (Default: Online database)
             error_ra (int,float): Ephemeris RA*cosDEC error, in arcsec (Default: Online database)
             error_dec (int,float): Ephemeris DEC error, in arcsec (Default: Online database)
@@ -322,10 +334,10 @@ class EphemJPL():
         """ Returns the geocentric position of the object.
 
         Parameters:
-        time (str, Time):Time from which to calculate the position.
+            time (str, Time): Reference time to calculate the position.
 
         Returns:
-        coord (SkyCoord): Astropy SkyCoord object with the coordinate at given time
+            coord (SkyCoord): Astropy SkyCoord object with the object coordinates at the given time
         """
         time = Time(time)
         if not time.isscalar:
@@ -358,10 +370,10 @@ class EphemJPL():
         return coord
 
     def apparent_magnitude(self, time):
-        """ Calculates the Apparent Diameter
+        """ Calculates the Object Apparent Magnitude
 
         Parameters:
-            time (str, Time):Time from which to calculate the magnitude.
+            time (str, Time): Reference time to calculate the magnitude.
 
         Returns:
             ap_mag (float): Apparent magnitude
@@ -378,14 +390,19 @@ class EphemJPL():
             return eph['V'].tolist()
 
     def get_ksi_eta(self, time, star):
-        """ Returns the on-sky position of the ephemeris relative to a star.
+        """ Returns projected position* of the object in the tangent sky plane relative to a star.
+            * ortographic projection.
+
 
         Parameters:
-        time (str, Time):Time from which to calculate the position.
-        star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+            time (str, Time): Reference time to calculate the object position.
+            star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
 
         Returns:
-        ksi, eta (float): on-sky position of the ephemeris relative to a star
+            ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
+                relative to a star.
+                Ksi is in the North-South direction (North positive)
+                Eta is in the East-West direction (East positive)
         """
         time = Time(time)
         if type(star) == str:
@@ -397,15 +414,15 @@ class EphemJPL():
         return da.to(u.km).value, dd.to(u.km).value
 
     def get_pole_position_angle(self, pole, time):
-        """ Returns the geocentric position of the object.
+        """ Returns the object geocentric position.
 
         Parameters:
-        pole (str, SkyCoord):Coordinate of the pole ICRS.
-        time (str, Time): Time from which to calculate the position.
+            pole (str, SkyCoord): Coordinate of the object pole ICRS.
+            time (str, Time): Reference time to calculate the position.
 
         Returns:
-        position_angle (float): Position angle of the pole, in degrees
-        aperture_angle (float): Apeture angle of the pole, in degrees
+            position_angle (float): Position angle of the object pole, in degrees
+            aperture_angle (float): Apeture angle of the object pole, in degrees
         """
         time = Time(time)
         if type(pole) == str:
@@ -419,18 +436,18 @@ class EphemJPL():
         return position_angle.to('deg'), aperture_angle.to('deg')
 
     def add_offset(self, da_cosdec, ddec):
-        """Add an offset to the Ephemeris
+        """ Adds an offset to the Ephemeris
 
         Parameters:
-            da_cosdec (int, float):Delta_alpha_cos_delta in mas
-            ddec (int, float):Delta_delta in mas
+            da_cosdec (int, float): Delta_alpha_cos_delta in mas
+            ddec (int, float): Delta_delta in mas
         """
         dadc = test_attr(da_cosdec, float, 'da_cosdec')
         dd = test_attr(ddec, float, 'ddec')
         self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
 
     def __str__(self):
-        """ String representation of the EphemPlanete Class.
+        """ String representation of the EphemJPL Class.
         """
         out = ("Ephemeris of {}.\n"
                "Radius: {:.1f}\n"
@@ -447,12 +464,12 @@ class EphemJPL():
 class EphemKernel():
     @deprecated_alias(code='spkid')  # remove this line for v1.0
     def __init__(self, name, spkid, kernels, **kwargs):
-        """ EphemKernel gets the ephemeris from bsp kernels.
+        """ Gets the ephemeris from bsp kernels.
 
         Parameters:
-            name (str): name of the object for search in the JPL database
-            spkid (str): spkid of the targeting object. Former 'code'
-            kernels(list): list of paths for kernels
+            name (str): name of the object to search in the JPL database
+            spkid (str): spkid of the targeting object. Former 'code' (v0.1)
+            kernels(list): list of paths for kernels files
             radius (int,float): Object radius, in km (Default: Online database)
             error_ra (int,float): Ephemeris RA*cosDEC error, in arcsec (Default: Online database)
             error_dec (int,float): Ephemeris DEC error, in arcsec (Default: Online database)
@@ -485,13 +502,13 @@ class EphemKernel():
         self.G = kwargs.get('G', np.nan)
 
     def get_position(self, time):
-        """ Returns the geocentric position of the object.
+        """ Returns the object geocentric position.
 
         Parameters:
-        time (str, Time):Time from which to calculate the position.
+            time (str, Time): Reference time to calculate the object position.
 
         Returns:
-        coord (SkyCoord): Astropy SkyCoord object with the coordinate at given time
+            coord (SkyCoord): Astropy SkyCoord object with the object coordinates at the given time
         """
         pos = ephem_kernel(time, self.spkid, '399', self.__kernels)
         if hasattr(self, 'offset'):
@@ -502,13 +519,13 @@ class EphemKernel():
         return pos
 
     def apparent_magnitude(self, time):
-        """ Calculates the Apparent Diameter
+        """ Calculates the Object Apparent Magnitude
 
         Parameters:
-            time (str, Time):Time from which to calculate the magnitude.
+            time (str, Time): Reference time to calculate the object aparent magnitude.
 
         Returns:
-            ap_mag (float): Apparent magnitude
+            ap_mag (float): Object apparent magnitude
         """
         time = Time(time)
 
@@ -537,14 +554,18 @@ class EphemKernel():
                                 sun_obj.distance.to(u.AU).value, phase)
 
     def get_ksi_eta(self, time, star):
-        """ Returns the on-sky position of the ephemeris relative to a star.
+        """ Returns projected position* of the object in the tangent sky plane relative to a star.
+            * ortographic projection.
 
         Parameters:
-        time (str, Time):Time from which to calculate the position.
-        star (str, SkyCoord):The coordinate of the star in the same frame as the ephemeris.
+            time (str, Time): Reference time to calculate the object position.
+            star (str, SkyCoord): Coordinate of the star in the same reference frame as the ephemeris.
 
         Returns:
-        ksi, eta (float): on-sky position of the ephemeris relative to a star
+            ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
+                relative to a star.
+                Ksi is in the North-South direction (North positive)
+                Eta is in the East-West direction (East positive)
         """
         time = Time(time)
         if type(star) == str:
@@ -556,15 +577,15 @@ class EphemKernel():
         return da.to(u.km).value, dd.to(u.km).value
 
     def get_pole_position_angle(self, pole, time):
-        """ Returns the geocentric position of the object.
+        """ Returns the object geocentric position.
 
         Parameters:
-        pole (str, SkyCoord):Coordinate of the pole ICRS.
-        time (str, Time): Time from which to calculate the position.
+            pole (str, SkyCoord): Coordinate of the object pole ICRS.
+            time (str, Time): Time from which to calculate the position.
 
         Returns:
-        position_angle (float): Position angle of the pole, in degrees
-        aperture_angle (float): Apeture angle of the pole, in degrees
+            position_angle (float): Position angle of the object pole, in degrees
+            aperture_angle (float): Apeture angle of the object pole, in degrees
         """
         time = Time(time)
         if type(pole) == str:
@@ -578,18 +599,18 @@ class EphemKernel():
         return position_angle.to('deg'), aperture_angle.to('deg')
 
     def add_offset(self, da_cosdec, ddec):
-        """Add an offset to the Ephemeris
+        """ Adds an offset to the Ephemeris
 
         Parameters:
-            da_cosdec (int, float):Delta_alpha_cos_delta in mas
-            ddec (int, float):Delta_delta in mas
+            da_cosdec (int, float): Delta_alpha_cos_delta in mas
+            ddec (int, float): Delta_delta in mas
         """
         dadc = test_attr(da_cosdec, float, 'da_cosdec')
         dd = test_attr(ddec, float, 'ddec')
         self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
 
     def __str__(self):
-        """ String representation of the EphemPlanete Class.
+        """ String representation of the EphemKernel Class.
         """
         out = ("Ephemeris of {}.\n"
                "Radius: {:.1f}\n"

@@ -16,14 +16,14 @@ import glob
 
 
 class PredictRow(Row):
-    """An Astropy Row object modified for Prediction purposes.
+    """ An Astropy Row object modified for Prediction purposes.
     """
     def plot_occ_map(self, **kwargs):
         """
         Parameters:
             radius (int,float): The radius of the shadow. If not given it uses saved value
 
-            nameimg (str): Change the name of the imaged saved.
+            nameimg (str): Change the name of the image saved.
             path (str): Path to a directory where to save map.
             resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
                 "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
@@ -57,13 +57,13 @@ class PredictRow(Row):
             ring (int,float): It plots a dashed line representing the location of a ring.
                 It is given in km, from the center.
             rncolor (str): Changes the color of ring lines.
-            atm (int,float): It plots a dashed line representing the location of an atmosphere.
+            atm (int,float): plots a dashed line representing the location of an atmosphere.
                 It is given in km, from the center.
             atcolor (str): Changes the color of atm lines.
             chord_delta (list): list with distances from center to plot chords
             chord_geo (2d-list): list with pairs of coordinates to plot chords
             chcolor (str): color of the line of the chords. Default: grey
-            heights (list): It plots a circular dashed line showing the locations where the observer
+            heights (list): plots a circular dashed line showing the locations where the observer
                 would observe the occultation at a given height above the horizons.
                 This must be a list.
             hcolor (str): Changes the color of the height lines.
@@ -94,7 +94,7 @@ class PredictRow(Row):
 
 
 class PredictionTable(Table):
-    """An Astropy Table object modified for Prediction purposes.
+    """ An Astropy Table object modified for Prediction purposes.
     """
     Row = PredictRow
 
@@ -167,12 +167,12 @@ class PredictionTable(Table):
             super().__init__(*args, **kwargs)
 
     def __itens_by_epoch(self, date):
-        """ Get item list for all occultations that matches the given date
+        """ Gets item list for all occultations that matches the given date
 
-        INPUT:
+        Parameters:
             date (str): date to match
 
-        RETURN:
+        Returns:
             item (list): the list of occultations that matches the date
         """
         col = self['Epoch']
@@ -194,16 +194,16 @@ class PredictionTable(Table):
 
     @classmethod
     def from_praia(cls, filename, name, **kwargs):
-        """ Create a PredictionTable Table reading from a PRAIA table
+        """ Creates a PredictionTable Table reading from a PRAIA table
 
-        INPUT:
+        Parameters:
             filename (str): path to the PRAIA table file.
             name (str): Name of the Object of the prediction.
             radius (int,float): Object radius, in km. (not required)
                 If not given it's searched in online database.
                 If not found online, the default is set to zero.
 
-        OUTPUT:
+        Returns:
             A PredictionTable
         """
         from .ephem import read_obj_data
@@ -262,9 +262,9 @@ class PredictionTable(Table):
                    long=dados['long'], loct=dados['loct'], meta=meta)
 
     def to_praia(self, filename):
-        """ Write PredictionTable to PRAIA format.
+        """ Writes PredictionTable to PRAIA format.
 
-        INPUT:
+        Parameters:
             filename(str): name of the file to save table
         """
         from sora.config.variables import praia_occ_head
@@ -281,13 +281,13 @@ class PredictionTable(Table):
         f.close()
 
     def to_ow(self, ow_des, mode='append'):
-        """ Write PredictionTable to OccultWatcher feeder update files.
-        Tables will be saved in two files: "tableOccult_update.txt" and "LOG.dat"
+        """ Writes PredictionTable to OccultWatcher feeder update file format.
+            Tables will be saved in two files: "tableOccult_update.txt" and "LOG.dat"
 
-        INPUT:
+        Parameters:
             ow_des (str): Occult Watcher designation for the object.
             mode (str): 'append' to append table to already existing file, default
-                        'restart' to overwrite existing file.
+                'restart' to overwrite existing file.
         """
         from sora.config.variables import ow_occ_head
         modes = {'append': 'a+', 'restart': 'w'}
@@ -330,7 +330,7 @@ class PredictionTable(Table):
         Parameters:
             radius (int,float): The radius of the shadow. If not given it uses saved value
 
-            nameimg (str): Change the name of the imaged saved.
+            nameimg (str): Change the name of the image saved.
             path (str): Path to a directory where to save map.
             resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
                 "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
@@ -361,10 +361,10 @@ class PredictionTable(Table):
                 2 is a colored map.
             error (int,float): Ephemeris error in mas. It plots a dashed line representing radius + error.
             ercolor (str): Changes the color of the lines of the error bar.
-            ring (int,float): It plots a dashed line representing the location of a ring.
+            ring (int,float): plots a dashed line representing the location of a ring.
                 It is given in km, from the center.
             rncolor (str): Changes the color of ring lines.
-            atm (int,float): It plots a dashed line representing the location of an atmosphere.
+            atm (int,float): plots a dashed line representing the location of an atmosphere.
                 It is given in km, from the center.
             atcolor (str): Changes the color of atm lines.
             chord_delta (list): list with distances from center to plot chords
@@ -398,14 +398,13 @@ class PredictionTable(Table):
             self[i].plot_occ_map(**kwargs)
 
     def remove_occ(self, date):
-        """Remove stellar occultations from table
+        """ Removes stellar occultations from table
 
-        INPUT:
+        Parameters:
             date (str,list): Date or list of dates of the occultation to be removed.
                 The dates mut be as shown in the 'Epoch' column. If the date is not
-                complete, the function will select all occultations that matches
-                the given string. For instance, date='2020-06' will remove all
-                occultations from the month of June 2020.
+                complete, the function will select all occultations that matches the given string.
+                For instance, date='2020-06' will remove all occultations from the month of June 2020.
         """
         if type(date) == str:
             date = [date]
@@ -413,12 +412,12 @@ class PredictionTable(Table):
         self.remove_rows(itens)
 
     def keep_from_selected_images(self, path='.'):
-        """Keeps predictions which images were not deleted in given path
-        This function uses the name of the images to identify predictions.
-        The name must be the automatic one generated by plot_occ_map().
-        The format of the image is not relevant.
+        """ Keeps predictions which images were not deleted in given path
+            This function uses the name of the images to identify predictions.
+            The name must be the automatic one generated by plot_occ_map().
+            The format of the image is not relevant.
 
-        INPUT:
+        Parameters:
             path (str): path where images are located
         """
         itens = []
@@ -433,16 +432,16 @@ def occ_params(star, ephem, time):
     """ Calculates the parameters of the occultation, as instant, CA, PA.
 
     Parameters:
-        star (Star): The coordinate of the star in the same frame as the ephemeris.
+        star (Star): The coordinate of the star in the same reference frame as the ephemeris.
             It must be a Star object.
-        ephem (Ephem): Ephemeris. It must be an Ephemeris object.
+        ephem (Ephem): object ephemeris. It must be an Ephemeris object.
 
-    Return:
+    Returns:
         instant of CA (Time): Instant of Closest Approach
         CA (arcsec): Distance of Closest Approach
         PA (deg): Position Angle at Closest Approach
         vel (km/s): Velocity of the occultation
-        dist (AU): the object distance.
+        dist (AU): the object geocentric distance.
     """
 
     delta_t = 0.05
@@ -492,17 +491,16 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     """ Predicts stellar occultations
 
     Parameters:
-        ephem (Ephem): Ephemeris. It must be an Ephemeris object.
+        ephem (Ephem): object ephemeris. It must be an Ephemeris object.
         time_beg (str,Time): Initial time for prediction
         time_beg (str,Time): Final time for prediction
         mag_lim (int,float): Faintest Gmag for search
         step (int, float): step, in seconds, of ephem times for search
-        divs (int): number of regions the ephemeris will be splitted
-            for better search of occultations
+        divs (int): number of regions the ephemeris will be splitted for better search of occultations
         sigma (int,float): ephemeris error sigma for search off-Earth.
         log (bool): To show what is being done at the moment.
 
-    Return:
+    Returns:
         predict (PredictionTable): PredictionTable with the occultation params for each event
     """
     # generate ephemeris
@@ -549,7 +547,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
             print('Downloading stars ...')
         catalogue = vquery.query_region(pos_search, width=width, height=height, catalog='I/345/gaia2', cache=False)
         if len(catalogue) == 0:
-            print('    No star found. The region is too small or Vizier is out.')
+            print('    No star found. The region is too small or VizieR is out.')
             continue
         catalogue = catalogue[0]
         if log:
@@ -574,7 +572,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
             'radius': ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value,
             'error_dec': ephem.error_dec.to(u.mas).value, 'ephem': ephem.meta['kernels']}
     if not occs:
-        print('No stellar occultation was found')
+        print('No stellar occultation was found.')
         return PredictionTable(meta=meta)
     # create astropy table with the params
     occs2 = np.transpose(occs)
@@ -586,7 +584,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
         dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
     if log:
-        print('{} occultations found'.format(len(t)))
+        print('{} occultations found.'.format(len(t)))
     return t
 
 
@@ -600,9 +598,8 @@ def xy2latlon(x, y, loncen, latcen, time):
         latcen (int, float): Center latitude of projection (deg)
         time (Time): Time of refered projection
 
-    Return:
-        lon, lat (float): Longitude and Latitude whose projection at
-                          loncen, lat results in x, y. (deg)
+    Returns:
+        lon, lat (float): Longitude and Latitude whose projection at loncen, lat results in x, y. (deg)
     """
     r = const.R_earth.to(u.m).value
     site_cen = EarthLocation(loncen*u.deg, latcen*u.deg)
@@ -652,7 +649,7 @@ def latlon2xy(lon, lat, loncen, latcen):
         loncen (int, float): Center longitude of projection (deg)
         latcen (int, float): Center latitude of projection (deg)
 
-    Return:
+    Returns:
         x, y (float): Projection of lon, lat at loncen, latcen, in the ITRS (meters)
     """
     site_cen = EarthLocation(loncen*u.deg, latcen*u.deg)
@@ -723,10 +720,10 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
             2 is a colored map.
         error (int,float): Ephemeris error in mas. It plots a dashed line representing radius + error.
         ercolor (str): Changes the color of the lines of the error bar.
-        ring (int,float): It plots a dashed line representing the location of a ring.
+        ring (int,float): plots a dashed line representing the location of a ring.
             It is given in km, from the center.
         rncolor (str): Changes the color of ring lines.
-        atm (int,float): It plots a dashed line representing the location of an atmosphere.
+        atm (int,float): plots a dashed line representing the location of an atmosphere.
             It is given in km, from the center.
         atcolor (str): Changes the color of atm lines.
         chord_delta (list): list with distances from center to plot chords
