@@ -59,43 +59,43 @@ class LightCurve():
 
         Parameters:
             name (str): The name of the LightCurve. (required)
-                        Each time an LightCurve object is defined the name must be different.
+                Each time an LightCurve object is defined the name must be different.
             tref (Time,str,float): Instant of reference.
-                                   Format: Julian Date, string in ISO format or Time object.
-                                   Required only if LightCurve have input fluxes and given time is not in Julian Date.
+                Format: Julian Date, string in ISO format or Time object.
+                Required only if LightCurve have input fluxes and given time is not in Julian Date.
             lambda (int,float): The center band pass of the detector used in observation.
-                                Value in microns (not required). Default=0.7
+                Value in microns (not required). Default=0.7
             delta_lambda (int,float): The band pass width of the detector used in observation.
-                                      Value in microns (not required). Default=0.3
+                Value in microns (not required). Default=0.3
             exptime (int,float): The exposure time of the observation.
-                                 NOT required in cases 2, 3 and 4 below
-                                 Required in case 1 below
+                NOT required in cases 2, 3 and 4 below
+                Required in case 1 below
 
             Input data must be one of the 4 options below:
             
             1) Input file with time and flux
-              file (str): a file with the time and flux.
-                          A third column with the error in flux can also be given.
-              usecols (int, tuple, array): Which columns to read, with 0 being the first.
+                file (str): a file with the time and flux.
+                    A third column with the error in flux can also be given.
+                usecols (int, tuple, array): Which columns to read, with 0 being the first.
 
             2) IF file is not given:
-              time: time must be a list of times, in seconds from tref,
-                  or Julian Date, or a Time object.
-              flux: flux must be a list of fluxes. It must have the
-                  same lenght as time.
-              dflux: if file not given, dflux must be a list of fluxes errors.
-                  It must have the same lenght as time. (not required)
+                time: time must be a list of times, in seconds from tref,
+                    or Julian Date, or a Time object.
+                flux: flux must be a list of fluxes. It must have the
+                    same lenght as time.
+                dflux: if file not given, dflux must be a list of fluxes errors.
+                    It must have the same lenght as time. (not required)
 
             IF time and flux are not given.
             3) For a positive occultation
-              immersion: The instant of immersion.
-              emersion: The instant of emersion
-              immersion_err: Immersion time uncertainty
-              emersion_err: Emersion time uncertainty
+                immersion: The instant of immersion.
+                emersion: The instant of emersion
+                immersion_err: Immersion time uncertainty
+                emersion_err: Emersion time uncertainty
 
             4) For a negative occultation
-              initial_time: The initial time of observation
-              end_time: The end time of observation.
+                initial_time: The initial time of observation
+                end_time: The end time of observation.
 
         Examples: The user can provide one of the followings:
 
@@ -281,17 +281,15 @@ class LightCurve():
 
         Parameters:
             exptime (int,float): The exposure time of the observation. (required)
-            file (str): a file with the time and flux in the first
-                        and second columns, respectively. A third columns
-                        with error in flux can also be given.
-            time: if file not given, time must be a list of times,
-                  in seconds from tref, or Julian Date, or a Time object.
-            flux: if file not given, flux must be a list of fluxes.
-                  It must have the same lenght as time.
+            file (str): a file with the time and flux in the first and second columns, respectively.
+                A third column with error in flux can also be given.
+            time: if file not given, time must be a list of times, in seconds from tref, or Julian Date,
+                or a Time object.
+            flux: if file not given, flux must be a list of fluxes. It must have the same lenght as time.
             dflux: if file not given, dflux must be a list of fluxes errors.
-                   It must have the same lenght as time.
-            tref (Time,str,float): Instant of reference. It can be in Julian Date,
-                                   string in ISO format or Time object.
+                It must have the same lenght as time.
+            tref (Time,str,float): Instant of reference. It can be in Julian Date, string in ISO format
+                or Time object.
             usecols (int, tuple, array): Which columns to read, with 0 being the first.
         """
         input_done = False
@@ -538,7 +536,7 @@ class LightCurve():
             mask (array with Booleans): Mask with True values to be computed
             npt_star  (int): Number of subdivisions for computing the star size's effects. Default=12
             time_resolution_factor (int,float): Steps for fresnel scale used for modelling the light curve.
-                                                Default=10*fresnel scale.
+                Default=10*fresnel scale.
             flux_min (int,float): Bottom flux (only object). Default=0.0
             flux_max (int,float): Base flux (object plus star). Default=1.0
 
@@ -811,7 +809,7 @@ class LightCurve():
     def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None,
                    n_detections=None, plot=False):
         """ Detects automatically the occultation event in the light curve
-                (detects a 'square well transit')
+            (detects a 'square well transit')
 
         Parameters:
         (All parameters are optional)
@@ -819,7 +817,7 @@ class LightCurve():
             dur_step (float): Step size to sweep occultation duration event. Default=1/2 of sampling
             snr_limit (float): Minimum occultation SNR. Default=none
             n_detections (int): Number of detections regardless the SNR.
-                                n_detections is superseded by snr_limit. Default=1
+                n_detections is superseded by snr_limit. Default=1
             plot (boolean): True if output plots are desired.
 
         Returns:
@@ -1031,7 +1029,7 @@ class LightCurve():
         """ Returns the modelled light curve considering fresnel difraction.
 
         Parameters:
-            X   (array): Array with time values converted in km using the event velocity.
+            X (array): Array with time values converted in km using the event velocity.
             X01 (int, float): Immersion time converted in km using the event velocity.
             X02 (int, float): Emersion time converted in km using the event velocity.
             fresnel_scale (int, float): Fresnel scale, in km.
@@ -1069,7 +1067,7 @@ class LightCurve():
             mask (array with Booleans): Mask with True values to be computed
             npt_star (int): Number of subdivisions for computing the star size's effects. Default=12
             time_resolution_factor (int,float): Steps for fresnel scale used for modelling the light curve.
-                                                Default=10*fresnel scale.
+                Default=10*fresnel scale.
             flux_min (int,float): Bottom flux (only object). Default=0.0
             flux_max (int,float): Base flux (object plus star). Default=1.0
 
