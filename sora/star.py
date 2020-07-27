@@ -197,9 +197,9 @@ class Star():
                 If mode is 'van_belle', the star type must be given.
                 If mode is 'auto', type = 'sg'.
                 Types can be:
-                        - 'sg' for 'Super Giant'
-                        - 'ms' for 'Main Sequence'
-                        - 'vs' for 'Variable Star'
+                    - 'sg' for 'Super Giant'
+                    - 'ms' for 'Main Sequence'
+                    - 'vs' for 'Variable Star'
             'log' (bool): If True, it prints the mode used by 'auto'.
         """
         try:
