@@ -95,10 +95,10 @@ class ChiSquare():
 
         Return:
             - if a key is given, it returns two values: the mean value within the n-sigma
-            and the error bar within the n-sigma.
+              and the error bar within the n-sigma.
             - if no key is given, it returns a dictionary with the minimum chi-square,
-            the sigma required, the number of points where chi2 < chi2_min + sigma^2,
-            and the mean values and errors for all keys.
+              the sigma required, the number of points where chi2 < chi2_min + sigma^2,
+              and the mean values and errors for all keys.
         """
         values = np.where(self.data['chi2'] < self.data['chi2'].min() + sigma**2)[0]
         output = {'chi2_min': self.data['chi2'].min()}
@@ -168,10 +168,10 @@ class ChiSquare():
             sigma (float, int): Value of sigma to cut values.
             key (str): keyword the user desire to obtain results.
 
-        Return:
+        Returns:
             - if a key is given, it returns list with all the values that are within the n-sigma.
             - if no key is given, it returns a dictionary with the list with all the values
-            that are within the n-sigma for all keys.
+              that are within the n-sigma for all keys.
             - if sigma is zero, it returns the parameters for the minimum chi-square instead of a list.
         """
         values = {}
