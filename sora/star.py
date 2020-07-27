@@ -41,12 +41,12 @@ def search_star(**kwargs):
 
 def van_belle(magB=None, magV=None, magK=None):
     """ Determines the diameter of a star in mas using equations from van Belle (1999)
-    -- Publi. Astron. Soc. Pacific 111, 1515-1523:
+        -- Publi. Astron. Soc. Pacific 111, 1515-1523:
 
     Parameters:
         magB: The magnitude B of the star
-	magV: The magnitude V of the star
-	magK: The magnitude K of the star
+        magV: The magnitude V of the star
+        magK: The magnitude K of the star
         If any of those values is 'None', 'nan' or higher than 49, it is not considered.
     """
     if magB is None or np.isnan(magB) or magB > 49:
@@ -78,12 +78,12 @@ def van_belle(magB=None, magV=None, magK=None):
 
 def kervella(magB=None, magV=None, magK=None):
     """ Determines the diameter of a star in mas using equations from Kervella et. al (2004)
-    -- A&A Vol. 426, No.  1:
+        -- A&A Vol. 426, No.  1:
 
     Parameters:
         magB: The magnitude B of the star
-	magV: The magnitude V of the star
-	magK: The magnitudes K of the star
+        magV: The magnitude V of the star
+        magK: The magnitudes K of the star
         If any of those values is 'None', 'nan' or higher than 49, it is not considered.
     """
     if magB is None or np.isnan(magB) or magB > 49:
@@ -110,8 +110,8 @@ class Star():
 
         Parameters:
             code (str): Gaia-DR2 Source code for searching in VizieR.
-            coord (str, SkyCoord): if code is not given, coord nust have
-                the coordinates RA and DEC of the star to search in VizieR: 'hh mm ss.ss +dd mm ss.ss'
+            coord (str, SkyCoord): if code is not given, coord nust have the coordinates
+                RA and DEC of the star to search in VizieR: 'hh mm ss.ss +dd mm ss.ss'
             nomad (bool): If true, it tries to download the magnitudes from NOMAD catalogue.
             log (bool): If true, it prints the downloaded information.
             local (bool): If true, it uses the given coordinate in 'coord' as final coordinate.
@@ -144,8 +144,7 @@ class Star():
         """ Sets the magnitudes of a star.
 
         Parameters:
-            (band name)=(float): The star magnitude for given band.
-                The band name can be any string the user wants.
+            (band name)=(float): The star magnitude for given band. The band name can be any string the user wants.
 
         Examples:
             set_magnitude(G=10)
@@ -169,13 +168,13 @@ class Star():
 
     def van_belle(self):
         """ Determines the diameter of a star in mas using equations from van Belle (1999)
-        -- Publi. Astron. Soc. Pacific 111, 1515-1523:
+            -- Publi. Astron. Soc. Pacific 111, 1515-1523:
         """
         return van_belle(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
 
     def kervella(self):
         """ Determines the diameter of a star in mas using equations from Kervella et. al (2004)
-        -- A&A Vol.  426, No.  1:
+            -- A&A Vol.  426, No.  1:
         """
         return kervella(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
 
@@ -192,15 +191,15 @@ class Star():
                 'auto' (default): tries all the above methods until it is able to calculate diameter.
                     The order of try is the same as shown above (user, Gaia, Kervella, Van Belle).
             'band' (str): The band filter to calculate the diameter.
-		If mode is 'kervella' or 'van_belle', the filter must be given, 'B' or 'V'.
+                If mode is 'kervella' or 'van_belle', the filter must be given, 'B' or 'V'.
                 If mode 'auto', 'V' is selected.
             'star_type' (str): type of star to calculate the diameter.
-		If mode is 'van_belle', the star type must be given.
-		If mode is 'auto', type = 'sg'.
-		Types can be:
-			- 'sg' for 'Super Giant'
-			- 'ms' for 'Main Sequence'
-			- 'vs' for 'Variable Star'
+                If mode is 'van_belle', the star type must be given.
+                If mode is 'auto', type = 'sg'.
+                Types can be:
+                        - 'sg' for 'Super Giant'
+                        - 'ms' for 'Main Sequence'
+                        - 'vs' for 'Variable Star'
             'log' (bool): If True, it prints the mode used by 'auto'.
         """
         try:
