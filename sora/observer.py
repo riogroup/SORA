@@ -10,9 +10,8 @@ from sora.config import test_attr, input_tests
 def search_code_mpc():
     """ Reads the MPC Observer Database
 
-    Return:
-        observatories (dict): A python dictionaty with all the sites
-            		      as an Astropy EarthLocation object
+    Returns:
+        observatories (dict): A python dictionaty with all the sites as an Astropy EarthLocation object
     """
     obs = MPC.get_observatory_codes()
     observatories = {}
@@ -35,28 +34,28 @@ class Observer():
 
         Parameters:
             name (str): Name for the Observer. (required)
-                	Observer is uniquely defined (name must be different for each observer).
+                        Observer is uniquely defined (name must be different for each observer).
             code (str): The IAU code for SORA to search for its coordinates in MPC database
             site (EarthLocation): User provides an EarthLocation object.
             lon (str, float): The Longitude of the site in degrees.
-				Positive to East. Range (0 to 360) or (-180 to +180)
-				User can provide in degrees (float) or hexadecimal (string)
+                              Positive to East. Range (0 to 360) or (-180 to +180)
+                              User can provide in degrees (float) or hexadecimal (string)
             lat (str, float): The Latitude of the site in degrees.
-				Positive North. Range (+90 to -90)
-				User can provide in degrees (float) or hexadecimal (string)
+                              Positive North. Range (+90 to -90)
+                              User can provide in degrees (float) or hexadecimal (string)
             height (int, float): The height of the site in meters above see level.
 
         Examples:
-	User can provide one of the following to define an observer:
-	- If user will use the MPC name for the site:
-        	Observer(code)
-	- If user wants to use a different name from the MPC database:
-        	Observer(name, code)
-	- If user wants to use an EarthLocation value:
-		EarthLocation(lat, lon, height)
-        	Observer(name, site)
-	- If user wants to give site coordinates directly:
-        	Observer(name, lon, lat, height)
+            User can provide one of the following to define an observer:
+            - If user will use the MPC name for the site:
+                Observer(code)
+            - If user wants to use a different name from the MPC database:
+                Observer(name, code)
+            - If user wants to use an EarthLocation value:
+                EarthLocation(lon, lat, height)
+                Observer(name, site)
+            - If user wants to give site coordinates directly:
+                Observer(name, lon, lat, height)
         """
         input_tests.check_kwargs(kwargs, allowed_kwargs=['code', 'height', 'lat', 'lon', 'name', 'site'])
         if 'code' in kwargs:
@@ -83,13 +82,16 @@ class Observer():
         """ Calculates relative position to star in the orthographic projection.
 
         Parameters:
-        time (str, Time): Reference time to calculate the position.
-            It can be a string in the format "yyyy-mm-dd hh:mm:ss.s" or an astropy Time object
-        star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
-            It can be a string in the format "hh mm ss.s +dd mm ss.ss" or an astropy SkyCoord object.
+            time (str, Time): Reference time to calculate the position.
+                              It can be a string in the format "yyyy-mm-dd hh:mm:ss.s" or an astropy Time object
+            star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
+                                  It can be a string in the format "hh mm ss.s +dd mm ss.ss"
+                                  or an astropy SkyCoord object.
 
         Returns:
-        ksi, eta (float): on-sky orthographic projection of the observer relative to a star
+            ksi, eta (float): on-sky orthographic projection of the observer relative to a star
+                  Ksi is in the North-South direction (North positive)
+                  Eta is in the East-West direction (East positive)
         """
         time = test_attr(time, Time, 'time')
         try:
@@ -110,9 +112,9 @@ class Observer():
 
         Parameters:
             time (str,Time): Reference time to calculate sidereal time.
-            mode (str):
-		If 'local': calculates the sidereal time for the coordinates of this object.
-		If 'greenwich': calculates the Greenwich Apparent Sidereal Time.
+            mode (str): local or greenwich
+                If 'local': calculates the sidereal time for the coordinates of this object.
+                If 'greenwich': calculates the Greenwich Apparent Sidereal Time.
 
         Returns:
             sidereal_time: An Astropy Longitude object with the Sidereal Time.
