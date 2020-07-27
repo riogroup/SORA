@@ -22,8 +22,8 @@ def read_obj_data():
     Table url: http://devel2.linea.gov.br/~altair.gomes/radius.txt
 
     Table content: Object name; radius (km); uncertainty in RA; uncertainty in DEC
-    RA: Delta * alpha * cos (delta)
-    DEC: Delta * delta
+        RA: Delta * alpha * cos (delta)
+        DEC: Delta * delta
 
     Returns:
         python dictionary
@@ -193,9 +193,9 @@ class EphemPlanete():
 
         Returns:
             ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
-                              relative to a star.
-                  Ksi is in the North-South direction (North positive)
-                  Eta is in the East-West direction (East positive)
+                relative to a star.
+                Ksi is in the North-South direction (North positive)
+                Eta is in the East-West direction (East positive)
         """
         if star:
             self.fit_d2_ksi_eta(star)
@@ -305,9 +305,9 @@ class EphemJPL():
         Parameters:
             name (str): name of the object to search in the JPL database
             id_type (str): type of object options: 'smallbody', 'majorbody'
-                               (planets but also anything that is not a small body), 'designation',
-                           'name', 'asteroid_name', 'comet_name', 'id' (Horizons id number),
-                           or 'smallbody' (find the closest match under any id_type). Default: 'smallbody'
+                (planets but also anything that is not a small body), 'designation',
+                'name', 'asteroid_name', 'comet_name', 'id' (Horizons id number),
+                or 'smallbody' (find the closest match under any id_type). Default: 'smallbody'
             radius (int,float): Object radius, in km (Default: Online database)
             error_ra (int,float): Ephemeris RA*cosDEC error, in arcsec (Default: Online database)
             error_dec (int,float): Ephemeris DEC error, in arcsec (Default: Online database)
@@ -400,9 +400,9 @@ class EphemJPL():
 
         Returns:
             ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
-                              relative to a star.
-                  Ksi is in the North-South direction (North positive)
-                  Eta is in the East-West direction (East positive)
+                relative to a star.
+                Ksi is in the North-South direction (North positive)
+                Eta is in the East-West direction (East positive)
         """
         time = Time(time)
         if type(star) == str:
@@ -563,9 +563,9 @@ class EphemKernel():
 
         Returns:
             ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
-                              relative to a star.
-                      Ksi is in the North-South direction (North positive)
-                      Eta is in the East-West direction (East positive)
+                relative to a star.
+                Ksi is in the North-South direction (North positive)
+                Eta is in the East-West direction (East positive)
         """
         time = Time(time)
         if type(star) == str:
