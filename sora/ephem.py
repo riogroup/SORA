@@ -17,15 +17,15 @@ warnings.simplefilter('always', UserWarning)
 
 
 def read_obj_data():
-    """ Reads an online table (link below) with physical parameter for selected objects
-    	
-	Table content: Object name; radius (km); uncertainty in RA; uncertainty in DEC
-	RA: Delta * alpha * cos (delta)
-	DEC: Delta * delta
+    """ Reads an online table (link below) with physical parameters for selected objects
 
-	Table url: http://devel2.linea.gov.br/~altair.gomes/radius.txt
+    Table url: http://devel2.linea.gov.br/~altair.gomes/radius.txt
 
-    Return:
+    Table content: Object name; radius (km); uncertainty in RA; uncertainty in DEC
+    RA: Delta * alpha * cos (delta)
+    DEC: Delta * delta
+
+    Returns:
         python dictionary
     """
     obj = {}
@@ -49,7 +49,7 @@ def apparent_mag(H, G, dist, sundist, phase=0.0):
         sundist (int, float): Sun-Object distance, in AU
         phase (int, float): Phase Angle: Sun-Target-Observer, in deg
 
-    Return:
+    Returns:
         ap_mag (float): Apparent Magnitude
     """
     phi0 = np.exp(-3.33*(np.tan(0.5*phase*u.deg)**0.63))
@@ -68,7 +68,7 @@ def ephem_kernel(time, target, observer, kernels):
         observer (str): IAU (kernel) code of the observer
         kernels (list, str): list of paths for all the kernels
 
-    Return:
+    Returns:
         coord (SkyCoord): ICRS coordinate of the target.
     """
     if type(kernels) == str:
@@ -112,7 +112,7 @@ class EphemPlanete():
 
         Parameters:
             name (str): name of the object to search in the JPL database
-            ephem (str): Input file with JD, RA, DEC, geocentric distance
+            ephem (str): Input file with JD (UTC), and geocentric RA, DEC, and distance
             radius (int,float): Object radius, in km (Default: Online database)
             error_ra (int,float): Ephemeris RA*cosDEC error, in arcsec (Default: Online database)
             error_dec (int,float): Ephemeris DEC error, in arcsec (Default: Online database)
@@ -142,7 +142,7 @@ class EphemPlanete():
 
     def fit_d2_ksi_eta(self, star, log=True):
         """ Fits the projected position* of the object in the tangent sky plane relative to a star
-	    * ortographic projection.
+            * ortographic projection.
 
         Parameters:
             star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
@@ -185,7 +185,7 @@ class EphemPlanete():
 
     def get_ksi_eta(self, time, star=None):
         """ Returns the projected position* of the object in the tangent sky plane relative to a star.
-	    * ortographic projection.
+            * ortographic projection.
 
         Parameters:
             time (str, Time): Reference time to calculate the position.
@@ -193,9 +193,9 @@ class EphemPlanete():
 
         Returns:
             ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
-			      relative to a star.
-			      Ksi is in the North-South direction (North positive)
-			      Eta is in the East-West direction (East positive)
+                              relative to a star.
+                  Ksi is in the North-South direction (North positive)
+                  Eta is in the East-West direction (East positive)
         """
         if star:
             self.fit_d2_ksi_eta(star)
@@ -299,12 +299,13 @@ class EphemPlanete():
 class EphemJPL():
     def __init__(self, name, id_type='smallbody', **kwargs):
         """ Obtains the ephemeris from Horizons/JPL service.
-	    web tool URL = https://ssd.jpl.nasa.gov/horizons.cgi
+
+        Web tool URL = https://ssd.jpl.nasa.gov/horizons.cgi
 
         Parameters:
             name (str): name of the object to search in the JPL database
             id_type (str): type of object options: 'smallbody', 'majorbody'
-            	           (planets but also anything that is not a small body), 'designation',
+                               (planets but also anything that is not a small body), 'designation',
                            'name', 'asteroid_name', 'comet_name', 'id' (Horizons id number),
                            or 'smallbody' (find the closest match under any id_type). Default: 'smallbody'
             radius (int,float): Object radius, in km (Default: Online database)
@@ -333,10 +334,10 @@ class EphemJPL():
         """ Returns the geocentric position of the object.
 
         Parameters:
-        time (str, Time): Reference time to calculate the position.
+            time (str, Time): Reference time to calculate the position.
 
         Returns:
-        coord (SkyCoord): Astropy SkyCoord object with the object coordinates at the given time
+            coord (SkyCoord): Astropy SkyCoord object with the object coordinates at the given time
         """
         time = Time(time)
         if not time.isscalar:
@@ -390,18 +391,18 @@ class EphemJPL():
 
     def get_ksi_eta(self, time, star):
         """ Returns projected position* of the object in the tangent sky plane relative to a star.
-	    * ortographic projection.
+            * ortographic projection.
 
 
         Parameters:
-        time (str, Time): Reference time to calculate the object position.
-        star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
+            time (str, Time): Reference time to calculate the object position.
+            star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
 
         Returns:
-        ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
-			  relative to a star.
-			  Ksi is in the North-South direction (North positive)
-			  Eta is in the East-West direction (East positive)
+            ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
+                              relative to a star.
+                  Ksi is in the North-South direction (North positive)
+                  Eta is in the East-West direction (East positive)
         """
         time = Time(time)
         if type(star) == str:
@@ -416,12 +417,12 @@ class EphemJPL():
         """ Returns the object geocentric position.
 
         Parameters:
-        pole (str, SkyCoord): Coordinate of the object pole ICRS.
-        time (str, Time): Reference time to calculate the position.
+            pole (str, SkyCoord): Coordinate of the object pole ICRS.
+            time (str, Time): Reference time to calculate the position.
 
         Returns:
-        position_angle (float): Position angle of the object pole, in degrees
-        aperture_angle (float): Apeture angle of the object pole, in degrees
+            position_angle (float): Position angle of the object pole, in degrees
+            aperture_angle (float): Apeture angle of the object pole, in degrees
         """
         time = Time(time)
         if type(pole) == str:
@@ -504,10 +505,10 @@ class EphemKernel():
         """ Returns the object geocentric position.
 
         Parameters:
-        time (str, Time): Reference time to calculate the object position.
+            time (str, Time): Reference time to calculate the object position.
 
         Returns:
-        coord (SkyCoord): Astropy SkyCoord object with the object coordinates at the given time
+            coord (SkyCoord): Astropy SkyCoord object with the object coordinates at the given time
         """
         pos = ephem_kernel(time, self.spkid, '399', self.__kernels)
         if hasattr(self, 'offset'):
@@ -554,17 +555,17 @@ class EphemKernel():
 
     def get_ksi_eta(self, time, star):
         """ Returns projected position* of the object in the tangent sky plane relative to a star.
-	    * ortographic projection.
+            * ortographic projection.
 
         Parameters:
-        time (str, Time): Reference time to calculate the object position.
-        star (str, SkyCoord): Coordinate of the star in the same reference frame as the ephemeris.
+            time (str, Time): Reference time to calculate the object position.
+            star (str, SkyCoord): Coordinate of the star in the same reference frame as the ephemeris.
 
         Returns:
-        ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
-	      		  relative to a star.
-			  Ksi is in the North-South direction (North positive)
-			  Eta is in the East-West direction (East positive)
+            ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
+                              relative to a star.
+                      Ksi is in the North-South direction (North positive)
+                      Eta is in the East-West direction (East positive)
         """
         time = Time(time)
         if type(star) == str:
@@ -579,12 +580,12 @@ class EphemKernel():
         """ Returns the object geocentric position.
 
         Parameters:
-        pole (str, SkyCoord): Coordinate of the object pole ICRS.
-        time (str, Time): Time from which to calculate the position.
+            pole (str, SkyCoord): Coordinate of the object pole ICRS.
+            time (str, Time): Time from which to calculate the position.
 
         Returns:
-        position_angle (float): Position angle of the object pole, in degrees
-        aperture_angle (float): Apeture angle of the object pole, in degrees
+            position_angle (float): Position angle of the object pole, in degrees
+            aperture_angle (float): Apeture angle of the object pole, in degrees
         """
         time = Time(time)
         if type(pole) == str:
