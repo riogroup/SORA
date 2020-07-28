@@ -112,7 +112,7 @@ class EphemPlanete():
 
         Parameters:
             name (str): name of the object to search in the JPL database
-            ephem (str): Input file with JD (UTC), and geocentric RA, DEC, and distance
+            ephem (str): Input file with JD (UTC), and geocentric RA (deg), DEC (deg), and distance (AU)
             radius (int,float): Object radius, in km (Default: Online database)
             error_ra (int,float): Ephemeris RA*cosDEC error, in arcsec (Default: Online database)
             error_dec (int,float): Ephemeris DEC error, in arcsec (Default: Online database)
@@ -139,6 +139,23 @@ class EphemPlanete():
         self.mass = kwargs.get('mass', 0.0)*u.kg
         self.H = kwargs.get('H', np.nan)
         self.G = kwargs.get('G', np.nan)
+
+    def get_position(self, time):
+        """ Returns the geocentric position of the object.
+
+        Parameters:
+            time (str, Time):Time from which to calculate the position.
+
+        Returns:
+            coord (SkyCoord): Astropy SkyCoord object with the coordinate at given time
+        """
+        ksi, eta = self.get_ksi_eta(time=time)*u.km
+        distance = self.ephem.distance.mean()
+        off_ra = np.arctan2(ksi, distance)
+        off_dec = np.arctan2(eta, distance)
+        coord_frame = SkyOffsetFrame(origin=self.star)
+        pos = SkyCoord(lon=off_ra, lat=off_dec, distance=distance, frame=coord_frame)
+        return pos.icrs
 
     def fit_d2_ksi_eta(self, star, log=True):
         """ Fits the projected position* of the object in the tangent sky plane relative to a star
