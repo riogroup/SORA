@@ -334,7 +334,7 @@ class EphemJPL():
         """
         input_tests.check_kwargs(kwargs, allowed_kwargs=['error_dec', 'error_ra', 'H', 'G', 'mass', 'radius'])
         self.name = name
-        self.id_type = 'majorbody'
+        self.id_type = id_type
         try:
             data = read_obj_data()
         except:
@@ -396,7 +396,7 @@ class EphemJPL():
             ap_mag (float): Apparent magnitude
         """
         time = Time(time)
-        obj = Horizons(id=self.name, id_type='majorbody', location='geo', epochs=time.jd)
+        obj = Horizons(id=self.name, id_type=self.id_type, location='geo', epochs=time.jd)
         eph = obj.ephemerides(extra_precision=True)
         if 'H' in eph.keys():
             self.H = eph['H'][0]
