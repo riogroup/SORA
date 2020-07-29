@@ -78,7 +78,8 @@ class LightCurve():
             1) Input file with time and flux
                 file (str): a file with the time and flux.
                     A third column with the error in flux can also be given.
-                usecols (int, tuple, array): Which columns to read, with 0 being the first.
+                usecols (int, tuple, array): Which columns to read, with the 
+                    first being the time, the seconds the flux and third the flux error [optional].
 
             2) IF file is not given:
                 time: time must be a list of times, in seconds from tref,
@@ -299,7 +300,8 @@ class LightCurve():
                 It must have the same lenght as time.
             tref (Time,str,float): Instant of reference. It can be in Julian Date, string in ISO format
                 or Time object.
-            usecols (int, tuple, array): Which columns to read, with 0 being the first.
+            usecols (int, tuple, array): Which columns to read, with the 
+                    first being the time, the seconds the flux and third the flux error [optional].
         """
         input_done = False
         usecols = None
