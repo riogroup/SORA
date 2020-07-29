@@ -123,6 +123,11 @@ sora.config
 sora.ephem
 ^^^^^^^^^^
 
+- Added function get_position() to EphemPlanete. This corrects a bug that prevented
+  Occultation to run with EphemPlanete. [#41]
+
+- Fixed bug in EphemJPL where `id_type` was redefined inside __init__(). [#41]
+
 sora.extra
 ^^^^^^^^^^
 
