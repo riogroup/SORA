@@ -539,13 +539,6 @@ class LightCurve():
                 Default=10*fresnel scale.
             flux_min (int,float): Bottom flux (only object). Default=0.0
             flux_max (int,float): Base flux (object plus star). Default=1.0
-
-        Returns:
-            self.flux_inst (array): Modelled Instrumental light flux.
-            self.time_model (array): Modelled timing.
-            self.flux_star (array): Modelled light flux considering fresnel difraction and star's diameter.
-            self.flux_fresnel (array): Modelled light flux considering fresnel difraction.
-            self.model_geometric (array): Modelled light flux considering a box model.
         """
         # Computing the fresnel scale
         lamb = self.lambda_0*u.micrometer.to('km')
