@@ -78,6 +78,10 @@ sora.lightcurve
 - Now the user has the possibility to redefine `tref`, `immersion`, `emersion`,
   `initial_time` and `end_time` after instantiated. [#35]
 
+- `lambda_0` argument was replaced by `central_bandpass` and `delta_lambda` by `delta_bandpass`. 
+  When using 'lambda_0' or `delta_lambda`, a FutureWarning is raised stating `lambda_0` or `delta_lambda`
+  as deprecated and will be removed from v1.0. [#36]
+
 sora.observer
 ^^^^^^^^^^^^^
 

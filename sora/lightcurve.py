@@ -10,29 +10,30 @@ from .extra import ChiSquare
 from sora.config import input_tests
 import os
 import warnings
+from sora.config.decorators import deprecated_alias
 
 
 warnings.simplefilter('always', UserWarning)
 
-
-def calc_fresnel(distance, lambida):
+@deprecated_alias(lambida='bandpass')  # remove this line for v1.0
+def calc_fresnel(distance, bandpass):
     """ Calculates the Fresnel scale.
         (Fresnel Scale = square root of half the multiplication of wavelength and object distance.)
-    
-    Parameters: 
+
+    Parameters:
         distance  (int, float, array): distances, in km.
-        lambda   (int, float, array): wavelength, in km.
-    
+        bandpass  (int, float, array): wavelength, in km.
+
     Returns:
         fresnel_scale  (float, array): Fresnel scale, in km
     """
-    return np.sqrt(lambida*distance/2)
+    return np.sqrt(bandpass*distance/2)
 
 
 def fit_pol(x, y, deg):
     """ Fits a n-degree polynom to the data.
 
-    Parameters: 
+    Parameters:
         x (array): x-values
         y (array): y-values
         deg (int): degree of the polynom
@@ -54,6 +55,7 @@ def fit_pol(x, y, deg):
 class LightCurve():
     __names = []
 
+    @deprecated_alias(lambda_0='central_bandpass', delta_lambda='delta_bandpass')  # remove this line for v1.0
     def __init__(self, name, **kwargs):
         """ Defines a Light Curve
 
@@ -63,20 +65,21 @@ class LightCurve():
             tref (Time,str,float): Instant of reference.
                 Format: Julian Date, string in ISO format or Time object.
                 Required only if LightCurve have input fluxes and given time is not in Julian Date.
-            lambda (int,float): The center band pass of the detector used in observation.
+            central_bandpass (int,float): The center band pass of the detector used in observation.
                 Value in microns (not required). Default=0.7
-            delta_lambda (int,float): The band pass width of the detector used in observation.
+            delta_bandpass (int,float): The band pass width of the detector used in observation.
                 Value in microns (not required). Default=0.3
             exptime (int,float): The exposure time of the observation.
                 NOT required in cases 2, 3 and 4 below
                 Required in case 1 below
 
             Input data must be one of the 4 options below:
-            
+
             1) Input file with time and flux
                 file (str): a file with the time and flux.
                     A third column with the error in flux can also be given.
-                usecols (int, tuple, array): Which columns to read, with 0 being the first.
+                usecols (int, tuple, array): Which columns to read, with the 
+                    first being the time, the seconds the flux and third the flux error [optional].
 
             2) IF file is not given:
                 time: time must be a list of times, in seconds from tref,
@@ -105,9 +108,8 @@ class LightCurve():
             LightCurve(name, initial_time, end_time)
         """
         allowed_kwargs = ['emersion', 'emersion_err', 'immersion', 'immersion_err', 'initial_time', 'end_time',
-                          'file', 'time', 'flux', 'exptime', 'lambda', 'delta_lambda', 'tref', 'dflux', 'usecols']
+                          'file', 'time', 'flux', 'exptime', 'central_bandpass', 'delta_bandpass', 'tref', 'dflux', 'usecols']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
-
         input_done = False
         self.dflux = None
         self.__name = name
@@ -135,8 +137,8 @@ class LightCurve():
                 self.set_flux(**kwargs)
             except:
                 raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')
-        self.lambda_0 = kwargs.get('lambda', 0.70)
-        self.delta_lambda = kwargs.get('delta_lambda', 0.30)
+        self.lambda_0 = kwargs.get('central_bandpass', 0.70)
+        self.delta_lambda = kwargs.get('delta_bandpass', 0.30)
         self.dt = 0.0
         self.__names.append(self.__name)
 
@@ -149,6 +151,14 @@ class LightCurve():
         fresnel_scale_2 = calc_fresnel(dist, lamb+dlamb/2.0)
         fresnel_scale = (fresnel_scale_1 + fresnel_scale_2)/2.0
         return fresnel_scale
+
+    @property
+    def central_bandpass(self):
+        return self.lambda_0
+
+    @property
+    def delta_bandpass(self):
+        return self.delta_lambda
 
     @property
     def name(self):
@@ -290,7 +300,8 @@ class LightCurve():
                 It must have the same lenght as time.
             tref (Time,str,float): Instant of reference. It can be in Julian Date, string in ISO format
                 or Time object.
-            usecols (int, tuple, array): Which columns to read, with 0 being the first.
+            usecols (int, tuple, array): Which columns to read, with the 
+                    first being the time, the seconds the flux and third the flux error [optional].
         """
         input_done = False
         usecols = None
@@ -408,27 +419,28 @@ class LightCurve():
             raise TypeError('d_star must be an integer, a float or an Astropy Unit object')
         self.d_star = d_star
 
-    def set_filter(self, lambda_0, delta_lambda):
+    @deprecated_alias(lambda_0='central_bandpass', delta_lambda='delta_bandpass')  # remove this line for v1.0
+    def set_filter(self, central_bandpass, delta_bandpass):
         """ Sets the filter bandwidth in microns
 
         Parameters:
-            lambda_0 (float): center band in microns
-            delta_lambda (float): bandwidth in microns
+            central_bandpass (float): center band in microns
+            delta_bandpass (float): bandwidth in microns
         """
-        if type(lambda_0) == u.quantity.Quantity:
-            lambda_0 = lambda_0.to(u.micrometer).value
-        elif type(lambda_0) in [float]:
+        if type(central_bandpass) == u.quantity.Quantity:
+            central_bandpass = central_bandpass.to(u.micrometer).value
+        elif type(central_bandpass) in [float]:
             pass
         else:
-            raise TypeError('lambda_0 must be a float or an Astropy Unit object')
-        self.lambda_0 = lambda_0
-        if type(delta_lambda) == u.quantity.Quantity:
-            delta_lambda = delta_lambda.to(u.micrometer).value
-        elif type(delta_lambda) in [float]:
+            raise TypeError('central_bandpass must be a float or an Astropy Unit object')
+        self.lambda_0 = central_bandpass
+        if type(delta_bandpass) == u.quantity.Quantity:
+            delta_bandpass = delta_bandpass.to(u.micrometer).value
+        elif type(delta_bandpass) in [float]:
             pass
         else:
-            raise TypeError('delta_lambda must be a float or an Astropy Unit object')
-        self.delta_lambda = delta_lambda
+            raise TypeError('delta_bandpass must be a float or an Astropy Unit object')
+        self.delta_lambda = delta_bandpass
 
     def calc_magnitude_drop(self, mag_star, mag_obj):
         """ Determines the magnitude drop of the occultation
@@ -539,13 +551,6 @@ class LightCurve():
                 Default=10*fresnel scale.
             flux_min (int,float): Bottom flux (only object). Default=0.0
             flux_max (int,float): Base flux (object plus star). Default=1.0
-
-        Returns:
-            self.flux_inst (array): Modelled Instrumental light flux.
-            self.time_model (array): Modelled timing.
-            self.flux_star (array): Modelled light flux considering fresnel difraction and star's diameter.
-            self.flux_fresnel (array): Modelled light flux considering fresnel difraction.
-            self.model_geometric (array): Modelled light flux considering a box model.
         """
         # Computing the fresnel scale
         lamb = self.lambda_0*u.micrometer.to('km')
@@ -1059,7 +1064,7 @@ class LightCurve():
                     time_resolution_factor=10, flux_min=0.0, flux_max=1.0):
         """ Private function returns the modelled light curve considering fresnel difraction,
             star diameter and intrumental response, intended for fitting inside the self.occ_lcfit().
-        
+
         Parameters:
             immersion_time (int, float): Immersion time, in seconds.
             emersion_time (int, float): Emersion time, in seconds.
@@ -1142,7 +1147,7 @@ class LightCurve():
         except:
             output += 'Object LightCurve was not instantiated with time and flux.\n\n'
         try:
-            output += ('Bandwidth:            {:.3f} +/- {:.3f} microns\n'
+            output += ('Bandpass:            {:.3f} +/- {:.3f} microns\n'
                        'Used shadow velocity: {:.3f} km/s\n'
                        'Fresnel scale:        {:.3f} seconds or {:.2f} km\n'
                        'Stellar size effect:  {:.3f} seconds or {:.2f} km\n'.format(
