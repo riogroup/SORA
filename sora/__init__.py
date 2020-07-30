@@ -4,4 +4,4 @@ from .star import Star
 from .lightcurve import LightCurve
 from .occultation import Occultation
 
-__version__ = '0.1.1'
+__version__ = '0.2dev'
