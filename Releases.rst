@@ -1,4 +1,4 @@
-SORA v0.1.1 (unreleased)
+SORA v0.1.1 (2020/Jul/30)
 ========================
 
 New Features
@@ -41,14 +41,11 @@ sora.prediction
   will be plotted; `chord_delta` and `chord_geo`: for the user to plot the path of
   a chord from distance of the center or passing by some coordinate, respectively. [#35]
 
-- Two method were added to `PredictionTable()` to help the user to remove bad events
+- Two methods were added to `PredictionTable()` to help the user to remove bad events
   from table: `keep_from_selected_images()` and `remove_occ()`. [#35]
 
 sora.star
 ^^^^^^^^^^^^^^^
-
-documentation
-^^^^^^^^^^^^^
 
 
 API Changes
@@ -88,7 +85,7 @@ sora.observer
 sora.occultation
 ^^^^^^^^^^^^^^^^
 
-- Occultation.new_astrometric_positions() now show a warning when time is far
+- Occultation.new_astrometric_positions() now shows a warning when time is far
   by more than 1 day from the occultation closest approach. [#21]
 
 - Occultation.to_log() and print(Occultation) added the polar radius, equivalent radius, 
@@ -113,9 +110,6 @@ sora.star
 ^^^^^^^^^^^^^^^
 
 - Now Star downloads all parameters from Gaia and saves them in the `meta_gaia` attribute [#35]
-
-documentation
-^^^^^^^^^^^^^
 
 
 Bug Fixes
@@ -160,28 +154,23 @@ sora.occultation
 
 - Occultation.plot_occ_map() now uses the fitted ellipse to calculate the projected shadow radius [#22]
 
-- Corrected bug that raised an error whe calling Occultation.get_map_sites()
+- Corrected bug that raised an error when calling Occultation.get_map_sites()
   and there were no observation added to Occultation. [#31]
 
 - Corrected bug that did not save the fitted params in all occultations when
-  more than one occultation is used in fit_ellipse(). [#35]
+  more than one occultation was used in fit_ellipse(). [#35]
 
 - Added `axis_labels` and `lw` (linewidth) to Occultation.plot_chords(). [#35]
 
 sora.prediction
 ^^^^^^^^^^^^^^^
 
-- Fixed error that was generated when only on prediction was found. [#16]
+- Fixed error that was generated when only one prediction was found. [#16]
 
 - Fixed error in the output format of PredictionTable.to_ow() when coordinate was positive [#35]
 
 sora.star
 ^^^^^^^^^^^^^^^
-
-documentation
-^^^^^^^^^^^^^
-
-- Modified code to PEP8 standards. [#7]
 
 
 SORA v0.1 - Initial Release (2020/May/20)
