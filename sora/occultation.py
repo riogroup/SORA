@@ -909,7 +909,10 @@ class Occultation():
         out += self.star.__str__() + '\n\n'
 
         coord = self.star.geocentric(self.tca)
-        error_star = self.star.error_at(self.tca)
+        try:
+            error_star = self.star.error_at(self.tca)
+        except:
+            error_star = [0, 0]*u.mas
         out += 'Geocentric star coordinate at occultation Epoch ({}):\n'.format(self.tca.iso)
         out += 'RA={} +/- {:.4f}, DEC={} +/- {:.4f}\n\n'.format(
             coord.ra.to_string(u.hourangle, sep='hms', precision=5), error_star[0],
