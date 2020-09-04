@@ -320,6 +320,7 @@ class Star():
             epoch (str, Time): Epoch of the coordinates. Default = 'J2000'
             nomad (bool): If true, it tries to download the magnitudes from NOMAD
                 catalogue. Default = True
+            bjones (bool): If true, it uses de star distance from Bailer-Jones et al. (2018)
             log (bool): If true, it prints the downloaded information. Default = True
             local (bool): If true, it uses the given coordinate in 'coord'
                 as final coordinate. Default = False
@@ -332,10 +333,12 @@ class Star():
         self.__attributes = {}
         self.mag = {}
         self.errors = {'RA': 0, 'DEC': 0, 'Plx': 0, 'pmRA': 0, 'pmDE': 0, 'rad_vel': 0}
-        allowed_kwargs = ['code', 'coord', 'dec', 'epoch', 'local', 'log', 'nomad', 'parallax', 'pmdec', 'pmra', 'ra', 'rad_vel']
+        allowed_kwargs = ['bjones', 'code', 'coord', 'dec', 'epoch', 'local', 'log', 'nomad', 'parallax', 'pmdec', 'pmra',
+                          'ra', 'rad_vel']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         self.__log = kwargs.get('log', True)
         local = kwargs.get('local', False)
+        self.bjones = False
         if 'code' in kwargs:
             self.code = kwargs['code']
         if 'coord' in kwargs:
@@ -361,6 +364,7 @@ class Star():
             self.__searchgaia()
         if kwargs.get('nomad', True):
             self.__getcolors()
+        self.bjones = kwargs.get('bjones', False)
 
     @property
     def ra(self):
@@ -399,7 +403,10 @@ class Star():
         """
         Return the Parallax of the star
         """
-        return self.__attributes.get('PAR', 0*u.mas)
+        if self.bjones:
+            return self.__attributes['bjones_par']
+        else:
+            return self.__attributes.get('PAR', 0*u.mas)
 
     @parallax.setter
     def parallax(self, value):
@@ -494,6 +501,35 @@ class Star():
         """
         self.__attributes['EPOCH'] = Time(value)
 
+    @property
+    def bjones(self):
+        return self.__bjones
+
+    @bjones.setter
+    def bjones(self, value):
+        if value not in [True, False]:
+            raise AttributeError('bjones attribute must be True or False')
+        if value and 'bjones_par' not in self.__attributes:
+            vquery = Vizier(columns=['**'], row_limit=1, timeout=600)
+            if not hasattr(self, 'code'):
+                raise AttributeError('Gaia Source ID must be defined in self.code to search the star')
+            try:
+                catalogue = vquery.query_constraints(catalog='I/347/gaia2dis', Source=self.code, cache=False)[0]
+            except:
+                raise ValueError('An error has occurred. The star does not exist in the catalogue or Vizier is out.')
+            self.__attributes['bjones_par'] = ((1.0/catalogue['rest'][0])*u.arcsec).to(u.mas)
+            self.meta_bjones = {c: catalogue[c][0] for c in catalogue.columns}
+        self.__bjones = value
+
+    @property
+    def diameter_gaia(self):
+        try:
+            rad = self.meta_gaia.get('Rad')
+            if rad is not None or np.ma.core.is_masked(rad):
+                return 2*np.arctan((rad*u.solRad)/self.distance).to(u.mas)
+        except:
+            return None
+
     def set_magnitude(self, **kwargs):
         """ Sets the magnitudes of a star.
 
@@ -577,7 +613,10 @@ class Star():
             try:
                 diam = distance*np.tan(self.diameter_gaia)
                 if log:
-                    print('Apparent diameter using Gaia')
+                    text = ''
+                    if self.bjones:
+                        text += ' + Bailer-Jones et al. (2018)'
+                    print('Apparent diameter using Gaia' + text)
                 return diam.to(u.km)
             except:
                 pass
@@ -642,12 +681,6 @@ class Star():
         self.set_magnitude(G=catalogue['Gmag'][0])
 
         self.meta_gaia = {c: catalogue[c][0] for c in catalogue.columns}
-        rad = catalogue['Rad'][0]
-        if np.ma.core.is_masked(rad) or np.ma.core.is_masked(catalogue['Plx'][0]):
-            if self.__log:
-                warnings.warn('Gaia catalogue does not have the star radius.')
-        else:
-            self.diameter_gaia = 2*np.arctan((rad*u.solRad)/self.distance).to(u.mas)
 
         self.errors['RA'] = self.meta_gaia['e_RA_ICRS']*u.mas
         self.errors['DEC'] = self.meta_gaia['e_DE_ICRS']*u.mas
@@ -807,8 +840,8 @@ class Star():
                 'Plx={:.4f} +/- {:.4f} mas, Rad. Vel.={:.2f} +/- {:.2f} km/s \n\n'.format(
                     self.epoch.jyear, self.ra.to_string(u.hourangle, sep='hms', precision=5),
                     self.errors['RA'], self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'],
-                    self.pmra.value, self.errors['pmRA'], self.pmdec.value, self.errors['pmDE'],
-                    self.parallax.value, self.errors['Plx'], self.rad_vel.value, self.errors['rad_vel']))
+                    self.pmra.value, self.errors['pmRA'].value, self.pmdec.value, self.errors['pmDE'].value,
+                    self.parallax.value, self.errors['Plx'].value, self.rad_vel.value, self.errors['rad_vel'].value))
         if hasattr(self, 'offset'):
             out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}\n'.format(
                 self.offset.d_lon_coslat, self.offset.d_lat)
@@ -821,8 +854,11 @@ class Star():
             out_mag[-1].append(mag)
         out += (',\n'+' '*11).join([','.join(out_i) for out_i in out_mag])
         out += '\n\n'
-        if hasattr(self, 'diameter_gaia'):
-            out += 'Apparent diameter: {:.4f}, Source: Gaia-DR2\n'.format(self.diameter_gaia)
+        if self.diameter_gaia is not None:
+            text = ''
+            if self.bjones:
+                text += ' + Bailer-Jones et al. (2018)'
+            out += 'Apparent diameter: {:.4f}, Source: Gaia-DR2{}\n'.format(self.diameter_gaia, text)
         if hasattr(self, 'diameter_user'):
             out += 'Apparent diameter: {:.4f}, Source: User\n'.format(self.diameter_user)
         kerv = self.kervella()
