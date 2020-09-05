@@ -508,8 +508,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         raise TypeError('At the moment prediction only works with EphemKernel')
     time_beg = Time(time_beg)
     time_end = Time(time_end)
-    dt = np.arange(0, (time_end-time_beg).sec, step)*u.s
-    t = time_beg + dt
+    intervals = np.round(np.linspace(0, (time_end-time_beg).sec, divs+1))
 
     # define catalogue parameters
     kwds = {}
@@ -523,17 +522,16 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     # determine suitable divisions for star search
     radius = ephem.radius + const.R_earth
 
-    divisions = np.array_split(np.arange(len(t)), divs)
-
     if log:
-        print('Ephemeris was split in {} parts for better search of stars'.format(len(divisions)))
+        print('Ephemeris was split in {} parts for better search of stars'.format(divs))
 
     # makes predictions for each division
     occs = []
-    for i, vals in enumerate(divisions):
-        nt = t[vals]
+    for i in range(divs):
+        dt = np.arange(intervals[i], intervals[i+1], step)*u.s
+        nt = time_beg + dt
         if log:
-            print('\nSearching occultations in part {}/{}'.format(i+1, len(divisions)))
+            print('\nSearching occultations in part {}/{}'.format(i+1, divs))
             print("Generating Ephemeris between {} and {} ...".format(nt.min(), nt.max()))
         ncoord = ephem.get_position(nt)
         ra = np.mean([ncoord.ra.min().deg, ncoord.ra.max().deg])
