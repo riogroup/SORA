@@ -513,7 +513,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
 
     # define catalogue parameters
     kwds = {}
-    kwds['columns'] = ['Source', 'RA_ICRS', 'DE_ICRS']
+    kwds['columns'] = ['Source', 'RA_ICRS', 'DE_ICRS', 'pmRA', 'pmDE', 'Plx', 'RV', 'Epoch', 'Gmag']
     kwds['row_limit'] = 10000000
     kwds['timeout'] = 600
     if mag_lim:
@@ -559,9 +559,12 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         dist = np.arcsin(radius/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec
         k = np.where(d2d < dist)[0]
         for ev in k:
-            star = Star(code=catalogue['Source'][ev], nomad=False, log=False)
+            star = Star(code=catalogue['Source'][ev], ra=catalogue['RA_ICRS'][ev]*u.deg, dec=catalogue['DE_ICRS'][ev]*u.deg,
+                        pmra=catalogue['pmRA'][ev]*u.mas/u.year, pmdec=catalogue['pmDE'][ev]*u.mas/u.year,
+                        parallax=catalogue['Plx'][ev]*u.mas, rad_vel=catalogue['RV'][ev]*u.km/u.s,
+                        epoch=Time(catalogue['Epoch'][ev], format='jyear'), local=True, nomad=False, log=False)
             c = star.geocentric(nt[idx][ev])
-            pars = [star.code, SkyCoord(c.ra, c.dec), star.mag['G']]
+            pars = [star.code, SkyCoord(c.ra, c.dec), catalogue['Gmag'][ev]]
             try:
                 pars = np.hstack((pars, occ_params(star, ephem, nt[idx][ev])))
                 occs.append(pars)
@@ -572,7 +575,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
             'radius': ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value,
             'error_dec': ephem.error_dec.to(u.mas).value, 'ephem': ephem.meta['kernels']}
     if not occs:
-        print('No stellar occultation was found.')
+        print('\nNo stellar occultation was found.')
         return PredictionTable(meta=meta)
     # create astropy table with the params
     occs2 = np.transpose(occs)
@@ -584,7 +587,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
         dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
     if log:
-        print('{} occultations found.'.format(len(t)))
+        print('\n{} occultations found.'.format(len(t)))
     return t
 
 
