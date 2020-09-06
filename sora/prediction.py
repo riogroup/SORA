@@ -551,10 +551,17 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         if log:
             print('    {} Gaia-DR2 stars downloaded'.format(len(catalogue)))
             print('Identifying occultations ...')
-        stars = SkyCoord(catalogue['RA_ICRS'], catalogue['DE_ICRS'])
-        idx, d2d, d3d = stars.match_to_catalog_sky(ncoord)
+        pm_ra_cosdec = catalogue['pmRA'].quantity
+        pm_ra_cosdec[np.where(np.isnan(pm_ra_cosdec))] = 0*u.mas/u.year
+        pm_dec = catalogue['pmDE'].quantity
+        pm_dec[np.where(np.isnan(pm_dec))] = 0*u.mas/u.year
+        stars = SkyCoord(catalogue['RA_ICRS'].quantity, catalogue['DE_ICRS'].quantity, distance=np.ones(len(catalogue))*u.pc,
+                         pm_ra_cosdec=pm_ra_cosdec, pm_dec=pm_dec, obstime=Time(catalogue['Epoch'], format='jyear'))
+        prec_stars = stars.apply_space_motion(new_obstime=((nt[-1]-nt[0])/2+nt[0]))
+        idx, d2d, d3d = prec_stars.match_to_catalog_sky(ncoord)
 
-        dist = np.arcsin(radius/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec
+        dist = np.arcsin(radius/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec \
+            + np.sqrt(stars.pm_ra_cosdec**2+stars.pm_dec**2)*(nt[-1]-nt[0])/2
         k = np.where(d2d < dist)[0]
         for ev in k:
             star = Star(code=catalogue['Source'][ev], ra=catalogue['RA_ICRS'][ev]*u.deg, dec=catalogue['DE_ICRS'][ev]*u.deg,
