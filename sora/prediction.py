@@ -428,7 +428,7 @@ class PredictionTable(Table):
         self.remove_rows(itens)
 
 
-def occ_params(star, ephem, time):
+def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
     """ Calculates the parameters of the occultation, as instant, CA, PA.
 
     Parameters:
@@ -442,49 +442,64 @@ def occ_params(star, ephem, time):
         PA (deg): Position Angle at Closest Approach
         vel (km/s): Velocity of the occultation
         dist (AU): the object geocentric distance.
+        n_recursions (int): The number of attempts to try obtain prediction parameters
+            in case the event is outside the previous range of time. Default=5
+        max_tdiff (int): Maximum difference from given time it will attempt to identify
+            the occultation, in minutes. If given, 'n_recursions' is ignored. Default=None.
     """
 
-    delta_t = 0.05
-
+    n_recursions = int(n_recursions)
+    n_iter = n_recursions
     if type(star) != Star:
         raise ValueError('star must be a Star object')
     if type(ephem) not in [EphemKernel, EphemJPL, EphemPlanete]:
         raise ValueError('ephem must be an Ephemeris object')
 
     time = Time(time)
-    tt = time + np.arange(-600, 600, delta_t)*u.s
-    coord = star.geocentric(tt[0])
+    coord = star.geocentric(time)
+
     if type(ephem) == EphemPlanete:
         ephem.fit_d2_ksi_eta(coord, log=False)
 
-    if type(ephem) == EphemJPL:
-        tt = time + np.arange(-600, 600, 4)*u.s
+    def calc_min(time0, time_interval, delta_t, n_recursions=5, max_tdiff=None):
+        if max_tdiff is not None:
+            max_t = u.Quantity(max_tdiff, unit=u.min)
+            if np.absolute((time0 - time).sec*u.s) > max_t - time_interval*u.s:
+                raise ValueError('Occultation is farther than {} from given time'.format(max_t))
+        if n_recursions == 0:
+            raise ValueError('Occultation is farther than {} min from given time'.format(n_iter*time_interval/60))
+        tt = time0 + np.arange(-time_interval, time_interval, delta_t)*u.s
         ksi, eta = ephem.get_ksi_eta(tt, coord)
         dd = np.sqrt(ksi*ksi+eta*eta)
         min = np.argmin(dd)
-        tt = tt[min] + np.arange(-8, 8, 0.05)*u.s
+        if min < 2:
+            return calc_min(time0=tt[0], time_interval=time_interval, delta_t=delta_t,
+                            n_recursions=n_recursions-1, max_tdiff=max_tdiff)
+        elif min > len(tt) - 2:
+            return calc_min(time0=tt[-1], time_interval=time_interval, delta_t=delta_t,
+                            n_recursions=n_recursions-1, max_tdiff=max_tdiff)
 
-    ksi, eta = ephem.get_ksi_eta(tt, coord)
-    dd = np.sqrt(ksi*ksi+eta*eta)
-    min = np.argmin(dd)
+        ksi, eta = ephem.get_ksi_eta(tt[min], coord)
+        dd = np.sqrt(ksi*ksi+eta*eta)
+        dist = ephem.get_position(tt[min]).distance
+        ca = np.arcsin(dd*u.km/dist).to(u.arcsec)
+        pa = (np.arctan2(ksi, eta)*u.rad).to(u.deg)
+        if pa < 0*u.deg:
+            pa = pa + 360*u.deg
 
-    if type(ephem) == EphemPlanete:
-        dist = ephem.ephem[int(len(ephem.time)/2)].distance
+        ksi2, eta2 = ephem.get_ksi_eta(tt[min]+1*u.s, coord)
+        dksi = ksi2-ksi
+        deta = eta2-eta
+        vel = np.sqrt(dksi**2 + deta**2)/1
+        vel = vel*np.sign(dksi)*(u.km/u.s)
+
+        return tt[min], ca, pa, vel, dist.to(u.AU)
+
+    if type(ephem) == EphemJPL:
+        tmin = calc_min(time0=time, time_interval=600, delta_t=4, n_recursions=5, max_tdiff=max_tdiff)[0]
+        return calc_min(time0=tmin, time_interval=8, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
     else:
-        dist = ephem.get_position(time).distance
-
-    ca = np.arcsin(dd[min]*u.km/dist).to(u.arcsec)
-
-    pa = (np.arctan2(ksi[min], eta[min])*u.rad).to(u.deg)
-    if pa < 0*u.deg:
-        pa = pa + 360*u.deg
-
-    dksi = ksi[min+1]-ksi[min]
-    deta = eta[min+1]-eta[min]
-    vel = np.sqrt(dksi**2 + deta**2)/delta_t
-    vel = vel*np.sign(dksi)*(u.km/u.s)
-
-    return tt[min], ca, pa, vel, dist.to(u.AU)
+        return calc_min(time0=time, time_interval=600, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
 
 
 def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1, log=True):
