@@ -30,7 +30,7 @@ def search_star(**kwargs):
     input_tests.check_kwargs(kwargs, allowed_kwargs=['catalog', 'code', 'columns', 'coord', 'log', 'radius'])
     row_limit = 100
     if 'log' in kwargs and kwargs['log']:
-        print('Downloading star parameters from {}'.format(kwargs['catalog']))
+        print('\nDownloading star parameters from {}'.format(kwargs['catalog']))
     vquery = Vizier(columns=kwargs['columns'], row_limit=row_limit, timeout=600)
     if 'code' in kwargs:
         catalogue = vquery.query_constraints(catalog=kwargs['catalog'], Source=kwargs['code'], cache=False)
@@ -300,6 +300,9 @@ def choice_star(catalogue, coord, columns, source):
         elif source == 'nomad':
             print('No magnitudes were obtained from NOMAD')
             return
+        elif source == 'bjones':
+            print('It was not possible to define a star')
+            return
     return catalogue[[k[choice-1]]]
 
 
@@ -321,6 +324,7 @@ class Star():
             nomad (bool): If true, it tries to download the magnitudes from NOMAD
                 catalogue. Default = True
             bjones (bool): If true, it uses de star distance from Bailer-Jones et al. (2018)
+                Default = True
             log (bool): If true, it prints the downloaded information. Default = True
             local (bool): If true, it uses the given coordinate in 'coord'
                 as final coordinate. Default = False
@@ -364,7 +368,10 @@ class Star():
             self.__searchgaia()
         if kwargs.get('nomad', True):
             self.__getcolors()
-        self.bjones = kwargs.get('bjones', False)
+        try:
+            self.bjones = kwargs.get('bjones', False)
+        except ValueError:
+            pass
 
     @property
     def ra(self):
@@ -510,13 +517,22 @@ class Star():
         if value not in [True, False]:
             raise AttributeError('bjones attribute must be True or False')
         if value and 'bjones_par' not in self.__attributes:
-            vquery = Vizier(columns=['**'], row_limit=1, timeout=600)
-            if not hasattr(self, 'code'):
-                raise AttributeError('Gaia Source ID must be defined in self.code to search the star')
-            try:
-                catalogue = vquery.query_constraints(catalog='I/347/gaia2dis', Source=self.code, cache=False)[0]
-            except:
-                raise ValueError('An error has occurred. The star does not exist in the catalogue or Vizier is out.')
+            if hasattr(self, 'code'):
+                catalogue = search_star(code=self.code, columns=['**'], catalog='I/347/gaia2dis', log=self.__log)
+            else:
+                catalogue = search_star(coord=self.coord, columns=['**'], radius=2*u.arcsec,
+                                        catalog='I/347/gaia2dis', log=self.__log)
+            if len(catalogue) == 0:
+                raise ValueError('No star was found in the Bailer-Jones catalogue. It does not exist or VizieR is out.')
+            catalogue = catalogue[0]
+            if len(catalogue) > 1:
+                print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
+                print('The list below is sorted by distance. Please select the correct star')
+                if hasattr(self.mag, 'G'):
+                    print('Star G mag: {}'.format(self.mag['G']))
+                catalogue = choice_star(catalogue, self.coord, ['RA_ICRS', 'DE_ICRS', 'Source'], source='bjones')
+                if catalogue is None:
+                    return
             self.__attributes['bjones_par'] = ((1.0/catalogue['rest'][0])*u.arcsec).to(u.mas)
             self.meta_bjones = {c: catalogue[c][0] for c in catalogue.columns}
         self.__bjones = value
@@ -669,7 +685,7 @@ class Star():
             if self.__log:
                 print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
                 print('The list below is sorted by distance. Please select the correct star')
-            catalogue = choice_star(catalogue, self.coord, ['RA_ICRS', 'DE_ICRS', 'Gmag'])
+            catalogue = choice_star(catalogue, self.coord, ['RA_ICRS', 'DE_ICRS', 'Gmag'], source='gaia')
         self.code = catalogue['Source'][0]
         self.ra = catalogue['RA_ICRS'][0]*u.deg
         self.dec = catalogue['DE_ICRS'][0]*u.deg
@@ -743,7 +759,7 @@ class Star():
             if hasattr(self.mag, 'G'):
                 print('Star G mag: {}'.format(self.mag['G']))
             catalogue = choice_star(catalogue, self.coord, ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag',
-                                                            'Rmag', 'Jmag', 'Hmag', 'Kmag'])
+                                                            'Rmag', 'Jmag', 'Hmag', 'Kmag'], source='nomad')
             if catalogue is None:
                 return
         errors = []
