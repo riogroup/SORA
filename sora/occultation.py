@@ -260,7 +260,7 @@ class Occultation():
                 It must be a Star object.
             ephem (Ephem): object ephemeris. It must be an Ephemeris object.
             time (str, Time): Reference time of the occultation.
-                Time does not need to be exact, but needs to be within approximately 10 minutes
+                Time does not need to be exact, but needs to be within approximately 50 minutes
                 of the occultation closest approach to calculate occultation parameters.
         """
         if type(star) != Star:
