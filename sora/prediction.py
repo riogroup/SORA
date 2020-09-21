@@ -428,7 +428,7 @@ class PredictionTable(Table):
         self.remove_rows(itens)
 
 
-def occ_params(star, ephem, time):
+def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
     """ Calculates the parameters of the occultation, as instant, CA, PA.
 
     Parameters:
@@ -442,49 +442,64 @@ def occ_params(star, ephem, time):
         PA (deg): Position Angle at Closest Approach
         vel (km/s): Velocity of the occultation
         dist (AU): the object geocentric distance.
+        n_recursions (int): The number of attempts to try obtain prediction parameters
+            in case the event is outside the previous range of time. Default=5
+        max_tdiff (int): Maximum difference from given time it will attempt to identify
+            the occultation, in minutes. If given, 'n_recursions' is ignored. Default=None.
     """
 
-    delta_t = 0.05
-
+    n_recursions = int(n_recursions)
+    n_iter = n_recursions
     if type(star) != Star:
         raise ValueError('star must be a Star object')
     if type(ephem) not in [EphemKernel, EphemJPL, EphemPlanete]:
         raise ValueError('ephem must be an Ephemeris object')
 
     time = Time(time)
-    tt = time + np.arange(-600, 600, delta_t)*u.s
-    coord = star.geocentric(tt[0])
+    coord = star.geocentric(time)
+
     if type(ephem) == EphemPlanete:
         ephem.fit_d2_ksi_eta(coord, log=False)
 
-    if type(ephem) == EphemJPL:
-        tt = time + np.arange(-600, 600, 4)*u.s
+    def calc_min(time0, time_interval, delta_t, n_recursions=5, max_tdiff=None):
+        if max_tdiff is not None:
+            max_t = u.Quantity(max_tdiff, unit=u.min)
+            if np.absolute((time0 - time).sec*u.s) > max_t - time_interval*u.s:
+                raise ValueError('Occultation is farther than {} from given time'.format(max_t))
+        if n_recursions == 0:
+            raise ValueError('Occultation is farther than {} min from given time'.format(n_iter*time_interval/60))
+        tt = time0 + np.arange(-time_interval, time_interval, delta_t)*u.s
         ksi, eta = ephem.get_ksi_eta(tt, coord)
         dd = np.sqrt(ksi*ksi+eta*eta)
         min = np.argmin(dd)
-        tt = tt[min] + np.arange(-8, 8, 0.05)*u.s
+        if min < 2:
+            return calc_min(time0=tt[0], time_interval=time_interval, delta_t=delta_t,
+                            n_recursions=n_recursions-1, max_tdiff=max_tdiff)
+        elif min > len(tt) - 2:
+            return calc_min(time0=tt[-1], time_interval=time_interval, delta_t=delta_t,
+                            n_recursions=n_recursions-1, max_tdiff=max_tdiff)
 
-    ksi, eta = ephem.get_ksi_eta(tt, coord)
-    dd = np.sqrt(ksi*ksi+eta*eta)
-    min = np.argmin(dd)
+        ksi, eta = ephem.get_ksi_eta(tt[min], coord)
+        dd = np.sqrt(ksi*ksi+eta*eta)
+        dist = ephem.get_position(tt[min]).distance
+        ca = np.arcsin(dd*u.km/dist).to(u.arcsec)
+        pa = (np.arctan2(ksi, eta)*u.rad).to(u.deg)
+        if pa < 0*u.deg:
+            pa = pa + 360*u.deg
 
-    if type(ephem) == EphemPlanete:
-        dist = ephem.ephem[int(len(ephem.time)/2)].distance
+        ksi2, eta2 = ephem.get_ksi_eta(tt[min]+1*u.s, coord)
+        dksi = ksi2-ksi
+        deta = eta2-eta
+        vel = np.sqrt(dksi**2 + deta**2)/1
+        vel = vel*np.sign(dksi)*(u.km/u.s)
+
+        return tt[min], ca, pa, vel, dist.to(u.AU)
+
+    if type(ephem) == EphemJPL:
+        tmin = calc_min(time0=time, time_interval=600, delta_t=4, n_recursions=5, max_tdiff=max_tdiff)[0]
+        return calc_min(time0=tmin, time_interval=8, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
     else:
-        dist = ephem.get_position(time).distance
-
-    ca = np.arcsin(dd[min]*u.km/dist).to(u.arcsec)
-
-    pa = (np.arctan2(ksi[min], eta[min])*u.rad).to(u.deg)
-    if pa < 0*u.deg:
-        pa = pa + 360*u.deg
-
-    dksi = ksi[min+1]-ksi[min]
-    deta = eta[min+1]-eta[min]
-    vel = np.sqrt(dksi**2 + deta**2)/delta_t
-    vel = vel*np.sign(dksi)*(u.km/u.s)
-
-    return tt[min], ca, pa, vel, dist.to(u.AU)
+        return calc_min(time0=time, time_interval=600, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
 
 
 def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1, log=True):
@@ -508,12 +523,11 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         raise TypeError('At the moment prediction only works with EphemKernel')
     time_beg = Time(time_beg)
     time_end = Time(time_end)
-    dt = np.arange(0, (time_end-time_beg).sec, step)*u.s
-    t = time_beg + dt
+    intervals = np.round(np.linspace(0, (time_end-time_beg).sec, divs+1))
 
     # define catalogue parameters
     kwds = {}
-    kwds['columns'] = ['Source', 'RA_ICRS', 'DE_ICRS']
+    kwds['columns'] = ['Source', 'RA_ICRS', 'DE_ICRS', 'pmRA', 'pmDE', 'Plx', 'RV', 'Epoch', 'Gmag']
     kwds['row_limit'] = 10000000
     kwds['timeout'] = 600
     if mag_lim:
@@ -523,17 +537,16 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     # determine suitable divisions for star search
     radius = ephem.radius + const.R_earth
 
-    divisions = np.array_split(np.arange(len(t)), divs)
-
     if log:
-        print('Ephemeris was split in {} parts for better search of stars'.format(len(divisions)))
+        print('Ephemeris was split in {} parts for better search of stars'.format(divs))
 
     # makes predictions for each division
     occs = []
-    for i, vals in enumerate(divisions):
-        nt = t[vals]
+    for i in range(divs):
+        dt = np.arange(intervals[i], intervals[i+1], step)*u.s
+        nt = time_beg + dt
         if log:
-            print('\nSearching occultations in part {}/{}'.format(i+1, len(divisions)))
+            print('\nSearching occultations in part {}/{}'.format(i+1, divs))
             print("Generating Ephemeris between {} and {} ...".format(nt.min(), nt.max()))
         ncoord = ephem.get_position(nt)
         ra = np.mean([ncoord.ra.min().deg, ncoord.ra.max().deg])
@@ -553,15 +566,25 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         if log:
             print('    {} Gaia-DR2 stars downloaded'.format(len(catalogue)))
             print('Identifying occultations ...')
-        stars = SkyCoord(catalogue['RA_ICRS'], catalogue['DE_ICRS'])
-        idx, d2d, d3d = stars.match_to_catalog_sky(ncoord)
+        pm_ra_cosdec = catalogue['pmRA'].quantity
+        pm_ra_cosdec[np.where(np.isnan(pm_ra_cosdec))] = 0*u.mas/u.year
+        pm_dec = catalogue['pmDE'].quantity
+        pm_dec[np.where(np.isnan(pm_dec))] = 0*u.mas/u.year
+        stars = SkyCoord(catalogue['RA_ICRS'].quantity, catalogue['DE_ICRS'].quantity, distance=np.ones(len(catalogue))*u.pc,
+                         pm_ra_cosdec=pm_ra_cosdec, pm_dec=pm_dec, obstime=Time(catalogue['Epoch'], format='jyear'))
+        prec_stars = stars.apply_space_motion(new_obstime=((nt[-1]-nt[0])/2+nt[0]))
+        idx, d2d, d3d = prec_stars.match_to_catalog_sky(ncoord)
 
-        dist = np.arcsin(radius/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec
+        dist = np.arcsin(radius/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec \
+            + np.sqrt(stars.pm_ra_cosdec**2+stars.pm_dec**2)*(nt[-1]-nt[0])/2
         k = np.where(d2d < dist)[0]
         for ev in k:
-            star = Star(code=catalogue['Source'][ev], nomad=False, log=False)
+            star = Star(code=catalogue['Source'][ev], ra=catalogue['RA_ICRS'][ev]*u.deg, dec=catalogue['DE_ICRS'][ev]*u.deg,
+                        pmra=catalogue['pmRA'][ev]*u.mas/u.year, pmdec=catalogue['pmDE'][ev]*u.mas/u.year,
+                        parallax=catalogue['Plx'][ev]*u.mas, rad_vel=catalogue['RV'][ev]*u.km/u.s,
+                        epoch=Time(catalogue['Epoch'][ev], format='jyear'), local=True, nomad=False, log=False)
             c = star.geocentric(nt[idx][ev])
-            pars = [star.code, SkyCoord(c.ra, c.dec), star.mag['G']]
+            pars = [star.code, SkyCoord(c.ra, c.dec), catalogue['Gmag'][ev]]
             try:
                 pars = np.hstack((pars, occ_params(star, ephem, nt[idx][ev])))
                 occs.append(pars)
@@ -572,7 +595,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
             'radius': ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value,
             'error_dec': ephem.error_dec.to(u.mas).value, 'ephem': ephem.meta['kernels']}
     if not occs:
-        print('No stellar occultation was found.')
+        print('\nNo stellar occultation was found.')
         return PredictionTable(meta=meta)
     # create astropy table with the params
     occs2 = np.transpose(occs)
@@ -584,7 +607,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
         dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
     if log:
-        print('{} occultations found.'.format(len(t)))
+        print('\n{} occultations found.'.format(len(t)))
     return t
 
 

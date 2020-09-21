@@ -1,8 +1,10 @@
 from astropy.coordinates import SkyCoord, SphericalCosLatDifferential, Distance
 from astropy.coordinates import get_sun, SphericalRepresentation, SkyOffsetFrame, ICRS
+from astropy.coordinates import Longitude, Latitude
 from astropy.time import Time
 from astropy.table import Table
 import astropy.units as u
+import astropy.constants as const
 from astroquery.vizier import Vizier
 import warnings
 import numpy as np
@@ -28,7 +30,7 @@ def search_star(**kwargs):
     input_tests.check_kwargs(kwargs, allowed_kwargs=['catalog', 'code', 'columns', 'coord', 'log', 'radius'])
     row_limit = 100
     if 'log' in kwargs and kwargs['log']:
-        print('Downloading star parameters from {}'.format(kwargs['catalog']))
+        print('\nDownloading star parameters from {}'.format(kwargs['catalog']))
     vquery = Vizier(columns=kwargs['columns'], row_limit=row_limit, timeout=600)
     if 'code' in kwargs:
         catalogue = vquery.query_constraints(catalog=kwargs['catalog'], Source=kwargs['code'], cache=False)
@@ -104,6 +106,206 @@ def kervella(magB=None, magV=None, magK=None):
     return diam
 
 
+def spatial_motion(ra, dec, pmra, pmdec, parallax=0, rad_vel=0,  dt=0, cov_matrix=None):
+    """ Applies spatial motion to star coordinate
+
+    Parameters:
+        ra (int, float): Right Ascension of the star at t=0 epoch, in deg.
+        dec (int, float): Declination of the star at t=0 epoch, in deg.
+        pmra (int, float): Proper Motion in RA of the star at t=0 epoch, in mas/year.
+        pmdec (int, float): Proper Motion in DEC of the star at t=0 epoch, in mas/year.
+        parallax (int, float): Parallax of the star at t=0 epoch, in mas.
+        rad_vel (int, float): Radial Velocity of the star at t=0 epoch, in km/s.
+        dt (int, float): Variation of time from catalogue epoch, in days.
+        cov_matrix (2D-array): 6x6 covariance matrix.
+    """
+    A = (1*u.AU).to(u.km).value  # Astronomical units in km
+    c = const.c.to(u.km/u.year).value  # light velocity
+
+    par = True
+    # Eliminate negative or zero parallaxes
+    if parallax is None or parallax <= 0:
+        par = False
+        parallax = 1e-4
+
+    if cov_matrix is not None and cov_matrix.shape != (6, 6):
+        raise ValueError('Covariance matrix must be a 6x6 matrix')
+
+    ra0 = u.Quantity(ra, unit=u.deg).to(u.rad).value
+    dec0 = u.Quantity(dec, unit=u.deg).to(u.rad).value
+    parallax0 = u.Quantity(parallax, unit=u.mas).to(u.rad).value
+    pmra0 = u.Quantity(pmra, unit=u.mas/u.year).to(u.rad/u.year).value
+    pmdec0 = u.Quantity(pmdec, unit=u.mas/u.year).to(u.rad/u.year).value
+    rad_vel0 = u.Quantity(rad_vel, unit=u.km/u.s).to(u.AU/u.year).value
+    dt = u.Quantity(dt, unit=u.day).to(u.year).value
+
+    # normal triad relative to the celestial sphere
+    # p0 points to growing RA, q0 to growing DEC and r0 to growing distance.
+    p0 = np.array([-np.sin(ra0), np.cos(ra0), 0.0]).T
+    q0 = np.array([-np.sin(dec0)*np.cos(ra0), -np.sin(dec0)*np.sin(ra0), np.cos(dec0)])
+    r0 = np.array([np.cos(dec0)*np.cos(ra0), np.cos(dec0)*np.sin(ra0), np.sin(dec0)])
+
+    b0 = A/parallax0
+    tau_0 = b0/c
+    tau_A = A/c
+
+    vec_b0 = b0*r0  # distance vector
+    vec_u0 = vec_b0/np.linalg.norm(vec_b0)
+    vec_mi0 = np.array(p0*pmra0 + q0*pmdec0)  # proper motion vector
+
+    mi_r0 = rad_vel0/b0
+    mi0 = np.sqrt(pmra0**2+pmdec0**2)  # total proper motion
+
+    v0 = b0*(r0*mi_r0+vec_mi0)  # apparent space velocity
+    v_r0 = np.linalg.norm(v0)
+
+    # Scaling factors of time, distance and velocity due to light time
+    f_T = ((dt + 2*tau_0)/(tau_0+(1-v_r0/c)*dt + np.sqrt(np.linalg.norm((vec_b0+v0*dt))**2
+           + (2*dt/(c**2*tau_0))*np.linalg.norm(np.cross(v0, vec_b0))**2)/c))
+    f_D = np.sqrt(1+2*mi_r0*dt*f_T + (mi0**2 + mi_r0**2)*(dt*f_T)**2)
+    f_V = (1 + (tau_A/parallax0)*(mi_r0*(f_D - 1) + f_D*(mi0**2 + mi_r0**2)*dt*f_T))
+
+    vec_u = (r0*(1 + mi_r0*dt*f_T) + vec_mi0*dt*f_T)*f_D
+    vec_mi = (vec_mi0*(1 + mi_r0*dt*f_T) - vec_u0*mi0**2*f_T)*f_D**3*f_V
+    mi_r = (mi_r0 + (mi0**2 + mi_r0**2)*dt*f_T)*f_D**2*f_V
+
+    dec = np.arcsin(vec_u[2])  # new dec
+    ra = np.arctan2(vec_u[1]/np.cos(dec), vec_u[0]/np.cos(dec))  # new ra
+
+    parallax = parallax0*f_D  # new parallax
+    new_dist = A/parallax  # new distance
+
+    if par:
+        coord = SkyCoord(ra*u.rad, dec*u.rad, new_dist*u.km)
+    else:
+        coord = SkyCoord(ra*u.rad, dec*u.rad)
+
+    if cov_matrix is None:
+        return coord
+
+    p = np.array([-np.sin(ra), np.cos(ra), 0.0])
+    q = np.array([-np.sin(dec)*np.cos(ra), -np.sin(dec)*np.sin(ra), np.cos(dec)])
+
+    Z = np.sqrt(1 + (dt + 2*tau_A/parallax0)*mi0**2*dt + (2 + mi_r0*dt)*mi_r0*dt)
+    Y = parallax0*dt + tau_A*(1 + Z - mi_r0*dt)
+    X = parallax0*dt + 2*tau_A
+
+    # partial derivatives of the logarithm of the velocity factor
+    # chi_parallax = (1/parallax0)*(1 - f_V)  # not used
+    chi_pm = (tau_A/parallax0)*dt*f_T*f_D*(mi_r*dt*f_T - 2*f_V)
+    chi_r = (tau_A/parallax0)*(f_V + f_D*(f_V + (1 + mi_r0*dt*f_T)*(mi_r*dt*f_T - 2*f_V)))
+    # chi_T = -(tau_A/parallax0)*f_D**3*mi0**2*dt*f_T  # not used
+
+    # partial derivatives of the logarithmic of the time factor
+    psi_parallax = dt/X - (dt/Y)*(1 - (mi0**2*tau_A**2)/(Z*parallax0**2))
+    psi_pm = -((dt*tau_A)/(Y*Z))*(dt + 2*tau_A/parallax0)
+    psi_r = -(dt*tau_A/Y)*((1 + mi_r0*dt)/Z - 1)
+
+    ni = vec_mi*(1 - dt*f_T*(3*mi_r/f_V + (tau_A/parallax0)*mi0**2*f_D**3*f_V)) - vec_mi0*f_D**3*f_V
+    eta = mi_r*(1 - dt*f_T*(2*mi_r/f_V + (tau_A/parallax0)*mi0**2*f_D**3*f_V)) - mi_r0*f_D**2*f_V
+
+    p_l = p/np.linalg.norm(p)
+    q_l = q/np.linalg.norm(q)
+
+    pmra = np.dot(p_l, vec_mi)  # new pmra
+    pmdec = np.dot(q_l, vec_mi)  # new pmdec
+
+    # Jacobian matrix
+    J = np.zeros((6, 6))
+
+    # d(alpha)/d(valores inicias)
+    J[0, 0] = np.dot(p_l, p0)*(1 + mi_r0*dt*f_T)*f_D - np.dot(p_l, r0)*pmra0*dt*f_T*f_D
+    J[0, 1] = np.dot(p_l, q0)*(1 + mi_r0*dt*f_T)*f_D - np.dot(p_l, r0)*pmdec0*dt*f_T*f_D
+    J[0, 2] = - np.dot(p_l, r0)*f_D*psi_parallax
+    J[0, 3] = np.dot(p_l, p0)*dt*f_T*f_D - np.dot(p_l, r0)*pmra0*f_D*psi_pm
+    J[0, 4] = np.dot(p_l, q0)*dt*f_T*f_D - np.dot(p_l, r0)*pmdec0*f_D*psi_pm
+    J[0, 5] = - pmra*(dt*f_T)**2/f_V - np.dot(p_l, r0)*f_D*psi_r
+
+    # d(delta)/d(valores inicias)
+    J[1, 0] = np.dot(q_l, p0)*(1 + mi_r0*dt*f_T)*f_D - np.dot(q_l, r0)*pmra0*dt*f_T*f_D
+    J[1, 1] = np.dot(q_l, q0)*(1 + mi_r0*dt*f_T)*f_D - np.dot(q_l, r0)*pmdec0*dt*f_T*f_D
+    J[1, 2] = - np.dot(q_l, r0)*f_D*psi_parallax
+    J[1, 3] = np.dot(q_l, p0)*dt*f_T*f_D - np.dot(q_l, r0)*pmra0*f_D*psi_pm
+    J[1, 4] = np.dot(q_l, q0)*dt*f_T*f_D - np.dot(q_l, r0)*pmdec0*f_D*psi_pm
+    J[1, 5] = - pmdec*(dt*f_T)**2/f_V - np.dot(q_l, r0)*f_D*psi_r
+
+    # d(parallax)/d(valores inicias)
+    J[2, 0] = 0
+    J[2, 1] = 0
+    J[2, 2] = f_D - parallax*(mi_r*dt*f_T/f_V)*psi_parallax
+    J[2, 3] = - parallax*pmra0*((dt*f_T)**2*f_D**2 + (mi_r*dt*f_T/f_V)*psi_pm)
+    J[2, 4] = - parallax*pmdec0*((dt*f_T)**2*f_D**2 + (mi_r*dt*f_T/f_V)*psi_pm)
+    J[2, 5] = - parallax*((1 + mi_r0*dt*f_T)*dt*f_T*f_D**2 + (mi_r*dt*f_T/f_V)*psi_r)
+
+    # d(pmra)/d(valores inicias)
+    J[3, 0] = - np.dot(p_l, p0)*mi0**2*dt*f_T*f_D**3*f_V - np.dot(p_l, r0)*pmra0*(1+mi_r0*dt*f_T)*f_D**3*f_V
+    J[3, 1] = - np.dot(p_l, q0)*mi0**2*dt*f_T*f_D**3*f_V - np.dot(p_l, r0)*pmdec0*(1+mi_r0*dt*f_T)*f_D**3*f_V
+    J[3, 2] = np.dot(p_l, ni)*psi_parallax
+    J[3, 3] = np.dot(p_l, p0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*np.dot(p_l, r0)*pmra0*dt*f_T*f_D**3*f_V \
+        - 3*pmra*pmra0*(dt*f_T)**2*f_D**2*f_V + pmra*pmra0*chi_pm + np.dot(p_l, ni)*pmra0*psi_pm
+    J[3, 4] = np.dot(p_l, q0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*np.dot(p_l, r0)*pmdec0*dt*f_T*f_D**3*f_V \
+        - 3*pmra*pmdec0*(dt*f_T)**2*f_D**2*f_V + pmra*pmdec0*chi_pm + np.dot(p_l, ni)*pmdec0*psi_pm
+    J[3, 5] = np.dot(p_l, (vec_mi0*f_D - 3*vec_mi*(1 + mi_r0*dt*f_T)))*dt*f_T*f_D**2*f_V
+
+    # d(pmdec)/d(valores inicias)
+    J[4, 0] = - np.dot(q_l, p0)*mi0**2*dt*f_T*f_D**3*f_V - np.dot(q_l, r0)*pmra0*(1+mi_r0*dt*f_T)*f_D**3*f_V
+    J[4, 1] = - np.dot(q_l, q0)*mi0**2*dt*f_T*f_D**3*f_V - np.dot(q_l, r0)*pmdec0*(1+mi_r0*dt*f_T)*f_D**3*f_V
+    J[4, 2] = np.dot(q_l, ni)*psi_parallax
+    J[4, 3] = np.dot(q_l, p0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*np.dot(q_l, r0)*pmra0*dt*f_T*f_D**3*f_V \
+        - 3*pmdec*pmra0*(dt*f_T)**2*f_D**2*f_V + pmdec*pmra0*chi_pm + np.dot(q_l, ni)*pmra0*psi_pm
+    J[4, 4] = np.dot(q_l, q0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*np.dot(q_l, r0)*pmdec0*dt*f_T*f_D**3*f_V \
+        - 3*pmdec*pmdec0*(dt*f_T)**2*f_D**2*f_V + pmdec*pmdec0*chi_pm + np.dot(q_l, ni)*pmdec0*psi_pm
+    J[4, 5] = np.dot(q_l, (vec_mi0*f_D - 3*vec_mi*(1 + mi_r0*dt*f_T)))*dt*f_T*f_D**2*f_V
+
+    # d(rad_vel)/d(valores inicias)
+    J[5, 0] = 0
+    J[5, 1] = 0
+    J[5, 2] = eta*psi_parallax
+    J[5, 3] = 2*pmra0*(1 + mi_r0*dt*f_T)*dt*f_T*f_D**4*f_V + pmra0*mi_r*chi_pm + pmra0*eta*psi_pm
+    J[5, 4] = 2*pmdec0*(1 + mi_r0*dt*f_T)*dt*f_T*f_D**4*f_V + pmdec0*mi_r*chi_pm + pmdec0*eta*psi_pm
+    J[5, 5] = ((1 + mi_r0*dt*f_T)**2 - mi0**2*(dt*f_T)**2)*f_D**4*f_V + mi_r*chi_r + eta*psi_r
+
+    # Propagated covariance matrix
+    C = np.matmul(J, np.matmul(cov_matrix, J.T))
+
+    err = np.array([np.sqrt(C[i, i]) for i in np.arange(3)])
+    if not par:
+        err = err[:2]
+
+    return coord, err
+
+
+def choice_star(catalogue, coord, columns, source):
+    tstars = SkyCoord(catalogue[columns[0]], catalogue[columns[1]])
+    sep = tstars.separation(coord)
+    k = sep.argsort()
+    while True:
+        t = Table()
+        t['num'] = np.arange(len(tstars))+1
+        t['dist(")'] = sep[k].arcsec
+        t['dist(")'].format = '6.3f'
+        for c in columns[2:]:
+            t[c] = catalogue[c][k].quantity.value
+            t[c].format = '6.3f'
+        t['RA___ICRS___DEC'] = tstars[k].to_string('hmsdms', precision=4)
+        t.pprint_all()
+        print('  0: Cancel')
+        choice = int(input('Choose the corresponding number of the correct star: '))
+        if choice in np.arange(len(k)+1):
+            break
+        print('{} is not a valid choice. Please select the correct star'.format(choice))
+    if choice == 0:
+        if source == 'gaia':
+            raise ValueError('It was not possible to define a star')
+        elif source == 'nomad':
+            print('No magnitudes were obtained from NOMAD')
+            return
+        elif source == 'bjones':
+            print('It was not possible to define a star')
+            return
+    return catalogue[[k[choice-1]]]
+
+
 class Star():
     def __init__(self, **kwargs):
         """ Defines a star
@@ -112,33 +314,237 @@ class Star():
             code (str): Gaia-DR2 Source code for searching in VizieR.
             coord (str, SkyCoord): if code is not given, coord nust have the coordinates
                 RA and DEC of the star to search in VizieR: 'hh mm ss.ss +dd mm ss.ss'
-            nomad (bool): If true, it tries to download the magnitudes from NOMAD catalogue.
-            log (bool): If true, it prints the downloaded information.
-            local (bool): If true, it uses the given coordinate in 'coord' as final coordinate.
+            ra (int, float): Right Ascension, in deg.
+            dec (int, float): Declination, in deg.
+            parallax (int, float): Parallax, in mas. Default = 0
+            pmra (int, float): Proper Motion in RA*, in mas/year. Default = 0
+            pmdec (int, float): Proper Motion in DEC, in mas/year. Default = 0
+            rad_vel (int, float): Radial Velocity, in km/s. Default = 0 km/s
+            epoch (str, Time): Epoch of the coordinates. Default = 'J2000'
+            nomad (bool): If true, it tries to download the magnitudes from NOMAD
+                catalogue. Default = True
+            bjones (bool): If true, it uses de star distance from Bailer-Jones et al. (2018)
+                Default = True
+            log (bool): If true, it prints the downloaded information. Default = True
+            local (bool): If true, it uses the given coordinate in 'coord'
+                as final coordinate. Default = False
+
+        - The user can only give ("coord") or ("ra" and "dec"), but not both.
+        - To download the coordinates from Gaia, "local" must be set as False
+            and the ("code") or ("coord") or ("ra" and "dec") must be given.
+            All values downloaded from Gaia will replace the ones given by the user.
         """
-        self.__local = False
+        self.__attributes = {}
         self.mag = {}
-        self.errors = {}
-        self.__log = True
-        input_tests.check_kwargs(kwargs, allowed_kwargs=['code', 'coord', 'local', 'log', 'nomad'])
-        if 'log' in kwargs:
-            self.__log = kwargs['log']
-        if 'local' in kwargs:
-            self.__local = test_attr(kwargs['local'], bool, 'local')
-        if not any(i in kwargs for i in ['coord', 'code']):
-            raise KeyError('Input values must have either the coordinate of the star'
-                           ' or the Gaia code for online search')
-        if 'coord' in kwargs:
-            self.coord = SkyCoord(kwargs['coord'], unit=('hourangle', 'deg'))
-        else:
-            self.__local = False
+        self.errors = {'RA': 0, 'DEC': 0, 'Plx': 0, 'pmRA': 0, 'pmDE': 0, 'rad_vel': 0}
+        allowed_kwargs = ['bjones', 'code', 'coord', 'dec', 'epoch', 'local', 'log', 'nomad', 'parallax', 'pmdec', 'pmra',
+                          'ra', 'rad_vel']
+        input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
+        self.__log = kwargs.get('log', True)
+        local = kwargs.get('local', False)
+        self.bjones = False
         if 'code' in kwargs:
-            self.code = test_attr(kwargs['code'], str, 'code')
-        if not self.__local:
+            self.code = kwargs['code']
+        if 'coord' in kwargs:
+            if 'ra' in kwargs or 'dec' in kwargs:
+                raise ValueError("User must give 'coord' or 'ra' and 'dec', not both")
+            coord = SkyCoord(kwargs['coord'], unit=('hourangle', 'deg'))
+            self.ra = coord.ra
+            self.dec = coord.dec
+        if 'ra' in kwargs and 'dec' in kwargs:
+            self.ra = kwargs.get('ra')
+            self.dec = kwargs.get('dec')
+        self.parallax = kwargs.get('parallax', 0.0)
+        self.pmra = kwargs.get('pmra', 0.0)
+        self.pmdec = kwargs.get('pmdec', 0.0)
+        self.rad_vel = kwargs.get('rad_vel', 0.0)
+        self.epoch = kwargs.get('epoch', 'J2000')
+        if local:
+            if 'RA' not in self.__attributes or 'DEC' not in self.__attributes:
+                raise ValueError("User must give 'ra' and 'dec' for local coordinates")
+        else:
+            if not hasattr(self, 'code') and 'RA' not in self.__attributes:
+                raise ValueError("User must give gaia Source ID 'code' or coordinates for the online search")
             self.__searchgaia()
-        nomad = kwargs.get('nomad', True)
-        if nomad:
+        if kwargs.get('nomad', True):
             self.__getcolors()
+        try:
+            self.bjones = kwargs.get('bjones', False)
+        except ValueError:
+            pass
+
+    @property
+    def ra(self):
+        """
+        Return the Right Ascension of the star
+        """
+        return self.__attributes['RA']
+
+    @ra.setter
+    def ra(self, value):
+        """ Define Right Ascension
+
+        Parameter:
+            value(int, float, astropy.unit): RA in deg
+        """
+        self.__attributes['RA'] = Longitude(value, unit=u.hourangle)
+
+    @property
+    def dec(self):
+        """
+        Return the Declination of the star
+        """
+        return self.__attributes['DEC']
+
+    @dec.setter
+    def dec(self, value):
+        """ Define Declination
+
+        Parameter:
+            value(int, float, astropy.unit): DEC in deg
+        """
+        self.__attributes['DEC'] = Latitude(value, unit=u.deg)
+
+    @property
+    def parallax(self):
+        """
+        Return the Parallax of the star
+        """
+        if self.bjones:
+            return self.__attributes['bjones_par']
+        else:
+            return self.__attributes.get('PAR', 0*u.mas)
+
+    @parallax.setter
+    def parallax(self, value):
+        """ Define Parallax
+
+        Parameter:
+            value(int, float, astropy.unit): Parallax in mas
+        """
+        par = u.Quantity(value, unit=u.mas)
+        if par <= 0*u.mas:
+            par = 0*u.mas
+        self.__attributes['PAR'] = par
+
+    @property
+    def distance(self):
+        """
+        Return the Distance of the star
+        """
+        if self.parallax > 0*u.mas:
+            return Distance(parallax=self.parallax, allow_negative=False)
+        else:
+            raise ValueError('SORA is not able to determine distance from paralax {}'.format(self.parallax))
+
+    @property
+    def coord(self):
+        try:
+            return SkyCoord(self.ra, self.dec, self.distance)
+        except ValueError:
+            return SkyCoord(self.ra, self.dec)
+
+    @property
+    def pmra(self):
+        """
+        Return the Proper Motion in Right Ascension of the star
+        """
+        return self.__attributes.get('PMRA', 0*u.mas/u.year)
+
+    @pmra.setter
+    def pmra(self, value):
+        """ Define Parallax
+
+        Parameter:
+            value(int, float, astropy.unit): RA Proper Motion in mas/year
+        """
+        self.__attributes['PMRA'] = u.Quantity(value, unit=u.mas/u.year)
+
+    @property
+    def pmdec(self):
+        """
+        Return the Proper Motion in Declination of the star
+        """
+        return self.__attributes.get('PMDEC', 0*u.mas/u.year)
+
+    @pmdec.setter
+    def pmdec(self, value):
+        """ Define Parallax
+
+        Parameter:
+            value(int, float, astropy.unit): DEC Proper Motion in mas/year
+        """
+        self.__attributes['PMDEC'] = u.Quantity(value, unit=u.mas/u.year)
+
+    @property
+    def rad_vel(self):
+        """
+        Return the Radial Velocity of the star
+        """
+        return self.__attributes.get('RAD_VEL', 0*u.km/u.s)
+
+    @rad_vel.setter
+    def rad_vel(self, value):
+        """ Define Radial Velocity
+
+        Parameter:
+            value(int, float, astropy.unit): Radial Velocity in km/s
+        """
+        self.__attributes['RAD_VEL'] = u.Quantity(value, unit=u.km/u.s)
+
+    @property
+    def epoch(self):
+        """
+        Return the Epoch of the position of the star
+        """
+        return self.__attributes['EPOCH']
+
+    @epoch.setter
+    def epoch(self, value):
+        """ Define Radial Velocity
+
+        Parameter:
+            value(int, float, astropy.unit): Radial Velocity in km/s
+        """
+        self.__attributes['EPOCH'] = Time(value)
+
+    @property
+    def bjones(self):
+        return self.__bjones
+
+    @bjones.setter
+    def bjones(self, value):
+        if value not in [True, False]:
+            raise AttributeError('bjones attribute must be True or False')
+        if value and 'bjones_par' not in self.__attributes:
+            if hasattr(self, 'code'):
+                catalogue = search_star(code=self.code, columns=['**'], catalog='I/347/gaia2dis', log=self.__log)
+            else:
+                catalogue = search_star(coord=self.coord, columns=['**'], radius=2*u.arcsec,
+                                        catalog='I/347/gaia2dis', log=self.__log)
+            if len(catalogue) == 0:
+                raise ValueError('No star was found in the Bailer-Jones catalogue. It does not exist or VizieR is out.')
+            catalogue = catalogue[0]
+            if len(catalogue) > 1:
+                print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
+                print('The list below is sorted by distance. Please select the correct star')
+                if hasattr(self.mag, 'G'):
+                    print('Star G mag: {}'.format(self.mag['G']))
+                catalogue = choice_star(catalogue, self.coord, ['RA_ICRS', 'DE_ICRS', 'Source'], source='bjones')
+                if catalogue is None:
+                    return
+            self.__attributes['bjones_par'] = ((1.0/catalogue['rest'][0])*u.arcsec).to(u.mas)
+            self.meta_bjones = {c: catalogue[c][0] for c in catalogue.columns}
+        self.__bjones = value
+
+    @property
+    def diameter_gaia(self):
+        try:
+            rad = self.meta_gaia.get('Rad')
+            if rad is not None or np.ma.core.is_masked(rad):
+                return 2*np.arctan((rad*u.solRad)/self.distance).to(u.mas)
+        except:
+            return None
 
     def set_magnitude(self, **kwargs):
         """ Sets the magnitudes of a star.
@@ -223,7 +629,10 @@ class Star():
             try:
                 diam = distance*np.tan(self.diameter_gaia)
                 if log:
-                    print('Apparent diameter using Gaia')
+                    text = ''
+                    if self.bjones:
+                        text += ' + Bailer-Jones et al. (2018)'
+                    print('Apparent diameter using Gaia' + text)
                 return diam.to(u.km)
             except:
                 pass
@@ -276,55 +685,62 @@ class Star():
             if self.__log:
                 print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
                 print('The list below is sorted by distance. Please select the correct star')
-            gmag = catalogue['Gmag']
-            tstars = SkyCoord(catalogue['RA_ICRS'], catalogue['DE_ICRS'])
-            sep = tstars.separation(self.coord)
-            k = sep.argsort()
-            while True:
-                t = Table()
-                t['num'] = np.arange(len(tstars))+1
-                t['dist(")'] = sep[k].arcsec
-                t['dist(")'].format = '6.3f'
-                t['Gmag'] = gmag[k].quantity.value
-                t['Gmag'].format = '6.3f'
-                t['RA___ICRS___DEC'] = tstars[k].to_string('hmsdms', precision=4)
-                t.pprint_all()
-                print('  0: Cancel')
-                choice = int(input('Choose the corresponding number of the correct star: '))
-                if choice in np.arange(len(k)+1):
-                    break
-                print('{} is not a valid choice. Please select the correct star'.format(choice))
-            if choice == 0:
-                raise ValueError('It was not possible to define a star')
-            catalogue = catalogue[[k[choice-1]]]
+            catalogue = choice_star(catalogue, self.coord, ['RA_ICRS', 'DE_ICRS', 'Gmag'], source='gaia')
         self.code = catalogue['Source'][0]
-        ra = catalogue['RA_ICRS']
-        dec = catalogue['DE_ICRS']
-        pmra = catalogue['pmRA']
-        pmde = catalogue['pmDE']
-        epoch = Time(catalogue['Epoch'].quantity, format='jyear')
-        try:
-            distance = Distance(parallax=catalogue['Plx'].quantity, allow_negative=False)
-            self.coord = SkyCoord(ra, dec, distance=distance, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch[0])[0]
-        except:
-            self.coord = SkyCoord(ra, dec, pm_ra_cosdec=pmra, pm_dec=pmde, obstime=epoch[0])[0]
+        self.ra = catalogue['RA_ICRS'][0]*u.deg
+        self.dec = catalogue['DE_ICRS'][0]*u.deg
+        self.pmra = catalogue['pmRA'][0]*u.mas/u.year
+        self.pmdec = catalogue['pmDE'][0]*u.mas/u.year
+        self.epoch = Time(catalogue['Epoch'][0], format='jyear')
+        self.parallax = catalogue['Plx'][0]*u.mas
+        self.rad_vel = catalogue['RV'][0]*u.km/u.s
         self.set_magnitude(G=catalogue['Gmag'][0])
-        self.errors['RA'] = catalogue['e_RA_ICRS'][0]*u.mas
-        self.errors['DEC'] = catalogue['e_DE_ICRS'][0]*u.mas
-        self.errors['pmRA'] = catalogue['e_pmRA'][0]*(u.mas/u.yr)
-        self.errors['pmDEC'] = catalogue['e_pmDE'][0]*(u.mas/u.yr)
-        rad = catalogue['Rad'][0]
+
         self.meta_gaia = {c: catalogue[c][0] for c in catalogue.columns}
-        if np.ma.core.is_masked(rad) or np.ma.core.is_masked(catalogue['Plx'][0]):
-            if self.__log:
-                warnings.warn('Gaia catalogue does not have the star radius.')
-        else:
-            self.diameter_gaia = 2*np.arctan((rad*u.solRad)/distance[0]).to(u.mas)
+
+        self.errors['RA'] = self.meta_gaia['e_RA_ICRS']*u.mas
+        self.errors['DEC'] = self.meta_gaia['e_DE_ICRS']*u.mas
+        self.errors['Plx'] = self.meta_gaia['e_Plx']*u.mas
+        self.errors['pmRA'] = self.meta_gaia['e_pmRA']*(u.mas/u.yr)
+        self.errors['pmDE'] = self.meta_gaia['e_pmDE']*(u.mas/u.yr)
+        self.errors['rad_vel'] = self.meta_gaia['e_RV']*(u.km/u.s)
+
+        A = (1*u.AU).to(u.km).value
+        cov = np.zeros((6, 6))
+        a = ['RA', 'DE', 'Plx', 'pmRA', 'pmDE']
+        for i in np.arange(5):
+            v1 = 'e_' + a[i]
+            if i in [0, 1]:
+                v1 += '_ICRS'
+            for j in np.arange(i, 5):
+                v2 = 'e_' + a[j]
+                if j in [0, 1]:
+                    v2 += '_ICRS'
+                if i == j:
+                    x = self.meta_gaia[v1]**2
+                    if not np.ma.core.is_masked(x):
+                        cov[i, i] = x
+                else:
+                    x = self.meta_gaia[a[i]+a[j]+'cor']*self.meta_gaia[v1]*self.meta_gaia[v2]
+                    if not np.ma.core.is_masked(x):
+                        cov[i, j] = x
+                        cov[j, i] = cov[i, j]
+            x = cov[i, 2]*(self.meta_gaia['RV']/A)
+            if not np.ma.core.is_masked(x):
+                cov[i, 5] = x
+                cov[5, i] = cov[i, 5]
+        x = cov[2, 2]*(self.meta_gaia['RV']**2 + self.meta_gaia['e_RV']**2)/(A**2) \
+            + (self.meta_gaia['Plx']*self.meta_gaia['e_RV']/A)**2
+        if not np.ma.core.is_masked(x):
+            cov[5, 5] = x
+        cov[np.where(np.isnan(cov))] = 0.0
+        self.cov = cov
+
         if self.__log:
             print('1 Gaia-DR2 star found G={}'.format(catalogue['Gmag'][0]))
-            print('star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}'.format(self.coord.obstime.jyear,
-                  self.coord.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
-                  self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
+            print('star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}'.format(self.epoch.jyear,
+                  self.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
+                  self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
 
     def __getcolors(self):
         """ Searches for the B,V,K magnitudes of the star in the NOMAD catalogue on VizieR
@@ -340,34 +756,12 @@ class Star():
         if len(catalogue) > 1:
             print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
             print('The list below is sorted by distance. Please select the correct star')
-            print('Star G mag: {}'.format(self.mag['G']))
-            tstars = SkyCoord(catalogue['RAJ2000'], catalogue['DEJ2000'])
-            sep = tstars.separation(self.coord)
-            k = sep.argsort()
-            while True:
-                t = Table()
-                t['num'] = np.arange(len(tstars))+1
-                t['dist(")'] = sep[k].arcsec
-                t['dist(")'].format = '6.3f'
-                t['Bmag'] = catalogue['Bmag'][k].quantity.value
-                t['Vmag'] = catalogue['Vmag'][k].quantity.value
-                t['Rmag'] = catalogue['Rmag'][k].quantity.value
-                t['Jmag'] = catalogue['Jmag'][k].quantity.value
-                t['Hmag'] = catalogue['Hmag'][k].quantity.value
-                t['Kmag'] = catalogue['Kmag'][k].quantity.value
-                t['Bmag'].format = t['Vmag'].format = t['Rmag'].format = '6.3f'
-                t['Jmag'].format = t['Hmag'].format = t['Kmag'].format = '6.3f'
-                t['RA___ICRS___DEC'] = tstars[k].to_string('hmsdms', precision=4)
-                t.pprint_all()
-                print('  0: Cancel')
-                choice = int(input('Choose the corresponding number of the correct star: '))
-                if choice in np.arange(len(k)+1):
-                    break
-                print('{} is not a valid choice. Please select the correct star'.format(choice))
-            if choice == 0:
-                warnings.warn('No magnitudes were obtained from NOMAD')
+            if hasattr(self.mag, 'G'):
+                print('Star G mag: {}'.format(self.mag['G']))
+            catalogue = choice_star(catalogue, self.coord, ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag',
+                                                            'Rmag', 'Jmag', 'Hmag', 'Kmag'], source='nomad')
+            if catalogue is None:
                 return
-            catalogue = catalogue[[k[choice-1]]]
         errors = []
         for mag in ['B', 'V', 'R', 'J', 'H', 'K']:
             name = mag + 'mag'
@@ -376,7 +770,7 @@ class Star():
                 continue
             self.set_magnitude(**{mag: catalogue[name][0]})
         if len(errors) > 0 and self.__log:
-            warnings.warn('Magnitudes in {} were not located in NOMAD'.format(errors))
+            print('Magnitudes in {} were not located in NOMAD'.format(errors))
 
     def geocentric(self, time):
         """ Calculates the position of the star, propagating the position using parallax and proper motion
@@ -415,15 +809,8 @@ class Star():
             time = Time(time)
         except:
             time = Time(time, format='jd', scale='utc')
-        if np.isnan(self.coord.pm_dec):
-            return self.coord
-        if self.coord.distance.unit.is_unity():
-            star_frame = SkyOffsetFrame(origin=self.coord)
-            dt = time - self.coord.obstime
-            new_pos = SkyCoord(lon=self.coord.pm_ra_cosdec*dt, lat=self.coord.pm_dec*dt, frame=star_frame)
-            n_coord = new_pos.transform_to(ICRS)
-        else:
-            n_coord = self.coord.apply_space_motion(new_obstime=time)
+        dt = time - self.epoch
+        n_coord = spatial_motion(self.ra, self.dec, self.pmra, self.pmdec, self.parallax, self.rad_vel,  dt=dt.jd)
         return n_coord
 
     def error_at(self, time):
@@ -439,9 +826,10 @@ class Star():
             time = Time(time)
         except:
             time = Time(time, format='jd', scale='utc')
-        e_ra = self.errors['RA'] + self.errors['pmRA']*np.abs(time-self.coord.obstime)
-        e_dec = self.errors['DEC'] + self.errors['pmDEC']*np.abs(time-self.coord.obstime)
-        return e_ra, e_dec
+        dt = time - self.epoch
+        n_coord, errors = spatial_motion(self.ra, self.dec, self.pmra, self.pmdec, self.parallax,
+                                         self.rad_vel,  dt=dt.jd, cov_matrix=self.cov)
+        return errors[0]*u.mas, errors[1]*u.mas
 
     def add_offset(self, da_cosdec, ddec):
         """ Adds an offset to the star position
@@ -460,13 +848,16 @@ class Star():
         out = ''
         if hasattr(self, 'code'):
             out += 'Gaia-DR2 star Source ID: {}\n'.format(self.code)
+        else:
+            out += 'User coordinates\n'
         out += ('ICRS star coordinate at J{}:\n'
                 'RA={} +/- {:.4f}, DEC={} +/- {:.4f}\n'
-                'pmRA={:.3f} +/- {:.3f} mas/yr, pmDEC={:.3f} +/- {:.3f} mas/yr, Plx={:.4f} +/- {:.4f} mas\n\n'.format(
-                    self.coord.obstime.jyear, self.coord.ra.to_string(u.hourangle, sep='hms', precision=5),
-                    self.errors['RA'], self.coord.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'],
-                    self.meta_gaia['pmRA'], self.meta_gaia['e_pmRA'], self.meta_gaia['e_pmDE'], self.meta_gaia['pmRA'],
-                    self.meta_gaia['Plx'], self.meta_gaia['e_Plx']))
+                'pmRA={:.3f} +/- {:.3f} mas/yr, pmDEC={:.3f} +/- {:.3f} mas/yr\n'
+                'Plx={:.4f} +/- {:.4f} mas, Rad. Vel.={:.2f} +/- {:.2f} km/s \n\n'.format(
+                    self.epoch.jyear, self.ra.to_string(u.hourangle, sep='hms', precision=5),
+                    self.errors['RA'], self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'],
+                    self.pmra.value, self.errors['pmRA'].value, self.pmdec.value, self.errors['pmDE'].value,
+                    self.parallax.value, self.errors['Plx'].value, self.rad_vel.value, self.errors['rad_vel'].value))
         if hasattr(self, 'offset'):
             out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}\n'.format(
                 self.offset.d_lon_coslat, self.offset.d_lat)
@@ -479,8 +870,11 @@ class Star():
             out_mag[-1].append(mag)
         out += (',\n'+' '*11).join([','.join(out_i) for out_i in out_mag])
         out += '\n\n'
-        if hasattr(self, 'diameter_gaia'):
-            out += 'Apparent diameter: {:.4f}, Source: Gaia-DR2\n'.format(self.diameter_gaia)
+        if self.diameter_gaia is not None:
+            text = ''
+            if self.bjones:
+                text += ' + Bailer-Jones et al. (2018)'
+            out += 'Apparent diameter: {:.4f}, Source: Gaia-DR2{}\n'.format(self.diameter_gaia, text)
         if hasattr(self, 'diameter_user'):
             out += 'Apparent diameter: {:.4f}, Source: User\n'.format(self.diameter_user)
         kerv = self.kervella()

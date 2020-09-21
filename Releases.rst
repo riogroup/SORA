@@ -25,9 +25,14 @@ sora.occultation
 sora.prediction
 ^^^^^^^^^^^^^^^
 
+- prediction() now makes use of the user input of the star to calculate faster the occultation parameters. [#48]
+
 sora.star
 ^^^^^^^^^^^^^^^
 
+- Star() is now able to fully receive astrometric parameters from the user. [#48]
+
+- Star() is able to download and use the distance from Bailer-Jones et al (2018). [#27]
 
 API Changes
 -----------
@@ -52,6 +57,11 @@ sora.occultation
 
 sora.prediction
 ^^^^^^^^^^^^^^^
+
+- prediction() now creates the time array inside each division to avoid memory overflow. [#48]
+
+- prediction() now propagates the positions of the stars using only the proper motions
+  before comparing the stars with the ephemeris. [#48]
 
 sora.star
 ^^^^^^^^^^^^^^^
@@ -81,8 +91,16 @@ sora.occultation
 sora.prediction
 ^^^^^^^^^^^^^^^
 
+- Fixes issue that happenned in occ_params() when the instant of the occultation was outside the given range.
+  The function now gives appropriate error messages. The automatic range search was increased to 50 min
+  from central instant in a recursive search. [#45, #48]
+
 sora.star
 ^^^^^^^^^^^^^^^
+
+- Star now calculates the robust propagation of the position of the star and correspondent uncertainties. [#18]
+
+- Fixed bug in Star().__str__() where pmDEC was printed wrong. [#43]
 
 
 SORA v0.1.1 (2020/Jul/30)
