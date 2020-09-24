@@ -377,6 +377,25 @@ class LightCurve():
                 warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
                               format(self.exptime, self.cycle))
 
+    def set_exptime(self, exptime):
+        """ Sets the light curve exposure time
+
+        Parameters:
+            exptime (int,float): exposure time, in seconds
+        """
+        if type(exptime) == u.quantity.Quantity:
+            exptime = exptime.to(u.s).value
+        elif type(exptime) in [float, int]:
+            pass
+        else:
+            raise TypeError('vel must be an integer, a float or an Astropy Unit object')
+        if exptime <= 0:
+            raise ValueError('Exposure time can not be zero or negative')
+        self.exptime = exptime
+        if self.cycle < self.exptime:
+            warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
+                          format(self.exptime, self.cycle))
+                
     def set_vel(self, vel):
         """ Sets the occultation velocity
 
@@ -1147,12 +1166,14 @@ class LightCurve():
         except:
             output += 'Object LightCurve was not instantiated with time and flux.\n\n'
         try:
-            output += ('Bandpass:            {:.3f} +/- {:.3f} microns\n'
+            output += ('Bandpass:             {:.3f} +/- {:.3f} microns\n'
+                       'Object Distance:      {:.8f} AU\n'
                        'Used shadow velocity: {:.3f} km/s\n'
                        'Fresnel scale:        {:.3f} seconds or {:.2f} km\n'
                        'Stellar size effect:  {:.3f} seconds or {:.2f} km\n'.format(
-                           self.lambda_0, self.delta_lambda, self.vel, self.fresnel_scale/self.vel,
-                           self.fresnel_scale, self.d_star/self.vel, self.d_star)
+                           self.lambda_0, self.delta_lambda, self.dist, self.vel, 
+                           self.fresnel_scale/self.vel, self.fresnel_scale, 
+                           self.d_star/self.vel, self.d_star)
                        )
         except:
             output += '\nThere is no occultation associated with this light curve.\n'
