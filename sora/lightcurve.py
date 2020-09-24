@@ -72,8 +72,13 @@ class LightCurve():
             exptime (int,float): The exposure time of the observation.
                 NOT required in cases 2, 3 and 4 below
                 Required in case 1 below
+        
+        Kwargs:
+            vel (int,float):  velocity in km/s
+            dist (int,float): object distance in AU
+            d_star (float):   star diameter, in km
 
-            Input data must be one of the 4 options below:
+        Input data must be one of the 4 options below:
 
             1) Input file with time and flux
                 file (str): a file with the time and flux.
@@ -108,7 +113,8 @@ class LightCurve():
             LightCurve(name, initial_time, end_time)
         """
         allowed_kwargs = ['emersion', 'emersion_err', 'immersion', 'immersion_err', 'initial_time', 'end_time',
-                          'file', 'time', 'flux', 'exptime', 'central_bandpass', 'delta_bandpass', 'tref', 'dflux', 'usecols']
+                          'file', 'time', 'flux', 'exptime', 'central_bandpass', 'delta_bandpass', 'tref', 'dflux',
+                          'usecols','dist','vel','d_star']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         input_done = False
         self.dflux = None
@@ -302,6 +308,10 @@ class LightCurve():
                 or Time object.
             usecols (int, tuple, array): Which columns to read, with the 
                     first being the time, the seconds the flux and third the flux error [optional].
+        Kwargs:
+            vel (int,float):  velocity in km/s
+            dist (int,float): object distance in AU
+            d_star (float):   star diameter, in km
         """
         input_done = False
         usecols = None
@@ -349,6 +359,12 @@ class LightCurve():
             raise ValueError('Exposure time can not be zero or negative')
         else:
             self.exptime = kwargs['exptime']
+        if 'vel' in kwargs:
+            self.set_vel(vel=kwargs['vel'])
+        if 'dist' in kwargs:
+            self.set_dist(dist=kwargs['dist'])
+        if 'd_star' in kwargs:
+            self.set_star_diam(d_star=kwargs['d_star'])
         if 'tref' in kwargs:
             self.tref = kwargs['tref']
         if 'time' in locals():
