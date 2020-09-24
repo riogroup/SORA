@@ -72,7 +72,7 @@ class LightCurve():
             exptime (int,float): The exposure time of the observation.
                 NOT required in cases 2, 3 and 4 below
                 Required in case 1 below
-        
+
         Kwargs:
             vel (int,float):  velocity in km/s
             dist (int,float): object distance in AU
@@ -83,7 +83,7 @@ class LightCurve():
             1) Input file with time and flux
                 file (str): a file with the time and flux.
                     A third column with the error in flux can also be given.
-                usecols (int, tuple, array): Which columns to read, with the 
+                usecols (int, tuple, array): Which columns to read, with the
                     first being the time, the seconds the flux and third the flux error [optional].
 
             2) IF file is not given:
@@ -114,7 +114,7 @@ class LightCurve():
         """
         allowed_kwargs = ['emersion', 'emersion_err', 'immersion', 'immersion_err', 'initial_time', 'end_time',
                           'file', 'time', 'flux', 'exptime', 'central_bandpass', 'delta_bandpass', 'tref', 'dflux',
-                          'usecols','dist','vel','d_star']
+                          'usecols', 'dist', 'vel', 'd_star']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         input_done = False
         self.dflux = None
@@ -306,7 +306,7 @@ class LightCurve():
                 It must have the same lenght as time.
             tref (Time,str,float): Instant of reference. It can be in Julian Date, string in ISO format
                 or Time object.
-            usecols (int, tuple, array): Which columns to read, with the 
+            usecols (int, tuple, array): Which columns to read, with the
                     first being the time, the seconds the flux and third the flux error [optional].
         Kwargs:
             vel (int,float):  velocity in km/s
@@ -411,7 +411,7 @@ class LightCurve():
         if self.cycle < self.exptime:
             warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
                           format(self.exptime, self.cycle))
-                
+
     def set_vel(self, vel):
         """ Sets the occultation velocity
 
@@ -761,7 +761,8 @@ class LightCurve():
         if 'opacity' in onesigma:
             opacity = onesigma['opacity'][0]
         # Run occ_model() to save best parameters in the Object.
-        self.occ_model(immersion_time, emersion_time, opacity, np.repeat(True, len(self.flux)), flux_min=flux_min, flux_max=flux_max)
+        self.occ_model(immersion_time, emersion_time, opacity, np.repeat(True, len(self.flux)),
+                       flux_min=flux_min, flux_max=flux_max)
         self.lc_sigma = sigma
         self.chisquare = chisquare
         self.opacity = opacity
@@ -1187,8 +1188,8 @@ class LightCurve():
                        'Used shadow velocity: {:.3f} km/s\n'
                        'Fresnel scale:        {:.3f} seconds or {:.2f} km\n'
                        'Stellar size effect:  {:.3f} seconds or {:.2f} km\n'.format(
-                           self.lambda_0, self.delta_lambda, self.dist, self.vel, 
-                           self.fresnel_scale/self.vel, self.fresnel_scale, 
+                           self.lambda_0, self.delta_lambda, self.dist, self.vel,
+                           self.fresnel_scale/self.vel, self.fresnel_scale,
                            self.d_star/self.vel, self.d_star)
                        )
         except:
