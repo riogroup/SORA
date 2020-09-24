@@ -463,6 +463,24 @@ class EphemJPL():
         dd = test_attr(ddec, float, 'ddec')
         self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
 
+    def to_file(self, time, namefile=None):
+        """ Save the ephemerides to a file. It will be saved starting one hour before the
+        central time untill one hour after it, if a step of one minute. This file can be
+        used as an input for EphemPlanete().
+
+        Parameters:
+            time (str, Time): central time to be saved
+            namefile (str): Filename to save
+        """
+        if namefile is None:
+            namefile = 'Ephem_' + self.name.replace(' ', '_') + '.dat'
+        time = test_attr(time, Time, 'time')
+        time_output = time + np.arange(-60, 61, 1)*u.min
+        ephem_output = self.get_position(time_output)
+        array_output = np.array([time_output.jd, ephem_output.ra.deg, ephem_output.dec.deg,
+                                 ephem_output.distance.au]).T
+        np.savetxt(namefile, array_output, delimiter='    ', fmt='%.14f')
+
     def __str__(self):
         """ String representation of the EphemJPL Class.
         """
@@ -625,6 +643,24 @@ class EphemKernel():
         dadc = test_attr(da_cosdec, float, 'da_cosdec')
         dd = test_attr(ddec, float, 'ddec')
         self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
+
+    def to_file(self, time, namefile=None):
+        """ Save the ephemerides to a file. It will be saved starting one hour before the
+        central time untill one hour after it, if a step of one minute. This file can be
+        used as an input for EphemPlanete().
+
+        Parameters:
+            time (str, Time): central time to be saved
+            namefile (str): Filename to save
+        """
+        if namefile is None:
+            namefile = 'Ephem_' + self.name.replace(' ', '_') + '.dat'
+        time = test_attr(time, Time, 'time')
+        time_output = time + np.arange(-60, 61, 1)*u.min
+        ephem_output = self.get_position(time_output)
+        array_output = np.array([time_output.jd, ephem_output.ra.deg, ephem_output.dec.deg,
+                                 ephem_output.distance.au]).T
+        np.savetxt(namefile, array_output, delimiter='    ', fmt='%.14f')
 
     def __str__(self):
         """ String representation of the EphemKernel Class.
