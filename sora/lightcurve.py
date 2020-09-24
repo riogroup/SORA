@@ -395,7 +395,7 @@ class LightCurve():
         """ Sets the object distance
 
         Parameters:
-            dist (int,float): object distance in km
+            dist (int,float): object distance in AU
         """
         if type(dist) == u.quantity.Quantity:
             dist = dist.to(u.AU).value
