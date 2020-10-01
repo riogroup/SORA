@@ -404,13 +404,18 @@ class LightCurve():
         elif type(exptime) in [float, int]:
             pass
         else:
-            raise TypeError('vel must be an integer, a float or an Astropy Unit object')
+            raise TypeError('Exposure time must be an integer, a float or an Astropy Unit object')
+        if not np.isscalar(exptime):
+            raise TypeError('Exposure time must be an integer, a float or an Astropy Unit object')           
         if exptime <= 0:
             raise ValueError('Exposure time can not be zero or negative')
         self.exptime = exptime
-        if self.cycle < self.exptime:
-            warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
-                          format(self.exptime, self.cycle))
+        try:
+            if self.cycle < self.exptime:
+                warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
+                              format(self.exptime, self.cycle))
+        except:
+            pass
 
     def set_vel(self, vel):
         """ Sets the occultation velocity
@@ -1184,7 +1189,7 @@ class LightCurve():
             output += 'Object LightCurve was not instantiated with time and flux.\n\n'
         try:
             output += ('Bandpass:             {:.3f} +/- {:.3f} microns\n'
-                       'Object Distance:      {:.8f} AU\n'
+                       'Object Distance:      {:.2f} AU\n'
                        'Used shadow velocity: {:.3f} km/s\n'
                        'Fresnel scale:        {:.3f} seconds or {:.2f} km\n'
                        'Stellar size effect:  {:.3f} seconds or {:.2f} km\n'.format(

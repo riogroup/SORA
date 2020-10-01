@@ -465,7 +465,7 @@ class EphemJPL():
 
     def to_file(self, time, namefile=None):
         """ Save the ephemerides to a file. It will be saved starting one hour before the
-        central time untill one hour after it, if a step of one minute. This file can be
+        central time untill one hour after it, with a step of one minute. This file can be
         used as an input for EphemPlanete().
 
         Parameters:
@@ -476,8 +476,8 @@ class EphemJPL():
             namefile = 'Ephem_' + self.name.replace(' ', '_') + '.dat'
         time = test_attr(time, Time, 'time')
         time_output = time + np.arange(-60, 61, 1)*u.min
-        ephem_output = self.get_position(time_output)
-        array_output = np.array([time_output.jd, ephem_output.ra.deg, ephem_output.dec.deg,
+        ephem_output = self.get_position(time_output.utc)
+        array_output = np.array([time_output.utc.jd, ephem_output.ra.deg, ephem_output.dec.deg,
                                  ephem_output.distance.au]).T
         np.savetxt(namefile, array_output, delimiter='    ', fmt='%.14f')
 
@@ -646,7 +646,7 @@ class EphemKernel():
 
     def to_file(self, time, namefile=None):
         """ Save the ephemerides to a file. It will be saved starting one hour before the
-        central time untill one hour after it, if a step of one minute. This file can be
+        central time untill one hour after it, with a step of one minute. This file can be
         used as an input for EphemPlanete().
 
         Parameters:
@@ -657,8 +657,8 @@ class EphemKernel():
             namefile = 'Ephem_' + self.name.replace(' ', '_') + '.dat'
         time = test_attr(time, Time, 'time')
         time_output = time + np.arange(-60, 61, 1)*u.min
-        ephem_output = self.get_position(time_output)
-        array_output = np.array([time_output.jd, ephem_output.ra.deg, ephem_output.dec.deg,
+        ephem_output = self.get_position(time_output.utc)
+        array_output = np.array([time_output.utc.jd, ephem_output.ra.deg, ephem_output.dec.deg,
                                  ephem_output.distance.au]).T
         np.savetxt(namefile, array_output, delimiter='    ', fmt='%.14f')
 
