@@ -644,8 +644,8 @@ class Occultation():
               off_ra.to(u.mas).value, e_off_ra.to(u.mas).value, off_dec.to(u.mas).value, e_off_dec.to(u.mas).value)
         out += '\nAstrometric object position at time {}\n'.format(time.iso)
         out += 'RA = {} +/- {:.3f} mas; DEC = {} +/- {:.3f} mas'.format(
-               new_pos.ra.to_string(u.hourangle, precision=5, sep=' '), error_ra.to(u.mas).value,
-               new_pos.dec.to_string(u.deg, precision=4, sep=' '), error_dec.to(u.mas).value)
+               new_pos.ra.to_string(u.hourangle, precision=7, sep=' '), error_ra.to(u.mas).value,
+               new_pos.dec.to_string(u.deg, precision=6, sep=' '), error_dec.to(u.mas).value)
 
         if log:
             print(out)
