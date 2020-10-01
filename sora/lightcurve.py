@@ -69,14 +69,14 @@ class LightCurve():
                 Value in microns (not required). Default=0.7
             delta_bandpass (int,float): The band pass width of the detector used in observation.
                 Value in microns (not required). Default=0.3
-            exptime (int,float): The exposure time of the observation.
-                NOT required in cases 2, 3 and 4 below
-                Required in case 1 below
+            exptime (int,float): The exposure time of the observation, in seconds.
+                NOT required in cases 2, 3 and 4 below.
+                Required in case 1 below.
 
         Kwargs:
-            vel (int,float):  velocity in km/s
-            dist (int,float): object distance in AU
-            d_star (float):   star diameter, in km
+            vel (int,float):  velocity in km/s.
+            dist (int,float): object distance in AU.
+            d_star (float):   star diameter, in km.
 
         Input data must be one of the 4 options below:
 
@@ -97,12 +97,12 @@ class LightCurve():
             IF time and flux are not given.
             3) For a positive occultation
                 immersion: The instant of immersion.
-                emersion: The instant of emersion
-                immersion_err: Immersion time uncertainty
-                emersion_err: Emersion time uncertainty
+                emersion: The instant of emersion.
+                immersion_err: Immersion time uncertainty, in seconds.
+                emersion_err: Emersion time uncertainty, in seconds.
 
             4) For a negative occultation
-                initial_time: The initial time of observation
+                initial_time: The initial time of observation.
                 end_time: The end time of observation.
 
         Examples: The user can provide one of the followings:
@@ -296,7 +296,7 @@ class LightCurve():
         """ Sets the flux for the LightCurve
 
         Parameters:
-            exptime (int,float): The exposure time of the observation. (required)
+            exptime (int,float): The exposure time of the observation, in seconds (required)
             file (str): a file with the time and flux in the first and second columns, respectively.
                 A third column with error in flux can also be given.
             time: if file not given, time must be a list of times, in seconds from tref, or Julian Date,
