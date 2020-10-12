@@ -69,16 +69,21 @@ class LightCurve():
                 Value in microns (not required). Default=0.7
             delta_bandpass (int,float): The band pass width of the detector used in observation.
                 Value in microns (not required). Default=0.3
-            exptime (int,float): The exposure time of the observation.
-                NOT required in cases 2, 3 and 4 below
-                Required in case 1 below
+            exptime (int,float): The exposure time of the observation, in seconds.
+                NOT required in cases 2, 3 and 4 below.
+                Required in case 1 below.
 
-            Input data must be one of the 4 options below:
+        Kwargs:
+            vel (int,float):  velocity in km/s.
+            dist (int,float): object distance in AU.
+            d_star (float):   star diameter, in km.
+
+        Input data must be one of the 4 options below:
 
             1) Input file with time and flux
                 file (str): a file with the time and flux.
                     A third column with the error in flux can also be given.
-                usecols (int, tuple, array): Which columns to read, with the 
+                usecols (int, tuple, array): Which columns to read, with the
                     first being the time, the seconds the flux and third the flux error [optional].
 
             2) IF file is not given:
@@ -92,12 +97,12 @@ class LightCurve():
             IF time and flux are not given.
             3) For a positive occultation
                 immersion: The instant of immersion.
-                emersion: The instant of emersion
-                immersion_err: Immersion time uncertainty
-                emersion_err: Emersion time uncertainty
+                emersion: The instant of emersion.
+                immersion_err: Immersion time uncertainty, in seconds.
+                emersion_err: Emersion time uncertainty, in seconds.
 
             4) For a negative occultation
-                initial_time: The initial time of observation
+                initial_time: The initial time of observation.
                 end_time: The end time of observation.
 
         Examples: The user can provide one of the followings:
@@ -108,7 +113,8 @@ class LightCurve():
             LightCurve(name, initial_time, end_time)
         """
         allowed_kwargs = ['emersion', 'emersion_err', 'immersion', 'immersion_err', 'initial_time', 'end_time',
-                          'file', 'time', 'flux', 'exptime', 'central_bandpass', 'delta_bandpass', 'tref', 'dflux', 'usecols']
+                          'file', 'time', 'flux', 'exptime', 'central_bandpass', 'delta_bandpass', 'tref', 'dflux',
+                          'usecols', 'dist', 'vel', 'd_star']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         input_done = False
         self.dflux = None
@@ -290,7 +296,7 @@ class LightCurve():
         """ Sets the flux for the LightCurve
 
         Parameters:
-            exptime (int,float): The exposure time of the observation. (required)
+            exptime (int,float): The exposure time of the observation, in seconds (required)
             file (str): a file with the time and flux in the first and second columns, respectively.
                 A third column with error in flux can also be given.
             time: if file not given, time must be a list of times, in seconds from tref, or Julian Date,
@@ -300,8 +306,12 @@ class LightCurve():
                 It must have the same lenght as time.
             tref (Time,str,float): Instant of reference. It can be in Julian Date, string in ISO format
                 or Time object.
-            usecols (int, tuple, array): Which columns to read, with the 
+            usecols (int, tuple, array): Which columns to read, with the
                     first being the time, the seconds the flux and third the flux error [optional].
+        Kwargs:
+            vel (int,float):  velocity in km/s
+            dist (int,float): object distance in AU
+            d_star (float):   star diameter, in km
         """
         input_done = False
         usecols = None
@@ -349,6 +359,12 @@ class LightCurve():
             raise ValueError('Exposure time can not be zero or negative')
         else:
             self.exptime = kwargs['exptime']
+        if 'vel' in kwargs:
+            self.set_vel(vel=kwargs['vel'])
+        if 'dist' in kwargs:
+            self.set_dist(dist=kwargs['dist'])
+        if 'd_star' in kwargs:
+            self.set_star_diam(d_star=kwargs['d_star'])
         if 'tref' in kwargs:
             self.tref = kwargs['tref']
         if 'time' in locals():
@@ -377,6 +393,30 @@ class LightCurve():
                 warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
                               format(self.exptime, self.cycle))
 
+    def set_exptime(self, exptime):
+        """ Sets the light curve exposure time
+
+        Parameters:
+            exptime (int,float): exposure time, in seconds
+        """
+        if type(exptime) == u.quantity.Quantity:
+            exptime = exptime.to(u.s).value
+        elif type(exptime) in [float, int]:
+            pass
+        else:
+            raise TypeError('Exposure time must be an integer, a float or an Astropy Unit object')
+        if not np.isscalar(exptime):
+            raise TypeError('Exposure time must be an integer, a float or an Astropy Unit object')           
+        if exptime <= 0:
+            raise ValueError('Exposure time can not be zero or negative')
+        self.exptime = exptime
+        try:
+            if self.cycle < self.exptime:
+                warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
+                              format(self.exptime, self.cycle))
+        except:
+            pass
+
     def set_vel(self, vel):
         """ Sets the occultation velocity
 
@@ -395,7 +435,7 @@ class LightCurve():
         """ Sets the object distance
 
         Parameters:
-            dist (int,float): object distance in km
+            dist (int,float): object distance in AU
         """
         if type(dist) == u.quantity.Quantity:
             dist = dist.to(u.AU).value
@@ -726,7 +766,8 @@ class LightCurve():
         if 'opacity' in onesigma:
             opacity = onesigma['opacity'][0]
         # Run occ_model() to save best parameters in the Object.
-        self.occ_model(immersion_time, emersion_time, opacity, np.repeat(True, len(self.flux)), flux_min=flux_min, flux_max=flux_max)
+        self.occ_model(immersion_time, emersion_time, opacity, np.repeat(True, len(self.flux)),
+                       flux_min=flux_min, flux_max=flux_max)
         self.lc_sigma = sigma
         self.chisquare = chisquare
         self.opacity = opacity
@@ -1147,12 +1188,14 @@ class LightCurve():
         except:
             output += 'Object LightCurve was not instantiated with time and flux.\n\n'
         try:
-            output += ('Bandpass:            {:.3f} +/- {:.3f} microns\n'
+            output += ('Bandpass:             {:.3f} +/- {:.3f} microns\n'
+                       'Object Distance:      {:.2f} AU\n'
                        'Used shadow velocity: {:.3f} km/s\n'
                        'Fresnel scale:        {:.3f} seconds or {:.2f} km\n'
                        'Stellar size effect:  {:.3f} seconds or {:.2f} km\n'.format(
-                           self.lambda_0, self.delta_lambda, self.vel, self.fresnel_scale/self.vel,
-                           self.fresnel_scale, self.d_star/self.vel, self.d_star)
+                           self.lambda_0, self.delta_lambda, self.dist, self.vel,
+                           self.fresnel_scale/self.vel, self.fresnel_scale,
+                           self.d_star/self.vel, self.d_star)
                        )
         except:
             output += '\nThere is no occultation associated with this light curve.\n'

@@ -101,6 +101,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         fit_ellipse(occ1, occ2, **kwargs) to fit the ellipse to the chords of occ1 and occ2 Occultation objects together
     """
     values = []
+    chord_name = []
     for occ in args:
         if type(occ) != Occultation:
             raise TypeError('Given argument must be an Occultation object.')
@@ -117,11 +118,14 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
                         err = np.array(pos_lc['immersion']['error'])
                         erro = np.linalg.norm(err[0]-err[1])/2.0
                         values.append([f, g, erro])
+                        chord_name.append(lc.replace(' ', '_') + '_immersion')
+
                     if pos_lc['emersion']['on']:
                         f, g = pos_lc['emersion']['value']
                         err = np.array(pos_lc['emersion']['error'])
                         erro = np.linalg.norm(err[0]-err[1])/2.0
                         values.append([f, g, erro])
+                        chord_name.append(lc.replace(' ', '_') + '_emersion')
 
     controle_f0 = Time.now()
     f0_chi = np.array([])
@@ -202,8 +206,9 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         if type(occ) == Occultation:
             occ.fitted_params = {i: onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
                                                           'oblateness', 'position_angle']}
-            occ.chi2_params = {'radial_dispersion': [radial_dispersion.mean(), radial_dispersion.std(ddof=1)]}
-            occ.chi2_params['mean_error'] = [error_bar.mean(), error_bar.std()]
+            occ.chi2_params = {'chord_name': chord_name}
+            occ.chi2_params['radial_dispersion'] = radial_dispersion
+            occ.chi2_params['radial_error'] = error_bar
             occ.chi2_params['chi2_min'] = chisquare.get_nsigma()['chi2_min']
             occ.chi2_params['nparam'] = chisquare.nparam
             occ.chi2_params['npts'] = chisquare.npts
@@ -639,8 +644,8 @@ class Occultation():
               off_ra.to(u.mas).value, e_off_ra.to(u.mas).value, off_dec.to(u.mas).value, e_off_dec.to(u.mas).value)
         out += '\nAstrometric object position at time {}\n'.format(time.iso)
         out += 'RA = {} +/- {:.3f} mas; DEC = {} +/- {:.3f} mas'.format(
-               new_pos.ra.to_string(u.hourangle, precision=5, sep=' '), error_ra.to(u.mas).value,
-               new_pos.dec.to_string(u.deg, precision=4, sep=' '), error_dec.to(u.mas).value)
+               new_pos.ra.to_string(u.hourangle, precision=7, sep=' '), error_ra.to(u.mas).value,
+               new_pos.dec.to_string(u.deg, precision=6, sep=' '), error_dec.to(u.mas).value)
 
         if log:
             print(out)
@@ -949,9 +954,9 @@ class Occultation():
             out += 'Minimum chi-square per degree of freedom: {:.3f}\n'.format(
                 self.chi2_params['chi2_min']/(self.chi2_params['npts'] - self.chi2_params['nparam']))
             out += 'Radial dispersion: {:.3f} +/- {:.3f} km\n'.format(
-                self.chi2_params['radial_dispersion'][0], self.chi2_params['radial_dispersion'][1])
-            out += 'Mean error: {:.3f} +/- {:.3f} km\n'.format(
-                self.chi2_params['mean_error'][0], self.chi2_params['mean_error'][1])
+                self.chi2_params['radial_dispersion'].mean(), self.chi2_params['radial_dispersion'].std(ddof=1))
+            out += 'Radial error:      {:.3f} +/- {:.3f} km\n'.format(
+                self.chi2_params['radial_error'].mean(), self.chi2_params['radial_error'].std(ddof=1))
 
             out += '\n' + self.new_astrometric_position(log=False)
 
