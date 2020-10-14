@@ -1,4 +1,7 @@
+from sora.ephem import EphemPlanete, EphemKernel, EphemJPL, EphemHorizons
 import astropy.units as u
+import astropy.constants as const
+from astropy.coordinates import SkyCoord, Longitude, Latitude
 import numpy as np
 
 
@@ -109,3 +112,195 @@ class PhysicalData(u.Quantity):
             return out
         else:
             return ""
+
+
+class BaseBody():
+
+    @property
+    def albedo(self):
+        return self._albedo
+
+    @albedo.setter
+    def albedo(self, value):
+        if isinstance(value, PhysicalData):
+            self._albedo = value
+        else:
+            self._albedo = PhysicalData('Albedo', value)
+
+    @property
+    def H(self):
+        return self._H
+
+    @H.setter
+    def H(self, value):
+        if isinstance(value, PhysicalData):
+            self._H = value
+        else:
+            self._H = PhysicalData('Absolute Magnitude', value, unit=u.mag)
+        if not np.isnan(self.H):  # remove this line for v1.0
+            self._shared_with['ephem']['H'] = self.H  # remove this line for v1.0
+
+    @property
+    def G(self):
+        return self._G
+
+    @G.setter
+    def G(self, value):
+        if isinstance(value, PhysicalData):
+            self._G = value
+        else:
+            self._G = PhysicalData('Phase Slope', value)
+        if not np.isnan(self._G):  # remove this line for v1.0
+            self._shared_with['ephem']['G'] = self.G  # remove this line for v1.0
+
+    @property
+    def diameter(self):
+        return self._diameter
+
+    @diameter.setter
+    def diameter(self, value):
+        if isinstance(value, PhysicalData):
+            self._diameter = value
+        else:
+            self._diameter = PhysicalData('Diameter', value, unit=u.km)
+        self._shared_with['ephem']['radius'] = self.radius
+
+    @property
+    def radius(self):
+        return PhysicalData('Radius', self.diameter/2.0, self.diameter.uncertainty/2,
+                            self.diameter.reference, self.diameter.notes, unit=u.km)
+
+    @radius.setter
+    def radius(self, value):
+        if isinstance(value, PhysicalData):
+            self.diameter = value*2.0
+            self.diameter.name = 'Diameter'
+        else:
+            self.diameter = PhysicalData('Diameter', value*2.0, unit=u.km)
+
+    @property
+    def density(self):
+        return self._density
+
+    @density.setter
+    def density(self, value):
+        if isinstance(value, PhysicalData):
+            self._density = value
+        else:
+            self._density = PhysicalData('Density', value, unit=u.g/u.cm**3)
+
+    @property
+    def GM(self):
+        return self._GM
+
+    @GM.setter
+    def GM(self, value):
+        if isinstance(value, PhysicalData):
+            self._GM = value
+        else:
+            self._GM = PhysicalData('Standard Gravitational Parameter', value, unit=u.km**3/u.s**2)
+
+    @property
+    def mass(self):
+        return PhysicalData('Mass', self.GM/const.G, self.GM.uncertainty/const.G,
+                            self.GM.reference, self.GM.notes, unit=u.kg)
+
+    @property
+    def rotation(self):
+        return self._rotation
+
+    @rotation.setter
+    def rotation(self, value):
+        if isinstance(value, PhysicalData):
+            self._rotation = value
+        else:
+            self._rotation = PhysicalData('Rotation', value, unit=u.h)
+
+    @property
+    def pole(self):
+        return self._pole
+
+    @pole.setter
+    def pole(self, value):
+        if value is None:
+            self._pole = SkyCoord(np.nan, np.nan, unit=(u.deg, u.deg))
+        else:
+            self._pole = SkyCoord(value, unit=(u.hourangle, u.deg))
+        self._pole.ra.uncertainty = Longitude(0*u.hourangle)
+        self._pole.dec.uncertainty = Latitude(0*u.deg)
+        self._pole.reference = "User"
+        self._pole.notes = ""
+
+    @property
+    def BV(self):
+        return self._BV
+
+    @BV.setter
+    def BV(self, value):
+        if isinstance(value, PhysicalData):
+            self._BV = value
+        else:
+            self._BV = PhysicalData('B-V color', value)
+
+    @property
+    def UB(self):
+        return self._UB
+
+    @UB.setter
+    def UB(self, value):
+        if isinstance(value, PhysicalData):
+            self._UB = value
+        else:
+            self._UB = PhysicalData('U-B color', value)
+
+    @property
+    def spkid(self):
+        return self._shared_with['ephem'].get('spkid')
+
+    @spkid.setter
+    def spkid(self, value):
+        spkid = str(value)
+        self._shared_with['ephem']['spkid'] = spkid
+
+    @property
+    def ephem(self):
+        try:
+            return self._ephem
+        except AttributeError:
+            raise AttributeError('{} object does not have ephemeris.'.format(self.__class__.__name__))
+
+    @ephem.setter
+    def ephem(self, value):
+        allowed_types = [EphemPlanete, EphemKernel, EphemJPL, EphemHorizons]
+        if type(value) not in allowed_types:
+            if type(value) in [list, str]:
+                value = EphemKernel(kernels=value)
+            else:
+                raise ValueError('Cannot set "ephem" with {}. Allowed types are: {}'.format(type(value), allowed_types))
+        if 'spkid' not in self._shared_with['ephem'] or self._shared_with['ephem']['spkid'] is None:
+            if hasattr(value, '_spkid'):
+                self._shared_with['ephem']['spkid'] = value.spkid
+            else:
+                raise AttributeError('spkid is not defined in {} or {}'.format(self.__class__.__name__, value.__class__.__name__))
+        if hasattr(self, '_ephem'):
+            self._ephem._shared_with['body'] = {}
+            self._ephem._shared_with['occultation'] = {}
+        self._ephem = value
+        self._ephem._shared_with['body'] = self._shared_with['ephem']
+        self._ephem._shared_with['occultation'] = self._shared_with['occultation']
+
+    @property
+    def _search_name(self):
+        if self.orbit_class in ['Natural Satellite', 'Planet']:
+            return str(self.spkid or self.shortname)
+        elif hasattr(self, '_des_name'):
+            return self._des_name
+        else:
+            return self.name
+
+    @property
+    def _id_type(self):
+        if self.orbit_class in ['Natural Satellite', 'Planet']:
+            return 'majorbody'
+        else:
+            return 'smallbody'
