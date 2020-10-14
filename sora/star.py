@@ -336,7 +336,8 @@ class Star():
         """
         self.__attributes = {}
         self.mag = {}
-        self.errors = {'RA': 0, 'DEC': 0, 'Plx': 0, 'pmRA': 0, 'pmDE': 0, 'rad_vel': 0}
+        self.errors = {'RA': 0*u.mas, 'DEC': 0*u.mas, 'Plx': 0*u.mas, 'pmRA': 0*u.mas/u.year,
+                       'pmDE': 0*u.mas/u.year, 'rad_vel': 0*u.km/u.year}
         allowed_kwargs = ['bjones', 'code', 'coord', 'dec', 'epoch', 'local', 'log', 'nomad', 'parallax', 'pmdec', 'pmra',
                           'ra', 'rad_vel']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
@@ -541,7 +542,7 @@ class Star():
     def diameter_gaia(self):
         try:
             rad = self.meta_gaia.get('Rad')
-            if rad is not None or np.ma.core.is_masked(rad):
+            if rad is not None and not np.ma.core.is_masked(rad):
                 return 2*np.arctan((rad*u.solRad)/self.distance).to(u.mas)
         except:
             return None
