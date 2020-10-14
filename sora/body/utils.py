@@ -5,7 +5,7 @@ import astropy.units as u
 from astropy.table import Table
 
 
-__all__ = ['search_sbdb']
+__all__ = ['search_sbdb', 'apparent_magnitude']
 
 
 def search_sbdb(name):
@@ -60,3 +60,23 @@ def select_body(sbdb):
     if choice == 0:
         raise ValueError('It was not possible to define a Small Body')
     return search_sbdb(name=sbdb['list']['pdes'][choice-1])
+
+
+def apparent_magnitude(H, G, dist, sundist, phase=0.0):
+    """ Calculates the Object Apparent Magnitude
+
+    Parameters:
+        H (int, float): Absolute Magnitude
+        G (int, float): Slope parameter
+        dist (int, float): Observer-Object distance, in AU
+        sundist (int, float): Sun-Object distance, in AU
+        phase (int, float): Phase Angle: Sun-Target-Observer, in deg
+
+    Returns:
+        ap_mag (float): Apparent Magnitude
+    """
+    phi0 = np.exp(-3.33*(np.tan(0.5*phase*u.deg)**0.63))
+    phi1 = np.exp(-1.87*(np.tan(0.5*phase*u.deg)**1.22))
+    Ha = H - 2.5*np.log10((1.0-G)*phi0 + G*phi1)
+    ap_mag = Ha + 5*np.log10(sundist*dist)
+    return ap_mag.value
