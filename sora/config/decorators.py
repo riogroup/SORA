@@ -27,3 +27,19 @@ def rename_kwargs(func_name, kwargs, aliases):
             warnings.warn("'{}' is deprecated and will be removed in {}; please use '{}'".
                           format(alias, next_major_version, new), FutureWarning)
             kwargs[new] = kwargs.pop(alias)
+
+
+def deprecated_function(message):
+    def deco(func):
+        """This is a decorator which can be used to mark functions
+        as deprecated. It will result in a warning being emitted
+        when the function is used."""
+        @functools.wraps(func)
+        def new_func(*args, **kwargs):
+            warnings.warn("{} is deprecated and will be removed in {}; {}".
+                          format(func.__name__, next_major_version, message),
+                          category=FutureWarning,
+                          stacklevel=2)
+            return func(*args, **kwargs)
+        return new_func
+    return deco
