@@ -1,5 +1,6 @@
 from .star import Star
-from .ephem import EphemKernel, EphemJPL, EphemPlanete
+from .ephem import EphemKernel, EphemJPL, EphemPlanete, EphemHorizons
+from sora.body import Body
 from sora.config import input_tests
 import astropy.units as u
 import astropy.constants as const
@@ -452,7 +453,7 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
     n_iter = n_recursions
     if type(star) != Star:
         raise ValueError('star must be a Star object')
-    if type(ephem) not in [EphemKernel, EphemJPL, EphemPlanete]:
+    if type(ephem) not in [EphemKernel, EphemJPL, EphemPlanete, EphemHorizons]:
         raise ValueError('ephem must be an Ephemeris object')
 
     time = Time(time)
@@ -495,14 +496,14 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
 
         return tt[min], ca, pa, vel, dist.to(u.AU)
 
-    if type(ephem) == EphemJPL:
+    if isinstance(ephem, (EphemJPL, EphemHorizons)):
         tmin = calc_min(time0=time, time_interval=600, delta_t=4, n_recursions=5, max_tdiff=max_tdiff)[0]
         return calc_min(time0=tmin, time_interval=8, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
     else:
         return calc_min(time0=time, time_interval=600, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
 
 
-def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1, log=True):
+def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, step=60, divs=1, sigma=1, radius=None, log=True):
     """ Predicts stellar occultations
 
     Parameters:
@@ -519,7 +520,20 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         predict (PredictionTable): PredictionTable with the occultation params for each event
     """
     # generate ephemeris
-    if type(ephem) is not EphemKernel:
+    if body is None and ephem is None:
+        raise ValueError('"body" and/or "ephem" must be given.')
+    if body is not None:
+        if not isinstance(body, (str, Body)):
+            raise ValueError('"body" must be a string with the name of the object or a Body object')
+        if isinstance(body, str):
+            body = Body(name=body, mode='sbdb')
+    if ephem is not None:
+        if body is not None:
+            body.ephem = ephem
+            ephem = body.ephem
+    else:
+        ephem = body.ephem
+    if not isinstance(ephem, EphemKernel):
         raise TypeError('At the moment prediction only works with EphemKernel')
     time_beg = Time(time_beg)
     time_end = Time(time_end)
@@ -535,7 +549,15 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
     vquery = Vizier(**kwds)
 
     # determine suitable divisions for star search
-    radius = ephem.radius + const.R_earth
+    if radius is None:
+        try:
+            radius = ephem.radius  # for v1.0, change to body.radius
+        except AttributeError:
+            radius = 0
+            warnings.warn('"radius" not given or found in body or ephem. Considering it to be zero.')
+    radius = u.Quantity(radius, unit=u.km)
+
+    radius_search = radius + const.R_earth
 
     if log:
         print('Ephemeris was split in {} parts for better search of stars'.format(divs))
@@ -551,7 +573,8 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         ncoord = ephem.get_position(nt)
         ra = np.mean([ncoord.ra.min().deg, ncoord.ra.max().deg])
         dec = np.mean([ncoord.dec.min().deg, ncoord.dec.max().deg])
-        mindist = np.arcsin(radius/ncoord.distance).max() + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec
+        mindist = (np.arcsin(radius_search/ncoord.distance).max() +
+                   sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec)
         width = ncoord.ra.max() - ncoord.ra.min() + 2*mindist
         height = ncoord.dec.max() - ncoord.dec.min() + 2*mindist
         pos_search = SkyCoord(ra*u.deg, dec*u.deg)
@@ -575,7 +598,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
         prec_stars = stars.apply_space_motion(new_obstime=((nt[-1]-nt[0])/2+nt[0]))
         idx, d2d, d3d = prec_stars.match_to_catalog_sky(ncoord)
 
-        dist = np.arcsin(radius/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec \
+        dist = np.arcsin(radius_search/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec \
             + np.sqrt(stars.pm_ra_cosdec**2+stars.pm_dec**2)*(nt[-1]-nt[0])/2
         k = np.where(d2d < dist)[0]
         for ev in k:
@@ -592,7 +615,7 @@ def prediction(ephem, time_beg, time_end, mag_lim=None, step=60, divs=1, sigma=1
                 pass
 
     meta = {'name': ephem.name, 'time_beg': time_beg, 'time_end': time_end, 'maglim': mag_lim, 'max_ca': mindist,
-            'radius': ephem.radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value,
+            'radius': radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value,
             'error_dec': ephem.error_dec.to(u.mas).value, 'ephem': ephem.meta['kernels']}
     if not occs:
         print('\nNo stellar occultation was found.')
