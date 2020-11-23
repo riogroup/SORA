@@ -3,6 +3,7 @@ import astropy.units as u
 import astropy.constants as const
 from astropy.coordinates import SkyCoord, Longitude, Latitude
 import numpy as np
+import warnings
 
 
 __all__ = ['PhysicalData']
@@ -40,6 +41,7 @@ class PhysicalData(u.Quantity):
 
     def __new__(cls, name, value, uncertainty=0.0, reference="User", notes="", unit=u.dimensionless_unscaled,
                 raise_error=False):
+        given_unit = unit
         if value is None:
             if raise_error:
                 raise TypeError("The value must be a valid PhysicalData type. Given: {}".format(value))
@@ -50,12 +52,21 @@ class PhysicalData(u.Quantity):
             for i in np.arange(len(value.bases)):
                 unit = unit*(value.bases[i]**value.powers[i])
             value = value.scale
-        cls = super().__new__(cls, value=value, unit=unit)
-        cls.name = name
-        cls.uncertainty = uncertainty
-        cls.reference = reference
-        cls.notes = notes
-        return cls
+        elif isinstance(value, (PhysicalData, u.Quantity)):
+            unit = value.unit
+            value = value.value
+        if not np.isscalar(value):
+            print(value)
+            raise ValueError('Given value must be a scalar. Given: {}'.format(value))
+        if not unit.is_equivalent(given_unit):
+            raise ValueError('{} is not equivalent to {}'.format(unit, given_unit))
+        physdata = super().__new__(cls, value=value, unit=unit)
+        physdata = physdata.to(given_unit)
+        physdata.name = name
+        physdata.uncertainty = uncertainty
+        physdata.reference = reference
+        physdata.notes = notes
+        return physdata
 
     @property
     def uncertainty(self):
@@ -64,6 +75,7 @@ class PhysicalData(u.Quantity):
     @uncertainty.setter
     def uncertainty(self, value):
         unit = self.unit
+        given_unit = unit
         if isinstance(value, u.core.CompositeUnit):
             unit = u.dimensionless_unscaled
             for i in np.arange(len(value.bases)):
@@ -71,9 +83,15 @@ class PhysicalData(u.Quantity):
             value = value.scale
         elif value is None:
             value = 0.0
+        elif isinstance(value, u.Quantity):
+            unit = value.unit
+            value = value.value
+        if not np.isscalar(value):
+            print(value)
+            raise ValueError('Given value must be a scalar. Given: {}'.format(value))
         if not unit.is_equivalent(self.unit):
-            raise u.UnitError('Uncertainty unit must be equivalent to {}'.format(self.unit.name))
-        self._uncertainty = u.Quantity(value, unit)
+            raise ValueError('{} is not equivalent to {}'.format(unit, given_unit))
+        self._uncertainty = u.Quantity(value, unit).to(given_unit)
 
     @property
     def reference(self):
@@ -259,7 +277,7 @@ class BaseBody():
 
     @spkid.setter
     def spkid(self, value):
-        spkid = str(value)
+        spkid = str(int(value))
         self._shared_with['ephem']['spkid'] = spkid
 
     @property
@@ -273,8 +291,10 @@ class BaseBody():
     def ephem(self, value):
         allowed_types = [EphemPlanete, EphemKernel, EphemJPL, EphemHorizons]
         if type(value) not in allowed_types:
-            if type(value) in [list, str]:
-                value = EphemKernel(kernels=value)
+            if isinstance(value, str) and value.lower() == 'horizons':
+                value = EphemHorizons(name=self._search_name)
+            elif isinstance(value, (list, str)):
+                value = EphemKernel(kernels=value, spkid=self.spkid)
             else:
                 raise ValueError('Cannot set "ephem" with {}. Allowed types are: {}'.format(type(value), allowed_types))
         if 'spkid' not in self._shared_with['ephem'] or self._shared_with['ephem']['spkid'] is None:
@@ -284,10 +304,13 @@ class BaseBody():
                 raise AttributeError('spkid is not defined in {} or {}'.format(self.__class__.__name__, value.__class__.__name__))
         if hasattr(self, '_ephem'):
             self._ephem._shared_with['body'] = {}
-            self._ephem._shared_with['occultation'] = {}
         self._ephem = value
+        spkval = value.spkid
         self._ephem._shared_with['body'] = self._shared_with['ephem']
-        self._ephem._shared_with['occultation'] = self._shared_with['occultation']
+        spknewval = value.spkid
+        if spkval != spknewval:
+            warnings.warn('spkid is different in {0} ({1}) and {2} ({3}). {0}\'s spkid will have higher priority'.format(
+                self.__class__.__name__, spknewval, value.__class__.__name__, spkval))
 
     @property
     def _search_name(self):

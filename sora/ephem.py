@@ -141,7 +141,7 @@ class BaseEphem():
     def spkid(self, value):
         if 'spkid' in self._shared_with['body']:
             raise AttributeError('When Ephem is associated to a Body object, spkid must be given to the Body object.')
-        self._spkid = str(value)
+        self._spkid = str(int(value))
 
     # Start of block removal for v1.0
     @property
@@ -200,12 +200,9 @@ class BaseEphem():
         """
         time = Time(time)
 
-        if np.isnan(self.H) or np.isnan(self.G):
+        if getattr(self, 'H', None) is None or getattr(self, 'G', None) is None:
             search_name = self._shared_with['body'].get('search_name', self.name)
-            if hasattr(self, 'id_type'):
-                id_type = self.id_type
-            else:
-                id_type = 'majorbody'
+            id_type = getattr(self, 'id_type', 'majorbody')
             id_type = self._shared_with['body'].get('id_type', id_type)
             obj = Horizons(id=search_name, id_type=id_type, location='geo', epochs=time.jd)
             eph = obj.ephemerides(extra_precision=True)
@@ -314,7 +311,7 @@ class BaseEphem():
         out = ("----------- Ephemeris -----------\n"
                "\n{}: {{ephem_info}} (SPKID={})\n"
                "Ephem Error: RA*cosDEC: {:.3f}; DEC: {:.3f}\n".format(
-                   self.__class__.__name__, self.spkid, self.error_ra, self.error_dec)
+                   self.__class__.__name__, getattr(self, 'spkid', ''), self.error_ra, self.error_dec)
                )
         if hasattr(self, 'offset'):
             out += 'Offset applied: RA*cosDEC: {:.4f}; DEC: {:.4f}\n'.format(
@@ -553,7 +550,7 @@ class EphemJPL(EphemHorizons):
 
 class EphemKernel(BaseEphem):
     @deprecated_alias(code='spkid')  # remove this line for v1.0
-    def __init__(self, kernels, name=None, spkid=None, **kwargs):
+    def __init__(self, kernels, spkid, name=None, **kwargs):
         """ Gets the ephemeris from bsp kernels.
 
         Parameters:

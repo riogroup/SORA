@@ -507,14 +507,24 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, step=60,
     """ Predicts stellar occultations
 
     Parameters:
-        ephem (Ephem): object ephemeris. It must be an Ephemeris object.
-        time_beg (str,Time): Initial time for prediction
-        time_beg (str,Time): Final time for prediction
+        time_beg (str,Time): Initial time for prediction (required).
+        time_beg (str,Time): Final time for prediction (required).
+        body* (Body, str): Object that will occult the stars. It must be a Body object or its
+                name to search in the Small Body Database.
+        ephem* (Ephem): object ephemeris. It must be an Ephemeris object.
         mag_lim (int,float): Faintest Gmag for search
-        step (int, float): step, in seconds, of ephem times for search
+        step (number): step, in seconds, of ephem times for search
         divs (int): number of regions the ephemeris will be splitted for better search of occultations
-        sigma (int,float): ephemeris error sigma for search off-Earth.
+        sigma (number): ephemeris error sigma for search off-Earth.
+        radius (number): The radius of the body. It is important if not defined in body or ephem.
         log (bool): To show what is being done at the moment.
+
+    * When instantiating with "body" and "ephem", the user may call the function in 3 ways:
+        - With "body" and "ephem".
+        - With only "body". In this case, the "body" parameter must be a Body object and have an
+            ephemeris associated (see Body documentation).
+        - With only "ephem". In this case, the "ephem" parameter must be one of the Ephem Classes
+            and have a name (see Ephem documentation) to search for the body in the Small Body Database.
 
     Returns:
         predict (PredictionTable): PredictionTable with the occultation params for each event

@@ -258,24 +258,36 @@ class _PositionDict(dict):
 class Occultation():
     """ Does the reduction of the occultation
     """
-    def __init__(self, star=None, body=None, ephem=None, time=None):
+    def __init__(self, star, body=None, ephem=None, time=None):
         """ Instantiates the Occultation object.
 
         Parameters:
-            star (Star): The coordinate of the star in the same reference frame as the ephemeris.
-                It must be a Star object.
-            ephem (Ephem): object ephemeris. It must be an Ephemeris object.
+            star (Star, str): The coordinate of the star in the same reference frame as the ephemeris.
+                It must be a Star object or a string with the coordinates of the object to search on
+                Vizier (required).
+            body* (Body, str): Object that will occult the star. It must be a Body object or its
+                name to search in the Small Body Database.
+            ephem* (Ephem): object ephemeris. It must be an Ephemeris object or a list .
             time (str, Time): Reference time of the occultation.
                 Time does not need to be exact, but needs to be within approximately 50 minutes
-                of the occultation closest approach to calculate occultation parameters.
+                of the occultation closest approach to calculate occultation parameters (required).
+
+        * When instantiating with "body" and "ephem", the user may define the Occultation in 3 ways:
+            - With "body" and "ephem".
+            - With only "body". In this case, the "body" parameter must be a Body object and have an
+                ephemeris associated (see Body documentation).
+            - With only "ephem". In this case, the "ephem" parameter must be one of the Ephem Classes
+                and have a name (see Ephem documentation) to search for the body in the Small Body Database.
         """
+        if body is None and ephem is None:
+            raise ValueError('"body" and/or "ephem" must be given.')
+        if time is None:
+            raise ValueError('"time" parameter must be given.')
         if isinstance(star, str):
             star = Star(coord=star)
         elif not isinstance(star, Star):
             raise ValueError('"star" must be a Star object or a string with coordinates of the star')
         self.star = star
-        if body is None and ephem is None:
-            raise ValueError('"body" and/or "ephem" must be given.')
         if body is not None:
             if not isinstance(body, (str, Body)):
                 raise ValueError('"body" must be a string with the name of the object or a Body object')

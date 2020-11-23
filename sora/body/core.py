@@ -22,7 +22,11 @@ class Body(BaseBody):
                 to query the SBDB. In this case, the name is case insensitive. (Required)
             mode (str): If mode='sbdb', a query on the Small-Body DataBase is made
                 to identify physical parameter of the object. If mode='local', it uses the
-                user parameters.
+                user parameters. In this case, "orbit_class" and "spkid" parameters may be required.
+            ephem (EphemKernel, EphemHorizons, EphemJPL, EphemPlanete): An Ephem Class that
+                contains information about the ephemeris. It can be "horizons" to automatically
+                defined an EphemHorizons object or a list of kernels to automatically define an
+                EphemKernel object.
 
         Parameters that are returned from the Small-Body DataBase if mode='sbdbd'. These are
             the physical paramaters the user can give to the object. If a query is made and
@@ -31,6 +35,9 @@ class Body(BaseBody):
             orbit_class (str): It defines the Orbital class of the body. It can be 'TNO',
                 'Satellite', 'Centaur', 'comet', 'asteroid', 'trojan', 'neo' and 'planet'.
                 It is important for a better characterization of the object.
+                It is required if mode='local', else it will be replaced by the queried value.
+            spkid (str, number): If mode='local', the user must give a spkid or an ephem
+                which has the spkid parameter.
             albedo (number): The albedo of the object.
             H (number): The absolute magnitude.
             G (number): The phase slope.
@@ -142,10 +149,9 @@ class Body(BaseBody):
         self.discovery = ""
 
     def get_pole_position_angle(self, time):
-        """ Returns the object geocentric position.
+        """ Returns the pole position angle and aperture angle relative to the geocenter
 
         Parameters:
-            pole (str, SkyCoord): Coordinate of the object pole ICRS.
             time (str, Time): Time from which to calculate the position.
 
         Returns:
