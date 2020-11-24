@@ -1,9 +1,9 @@
-from .star import Star
-from .ephem import EphemPlanete, EphemJPL, EphemKernel
-from .observer import Observer
-from .lightcurve import LightCurve
-from .prediction import occ_params, PredictionTable
-from .extra import ChiSquare
+from sora.star import Star
+from sora.ephem import EphemPlanete, EphemJPL, EphemKernel, EphemHorizons
+from sora.observer import Observer
+from sora.lightcurve import LightCurve
+from sora.prediction import occ_params, PredictionTable
+from sora.extra import ChiSquare
 from sora.body import Body
 from sora.config.decorators import deprecated_alias
 import astropy.units as u
@@ -34,7 +34,7 @@ def positionv(star, ephem, observer, time):
     """
     if type(star) != Star:
         raise ValueError('star must be a Star object')
-    if type(ephem) not in [EphemPlanete, EphemJPL, EphemKernel]:
+    if type(ephem) not in [EphemPlanete, EphemJPL, EphemKernel, EphemHorizons]:
         raise ValueError('ephem must be an Ephemeris object')
     if type(observer) != Observer:
         raise ValueError('observer must be an Observer object')
