@@ -27,13 +27,12 @@ def search_code_mpc():
 
 
 class Observer():
-    __names = []
 
     def __init__(self, **kwargs):
         """ Defines the observer object
 
         Parameters:
-            name (str): Name for the Observer. (required)
+            name (str): Name for the Observer.
                 Observer is uniquely defined (name must be different for each observer).
             code (str): The IAU code for SORA to search for its coordinates in MPC database
             site (EarthLocation): User provides an EarthLocation object.
@@ -58,6 +57,7 @@ class Observer():
                 Observer(name, lon, lat, height)
         """
         input_tests.check_kwargs(kwargs, allowed_kwargs=['code', 'height', 'lat', 'lon', 'name', 'site'])
+        self.__name = kwargs.get('name', '')
         if 'code' in kwargs:
             self.code = kwargs['code']
             try:
@@ -65,18 +65,12 @@ class Observer():
                 self.__name = kwargs.get('name', name)
             except:
                 raise ValueError('code {} could not be located in MPC database'.format(self.code))
-        elif all(i in kwargs for i in ['name', 'site']):
-            self.__name = kwargs['name']
+        elif 'site' in kwargs:
             self.site = test_attr(kwargs['site'], EarthLocation, 'site')
-        elif all(i in kwargs for i in ['name', 'lon', 'lat', 'height']):
-            self.__name = kwargs['name']
+        elif all(i in kwargs for i in ['lon', 'lat', 'height']):
             self.site = EarthLocation(kwargs['lon'], kwargs['lat'], kwargs['height'])
         else:
             raise ValueError('Input parameters could not be determined')
-        if self.__name in self.__names:
-            raise ValueError("name {} already defined for another Observer object. "
-                             "Please choose a different one.".format(self.__name))
-        self.__names.append(self.__name)
 
     def get_ksi_eta(self, time, star):
         """ Calculates relative position to star in the orthographic projection.
@@ -192,11 +186,3 @@ class Observer():
                    self.site.height.to(u.km))
                )
         return out
-
-    def __del__(self):
-        """ When this object is deleted, it removes the name from the Class name list.
-        """
-        try:
-            self.__names.remove(self.__name)
-        except:
-            pass

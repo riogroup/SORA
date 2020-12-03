@@ -53,14 +53,13 @@ def fit_pol(x, y, deg):
 
 
 class LightCurve():
-    __names = []
 
     @deprecated_alias(lambda_0='central_bandpass', delta_lambda='delta_bandpass')  # remove this line for v1.0
-    def __init__(self, name, **kwargs):
+    def __init__(self, name='', **kwargs):
         """ Defines a Light Curve
 
         Parameters:
-            name (str): The name of the LightCurve. (required)
+            name (str): The name of the LightCurve.
                 Each time an LightCurve object is defined the name must be different.
             tref (Time,str,float): Instant of reference.
                 Format: Julian Date, string in ISO format or Time object.
@@ -121,9 +120,6 @@ class LightCurve():
         self.__name = name
         self.flux = None
         self.time_model = None
-        if self.__name in self.__names:
-            raise ValueError('name {} already defined for another LightCurve object. Please choose a different one.'.
-                             format(self.__name))
         if 'tref' in kwargs:
             self.tref = kwargs['tref']
         if 'immersion' in kwargs:
@@ -146,7 +142,6 @@ class LightCurve():
         self.lambda_0 = kwargs.get('central_bandpass', 0.70)
         self.delta_lambda = kwargs.get('delta_bandpass', 0.30)
         self.dt = 0.0
-        self.__names.append(self.__name)
 
     @property
     def fresnel_scale(self):
@@ -288,9 +283,6 @@ class LightCurve():
             return (self._time - self.tref).sec
         except:
             raise AttributeError("'LightCurve' object has no attribute 'time'")
-
-    def check_names(self):
-        return self.__names
 
     def set_flux(self, **kwargs):
         """ Sets the flux for the LightCurve
@@ -1227,11 +1219,3 @@ class LightCurve():
         except:
             pass
         return output
-
-    def __del__(self):
-        """ When this object is deleted, it removes the name from the Class name list.
-        """
-        try:
-            self.__names.remove(self.__name)
-        except:
-            pass
