@@ -14,6 +14,9 @@ from sora.config import test_attr, input_tests
 warnings.simplefilter('always', UserWarning)
 
 
+__all__ = ['Star', 'van_belle', 'kervella']
+
+
 def search_star(**kwargs):
     """ Searches position on VizieR and returns a catalogue.
 
