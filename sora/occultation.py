@@ -4,6 +4,7 @@ from .observer import Observer
 from .lightcurve import LightCurve
 from .prediction import occ_params, PredictionTable
 from .extra import ChiSquare
+from sora.body import Body
 from sora.config.decorators import deprecated_alias
 import astropy.units as u
 from astropy.coordinates import SkyCoord, SkyOffsetFrame
@@ -257,25 +258,56 @@ class _PositionDict(dict):
 class Occultation():
     """ Does the reduction of the occultation
     """
-    def __init__(self, star, ephem, time):
+    def __init__(self, star, body=None, ephem=None, time=None):
         """ Instantiates the Occultation object.
 
         Parameters:
-            star (Star): The coordinate of the star in the same reference frame as the ephemeris.
-                It must be a Star object.
-            ephem (Ephem): object ephemeris. It must be an Ephemeris object.
+            star (Star, str): The coordinate of the star in the same reference frame as the ephemeris.
+                It must be a Star object or a string with the coordinates of the object to search on
+                Vizier (required).
+            body* (Body, str): Object that will occult the star. It must be a Body object or its
+                name to search in the Small Body Database.
+            ephem* (Ephem): object ephemeris. It must be an Ephemeris object or a list .
             time (str, Time): Reference time of the occultation.
                 Time does not need to be exact, but needs to be within approximately 50 minutes
-                of the occultation closest approach to calculate occultation parameters.
-        """
-        if type(star) != Star:
-            raise ValueError('star must be a Star object')
-        if type(ephem) not in [EphemPlanete, EphemKernel, EphemJPL]:
-            raise ValueError('ephem must be a Ephemeris object')
-        self.star = star
-        self.ephem = ephem
+                of the occultation closest approach to calculate occultation parameters (required).
 
-        tca, ca, pa, vel, dist = occ_params(star, ephem, time)
+        * When instantiating with "body" and "ephem", the user may define the Occultation in 3 ways:
+            - With "body" and "ephem".
+            - With only "body". In this case, the "body" parameter must be a Body object and have an
+                ephemeris associated (see Body documentation).
+            - With only "ephem". In this case, the "ephem" parameter must be one of the Ephem Classes
+                and have a name (see Ephem documentation) to search for the body in the Small Body Database.
+        """
+        if body is None and ephem is None:
+            raise ValueError('"body" and/or "ephem" must be given.')
+        if time is None:
+            raise ValueError('"time" parameter must be given.')
+        if isinstance(star, str):
+            star = Star(coord=star)
+        elif not isinstance(star, Star):
+            raise ValueError('"star" must be a Star object or a string with coordinates of the star')
+        self.star = star
+        if body is not None:
+            if not isinstance(body, (str, Body)):
+                raise ValueError('"body" must be a string with the name of the object or a Body object')
+            if isinstance(body, str):
+                body = Body(name=body, mode='sbdb')
+            self.body = body
+        if ephem is not None:
+            if body is not None:
+                self.body.ephem = ephem
+            else:
+                if hasattr(ephem, 'name'):
+                    self.body = Body(name=ephem.name, mode='sbdb', ephem=ephem)
+                else:
+                    raise ValueError('When only "ephem" is given, "ephem" must have a name for search.')
+        try:
+            ephem = self.body.ephem
+        except AttributeError:
+            raise ValueError('An Ephem object must be defined in Body object.')
+
+        tca, ca, pa, vel, dist = occ_params(self.star, ephem, time)
         self.ca = ca   # Closest Approach distance
         self.pa = pa   # Position Angle at CA
         self.vel = vel  # Shadow velocity at CA
@@ -284,11 +316,11 @@ class Occultation():
         self.star_diam = self.star.apparent_diameter(self.dist, log=False)
 
         meta = {
-            'name': self.ephem.name, 'radius': self.ephem.radius.to(u.km).value,
-            'error_ra': self.ephem.error_ra.to(u.mas).value, 'error_dec': self.ephem.error_dec.to(u.mas).value}
+            'name': self.body.name, 'radius': self.body.radius.to(u.km).value,
+            'error_ra': self.body.ephem.error_ra.to(u.mas).value, 'error_dec': self.body.ephem.error_dec.to(u.mas).value}
         self.predict = PredictionTable(
             time=[tca], coord_star=[self.star.geocentric(tca)],
-            coord_obj=[self.ephem.get_position(tca)], ca=[ca.value], pa=[pa.value], vel=[vel.value],
+            coord_obj=[self.body.ephem.get_position(tca)], ca=[ca.value], pa=[pa.value], vel=[vel.value],
             dist=[dist.value], mag=[self.star.mag['G']], source=[self.star.code], meta=meta)
 
         self.__observations = []
@@ -313,7 +345,7 @@ class Occultation():
         lightcurve.set_dist(float(self.dist.AU))
         lightcurve.set_star_diam(float(self.star_diam.km))
         try:
-            lightcurve.calc_magnitude_drop(mag_star=self.star.mag['G'], mag_obj=self.ephem.apparent_magnitude(self.tca))
+            lightcurve.calc_magnitude_drop(mag_star=self.star.mag['G'], mag_obj=self.body.apparent_magnitude(self.tca))
         except:
             lightcurve.bottom_flux = 0.0
             warnings.warn('Magnitude drop was not calculated. Using bottom flux as 0.0 instead.')
@@ -444,15 +476,15 @@ class Occultation():
                     pass
                 else:
                     do_err = True
-                    f1, g1, vf1, vg1 = positionv(self.star, self.ephem, o, l.immersion)
+                    f1, g1, vf1, vg1 = positionv(self.star, self.body.ephem, o, l.immersion)
                     obs_im['_occ_time'] = l.immersion
                     obs_im['_occ_value'] = (round(f1, 3), round(g1, 3))
                     obs_im['_occ_vel'] = (round(vf1, 3), round(vg1, 3))
                 if not do_err and 'time_err' in obs_im.keys() and obs_im['time_err'] == l.immersion_err:
                     pass
                 else:
-                    fe1, ge1 = positionv(self.star, self.ephem, o, l.immersion-l.immersion_err*u.s)[0:2]
-                    fe2, ge2 = positionv(self.star, self.ephem, o, l.immersion+l.immersion_err*u.s)[0:2]
+                    fe1, ge1 = positionv(self.star, self.body.ephem, o, l.immersion-l.immersion_err*u.s)[0:2]
+                    fe2, ge2 = positionv(self.star, self.body.ephem, o, l.immersion+l.immersion_err*u.s)[0:2]
                     obs_im['_occ_time_err'] = l.immersion_err
                     obs_im['_occ_error'] = ((round(fe1, 3), round(ge1, 3)), (round(fe2, 3), round(ge2, 3)))
 
@@ -465,15 +497,15 @@ class Occultation():
                     pass
                 else:
                     do_err = True
-                    f1, g1, vf1, vg1 = positionv(self.star, self.ephem, o, l.emersion)
+                    f1, g1, vf1, vg1 = positionv(self.star, self.body.ephem, o, l.emersion)
                     obs_em['_occ_time'] = l.emersion
                     obs_em['_occ_value'] = (round(f1, 3), round(g1, 3))
                     obs_em['_occ_vel'] = (round(vf1, 3), round(vg1, 3))
                 if not do_err and 'time_err' in obs_em.keys() and obs_em['time_err'] == l.emersion_err:
                     pass
                 else:
-                    fe1, ge1 = positionv(self.star, self.ephem, o, l.emersion-l.emersion_err*u.s)[0:2]
-                    fe2, ge2 = positionv(self.star, self.ephem, o, l.emersion+l.emersion_err*u.s)[0:2]
+                    fe1, ge1 = positionv(self.star, self.body.ephem, o, l.emersion-l.emersion_err*u.s)[0:2]
+                    fe2, ge2 = positionv(self.star, self.body.ephem, o, l.emersion+l.emersion_err*u.s)[0:2]
                     obs_em['_occ_time_err'] = l.emersion_err
                     obs_em['_occ_error'] = ((round(fe1, 3), round(ge1, 3)), (round(fe2, 3), round(ge2, 3)))
 
@@ -484,7 +516,7 @@ class Occultation():
                 if samecoord and 'time' in obs_start.keys() and obs_start['time'] == l.initial_time:
                     pass
                 else:
-                    f, g, vf, vg = positionv(self.star, self.ephem, o, l.initial_time)
+                    f, g, vf, vg = positionv(self.star, self.body.ephem, o, l.initial_time)
                     obs_start['_occ_time'] = l.initial_time
                     obs_start['_occ_value'] = (round(f, 3), round(g, 3))
                     obs_start['_occ_vel'] = (round(vf, 3), round(vg, 3))
@@ -494,7 +526,7 @@ class Occultation():
                 if samecoord and 'time' in obs_end.keys() and obs_end['time'] == l.end_time:
                     pass
                 else:
-                    f, g, vf, vg = positionv(self.star, self.ephem, o, l.end_time)
+                    f, g, vf, vg = positionv(self.star, self.body.ephem, o, l.end_time)
                     obs_end['_occ_time'] = l.end_time
                     obs_end['_occ_value'] = (round(f, 3), round(g, 3))
                     obs_end['_occ_vel'] = (round(vf, 3), round(vg, 3))
@@ -621,7 +653,7 @@ class Occultation():
             e_off_dec = 0.0*u.mas
             e_dist = False
 
-        coord_geo = self.ephem.get_position(time)
+        coord_geo = self.body.ephem.get_position(time)
         distance = coord_geo.distance.to(u.km)
         coord_frame = SkyOffsetFrame(origin=coord_geo)
         if dist:
@@ -807,7 +839,7 @@ class Occultation():
             namefile (str): Filename to save the log
         """
         if namefile is None:
-            namefile = 'occ_{}_{}.log'.format(self.ephem.name, self.tca.isot[:16])
+            namefile = 'occ_{}_{}.log'.format(self.body.shortname.replace(' ', '_'), self.tca.isot[:16])
         f = open(namefile, 'w')
         f.write(self.__str__())
         f.close()
@@ -859,16 +891,16 @@ class Occultation():
                 vf, vg = end['vel']
                 neg.append([f, g, vf, vg, end['time'].jd, l_name+'_end'])
         if len(pos) > 0:
-            f = open('occ_{}_pos.txt'.format(self.ephem.name), 'w')
+            f = open('occ_{}_pos.txt'.format(self.body.shortname.replace(' ', '_')), 'w')
             for line in pos:
                 f.write('{:9.3f} {:9.3f} {:-6.2f} {:-6.2f} {:16.8f} {}\n'.format(*line))
             f.close()
-            f = open('occ_{}_err.txt'.format(self.ephem.name), 'w')
+            f = open('occ_{}_err.txt'.format(self.body.shortname.replace(' ', '_')), 'w')
             for line in err:
                 f.write('{:9.3f} {:9.3f} {:-6.2f} {:-6.2f} {:16.8f} {}\n'.format(*line))
             f.close()
         if len(neg) > 0:
-            f = open('occ_{}_neg.txt'.format(self.ephem.name), 'w')
+            f = open('occ_{}_neg.txt'.format(self.body.shortname.replace(' ', '_')), 'w')
             for line in neg:
                 f.write('{:9.3f} {:9.3f} {:-6.2f} {:-6.2f} {:16.8f} {}\n'.format(*line))
             f.close()
@@ -883,7 +915,7 @@ class Occultation():
                'Geocentric shadow velocity: {:.2f}\n'
                'Sun-Geocenter-Target angle:  {:.2f} deg\n'
                'Moon-Geocenter-Target angle: {:.2f} deg\n\n\n'.format(
-                   self.star.code, self.ephem.name, self.ca, self.tca.iso,
+                   self.star.code, self.body.name, self.ca, self.tca.iso,
                    self.pa, self.vel, self.predict['S-G-T'].data[0],
                    self.predict['M-G-T'].data[0])
                )
@@ -897,7 +929,7 @@ class Occultation():
                 if count[status] > 0:
                     string[status] += '-'*79 + '\n'
                 string[status] += ob.__str__() + '\n'
-                ephem_altaz = ob.altaz(lc.time_mean, self.ephem.get_position(lc.time_mean))
+                ephem_altaz = ob.altaz(lc.time_mean, self.body.ephem.get_position(lc.time_mean))
                 string[status] += 'Target altitude: {:.1f} deg\n'.format(ephem_altaz[0])
                 string[status] += 'Target azimuth:  {:.1f} deg\n\n'.format(ephem_altaz[1])
                 string[status] += lc.__str__() + ''
@@ -923,8 +955,7 @@ class Occultation():
             coord.ra.to_string(u.hourangle, sep='hms', precision=5), error_star[0],
             coord.dec.to_string(u.deg, sep='dms', precision=4), error_star[1])
 
-        out += '#'*79 + '\n{:^79s}\n'.format('EPHEMERIS') + '#'*79 + '\n'
-        out += self.ephem.__str__() + '\n'
+        out += self.body.__str__() + '\n'
 
         for status in string.keys():
             if count[status] == 0:
@@ -942,9 +973,9 @@ class Occultation():
             equivalent_radius = np.sqrt(self.fitted_params['equatorial_radius'][0]*polar_radius)
             out += 'polar_radius: {:.3f} km \n'.format(polar_radius)
             out += 'equivalent_radius: {:.3f} km \n'.format(equivalent_radius)
-            if self.ephem.H is not np.nan:
+            if not np.isnan(self.body.H):
                 H_sun = -26.74
-                geometric_albedo = (10**(0.4*(H_sun - self.ephem.H))) * ((u.au.to('km')/equivalent_radius)**2)
+                geometric_albedo = (10**(0.4*(H_sun - self.body.H.value))) * ((u.au.to('km')/equivalent_radius)**2)
                 out += 'geometric albedo (V): {:.3f} ({:.1%}) \n'.format(geometric_albedo, geometric_albedo)
             else:
                 out += 'geometric albedo (V): not calculated, absolute magnitude (H) is unknown \n'

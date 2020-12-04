@@ -1,13 +1,13 @@
 import numpy as np
 from astropy.coordinates import SkyCoord, SkyOffsetFrame, \
-    SphericalCosLatDifferential, ICRS
+    SphericalCosLatDifferential, ICRS, get_sun
 from astropy.time import Time
 from astropy.table import vstack
 import astropy.units as u
 import astropy.constants as const
 from astroquery.jplhorizons import Horizons
 from sora.config import test_attr, input_tests
-from sora.config.decorators import deprecated_alias
+from sora.config.decorators import deprecated_alias, deprecated_function
 import spiceypy as spice
 import urllib.request
 import warnings
@@ -106,8 +106,222 @@ def ephem_kernel(time, target, observer, kernels):
     return coord_rd
 
 
-class EphemPlanete():
-    def __init__(self, name, ephem, **kwargs):
+class BaseEphem():
+    def __init__(self, name=None, spkid=None, **kwargs):
+        # remove 'H', 'G', 'mass' and 'radius' from allowed kwargs and docstring for v1.0
+        input_tests.check_kwargs(kwargs, allowed_kwargs=['error_dec', 'error_ra', 'H', 'G', 'mass', 'radius'])
+        #
+        self._shared_with = {'body': {}, 'occultation': {}}
+        self.name = name
+        if spkid:
+            self.spkid = spkid
+            self.code = self.spkid  # remove this line for v1.0
+        self.error_ra = kwargs.get('error_ra', 0)*u.arcsec
+        self.error_dec = kwargs.get('error_dec', 0)*u.arcsec
+        # start of block removal for v1.0
+        if 'radius' in kwargs:
+            self.radius = kwargs['radius']*u.km
+        self.mass = kwargs.get('mass', 0.0)*u.kg
+        if 'H' in kwargs:
+            self.H = kwargs['H']
+        if 'G' in kwargs:
+            self.G = kwargs['G']
+        # end of block removal for v1.0
+
+    @property
+    def spkid(self):
+        if 'spkid' in self._shared_with['body']:
+            return self._shared_with['body']['spkid']
+        elif hasattr(self, '_spkid'):
+            return self._spkid
+        else:
+            raise AttributeError('{} does not have spkid'.format(self.__class__.__name__))
+
+    @spkid.setter
+    def spkid(self, value):
+        if 'spkid' in self._shared_with['body']:
+            raise AttributeError('When Ephem is associated to a Body object, spkid must be given to the Body object.')
+        self._spkid = str(int(value))
+
+    # Start of block removal for v1.0
+    @property
+    def radius(self):
+        if 'radius' in self._shared_with['body']:
+            return self._shared_with['body']['radius']
+        elif hasattr(self, '_radius'):
+            return self._radius
+        else:
+            raise AttributeError('{} does not have radius'.format(self.__class__.__name__))
+
+    @radius.setter
+    def radius(self, value):
+        if 'radius' in self._shared_with['body']:
+            raise AttributeError('When Ephem is associated to a Body object, radius must be given to the Body object.')
+        self._radius = str(value)
+
+    @property
+    def H(self):
+        if 'H' in self._shared_with['body']:
+            return self._shared_with['body']['H'].value
+        elif hasattr(self, '_H'):
+            return self._H
+        else:
+            raise AttributeError('{} does not have H'.format(self.__class__.__name__))
+
+    @H.setter
+    def H(self, value):
+        if 'H' in self._shared_with['body']:
+            raise AttributeError('When Ephem is associated to a Body object, H must be given to the Body object.')
+        self._H = str(value)
+
+    @property
+    def G(self):
+        if 'G' in self._shared_with['body']:
+            return self._shared_with['body']['G']
+        elif hasattr(self, '_G'):
+            return self._G
+        else:
+            raise AttributeError('{} does not have G'.format(self.__class__.__name__))
+
+    @G.setter
+    def G(self, value):
+        if 'G' in self._shared_with['body']:
+            raise AttributeError('When Ephem is associated to a Body object, G must be given to the Body object.')
+        self._G = str(value)
+
+    def apparent_magnitude(self, time):
+        """ Calculates the Object Apparent Magnitude
+
+        Parameters:
+            time (str, Time): Reference time to calculate the object aparent magnitude.
+
+        Returns:
+            ap_mag (float): Object apparent magnitude
+        """
+        time = Time(time)
+
+        if getattr(self, 'H', None) is None or getattr(self, 'G', None) is None:
+            search_name = self._shared_with['body'].get('search_name', self.name)
+            id_type = getattr(self, 'id_type', 'majorbody')
+            id_type = self._shared_with['body'].get('id_type', id_type)
+            obj = Horizons(id=search_name, id_type=id_type, location='geo', epochs=time.jd)
+            eph = obj.ephemerides(extra_precision=True)
+            if 'H' in eph.keys():
+                self.H = eph['H'][0]
+                self.G = eph['G'][0]
+            if len(eph['V']) == 1:
+                return eph['V'][0]
+            else:
+                return eph['V'].tolist()
+
+        else:
+            obs_obj = self.get_position(time)
+            obs_sun = get_sun(time)
+            sun_obj = SkyCoord(obs_obj.cartesian - obs_sun.cartesian)
+            sun_obj.representation_type = 'spherical'
+
+            # Calculates the phase angle between the 2-vectors
+            unit_vector_1 = -obs_obj.cartesian.xyz / np.linalg.norm(obs_obj.cartesian.xyz)
+            unit_vector_2 = -sun_obj.cartesian.xyz / np.linalg.norm(sun_obj.cartesian.xyz)
+            dot_product = np.dot(unit_vector_1, unit_vector_2)
+            phase = np.arccos(dot_product).to(u.deg).value
+
+            return apparent_mag(self.H, self.G, obs_obj.distance.to(u.AU).value,
+                                sun_obj.distance.to(u.AU).value, phase)
+
+    @deprecated_function(message="Please use get_pole_position_angle from Body object")
+    def get_pole_position_angle(self, pole, time):
+        """ Returns the object geocentric position.
+
+        Parameters:
+            pole (str, SkyCoord): Coordinate of the object pole ICRS.
+            time (str, Time): Time from which to calculate the position.
+
+        Returns:
+            position_angle (float): Position angle of the object pole, in degrees
+            aperture_angle (float): Apeture angle of the object pole, in degrees
+        """
+        time = Time(time)
+        if type(pole) == str:
+            pole = SkyCoord(pole, unit=(u.hourangle, u.deg))
+        obj = self.get_position(time)
+        position_angle = obj.position_angle(pole).value*u.rad
+        aperture_angle = np.arcsin(
+            -(np.sin(pole.dec)*np.sin(obj.dec) +
+              np.cos(pole.dec)*np.cos(obj.dec)*np.cos(pole.ra-obj.ra))
+            )
+        return position_angle.to('deg'), aperture_angle.to('deg')
+    # End of block removal for v1.0
+
+    def get_ksi_eta(self, time, star):
+        """ Returns projected position* of the object in the tangent sky plane relative to a star.
+            * ortographic projection.
+
+        Parameters:
+            time (str, Time): Reference time to calculate the object position.
+            star (str, SkyCoord): Coordinate of the star in the same reference frame as the ephemeris.
+
+        Returns:
+            ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
+                relative to a star.
+                Ksi is in the North-South direction (North positive)
+                Eta is in the East-West direction (East positive)
+        """
+        time = Time(time)
+        if type(star) == str:
+            star = SkyCoord(star, unit=(u.hourangle, u.deg))
+        coord = self.get_position(time)
+        target = coord.transform_to(SkyOffsetFrame(origin=star))
+        da = target.cartesian.y
+        dd = target.cartesian.z
+        return da.to(u.km).value, dd.to(u.km).value
+
+    def add_offset(self, da_cosdec, ddec):
+        """ Adds an offset to the Ephemeris
+
+        Parameters:
+            da_cosdec (int, float): Delta_alpha_cos_delta in mas
+            ddec (int, float): Delta_delta in mas
+        """
+        dadc = test_attr(da_cosdec, float, 'da_cosdec')
+        dd = test_attr(ddec, float, 'ddec')
+        self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
+
+    def to_file(self, time, namefile=None):
+        """ Save the ephemerides to a file. It will be saved starting one hour before the
+        central time untill one hour after it, with a step of one minute. This file can be
+        used as an input for EphemPlanete().
+
+        Parameters:
+            time (str, Time): central time to be saved
+            namefile (str): Filename to save
+        """
+        if namefile is None:
+            namefile = 'Ephem_' + self.name.replace(' ', '_') + '.dat'
+        time = test_attr(time, Time, 'time')
+        time_output = time + np.arange(-60, 61, 1)*u.min
+        ephem_output = self.get_position(time_output.utc)
+        array_output = np.array([time_output.utc.jd, ephem_output.ra.deg, ephem_output.dec.deg,
+                                 ephem_output.distance.au]).T
+        np.savetxt(namefile, array_output, delimiter='    ', fmt='%.14f')
+
+    def __str__(self):
+        """ String representation of the Ephem Class.
+        """
+        out = ("----------- Ephemeris -----------\n"
+               "\n{}: {{ephem_info}} (SPKID={})\n"
+               "Ephem Error: RA*cosDEC: {:.3f}; DEC: {:.3f}\n".format(
+                   self.__class__.__name__, getattr(self, 'spkid', ''), self.error_ra, self.error_dec)
+               )
+        if hasattr(self, 'offset'):
+            out += 'Offset applied: RA*cosDEC: {:.4f}; DEC: {:.4f}\n'.format(
+                self.offset.d_lon_coslat.to(u.arcsec),
+                self.offset.d_lat.to(u.arcsec))
+        return out
+
+
+class EphemPlanete(BaseEphem):
+    def __init__(self, ephem, name=None, spkid=None, **kwargs):
         """ Simulates the former fortran programs ephem_planete and fit_d2_ksi_eta.
 
         Parameters:
@@ -120,25 +334,13 @@ class EphemPlanete():
             H (int,float): Object Absolute Magnitude (Default: NaN)
             G (int,float): Object Phase slope (Default: NaN)
         """
-        input_tests.check_kwargs(kwargs, allowed_kwargs=['error_dec', 'error_ra', 'H', 'G', 'mass', 'radius'])
+        super().__init__(name=name, spkid=spkid, **kwargs)
         data = np.loadtxt(ephem, unpack=True)
-        self.name = name
         self.time = Time(data[0], format='jd')
         self.ephem = SkyCoord(data[1]*u.deg, data[2]*u.deg, data[3]*u.AU)
         self.__reftime = self.time[0]
         self.min_time = Time(data[0].min(), format='jd')
         self.max_time = Time(data[0].max(), format='jd')
-        try:
-            data = read_obj_data()
-        except:
-            data = {}
-        radius, error_ra, error_dec = data.get(name.lower(), [0, 0, 0])
-        self.radius = kwargs.get('radius', radius)*u.km
-        self.error_ra = kwargs.get('error_ra', error_ra)*u.arcsec
-        self.error_dec = kwargs.get('error_dec', error_dec)*u.arcsec
-        self.mass = kwargs.get('mass', 0.0)*u.kg
-        self.H = kwargs.get('H', np.nan)
-        self.G = kwargs.get('G', np.nan)
 
     def get_position(self, time):
         """ Returns the geocentric position of the object.
@@ -240,51 +442,13 @@ class EphemPlanete():
         else:
             raise ValueError('A "star" parameter is missing. Please run fit_d2_ksi_eta first.')
 
-    def apparent_magnitude(self, time):
-        """ Calculates the object Apparent Magnitude
-
-        Parameters:
-            time (str, Time): reference time to calculate the apparent magnitude.
-
-        Returns:
-            ap_mag (float): Object apparent magnitude
-        """
-        time = Time(time)
-        obj = Horizons(id=self.name, id_type='majorbody', location='geo', epochs=time.jd)
-        eph = obj.ephemerides(extra_precision=True)
-        if 'H' in eph.keys():
-            self.H = eph['H'][0]
-            self.G = eph['G'][0]
-        if len(eph['V']) == 1:
-            return eph['V'][0]
-        else:
-            return eph['V'].tolist()
-
-    def add_offset(self, da_cosdec, ddec):
-        """ Adds an offset to the Ephemeris
-
-        Parameters:
-            da_cosdec (int, float): Delta_alpha_cos_delta in mas
-            ddec (int, float): Delta_delta in mas
-        """
-        dadc = test_attr(da_cosdec, float, 'da_cosdec')
-        dd = test_attr(ddec, float, 'ddec')
-        self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
-
     def __str__(self):
         """ String representation of the EphemPlanete Class.
         """
-        out = ('Ephemeris of {}.\n'
-               'Radius: {:.1f}\n'
-               'Mass: {:.2e}\n'
-               '\nEphem Planete:\n'
-               'Valid from {} until {}\n'
-               'Ephem Error: RA*cosDEC: {:.3f}; DEC: {:.3f}\n'.format(
-                   self.name, self.radius, self.mass, self.min_time.iso,
-                   self.max_time.iso, self.error_ra, self.error_dec)
-               )
+        validity = 'Valid from {} until {}'.format(self.min_time.iso, self.max_time.iso)
+        out = super().__str__().format(ephem_info=validity)
         if hasattr(self, 'star'):
-            out += ("Fitted ephemeris position relative to star coordinate {}\n"
+            out += ("\nFitted ephemeris position relative to star coordinate {}\n"
                     "    ksi = aksi*t\u00b2 + bksi*t + cksi\n"
                     "    eta = aeta*t\u00b2 + beta*t + ceta\n"
                     "    t=(jd-{})/({}-{})\n"
@@ -307,14 +471,11 @@ class EphemPlanete():
             rmsk = np.sqrt(np.mean(np.square(dksi)))
             rmse = np.sqrt(np.mean(np.square(deta)))
             out += 'Residual RMS: ksi={:.3f} km, eta={:.3f} km\n'.format(rmsk, rmse)
-        if hasattr(self, 'offset'):
-            out += '\nOffset applied: RA*cosDEC: {:.4f}; DEC: {:.4f}\n'.format(
-                self.offset.d_lon_coslat.to(u.arcsec), self.offset.d_lat.to(u.arcsec))
         return out
 
 
-class EphemJPL():
-    def __init__(self, name, id_type='smallbody', **kwargs):
+class EphemHorizons(BaseEphem):
+    def __init__(self, name, id_type='smallbody', spkid=None, **kwargs):
         """ Obtains the ephemeris from Horizons/JPL service.
 
         Web tool URL = https://ssd.jpl.nasa.gov/horizons.cgi
@@ -332,20 +493,8 @@ class EphemJPL():
             H (int,float): Object Absolute Magnitude (Default: NaN)
             G (int,float): Object Phase slope (Default: NaN)
         """
-        input_tests.check_kwargs(kwargs, allowed_kwargs=['error_dec', 'error_ra', 'H', 'G', 'mass', 'radius'])
-        self.name = name
+        super().__init__(name=name, spkid=spkid, **kwargs)
         self.id_type = id_type
-        try:
-            data = read_obj_data()
-        except:
-            data = {}
-        radius, error_ra, error_dec = data.get(name.lower(), [0, 0, 0])
-        self.radius = kwargs.get('radius', radius)*u.km
-        self.error_ra = kwargs.get('error_ra', error_ra)*u.arcsec
-        self.error_dec = kwargs.get('error_dec', error_dec)*u.arcsec
-        self.mass = kwargs.get('mass', 0.0)*u.kg
-        self.H = kwargs.get('H', np.nan)
-        self.G = kwargs.get('G', np.nan)
 
     def get_position(self, time):
         """ Returns the geocentric position of the object.
@@ -386,119 +535,22 @@ class EphemJPL():
             return coord[0]
         return coord
 
-    def apparent_magnitude(self, time):
-        """ Calculates the Object Apparent Magnitude
-
-        Parameters:
-            time (str, Time): Reference time to calculate the magnitude.
-
-        Returns:
-            ap_mag (float): Apparent magnitude
-        """
-        time = Time(time)
-        obj = Horizons(id=self.name, id_type=self.id_type, location='geo', epochs=time.jd)
-        eph = obj.ephemerides(extra_precision=True)
-        if 'H' in eph.keys():
-            self.H = eph['H'][0]
-            self.G = eph['G'][0]
-        if len(eph['V']) == 1:
-            return eph['V'][0]
-        else:
-            return eph['V'].tolist()
-
-    def get_ksi_eta(self, time, star):
-        """ Returns projected position* of the object in the tangent sky plane relative to a star.
-            * ortographic projection.
-
-
-        Parameters:
-            time (str, Time): Reference time to calculate the object position.
-            star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
-
-        Returns:
-            ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
-                relative to a star.
-                Ksi is in the North-South direction (North positive)
-                Eta is in the East-West direction (East positive)
-        """
-        time = Time(time)
-        if type(star) == str:
-            star = SkyCoord(star, unit=(u.hourangle, u.deg))
-        coord = self.get_position(time)
-        target = coord.transform_to(SkyOffsetFrame(origin=star))
-        da = target.cartesian.y
-        dd = target.cartesian.z
-        return da.to(u.km).value, dd.to(u.km).value
-
-    def get_pole_position_angle(self, pole, time):
-        """ Returns the object geocentric position.
-
-        Parameters:
-            pole (str, SkyCoord): Coordinate of the object pole ICRS.
-            time (str, Time): Reference time to calculate the position.
-
-        Returns:
-            position_angle (float): Position angle of the object pole, in degrees
-            aperture_angle (float): Apeture angle of the object pole, in degrees
-        """
-        time = Time(time)
-        if type(pole) == str:
-            pole = SkyCoord(pole, unit=(u.hourangle, u.deg))
-        obj = self.get_position(time)
-        position_angle = obj.position_angle(pole).value*u.rad
-        aperture_angle = np.arcsin(
-            -(np.sin(pole.dec)*np.sin(obj.dec) +
-              np.cos(pole.dec)*np.cos(obj.dec)*np.cos(pole.ra-obj.ra))
-            )
-        return position_angle.to('deg'), aperture_angle.to('deg')
-
-    def add_offset(self, da_cosdec, ddec):
-        """ Adds an offset to the Ephemeris
-
-        Parameters:
-            da_cosdec (int, float): Delta_alpha_cos_delta in mas
-            ddec (int, float): Delta_delta in mas
-        """
-        dadc = test_attr(da_cosdec, float, 'da_cosdec')
-        dd = test_attr(ddec, float, 'ddec')
-        self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
-
-    def to_file(self, time, namefile=None):
-        """ Save the ephemerides to a file. It will be saved starting one hour before the
-        central time untill one hour after it, with a step of one minute. This file can be
-        used as an input for EphemPlanete().
-
-        Parameters:
-            time (str, Time): central time to be saved
-            namefile (str): Filename to save
-        """
-        if namefile is None:
-            namefile = 'Ephem_' + self.name.replace(' ', '_') + '.dat'
-        time = test_attr(time, Time, 'time')
-        time_output = time + np.arange(-60, 61, 1)*u.min
-        ephem_output = self.get_position(time_output.utc)
-        array_output = np.array([time_output.utc.jd, ephem_output.ra.deg, ephem_output.dec.deg,
-                                 ephem_output.distance.au]).T
-        np.savetxt(namefile, array_output, delimiter='    ', fmt='%.14f')
-
     def __str__(self):
-        """ String representation of the EphemJPL Class.
+        """ String representation of the EphemHorizons Class.
         """
-        out = ("Ephemeris of {}.\n"
-               "Radius: {:.1f}\n"
-               "Mass: {:.2e}\n"
-               "\nEphemeris are downloaded from Horizons website\n".format(
-                   self.name, self.radius, self.mass)
-               )
-        if hasattr(self, 'offset'):
-            out += 'Offset applied: RA*cosDEC: {:.4f}; DEC: {:.4f}\n'.format(
-                self.offset.d_lon_coslat.to(u.arcsec), self.offset.d_lat.to(u.arcsec))
+        out = super().__str__().format(ephem_info='Ephemeris are downloaded from Horizons website')
         return out
 
 
-class EphemKernel():
+# remove this block for v1.0
+class EphemJPL(EphemHorizons):
+    pass
+# end of block removal for v1.0
+
+
+class EphemKernel(BaseEphem):
     @deprecated_alias(code='spkid')  # remove this line for v1.0
-    def __init__(self, name, spkid, kernels, **kwargs):
+    def __init__(self, kernels, spkid, name=None, **kwargs):
         """ Gets the ephemeris from bsp kernels.
 
         Parameters:
@@ -512,10 +564,7 @@ class EphemKernel():
             H (int,float): Object Absolute Magnitude (Default: NaN)
             G (int,float): Object Phase slope (Default: NaN)
         """
-        input_tests.check_kwargs(kwargs, allowed_kwargs=['error_dec', 'error_ra', 'H', 'G', 'mass', 'radius'])
-        self.name = name
-        self.spkid = str(spkid)
-        self.code = self.spkid  # remove this line for v1.0
+        super().__init__(name=name, spkid=spkid, **kwargs)
         self.meta = {}
         kerns = []
         for arg in kernels:
@@ -524,17 +573,6 @@ class EphemKernel():
         spice.kclear()
         self.meta['kernels'] = '/'.join(kerns)
         self.__kernels = kernels
-        try:
-            data = read_obj_data()
-        except:
-            data = {}
-        radius, error_ra, error_dec = data.get(name.lower(), [0, 0, 0])
-        self.radius = kwargs.get('radius', radius)*u.km
-        self.error_ra = kwargs.get('error_ra', error_ra)*u.arcsec
-        self.error_dec = kwargs.get('error_dec', error_dec)*u.arcsec
-        self.mass = kwargs.get('mass', 0.0)*u.kg
-        self.H = kwargs.get('H', np.nan)
-        self.G = kwargs.get('G', np.nan)
 
     def get_position(self, time):
         """ Returns the object geocentric position.
@@ -553,128 +591,8 @@ class EphemKernel():
             pos = new_pos.transform_to(ICRS)
         return pos
 
-    def apparent_magnitude(self, time):
-        """ Calculates the Object Apparent Magnitude
-
-        Parameters:
-            time (str, Time): Reference time to calculate the object aparent magnitude.
-
-        Returns:
-            ap_mag (float): Object apparent magnitude
-        """
-        time = Time(time)
-
-        if np.isnan(self.H) or np.isnan(self.G):
-            obj = Horizons(id=self.name, id_type='majorbody', location='geo', epochs=time.jd)
-            eph = obj.ephemerides(extra_precision=True)
-            if 'H' in eph.keys():
-                self.H = eph['H'][0]
-                self.G = eph['G'][0]
-            if len(eph['V']) == 1:
-                return eph['V'][0]
-            else:
-                return eph['V'].tolist()
-
-        else:
-            obs_obj = self.get_position(time)
-            sun_obj = ephem_kernel(time, self.spkid, '10', self.__kernels)
-
-            # Calculates the phase angle between the 2-vectors
-            unit_vector_1 = -obs_obj.cartesian.xyz / np.linalg.norm(obs_obj.cartesian.xyz)
-            unit_vector_2 = -sun_obj.cartesian.xyz / np.linalg.norm(sun_obj.cartesian.xyz)
-            dot_product = np.dot(unit_vector_1, unit_vector_2)
-            phase = np.arccos(dot_product).to(u.deg).value
-
-            return apparent_mag(self.H, self.G, obs_obj.distance.to(u.AU).value,
-                                sun_obj.distance.to(u.AU).value, phase)
-
-    def get_ksi_eta(self, time, star):
-        """ Returns projected position* of the object in the tangent sky plane relative to a star.
-            * ortographic projection.
-
-        Parameters:
-            time (str, Time): Reference time to calculate the object position.
-            star (str, SkyCoord): Coordinate of the star in the same reference frame as the ephemeris.
-
-        Returns:
-            ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
-                relative to a star.
-                Ksi is in the North-South direction (North positive)
-                Eta is in the East-West direction (East positive)
-        """
-        time = Time(time)
-        if type(star) == str:
-            star = SkyCoord(star, unit=(u.hourangle, u.deg))
-        coord = self.get_position(time)
-        target = coord.transform_to(SkyOffsetFrame(origin=star))
-        da = target.cartesian.y
-        dd = target.cartesian.z
-        return da.to(u.km).value, dd.to(u.km).value
-
-    def get_pole_position_angle(self, pole, time):
-        """ Returns the object geocentric position.
-
-        Parameters:
-            pole (str, SkyCoord): Coordinate of the object pole ICRS.
-            time (str, Time): Time from which to calculate the position.
-
-        Returns:
-            position_angle (float): Position angle of the object pole, in degrees
-            aperture_angle (float): Apeture angle of the object pole, in degrees
-        """
-        time = Time(time)
-        if type(pole) == str:
-            pole = SkyCoord(pole, unit=(u.hourangle, u.deg))
-        obj = self.get_position(time)
-        position_angle = obj.position_angle(pole).value*u.rad
-        aperture_angle = np.arcsin(
-            -(np.sin(pole.dec)*np.sin(obj.dec) +
-              np.cos(pole.dec)*np.cos(obj.dec)*np.cos(pole.ra-obj.ra))
-            )
-        return position_angle.to('deg'), aperture_angle.to('deg')
-
-    def add_offset(self, da_cosdec, ddec):
-        """ Adds an offset to the Ephemeris
-
-        Parameters:
-            da_cosdec (int, float): Delta_alpha_cos_delta in mas
-            ddec (int, float): Delta_delta in mas
-        """
-        dadc = test_attr(da_cosdec, float, 'da_cosdec')
-        dd = test_attr(ddec, float, 'ddec')
-        self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
-
-    def to_file(self, time, namefile=None):
-        """ Save the ephemerides to a file. It will be saved starting one hour before the
-        central time untill one hour after it, with a step of one minute. This file can be
-        used as an input for EphemPlanete().
-
-        Parameters:
-            time (str, Time): central time to be saved
-            namefile (str): Filename to save
-        """
-        if namefile is None:
-            namefile = 'Ephem_' + self.name.replace(' ', '_') + '.dat'
-        time = test_attr(time, Time, 'time')
-        time_output = time + np.arange(-60, 61, 1)*u.min
-        ephem_output = self.get_position(time_output.utc)
-        array_output = np.array([time_output.utc.jd, ephem_output.ra.deg, ephem_output.dec.deg,
-                                 ephem_output.distance.au]).T
-        np.savetxt(namefile, array_output, delimiter='    ', fmt='%.14f')
-
     def __str__(self):
         """ String representation of the EphemKernel Class.
         """
-        out = ("Ephemeris of {}.\n"
-               "Radius: {:.1f}\n"
-               "Mass: {:.2e}\n"
-               "\nEphem Kernel: {} (SPKID={})\n"
-               "Ephem Error: RA*cosDEC: {:.3f}; DEC: {:.3f}\n".format(
-                   self.name, self.radius, self.mass, self.meta['kernels'], self.spkid,
-                   self.error_ra, self.error_dec)
-               )
-        if hasattr(self, 'offset'):
-            out += 'Offset applied: RA*cosDEC: {:.4f}; DEC: {:.4f}\n'.format(
-                self.offset.d_lon_coslat.to(u.arcsec),
-                self.offset.d_lat.to(u.arcsec))
+        out = super().__str__().format(ephem_info=self.meta['kernels'])
         return out
