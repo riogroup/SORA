@@ -17,11 +17,12 @@ __all__ = ['Star']
 
 
 class Star(MetaStar):
-    def __init__(self, **kwargs):
+    def __init__(self, catalogue='gaiaedr3', **kwargs):
         """ Defines a star
 
         Parameters:
-            code (str): Gaia-DR2 Source code for searching in VizieR.
+            catalogue (str): The catalogue to download data. It can be "gaia2" or "gaiaedr3"
+            code (str): Gaia Source code for searching in VizieR.
             coord (str, SkyCoord): if code is not given, coord nust have the coordinates
                 RA and DEC of the star to search in VizieR: 'hh mm ss.ss +dd mm ss.ss'
             ra (int, float): Right Ascension, in deg.
@@ -51,6 +52,9 @@ class Star(MetaStar):
         allowed_kwargs = ['bjones', 'code', 'coord', 'dec', 'epoch', 'local', 'log', 'nomad', 'parallax', 'pmdec', 'pmra',
                           'ra', 'rad_vel']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
+        allowed_catalogues = ['gaia2', 'gaiaedr3']
+        if catalogue not in allowed_catalogues:
+            raise ValueError('Catalogue {} is not one of the allowed catalogues {}'.format(catalogue, allowed_catalogues))
         self._log = kwargs.get('log', True)
         local = kwargs.get('local', False)
         self.bjones = False
@@ -76,7 +80,7 @@ class Star(MetaStar):
         else:
             if not hasattr(self, 'code') and 'RA' not in self._attributes:
                 raise ValueError("User must give gaia Source ID 'code' or coordinates for the online search")
-            self.__searchgaia()
+            self.__searchgaia(catalog=catalogue)
         if kwargs.get('nomad', True):
             self.__getcolors()
         try:
@@ -208,14 +212,19 @@ class Star(MetaStar):
         raise AttributeError("Star apparent diameter could not be calculated. ",
                              "Please define star diameter or B,V,K magnitudes.")
 
-    def __searchgaia(self):
+    def __searchgaia(self, catalog):
         """ Searches for the star position in the Gaia catalogue and save informations
+
+        Parameters:
+            catalog (str): The catalogue to download data. It can be "gaia2" or "gaiaedr3"
         """
+        catalogues = {'gaia2': 'I/345/gaia2', 'gaiaedr3': 'I/350/gaiaedr3'}
+        cat = catalogues[catalog]
         if hasattr(self, 'code'):
-            catalogue = search_star(code=self.code, columns=['**'], catalog='I/345/gaia2', log=self._log)
+            catalogue = search_star(code=self.code, columns=['**'], catalog=cat, log=self._log)
         else:
             catalogue = search_star(coord=self.coord, columns=['**'], radius=2*u.arcsec,
-                                    catalog='I/345/gaia2', log=self._log)
+                                    catalog=cat, log=self._log)
         if len(catalogue) == 0:
             raise ValueError('No star was found. It does not exist or VizieR is out.')
         catalogue = catalogue[0]
@@ -231,7 +240,8 @@ class Star(MetaStar):
         self.pmdec = catalogue['pmDE'][0]*u.mas/u.year
         self.epoch = Time(catalogue['Epoch'][0], format='jyear')
         self.parallax = catalogue['Plx'][0]*u.mas
-        self.rad_vel = catalogue['RV'][0]*u.km/u.s
+        rv_name = {'gaia2': 'RV', 'gaiaedr3': 'RVDR2'}
+        self.rad_vel = catalogue[rv_name[catalog]][0]*u.km/u.s
         self.set_magnitude(G=catalogue['Gmag'][0])
 
         self.meta_gaia = {c: catalogue[c][0] for c in catalogue.columns}
@@ -241,7 +251,8 @@ class Star(MetaStar):
         self.errors['Plx'] = self.meta_gaia['e_Plx']*u.mas
         self.errors['pmRA'] = self.meta_gaia['e_pmRA']*(u.mas/u.yr)
         self.errors['pmDE'] = self.meta_gaia['e_pmDE']*(u.mas/u.yr)
-        self.errors['rad_vel'] = self.meta_gaia['e_RV']*(u.km/u.s)
+        erv_name = {'gaia2': 'e_RV', 'gaiaedr3': 'e_RVDR2'}
+        self.errors['rad_vel'] = self.meta_gaia[erv_name[catalog]]*(u.km/u.s)
 
         A = (1*u.AU).to(u.km).value
         cov = np.zeros((6, 6))
@@ -263,12 +274,12 @@ class Star(MetaStar):
                     if not np.ma.core.is_masked(x):
                         cov[i, j] = x
                         cov[j, i] = cov[i, j]
-            x = cov[i, 2]*(self.meta_gaia['RV']/A)
+            x = cov[i, 2]*(self.meta_gaia[rv_name[catalog]]/A)
             if not np.ma.core.is_masked(x):
                 cov[i, 5] = x
                 cov[5, i] = cov[i, 5]
-        x = cov[2, 2]*(self.meta_gaia['RV']**2 + self.meta_gaia['e_RV']**2)/(A**2) \
-            + (self.meta_gaia['Plx']*self.meta_gaia['e_RV']/A)**2
+        x = cov[2, 2]*(self.meta_gaia[rv_name[catalog]]**2 + self.meta_gaia[erv_name[catalog]]**2)/(A**2) \
+            + (self.meta_gaia['Plx']*self.meta_gaia[erv_name[catalog]]/A)**2
         if not np.ma.core.is_masked(x):
             cov[5, 5] = x
         cov[np.where(np.isnan(cov))] = 0.0
