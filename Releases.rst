@@ -4,11 +4,25 @@ SORA v0.2 (Unreleased)
 New Features
 ------------
 
+sora.body
+^^^^^^^^^^^
+
+- Created new Body Class which downloads the occulting body information from online source.
+  At the moment, it downloads only from the Small-Body DataBase. The Body class will be the manager
+  for all the Body informations, such as Ephem, Shape, Ring, etc. [#51]
+
+- New Class PhysicalData, which inherits from astropy.units.quantity.Quantity, is created to handle
+  physical data with uncertainty, reference and notes. [#51]
+
+- "pole_position_angle" and "apparent_magnitude" functions are now present in Body instead of Ephem.[#51]
+
 sora.config
 ^^^^^^^^^^^
 
 sora.ephem
 ^^^^^^^^^^
+
+- A new EphemHorizons was created which is strictly equal to EphemJPL (EphemJPL may be removed in v1.0). [#51]
 
 sora.extra
 ^^^^^^^^^^
@@ -21,6 +35,9 @@ sora.observer
 
 sora.occultation
 ^^^^^^^^^^^^^^^^
+
+- A shortcut was created in Occultation where the user can pass the coordinate of the star directly to Occultation,
+  the Star object will be created automaticaly. [#46]
 
 sora.prediction
 ^^^^^^^^^^^^^^^
@@ -43,6 +60,14 @@ sora.config
 sora.ephem
 ^^^^^^^^^^
 
+- "pole_position_angle" and "apparent_magnitude" is passed to Body Class. In Ephem, it will raise
+  a FutureWarning. [#51]
+
+- The Ephem classes are now passed through the Body Class which will have priority over Ephem
+  attributes. Parameters such as "spkid", "radius", "H" and "G". [#51]
+
+- All Ephem Classes now inherits from BaseEphem, which holds core functionality for all of them. [#51]
+
 sora.extra
 ^^^^^^^^^^
 
@@ -55,6 +80,10 @@ sora.observer
 sora.occultation
 ^^^^^^^^^^^^^^^^
 
+- The new Body Class was implemented in Occultation. For backward compatibility, the previous
+  usage is still possible if the Ephem object have a name. The Body Class is only required
+  if the object is a planet or a planetary satellite. [#51]
+
 sora.prediction
 ^^^^^^^^^^^^^^^
 
@@ -62,6 +91,9 @@ sora.prediction
 
 - prediction() now propagates the positions of the stars using only the proper motions
   before comparing the stars with the ephemeris. [#48]
+
+- The new Body Class was implemented in prediction. For backward compatibility, the previous
+  usage is still possible. [#51]
 
 sora.star
 ^^^^^^^^^^^^^^^
@@ -101,6 +133,8 @@ sora.star
 - Star now calculates the robust propagation of the position of the star and correspondent uncertainties. [#18]
 
 - Fixed bug in Star().__str__() where pmDEC was printed wrong. [#43]
+
+- A small bug fix was made in Star with the units of the star position error when coordinates are local. [#51]
 
 
 SORA v0.1.1 (2020/Jul/30)
