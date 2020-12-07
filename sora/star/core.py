@@ -21,7 +21,7 @@ class Star(MetaStar):
         """ Defines a star
 
         Parameters:
-            catalogue (str): The catalogue to download data. It can be "gaia2" or "gaiaedr3"
+            catalogue (str): The catalogue to download data. It can be "gaiadr2" or "gaiaedr3"
             code (str): Gaia Source code for searching in VizieR.
             coord (str, SkyCoord): if code is not given, coord nust have the coordinates
                 RA and DEC of the star to search in VizieR: 'hh mm ss.ss +dd mm ss.ss'
@@ -52,9 +52,10 @@ class Star(MetaStar):
         allowed_kwargs = ['bjones', 'code', 'coord', 'dec', 'epoch', 'local', 'log', 'nomad', 'parallax', 'pmdec', 'pmra',
                           'ra', 'rad_vel']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
-        allowed_catalogues = ['gaia2', 'gaiaedr3']
+        allowed_catalogues = ['gaiadr2', 'gaiaedr3']
         if catalogue not in allowed_catalogues:
             raise ValueError('Catalogue {} is not one of the allowed catalogues {}'.format(catalogue, allowed_catalogues))
+        self._catalogue = {'gaiadr2': 'Gaia-DR2', 'gaiaedr3': 'Gaia-EDR3'}[catalogue]
         self._log = kwargs.get('log', True)
         local = kwargs.get('local', False)
         self.bjones = False
@@ -216,9 +217,9 @@ class Star(MetaStar):
         """ Searches for the star position in the Gaia catalogue and save informations
 
         Parameters:
-            catalog (str): The catalogue to download data. It can be "gaia2" or "gaiaedr3"
+            catalog (str): The catalogue to download data. It can be "gaiadr2" or "gaiaedr3"
         """
-        catalogues = {'gaia2': 'I/345/gaia2', 'gaiaedr3': 'I/350/gaiaedr3'}
+        catalogues = {'gaiadr2': 'I/345/gaia2', 'gaiaedr3': 'I/350/gaiaedr3'}
         cat = catalogues[catalog]
         if hasattr(self, 'code'):
             catalogue = search_star(code=self.code, columns=['**'], catalog=cat, log=self._log)
@@ -240,7 +241,7 @@ class Star(MetaStar):
         self.pmdec = catalogue['pmDE'][0]*u.mas/u.year
         self.epoch = Time(catalogue['Epoch'][0], format='jyear')
         self.parallax = catalogue['Plx'][0]*u.mas
-        rv_name = {'gaia2': 'RV', 'gaiaedr3': 'RVDR2'}
+        rv_name = {'gaiadr2': 'RV', 'gaiaedr3': 'RVDR2'}
         self.rad_vel = catalogue[rv_name[catalog]][0]*u.km/u.s
         self.set_magnitude(G=catalogue['Gmag'][0])
 
@@ -251,7 +252,7 @@ class Star(MetaStar):
         self.errors['Plx'] = self.meta_gaia['e_Plx']*u.mas
         self.errors['pmRA'] = self.meta_gaia['e_pmRA']*(u.mas/u.yr)
         self.errors['pmDE'] = self.meta_gaia['e_pmDE']*(u.mas/u.yr)
-        erv_name = {'gaia2': 'e_RV', 'gaiaedr3': 'e_RVDR2'}
+        erv_name = {'gaiadr2': 'e_RV', 'gaiaedr3': 'e_RVDR2'}
         self.errors['rad_vel'] = self.meta_gaia[erv_name[catalog]]*(u.km/u.s)
 
         A = (1*u.AU).to(u.km).value
@@ -286,7 +287,7 @@ class Star(MetaStar):
         self.cov = cov
 
         if self._log:
-            print('1 Gaia-DR2 star found G={}'.format(catalogue['Gmag'][0]))
+            print('1 {} star found G={}'.format(self._catalogue, catalogue['Gmag'][0]))
             print('star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}'.format(self.epoch.jyear,
                   self.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
                   self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
@@ -396,7 +397,7 @@ class Star(MetaStar):
         """
         out = ''
         if hasattr(self, 'code'):
-            out += 'Gaia-DR2 star Source ID: {}\n'.format(self.code)
+            out += '{} star Source ID: {}\n'.format(self._catalogue, self.code)
         else:
             out += 'User coordinates\n'
         out += ('ICRS star coordinate at J{}:\n'
