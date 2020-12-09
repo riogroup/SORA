@@ -1,3 +1,104 @@
+SORA v0.1.2 (Unreleased)
+========================
+
+New Features
+------------
+
+sora.config
+^^^^^^^^^^^
+
+sora.ephem
+^^^^^^^^^^
+
+sora.extra
+^^^^^^^^^^
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+sora.observer
+^^^^^^^^^^^^^
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+sora.star
+^^^^^^^^^^^^^^^
+
+- Star() is now able to fully receive astrometric parameters from the user. [#48]
+
+- Star() is able to download and use the distance from Bailer-Jones et al (2018). [#27]
+
+- Gaia-EDR3 was implemented in Star() and is now a default feature. [#52]
+
+
+API Changes
+-----------
+
+sora.config
+^^^^^^^^^^^
+
+sora.ephem
+^^^^^^^^^^
+
+sora.extra
+^^^^^^^^^^
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+sora.observer
+^^^^^^^^^^^^^
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+sora.star
+^^^^^^^^^^^^^^^
+
+- The star module was moved to its own directory. [#52]
+
+
+Bug Fixes
+---------
+
+sora.config
+^^^^^^^^^^^
+
+sora.ephem
+^^^^^^^^^^
+
+sora.extra
+^^^^^^^^^^
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+sora.observer
+^^^^^^^^^^^^^
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+sora.star
+^^^^^^^^^^^^^^^
+
+- Star now calculates the robust propagation of the position of the star and correspondent uncertainties. [#18]
+
+- Fixed bug in Star().__str__() where pmDEC was printed wrong. [#43]
+
+- A small bug fix was made in Star with the units of the star position error when coordinates are local. [#51]
+
+
 SORA v0.1.1 (2020/Jul/30)
 ========================
 
