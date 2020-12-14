@@ -1,4 +1,4 @@
-SORA v0.1.2 (Unreleased)
+SORA v0.1.2 (2020/Dec/14)
 ========================
 
 New Features
