@@ -249,8 +249,20 @@ class _PositionDict(dict):
             raise KeyError('Key "{}" does not exist'.format(key))
 
     def __str__(self):
-        out = '\n' + '\n'.join(['{}: {}'.format(key, self[key]) for key in self.keys()])
+        out = []
+        for key in self.keys():
+            if key not in ['enable', 'disable']:
+                out.append('{}: {}'.format(key, self[key]))
+        out = '\n' + '\n'.join(out)
         return out.replace('\n', '\n  ')
+
+    def __repr__(self):
+        out = []
+        for key in self.keys():
+            if key not in ['enable', 'disable']:
+                out.append('\'{}\': {}'.format(key, self[key].__repr__()))
+        out = ',\n'.join(out)
+        return '{' + out.replace('\n', '\n  ') + '}'
 
 
 class Occultation():
@@ -428,28 +440,34 @@ class Occultation():
         pair = []
         for name, chord in self.chords.items():
             obs = chord.observer
+            obs_name = obs.name
+            if obs_name == '':
+                obs_name = '{}_obs'.format(chord.name)
             lc = chord.lightcurve
-            pair.append((obs.name, lc.name))
+            lc_name = lc.name
+            if lc_name == '':
+                lc_name = '{}_lc'.format(chord.name)
+            pair.append((obs_name, lc_name))
 
             coord = [obs.lon, obs.lat, obs.height]
             if obs.name not in position.keys():
-                position['_occ_'+obs.name] = _PositionDict(lon=obs.lon, lat=obs.lat, height=obs.height)
-                position[obs.name]['_occ_lon'] = obs.lon
-                position[obs.name]['_occ_lat'] = obs.lat
-                position[obs.name]['_occ_height'] = obs.height
-            pos_obs = position[obs.name]
+                position['_occ_'+obs_name] = _PositionDict(lon=obs.lon, lat=obs.lat, height=obs.height)
+                position[obs_name]['_occ_lon'] = obs.lon
+                position[obs_name]['_occ_lat'] = obs.lat
+                position[obs_name]['_occ_height'] = obs.height
+            pos_obs = position[obs_name]
             coord2 = [pos_obs['lon'], pos_obs['lat'], pos_obs['height']]
             if obs.lon != pos_obs['lon']:
-                position[obs.name]['_occ_lon'] = obs.lon
+                position[obs_name]['_occ_lon'] = obs.lon
             if obs.lat != pos_obs['lat']:
-                position[obs.name]['_occ_lat'] = obs.lat
+                position[obs_name]['_occ_lat'] = obs.lat
             if obs.height != pos_obs['height']:
-                position[obs.name]['_occ_height'] = obs.height
+                position[obs_name]['_occ_height'] = obs.height
             samecoord = (coord == coord2)
 
-            if lc.name not in pos_obs.keys():
-                pos_obs['_occ_'+lc.name] = _PositionDict()
-            pos_lc = pos_obs[lc.name]
+            if lc_name not in pos_obs.keys():
+                pos_obs['_occ_'+lc_name] = _PositionDict()
+            pos_lc = pos_obs[lc_name]
 
             pos_lc['_occ_status'] = chord.status()
 
