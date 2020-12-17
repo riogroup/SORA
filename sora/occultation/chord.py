@@ -286,7 +286,7 @@ class Chord():
         kwargs['lw'] = kwargs.get('lw', 2)
 
         steps = {True: 'exposure', False: 1}
-        vals = self.path(segment=segment, exposure=steps[exposure])
+        vals = self.path(segment=segment, step=steps[exposure])
         label = kwargs.pop('label', None)
         var = ax.plot(*vals, **kwargs)
         var[0].set_label(label)
