@@ -49,13 +49,17 @@ class ChordList(List):
         if chord and (observer or lightcurve):
             raise ValueError("User must give only chord or (name and observer and lightcurve)")
         if chord:
-            self._add_item(name=name or chord.name, item=chord)
-            chord._name = name
+            name = name or chord.name
         elif observer and lightcurve:
-            chord = Chord(name=name or observer.name, observer=observer, lightcurve=lightcurve)
-            self._add_item(name=chord.name, item=chord)
+            for key in self.keys():
+                if self[key].lightcurve is lightcurve:
+                    raise ValueError('lightcurve is already associated to the chord {}'.format(key))
+            name = name or observer.name
+            chord = Chord(name=name, observer=observer, lightcurve=lightcurve)
         else:
             raise ValueError("User must give chord or (name and observer and lightcurve)")
+        self._add_item(name=name, item=chord)
+        chord._name = name
         chord._shared_with["chordlist"] = self._shared_with["chord"]
         lightcurve.set_vel(self._shared_with['occultation']["vel"])
         lightcurve.set_dist(self._shared_with['occultation']["dist"])
