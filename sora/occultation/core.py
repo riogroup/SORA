@@ -309,7 +309,7 @@ class Occultation():
                 self.body.ephem = ephem
             else:
                 if hasattr(ephem, 'name'):
-                    self.body = Body(name=ephem.name, mode='sbdb', ephem=ephem)
+                    self._body = Body(name=ephem.name, mode='sbdb', ephem=ephem)
                 else:
                     raise ValueError('When only "ephem" is given, "ephem" must have a name for search.')
         try:
@@ -701,8 +701,8 @@ class Occultation():
             lw (int, float): linewidth of the chords. Default: 2
             axis_labels (bool): If True it prints the labels of the axis of the image.
         """
-        self.chords.plot_chords(segment='positive', color=positive_color, lw=lw, ax=ax)
-        self.chords.plot_chords(segment='error', color=error_color, lw=lw, ax=ax)
+        self.chords.plot_chords(segment='positive', only_able=not all_chords, color=positive_color, lw=lw, ax=ax)
+        self.chords.plot_chords(segment='error', only_able=not all_chords, color=error_color, lw=lw, ax=ax)
         self.chords.plot_chords(segment='negative', color=negative_color, lw=lw, ax=ax, linestyle='--')
 
     def get_map_sites(self):
@@ -715,7 +715,7 @@ class Occultation():
         color = {'positive': 'blue', 'negative': 'red'}
         for name, chord in self.chords.items():
             obs = chord.observer
-            sites[name] = [obs.lon.deg, obs.lat.deg, 10, 10, color['negative']]
+            sites[name] = [obs.lon.deg, obs.lat.deg, 10, 10, color[chord.status()]]
         return sites
 
     def plot_occ_map(self, **kwargs):
