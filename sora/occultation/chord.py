@@ -110,7 +110,7 @@ class Chord():
 
         Return:
             f, g, [vf, vg]: The geocentric on-sky Orthographic projection of the object with f poiting to the celestial North
-                and g poiting to the celestial East. The respective velocities (vf, vg) are returned if vel=True.
+                and g pointing to the celestial East. The respective velocities (vf, vg) are returned if vel=True.
         """
         if 'chordlist' not in self._shared_with:
             raise ValueError('{} must be associated to an Occultation to use this function'.format(self.__class__.__name__))
@@ -131,6 +131,11 @@ class Chord():
                 time = Time([immersion, emersion])
         else:
             time = Time(time)
+
+        tca_diff = np.array(np.absolute((time - self._shared_with['chordlist']['time']).jd), ndmin=1)
+        if any(tca_diff > 0.5):
+            warnings.warn('The difference between a given time and the closest approach instant is {:.2f} days. '
+                          'This position could not have a physical meaning.'.format(tca_diff.max()))
 
         ksio1, etao1 = self.observer.get_ksi_eta(time=time, star=coord)
         ksie1, etae1 = ephem.get_ksi_eta(time=time, star=coord)
@@ -243,7 +248,7 @@ class Chord():
 
         return vals
 
-    def plot_chord(self, *, segment='standard', ax=None, linestyle='-', **kwargs):
+    def plot_chord(self, *, segment='standard', only_able=False, ax=None, linestyle='-', **kwargs):
         """Plots the on-sky path of this chord.
 
         This Chord object must be associated to an Occultation to work, since it needs
@@ -259,6 +264,9 @@ class Chord():
                 - 'outer' to get the path outside the 'positive' path, for instance between the start and immersion times
                     and between the emersion and end times.
                 - 'error' to get the path corresponding to the error bars.
+            only_able (bool): Plot only the contact points that are able to be used in the fit.
+                If segment='error' it will show only the contact points able. If segment is any other, the path
+                will be plotted only if both immersion and emersion are able, or it is a negative chord.
             ax (matplotlib.Axes): The axes where to make the plot. If None, it will use the default axes.
             linestyle (str): Default linestyle used in matplotlib.pyplot.plot. The difference is that now it accept
                 linestyle='exposure', where the plot will be a dashed line corresponding to each exposure. The blank
@@ -288,8 +296,24 @@ class Chord():
         steps = {True: 'exposure', False: 1}
         vals = self.path(segment=segment, step=steps[exposure])
         label = kwargs.pop('label', None)
-        var = ax.plot(*vals, **kwargs)
-        var[0].set_label(label)
+        var = []
+        if only_able:
+            if segment == 'error':
+                if self.is_able['immersion']:
+                    immersion = self.lightcurve.immersion
+                    immersion_err = self.lightcurve.immersion_err * u.s
+                    var += ax.plot(*self.get_fg(time=[immersion - immersion_err, immersion + immersion_err]), **kwargs)
+                if self.is_able['emersion']:
+                    emersion = self.lightcurve.emersion
+                    emersion_err = self.lightcurve.emersion_err * u.s
+                    var += ax.plot(*self.get_fg(time=[emersion - emersion_err, emersion + emersion_err]), **kwargs)
+            else:
+                if self.is_able.get('immersion') in [None, True] and self.is_able.get('emersion') in [None, True]:
+                    var += ax.plot(*vals, **kwargs)
+        else:
+            var += ax.plot(*vals, **kwargs)
+        if len(var) > 0:
+            var[0].set_label(label)
         return var
 
     def __repr__(self):
@@ -300,8 +324,7 @@ class Chord():
     def __str__(self):
         """String of the Chord Class used in str(obj) or print(obj)
         """
-        string = ['-'*79]
-        string.append(self.observer.__str__())
+        string = ['-' * 79, self.observer.__str__()]
         if 'chordlist' in self._shared_with:
             ephem_altaz = self.observer.altaz(self.lightcurve.time_mean, self._shared_with['chordlist']['star'])
             string.append('Target altitude: {:.1f} deg'.format(ephem_altaz[0]))
