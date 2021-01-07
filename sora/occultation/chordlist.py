@@ -25,8 +25,8 @@ class ChordList(List):
         self._star = star
         self._body = body
         self._time = time
-        self._shared_with = {"chord": {"star": self._star.geocentric(time), "ephem": self._body.ephem}}
-        self._shared_with['occultation'] = {}
+        self._shared_with = {"chord": {"star": self._star.geocentric(time), "ephem": self._body.ephem, "time": self._time},
+                             'occultation': {}}
 
     def add_chord(self, *, name=None, chord=None, observer=None, lightcurve=None):
         """Add a chord to the occultation chord list
@@ -61,13 +61,13 @@ class ChordList(List):
         self._add_item(name=name, item=chord)
         chord._name = name
         chord._shared_with["chordlist"] = self._shared_with["chord"]
-        lightcurve.set_vel(self._shared_with['occultation']["vel"])
-        lightcurve.set_dist(self._shared_with['occultation']["dist"])
-        lightcurve.set_star_diam(self._shared_with['occultation']["star_diam"])
+        chord.lightcurve.set_vel(self._shared_with['occultation']["vel"])
+        chord.lightcurve.set_dist(self._shared_with['occultation']["dist"])
+        chord.lightcurve.set_star_diam(self._shared_with['occultation']["star_diam"])
         try:
-            lightcurve.calc_magnitude_drop(mag_star=self._star.mag['G'], mag_obj=self._body.apparent_magnitude(self._time))
+            chord.lightcurve.calc_magnitude_drop(mag_star=self._star.mag['G'], mag_obj=self._body.apparent_magnitude(self._time))
         except:
-            lightcurve.bottom_flux = 0.0
+            chord.lightcurve.bottom_flux = 0.0
             warnings.warn('Magnitude drop was not calculated. Using bottom flux as 0.0.')
         return chord
 
@@ -79,6 +79,10 @@ class ChordList(List):
         """
         del(self[name]._shared_with['chordlist'])
         del(self[name])
+
+    @property
+    def is_able(self):
+        return {name: chord.is_able for name, chord in self.items()}
 
     def enable(self, *, chord=None, time=None):
         """Enable a contact point of the curve to be used in the fit.
@@ -112,7 +116,7 @@ class ChordList(List):
         if n == 0:
             raise ValueError('No Chord with name {} is available.'.format(chord))
 
-    def plot_chords(self, *, segment='standard', ignore=None, ax=None, linestyle='-', **kwargs):
+    def plot_chords(self, *, segment='standard', ignore_chords=None, only_able=False, ax=None, linestyle='-', **kwargs):
         """Plots the on-sky path of this chord.
 
         Parameters:
@@ -125,7 +129,10 @@ class ChordList(List):
                 - 'outer' to get the path outside the 'positive' path, for instance between the start and immersion times
                     and between the emersion and end times.
                 - 'error' to get the path corresponding to the error bars.
-            ignore (str, list): Name of chord or list of names to ignore in the plot.
+            ignore_chords (str, list): Name of chord or list of names to ignore in the plot.
+            only_able (bool): Plot only the chords or contact points that are able to be used in the fit.
+                If segment='error' it will show only the contact points able. If segment is any other, the path
+                will be plotted only if both immersion and emersion are able, or it is a negative chord.
             ax (matplotlib.Axes): The axes where to make the plot. If None, it will use the default axes.
             linestyle (str): Default linestyle used in matplotlib.pyplot.plot. The difference is that now it accept
                 linestyle='exposure', where the plot will be a dashed line corresponding to each exposure. The blank
@@ -139,15 +146,15 @@ class ChordList(List):
         n = 0
         keys = list(self.keys())
         plots = []
-        if ignore is not None:
-            ignore = np.array(ignore, ndmin=1)
+        if ignore_chords is not None:
+            ignore_chords = np.array(ignore_chords, ndmin=1)
         for i in range(len(self)):
-            if ignore is not None and keys[i] in ignore:
+            if ignore_chords is not None and keys[i] in ignore_chords:
                 continue
             if segment != 'error':
                 kwargs['label'] = keys[i]
             try:
-                p = self[i].plot_chord(segment=segment, ax=ax, linestyle=linestyle, **kwargs)
+                p = self[i].plot_chord(segment=segment, only_able=only_able, ax=ax, linestyle=linestyle, **kwargs)
                 plots += p
             except ValueError:
                 n += 1
