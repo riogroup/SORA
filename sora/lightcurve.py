@@ -388,7 +388,8 @@ class LightCurve():
                 self.dflux = self.dflux[order]
             self.initial_time = np.min(time)
             self.end_time = np.max(time)
-            self.cycle = np.median(time[1:] - time[:-1]).sec
+            time_diffs = np.diff(self._time[0:]).tolist()
+            self.cycle = max(set(time_diffs), key=time_diffs.count).sec
             if self.cycle < self.exptime:
                 warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
                               format(self.exptime, self.cycle))
