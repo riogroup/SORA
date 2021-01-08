@@ -39,6 +39,10 @@ sora.occultation
 - A shortcut was created in Occultation where the user can pass the coordinate of the star directly to Occultation,
   the Star object will be created automaticaly. [#46]
 
+- New Chord Class introduced to handle a chord with an Observer and a LightCurve. [#53]
+
+- New ChordList Class introduced to handle the list of Chords in an Occultation. [#53]
+
 sora.prediction
 ^^^^^^^^^^^^^^^
 
@@ -74,8 +78,14 @@ sora.extra
 sora.lightcurve
 ^^^^^^^^^^^^^^^
 
+- Removed the necessity for LightCurve to have a unique name associated. [#53]
+
+- Cycle time is now determined via mode instead of median. [#56]
+
 sora.observer
 ^^^^^^^^^^^^^
+
+- Removed the necessity for Observer to have a unique name associated. [#53]
 
 sora.occultation
 ^^^^^^^^^^^^^^^^
@@ -83,6 +93,8 @@ sora.occultation
 - The new Body Class was implemented in Occultation. For backward compatibility, the previous
   usage is still possible if the Ephem object have a name. The Body Class is only required
   if the object is a planet or a planetary satellite. [#51]
+
+- Deprecated some functions that were passed to ChordList. [#53]
 
 sora.prediction
 ^^^^^^^^^^^^^^^
