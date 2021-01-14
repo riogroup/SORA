@@ -12,7 +12,7 @@ from astropy.time import Time
 import numpy as np
 import warnings
 from functools import partial
-
+from sora.config.visuals import progressbar_show
 
 __all__ = ['fit_ellipse', 'Occultation', 'positionv']
 warnings.simplefilter('always', UserWarning)
@@ -133,6 +133,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     chi2_best = np.array([])
 
     while (len(f0_chi) < number_chi):
+        progressbar_show(len(f0_chi),number_chi,prefix='Ellipse fit:')
         chi2 = np.zeros(loop)
         f0 = center_f + dcenter_f*(2*np.random.random(loop) - 1)
         g0 = center_g + dcenter_g*(2*np.random.random(loop) - 1)
@@ -170,6 +171,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         obla_chi = np.append(obla_chi, obla[region])
         posang_chi = np.append(posang_chi, phi_deg[region])
 
+    progressbar_show(number_chi,number_chi,prefix='Ellipse fit:')
     chisquare = ChiSquare(chi2_best, len(values), center_f=f0_chi, center_g=g0_chi, equatorial_radius=a_chi,
                           oblateness=obla_chi, position_angle=posang_chi)
     controle_f4 = Time.now()
