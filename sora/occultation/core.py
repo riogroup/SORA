@@ -67,7 +67,7 @@ def positionv(star, ephem, observer, time):
 @deprecated_alias(pos_angle='position_angle', dpos_angle='dposition_angle')  # remove this line for v1.0
 def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
                 dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
-                loop=10000000, number_chi=10000, dchi_min=None, log=False):
+                loop=10000000, number_chi=10000, dchi_min=None, log=False, sigma_model=0):
     """ Fits an ellipse to given occultation using given parameters
 
     Parameters:
@@ -94,6 +94,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         number_chi (int): if dchi_min is given, the procedure is repeated until
             number_chi is reached. Default: 10,000
         log (bool): If True, it prints information while fitting. Default: False.
+        sigma_model (int, float): Model uncertainty to be considered in the fit, in km.
 
     Returns:
         chisquare: A ChiSquare object with all parameters.
@@ -151,7 +152,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
             r_model = (a*b)/np.sqrt((a*np.sin(ang))**2 + (b*np.cos(ang))**2)
             f_model = f0 + r_model*np.cos(theta)
             g_model = g0 + r_model*np.sin(theta)
-            chi2 += ((fi - f_model)**2 + (gi - g_model)**2)/(si**2)
+            chi2 += ((fi - f_model)**2 + (gi - g_model)**2)/(si**2 + sigma_model**2)
 
         controle_f2 = Time.now()
         if dchi_min is not None:
@@ -420,6 +421,7 @@ class Occultation():
             number_chi (int): if dchi_min is given, the procedure is repeated until
                 number_chi is reached. Default: 10,000
             log (bool): If True, it prints information while fitting. Default: False.
+            sigma_model (int, float): Model uncertainty to be considered in the fit, in km.
 
         Returns:
             chisquare: A ChiSquare object with all parameters.
