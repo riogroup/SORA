@@ -12,6 +12,7 @@ from sora.config import input_tests
 import os
 import warnings
 from sora.config.decorators import deprecated_alias
+from sora.config.visuals import progressbar
 
 
 warnings.simplefilter('always', UserWarning)
@@ -820,7 +821,7 @@ class LightCurve():
         t_i[t_i > t_e] = t_e[t_i > t_e]
         t_e[t_i > t_e] = tflag[t_i > t_e]
         chi2 = 999999*np.ones(loop)
-        for i in range(loop):
+        for i in progressbar(range(loop),'LightCurve fit:'):
             model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
             chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2))
         kkargs = {}
