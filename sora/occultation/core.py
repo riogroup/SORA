@@ -67,7 +67,7 @@ def positionv(star, ephem, observer, time):
 @deprecated_alias(pos_angle='position_angle', dpos_angle='dposition_angle')  # remove this line for v1.0
 def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
                 dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
-                loop=10000000, number_chi=10000, dchi_min=None, log=False, sigma_model=0):
+                loop=10000000, number_chi=10000, dchi_min=None, log=False, sigma_model=0, sigma_result=1):
     """ Fits an ellipse to given occultation using given parameters
 
     Parameters:
@@ -95,6 +95,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
             number_chi is reached. Default: 10,000
         log (bool): If True, it prints information while fitting. Default: False.
         sigma_model (int, float): Model uncertainty to be considered in the fit, in km.
+        sigma_result (int, float): Sigma value to be considered as result.
 
     Returns:
         chisquare: A ChiSquare object with all parameters.
@@ -175,12 +176,12 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     if log:
         print('Total elapsed time: {:.3f} seconds.'.format((controle_f4 - controle_f0).sec))
 
-    onesigma = chisquare.get_nsigma(sigma=1)
-    a = onesigma['equatorial_radius'][0]
-    f0 = onesigma['center_f'][0]
-    g0 = onesigma['center_g'][0]
-    obla = onesigma['oblateness'][0]
-    phi_deg = onesigma['position_angle'][0]
+    result_sigma = chisquare.get_nsigma(sigma=sigma_result)
+    a = result_sigma['equatorial_radius'][0]
+    f0 = result_sigma['center_f'][0]
+    g0 = result_sigma['center_g'][0]
+    obla = result_sigma['oblateness'][0]
+    phi_deg = result_sigma['position_angle'][0]
     radial_dispersion = np.array([])
     error_bar = np.array([])
 
@@ -200,12 +201,12 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
 
     for occ in args:
         if type(occ) == Occultation:
-            occ.fitted_params = {i: onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
+            occ.fitted_params = {i: result_sigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
                                                           'oblateness', 'position_angle']}
             occ.chi2_params = {'chord_name': chord_name}
             occ.chi2_params['radial_dispersion'] = radial_dispersion
             occ.chi2_params['radial_error'] = error_bar
-            occ.chi2_params['chi2_min'] = chisquare.get_nsigma()['chi2_min']
+            occ.chi2_params['chi2_min'] = chisquare.get_nsigma(sigma=sigma_result)['chi2_min']
             occ.chi2_params['nparam'] = chisquare.nparam
             occ.chi2_params['npts'] = chisquare.npts
     return chisquare
@@ -422,6 +423,7 @@ class Occultation():
                 number_chi is reached. Default: 10,000
             log (bool): If True, it prints information while fitting. Default: False.
             sigma_model (int, float): Model uncertainty to be considered in the fit, in km.
+            sigma_result (int, float): Sigma value to be considered as result.
 
         Returns:
             chisquare: A ChiSquare object with all parameters.
