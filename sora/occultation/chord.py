@@ -316,6 +316,34 @@ class Chord():
             var[0].set_label(label)
         return var
 
+    def get_impact_param(self, center_f=0, center_g=0, log=True):
+        """Get the impact parameter, minimal distance between the chord and the centre position.
+
+        This Chord object must be associated to an Occultation to work, since it needs
+        the position of the star and an ephemeris.
+
+        Parameters:
+            center_f (int,float): The coordinate in f of the ellipse center. Default=0
+            center_g (int,float): The coordinate in g of the ellipse center. Default=0
+            log (bool): if True, prints the obtained values.
+            
+        Returns:
+            impact: Impact parameter, in km.
+            sense: Direction of the chord relative the ellipse center, North (N), South (S), East (E) and West (W).
+        """
+        f, g = self.path(segment='full')
+        r = np.sqrt((f - center_f)**2 + (g - center_g)**2)
+        impact = r.min()
+        sense = 'NE'
+        if g[np.argmin(r)] < center_g:
+            sense = sense.replace('N','S')
+        if f[np.argmin(r)] < center_f:
+            sense = sense.replace('E','W')
+        if log:
+            print(self.name)
+            print('Impact parameter', np.round(impact,1),sense)
+        return impact, sense
+
     def __repr__(self):
         """String representation of the Chord Class
         """
