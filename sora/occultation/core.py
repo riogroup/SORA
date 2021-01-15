@@ -7,7 +7,7 @@ from sora.extra import ChiSquare
 from sora.body import Body
 from sora.config.decorators import deprecated_alias, deprecated_function
 import astropy.units as u
-from astropy.coordinates import SkyCoord, SkyOffsetFrame
+from astropy.coordinates import SkyCoord, SkyOffsetFrame, Angle
 from astropy.time import Time
 import numpy as np
 import warnings
@@ -186,6 +186,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     phi_deg = result_sigma['position_angle'][0]
     radial_dispersion = np.array([])
     error_bar = np.array([])
+    position_angle_point = np.array([])
 
     for fi, gi, si in values:
         b = a - a*obla
@@ -200,13 +201,15 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         g_model = g0 + r_model*np.sin(theta)
         radial_dispersion = np.append(radial_dispersion, r - r_model)
         error_bar = np.append(error_bar, si)
-
+        position_angle_point = np.append(position_angle_point, Angle(90*u.deg - theta*u.rad).wrap_at(360 * u.deg).degree)
+        
     for occ in args:
         if type(occ) == Occultation:
             occ.fitted_params = {i: result_sigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
                                                           'oblateness', 'position_angle']}
             occ.chi2_params = {'chord_name': chord_name}
             occ.chi2_params['radial_dispersion'] = radial_dispersion
+            occ.chi2_params['position_angle'] = position_angle_point
             occ.chi2_params['radial_error'] = error_bar
             occ.chi2_params['chi2_min'] = chisquare.get_nsigma(sigma=sigma_result)['chi2_min']
             occ.chi2_params['nparam'] = chisquare.nparam
