@@ -195,3 +195,77 @@ class ChordList(List):
             tables.append(tt)
         tabela = vstack(tables)
         tabela.pprint_all()
+
+    def get_impact_param(self,chords='all_chords',center_f=0,center_g=0,log=True):
+        """Get the impact parameter, minimal distance between the chord and the centre position.
+
+        This Chord object must be associated to an Occultation to work, since it needs
+        the position of the star and an ephemeris.
+
+        Parameters:
+            chords (int, str): Index or names of the chords to be considered. Default=all_chords
+            center_f (int,float): The coordinate in f of the ellipse center. Default=0
+            center_g (int,float): The coordinate in g of the ellipse center. Default=0
+            log (bool): if True, prints the obtained values.
+            
+        Returns:
+            impact: Impact parameter, in km.
+            sense: Direction of the chord relative the ellipse center, North (N), South (S), East (E) and West (W).
+            chord_name: Name of the chord
+        """
+        impact = np.array([])
+        sense = np.array([])
+        names = np.array([])
+        if chords == 'all_chords':
+            chords = range(len(chords))
+        for i in chords:
+            chord = self[i]
+            im, se = chord.get_impact_param(center_f=center_f, center_g=center_g, log=log)
+            impact = np.append(impact,im)
+            sense = np.append(sense,se)
+            names = np.append(names,chord.name)
+        return impact, sense, names
+
+    def get_theoretical_times(self, equatorial_radius,chords='all_chords',center_f=0,center_g=0,oblateness=0,position_angle=0,
+                              sigma=0, step=1, log=True):
+        """Get the theoretical times and chords sizes for a given ellipse.
+
+        This Chord object must be associated to an Occultation to work, since it needs
+        the position of the star and an ephemeris.
+
+        Parameters:
+            chords (int, str): Index or names of the chords to be considered. Default=all_chords
+            equatorial_radius (int,float): The Equatorial radius (semi-major axis) of the ellipse.
+            center_f (int,float): The coordinate in f of the ellipse center. Default=0
+            center_g (int,float): The coordinate in g of the ellipse center. Default=0
+            oblateness (int,float): The oblateness of the ellipse. Default=0 (circle)
+            position_angle (int,float): The pole position angle of the ellipse in degrees. Default=0
+                Zero is in the North direction ('g-positive'). Positive clockwise.
+
+            sigma (int, float): Unceartity of the expected ellipse, in km.
+            step (int, float): Time resolution of the chord, in seconds.
+            log (bool): if True, prints the obtained values.
+
+        Returns:
+            theory_immersion_time: Expected immersion time for the given ellipse
+            theory_emersion_time: Expected emersion time for the given ellipse
+            theory_chord_size: Expected chord size for the given ellipse
+            chord_name: Name of the chord
+        """
+        theory_immersion_time = np.array([])
+        theory_emersion_time = np.array([])
+        theory_chord_size = np.array([])
+        names = np.array([])
+        if chords == 'all_chords':
+            chords = range(len(chords))
+        for i in chords:
+            chord = self[i]
+            tit, tet, tcs = chord.get_theoretical_times(equatorial_radius=equatorial_radius, center_f=center_f, 
+                                                        center_g=center_g, oblateness=oblateness, position_angle=position_angle,
+                                                        sigma=sigma, step=step, log=log)
+            theory_immersion_time = np.append(theory_immersion_time,tit)
+            theory_emersion_time = np.append(theory_emersion_time,tet)
+            theory_chord_size = np.append(theory_chord_size,tcs)
+            names = np.append(names,chord.name)
+        return theory_immersion_time, theory_emersion_time, theory_chord_size, names
+
