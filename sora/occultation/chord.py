@@ -1,5 +1,6 @@
 from sora.observer import Observer
 from sora.lightcurve import LightCurve
+from sora.extra import get_ellipse
 from astropy.time import Time
 import astropy.units as u
 import matplotlib.pyplot as plt
@@ -343,6 +344,79 @@ class Chord():
             print(self.name)
             print('Impact parameter', np.round(impact,1),sense)
         return impact, sense
+
+    def get_theoretical_times(self, equatorial_radius,center_f=0,center_g=0,oblateness=0,position_angle=0,sigma=0,
+                              step=1, log=True):
+        """Get the theoretical times and chord size for a given ellipse.
+
+        This Chord object must be associated to an Occultation to work, since it needs
+        the position of the star and an ephemeris.
+
+        Parameters:
+            equatorial_radius (int,float): The Equatorial radius (semi-major axis) of the ellipse.
+            center_f (int,float): The coordinate in f of the ellipse center. Default=0
+            center_g (int,float): The coordinate in g of the ellipse center. Default=0
+            oblateness (int,float): The oblateness of the ellipse. Default=0 (circle)
+            position_angle (int,float): The pole position angle of the ellipse in degrees. Default=0
+                Zero is in the North direction ('g-positive'). Positive clockwise.
+
+            sigma (int, float): Unceartity of the expected ellipse, in km.
+            step (int, float): Time resolution of the chord, in seconds.
+            log (bool): if True, prints the obtained values.
+
+        Returns:
+            theory_immersion_time: Expected immersion time for the given ellipse
+            theory_emersion_time: Expected emersion time for the given ellipse
+            theory_chord_size: Expected chord size for the given ellipse
+        """
+        time_all = Time(np.arange(self.lightcurve.initial_time.jd,self.lightcurve.end_time.jd,step*u.s.to('d')),format='jd')
+
+        f_all, g_all = self.get_fg(time=time_all)
+        df_all = (f_all - center_f)
+        dg_all = (g_all - center_g)
+
+        r_all = np.sqrt(df_all**2 + dg_all**2)
+        cut = r_all < 1.5*equatorial_radius
+        df_path = df_all[cut] 
+        dg_path = dg_all[cut] 
+        r_path = r_all[cut] 
+        time = time_all[cut] 
+
+        theta_path = np.arctan2(dg_path, df_path)
+
+        f_ellipse, g_ellipse, r_ellipse, theta = get_ellipse(theta_path,
+                                                             equatorial_radius=equatorial_radius,
+                                                             center_f=center_f,
+                                                             center_g=center_g,
+                                                             oblateness=oblateness,
+                                                             position_angle=position_angle)
+
+        ev = r_path < r_ellipse + sigma
+        if np.all(ev == False):
+            if log:
+                print(self.name)
+                print('Negative chord \n')
+            chord_size = 0
+            immersion_time = None
+            emersion_time = None
+        try:
+            imm = time[ev].jd.argmin()
+            eme = time[ev].jd.argmax()
+            df_chord = [df_path[ev].min(),df_path[ev].max()]
+            dg_chord = [dg_path[ev].min(),dg_path[ev].max()]
+            theory_chord_size = np.sqrt((df_chord[1]-df_chord[0])**2 + (dg_chord[1]-dg_chord[0])**2)
+            theory_immersion_time = time[ev][imm]
+            theory_emersion_time = time[ev][eme]
+            if log:
+                print(self.name)
+                print('IMMERSION TIME: {} UTC'.format(theory_immersion_time.iso))
+                print('EMERSION  TIME: {} UTC'.format(theory_emersion_time.iso))
+                print('CHORD SIZE    : {:.3f} km \n'.format(theory_chord_size))
+        except:
+            theory_chord_size = 0
+            theory_immersion_time = None
+            theory_emersion_time = None
+        return theory_immersion_time, theory_emersion_time, theory_chord_size
 
     def __repr__(self):
         """String representation of the Chord Class
