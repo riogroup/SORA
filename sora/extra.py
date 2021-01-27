@@ -54,6 +54,24 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
         plt.plot(center_f, center_g, '.', **kwargs)
     plt.axis('equal')
 
+def get_ellipse(theta, equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
+                 position_angle=0.0):
+    """ Get points for the ellipse with the given input parameters
+
+    Parameters:
+        radius (float, int): Semi-major axis of the ellipse.
+        oblateness (float, int): Oblateness of the ellipse. Default=0.0 (circle)
+        center_x (float, int): Coordinate of the ellipse (abscissa). Default=0.0
+        center_y (float, int): Coordinate of the ellipse (ordinate). Default=0.0
+    """
+    a = equatorial_radius
+    b = equatorial_radius - equatorial_radius*oblateness
+    phi = position_angle*(np.pi/180.0)
+    ang = theta+phi
+    r_model = (a*b)/np.sqrt((a*np.sin(ang))**2 + (b*np.cos(ang))**2)
+    x_model = r_model*np.cos(theta) + center_f
+    y_model = r_model*np.sin(theta) + center_g
+    return x_model, y_model, r_model, theta
 
 class ChiSquare():
     def __init__(self, chi2, npts, **kwargs):
