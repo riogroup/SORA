@@ -40,50 +40,114 @@ def read_obj_data():
     return obj
 
 
-def downloadBSPfromJPL(identifier, initial_date, final_date, email, filename=None):
-    """ Download bsp file from JPL database
+from datetime import datetime as dt
+import requests
+import pathlib
+import shutil
+
+
+def getBSPfromJPL(identifier, initial_date, final_date, email, directory='./'):
+    """ Download bsp files from JPL database
+    
+        Bsp files, which have information to generate 
+        the ephemeris of the objects, will be downloaded
+        The files will be named as (without spaces): [identifier].bsp
     Parameters:
-    identifier (str): Object identifier. It must be the name, number or SPK ID
-        Examples:
-            "2137295"
-            "1999 RB216"
-            "137295"
+    identifier (str or list): Identifier of the object(s). 
+        It can be the name, number or SPK ID.
+        It can also be a list of objects.
+        Examples: 
+            '2137295'
+            '1999 RB216'
+            '137295'
+            ['2137295', '136199', '1999 RC216', 'Chariklo']
     initial_date (str): Date the bsp file is to begin, within span [1900-2100].
         Examples:
-            "2003-Feb-1"
-            "2003-Feb-1 16:00"
+            '2003-02-01'
+            '2003-3-5'
     final_date (str): Date the bsp file is to end, within span [1900-2100].
         Must be more than 32 days later than [initial_date].
-        Examples:
-            "2006-Jan-12"
-            "2006-Jan-12 12:00"
+        Examples:  
+            '2006-01-12'
+            '2006-1-12'
     email (str): User's e-mail contact address.
         Example: username@user.domain.name
-    filename (str): Optional. Output file name.
-        If not specified, it uses the [identifier] to assign a
-        name in the current directory.
-        Default form (without spaces):
-            [identifier].bsp
-    Return:
-    binary file (bsp): bsp file with information of the object
-        to generate the respective ephemerides
-    Information:
-        it is able to download bsp files of neither planets nor satellites
+        
+    directoy (str): Directory path to save the bsp files.
+
+    Important:
+        it is able to download bsp files of neither planets nor satellites    
     """
-    if not filename:
-        filename = identifier.replace(' ','') + '.bsp'
+    
+    date1 = dt.strptime(initial_date, '%Y-%m-%d')
+    date2 = dt.strptime(final_date, '%Y-%m-%d')
+    diff = date2 - date1
+    
+    if diff.days <= 32:
+        raise ValueError('The [final_date] must be more than 32 days later than [initial_date]')
+    else:
+        if isinstance(identifier, str):
+            identifier = [identifier]
 
-    parameters = {'OBJECT':identifier, 'START': initial_date, 'STOP':final_date,
-                  'EMAIL': email, 'TYPE': '-B'}
+        urlJPL = 'https://ssd.jpl.nasa.gov/x/smb_spk.cgi?OPTION=Make+SPK'
+        lim, opt, n = 10, 'y', len(identifier)
+        
+        if n > lim:
+            parameters = {'OBJECT':identifier[0], 'START': date1.strftime('%Y-%b-%d'),
+                          'STOP':date2.strftime('%Y-%b-%d'), 'EMAIL': email, 'TYPE': '-B'}
+            
+            t0 = dt.now()
+            r = requests.get(urlJPL, params=parameters, stream=True)
+            tf = dt.now()
+            
+            bspFormat = r.headers['Content-Type']
+            if r.status_code==requests.codes.ok and bspFormat=='application/download':
+                size0 = int(r.headers["Content-Length"])/1024/1024  # MB
+            
+                print('Estimated time to download {} ({:.3f} MB) files: {}'.
+                      format(n, n*size0, n*(tf - t0)))
 
-    urlJPL = 'https://ssd.jpl.nasa.gov/x/smb_spk.cgi?OPTION=Make+SPK'
+                opt = input('\nAre you sure? (y/n):')
+            else:
+                raise ValueError('Error: It was not able to download the bsp file for object {}\n'.
+                                 format(identifier[0]))
 
-    r = requests.get(urlJPL, params=parameters, stream=True)
+        if opt in ['y', 'Y', 'YES', 'yes']:
+            if directory != './':
+                path = pathlib.Path(directory)
+                if not path.exists():
+                    raise ValueError('The directory {} does not exist!'.format(path))
+                directory += '/'
+                
+            print("\nDownloading bsp file(s) ...\n")
 
-    if r.status_code == requests.codes.ok:
-        with open(filename, 'wb') as f:
-            r.raw.decode_content = True
-            shutil.copyfileobj(r.raw, f)
+            m, size = 0, 0.0
+            failed = []
+            
+            t0 = dt.now()
+            for obj in identifier:
+                filename = obj.replace(' ','') + '.bsp'
+                
+                parameters = {'OBJECT':obj, 'START': date1.strftime('%Y-%b-%d'),
+                              'STOP':date2.strftime('%Y-%b-%d'), 'EMAIL': email, 'TYPE': '-B'}
+                
+                r = requests.get(urlJPL, params=parameters, stream=True)
+                bspFormat = r.headers['Content-Type']
+                if r.status_code == requests.codes.ok and bspFormat=='application/download':
+                    size += int(r.headers["Content-Length"])/1024/1024
+                    m += 1
+                    with open(directory + filename, 'wb') as f:
+                        r.raw.decode_content = True
+                        shutil.copyfileobj(r.raw, f)
+                else:
+                    failed.append(obj)
+            tf = dt.now()
+            
+            print("{} ({:.3f} MB) file(s) was/were downloaded".format(m, size))
+            print("Download time: {}".format(tf - t0))
+            
+            if len(failed)>0:
+                raise ValueError('\nIt was not able to download the bsp files for next objects: {}'.format(sorted(failed)))
 
 
 def apparent_mag(H, G, dist, sundist, phase=0.0):
