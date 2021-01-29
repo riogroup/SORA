@@ -217,7 +217,7 @@ class ChordList(List):
         sense = np.array([])
         names = np.array([])
         if chords == 'all_chords':
-            chords = range(len(chords))
+            chords = range(len(self))
         for i in chords:
             chord = self[i]
             im, se = chord.get_impact_param(center_f=center_f, center_g=center_g, log=log)
@@ -257,7 +257,7 @@ class ChordList(List):
         theory_chord_size = np.array([])
         names = np.array([])
         if chords == 'all_chords':
-            chords = range(len(chords))
+            chords = range(len(self))
         for i in chords:
             chord = self[i]
             tit, tet, tcs = chord.get_theoretical_times(equatorial_radius=equatorial_radius, center_f=center_f, 
