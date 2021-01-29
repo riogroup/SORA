@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import astropy.units as u
+from sora.config.visuals import progressbar
 
 
 def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
@@ -72,6 +73,58 @@ def get_ellipse(theta, equatorial_radius, oblateness=0.0, center_f=0.0, center_g
     x_model = r_model*np.cos(theta) + center_f
     y_model = r_model*np.sin(theta) + center_g
     return x_model, y_model, r_model, theta
+
+def filter_negative_chord(chord,chisquare,step=1,sigma=0):
+    """ Get points for the ellipse with the given input parameters
+
+    Parameters:
+        chord (Chord): Chord object, must be associated to an Occultation to work.
+        chisquare (ChiSquare): Resulted ChiSquare object of fit_ellipse.
+        sigma (int, float): Unceartity of the expected ellipse, in km.
+        step (number, 'exposure'): If a number, it corresponds to the step, in seconds, for each point of the chord path.
+            The step can also be equal to 'exposure'. In this case, the chord path will consider the lightcurve individual
+            times and exptime.
+    """
+    keep = []
+    if step == 'exposure':
+        try:
+            step = np.min([chord.lightcurve.exptime/10., 1.0])
+        except:
+            raise ValueError('Chord.lightcurve does not have "exptime"')
+        time_all = np.arange(chord.lightcurve.time.min(), chord.lightcurve.time.max(), step)
+        time_exposure = np.array([])
+        for i in range(len(chord.lightcurve.time)):
+            event_model = (time_all > chord.lightcurve.time[i]-chord.lightcurve.exptime/2.) & (time_all < chord.lightcurve.time[i]+chord.lightcurve.exptime/2.)
+            time_exposure = np.append(time_exposure,time_all[event_model])
+            f_all, g_all = chord.get_fg(time=time_exposure*u.s + chord.lightcurve.tref)
+    else:
+        f_all, g_all = chord.path(segment='full')
+    for i in progressbar(range(len(chisquare.data['chi2'])),'Filter chord: {}'.format(chord.name)):
+        df_all = (f_all - chisquare.data['center_f'][i])
+        dg_all = (g_all - chisquare.data['center_g'][i])
+
+        r_all = np.sqrt(df_all**2 + dg_all**2)
+        cut = r_all < 1.5*chisquare.data['equatorial_radius'][i]
+        df_path = df_all[cut]
+        dg_path = dg_all[cut]
+        r_path = r_all[cut]
+        theta_path = np.arctan2(dg_path, df_path)
+
+        x_ellipse, y_ellipse, r_ellipse, theta = get_ellipse(theta_path,
+                                                         equatorial_radius=chisquare.data['equatorial_radius'][i],
+                                                         oblateness=chisquare.data['oblateness'][i],
+                                                         center_f=chisquare.data['center_f'][i],
+                                                         center_g=chisquare.data['center_g'][i],
+                                                         position_angle=chisquare.data['position_angle'][i])
+        keep.append(np.all(r_path - r_ellipse + sigma > 0))
+
+    filtered_chisquare = ChiSquare(chisquare.data['chi2'][keep],chisquare.npts,
+                                   equatorial_radius= chisquare.data['equatorial_radius'][keep],
+                                   oblateness= chisquare.data['oblateness'][keep],
+                                   center_f= chisquare.data['center_f'][keep],
+                                   center_g= chisquare.data['center_g'][keep],
+                                   position_angle= chisquare.data['position_angle'][keep])
+    return filtered_chisquare
 
 class ChiSquare():
     def __init__(self, chi2, npts, **kwargs):
