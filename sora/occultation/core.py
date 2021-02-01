@@ -135,7 +135,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     chi2_best = np.array([])
 
     while (len(f0_chi) < number_chi):
-        progressbar_show(len(f0_chi),number_chi,prefix='Ellipse fit:')
+        progressbar_show(len(f0_chi), number_chi, prefix='Ellipse fit:')
         chi2 = np.zeros(loop)
         f0 = center_f + dcenter_f*(2*np.random.random(loop) - 1)
         g0 = center_g + dcenter_g*(2*np.random.random(loop) - 1)
@@ -173,7 +173,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         obla_chi = np.append(obla_chi, obla[region])
         posang_chi = np.append(posang_chi, phi_deg[region])
 
-    progressbar_show(number_chi,number_chi,prefix='Ellipse fit:')
+    progressbar_show(number_chi, number_chi, prefix='Ellipse fit:')
     chisquare = ChiSquare(chi2_best, len(values), center_f=f0_chi, center_g=g0_chi, equatorial_radius=a_chi,
                           oblateness=obla_chi, position_angle=posang_chi)
     controle_f4 = Time.now()
@@ -204,11 +204,11 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         radial_dispersion = np.append(radial_dispersion, r - r_model)
         error_bar = np.append(error_bar, si)
         position_angle_point = np.append(position_angle_point, Angle(90*u.deg - theta*u.rad).wrap_at(360 * u.deg).degree)
-        
+
     for occ in args:
         if type(occ) == Occultation:
             occ.fitted_params = {i: result_sigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
-                                                          'oblateness', 'position_angle']}
+                                                              'oblateness', 'position_angle']}
             occ.chi2_params = {'chord_name': chord_name}
             occ.chi2_params['radial_dispersion'] = radial_dispersion
             occ.chi2_params['position_angle'] = position_angle_point
@@ -833,7 +833,7 @@ class Occultation():
         f.write(self.__str__())
         f.close()
 
-    def check_decalage(self,time_interval=30,time_resolution=0.001,log=False,plot=False,use_error=True,delta_plot=100):
+    def check_decalage(self, time_interval=30, time_resolution=0.001, log=False, plot=False, use_error=True, delta_plot=100):
         """ Check the needed time offset (decalage), so all chords have their center aligned.
 
         Parameters:
@@ -863,14 +863,14 @@ class Occultation():
                 df1, dg1, df2, dg2 = chord.path(segment='error')
                 dfm = np.append(dfm, np.sqrt(((df1.max() - df1.min())/2)**2 + ((df2.max() - df2.min())/2)**2))
                 dgm = np.append(dgm, np.sqrt(((dg1.max() - dg1.min())/2)**2 + ((dg2.max() - dg2.min())/2)**2))
-                fm = np.append(fm,ffm)
-                gm = np.append(gm,ggm)
-                vfm = np.append(vfm,vffm)
-                vgm = np.append(vgm,vggm)
-                chord_name = np.append(chord_name,chord.name)
+                fm = np.append(fm, ffm)
+                gm = np.append(gm, ggm)
+                vfm = np.append(vfm, vffm)
+                vgm = np.append(vgm, vggm)
+                chord_name = np.append(chord_name, chord.name)
 
-        out = self.__linear_fit_error(x=fm,y=gm,sx=dfm, sy=dgm, log=log, use_error=use_error)
-        fm_fit = np.linspace(-delta_plot+np.min([fm.min(),gm.min()]), delta_plot+np.max([fm.max(),gm.max()]), 1000)
+        out = self.__linear_fit_error(x=fm, y=gm, sx=dfm, sy=dgm, log=log, use_error=use_error)
+        fm_fit = np.linspace(-delta_plot+np.min([fm.min(), gm.min()]), delta_plot+np.max([fm.max(), gm.max()]), 1000)
         gm_fit = self.__func_line_decalage(out.beta, fm_fit)
 
         previous_dt = np.array([])
@@ -879,39 +879,39 @@ class Occultation():
         time_decalage = np.array([])
 
         for i, j in enumerate(chord_name):
-            previous_dt = np.append(previous_dt,self.chords[j].lightcurve.dt)
+            previous_dt = np.append(previous_dt, self.chords[j].lightcurve.dt)
             dist_min = np.array([])
-            dtt = np.arange(-time_interval,+time_interval,time_resolution)
+            dtt = np.arange(-time_interval, +time_interval, time_resolution)
             for dt in dtt:
                 fm_new = fm[i] + dt*vfm[i]
                 gm_new = gm[i] + dt*vgm[i]
                 dist = np.sqrt((fm_new - fm_fit)**2 + (gm_new - gm_fit)**2)
-                dist_min = np.append(dist_min,dist.min())
-            print('dt = {:+6.3f} seconds; chord = {}'.format(previous_dt[i] + dtt[dist_min.argmin()],chord_name[i]))
+                dist_min = np.append(dist_min, dist.min())
+            print('dt = {:+6.3f} seconds; chord = {}'.format(previous_dt[i] + dtt[dist_min.argmin()], chord_name[i]))
             fm_decalage = np.append(fm_decalage, fm[i] + dtt[dist_min.argmin()]*vfm[i])
             gm_decalage = np.append(gm_decalage, gm[i] + dtt[dist_min.argmin()]*vgm[i])
-            time_decalage = np.append(time_decalage,dtt[dist_min.argmin()])
+            time_decalage = np.append(time_decalage, dtt[dist_min.argmin()])
 
         if plot:
-            plt.figure(figsize=(5,5)) #inches
-            plt.title('Before',fontsize=15)
+            plt.figure(figsize=(5, 5))
+            plt.title('Before', fontsize=15)
             self.chords.plot_chords(color='blue')
-            self.chords.plot_chords(color='red',segment='error')
-            plt.plot(fm, gm, linestyle='None', marker='o',color='k')
-            plt.plot(fm_fit, gm_fit,'k-')
-            plt.xlim(-delta_plot+np.min([fm.min(),gm.min()]), delta_plot+np.max([fm.max(),gm.max()]))
-            plt.ylim(-delta_plot+np.min([fm.min(),gm.min()]), delta_plot+np.max([fm.max(),gm.max()]))
+            self.chords.plot_chords(color='red', segment='error')
+            plt.plot(fm, gm, linestyle='None', marker='o', color='k')
+            plt.plot(fm_fit, gm_fit, 'k-')
+            plt.xlim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
+            plt.ylim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
             plt.show()
             for i, j in enumerate(chord_name):
-                self.chords[j].lightcurve.dt =  previous_dt[i] + time_decalage[i]
-            plt.figure(figsize=(5,5)) #inches
-            plt.title('After',fontsize=15)
+                self.chords[j].lightcurve.dt = previous_dt[i] + time_decalage[i]
+            plt.figure(figsize=(5, 5))
+            plt.title('After', fontsize=15)
             self.chords.plot_chords(color='blue')
-            self.chords.plot_chords(color='red',segment='error')
-            plt.plot(fm_decalage, gm_decalage, linestyle='None', marker='o',color='k')
-            plt.plot(fm_fit, gm_fit,'k-')
-            plt.xlim(-delta_plot+np.min([fm.min(),gm.min()]), delta_plot+np.max([fm.max(),gm.max()]))
-            plt.ylim(-delta_plot+np.min([fm.min(),gm.min()]), delta_plot+np.max([fm.max(),gm.max()]))
+            self.chords.plot_chords(color='red', segment='error')
+            plt.plot(fm_decalage, gm_decalage, linestyle='None', marker='o', color='k')
+            plt.plot(fm_fit, gm_fit, 'k-')
+            plt.xlim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
+            plt.ylim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
             plt.show()
             for i, j in enumerate(chord_name):
                 self.chords[j].lightcurve.dt = previous_dt[i]
@@ -1054,14 +1054,14 @@ class Occultation():
             out += '\n' + self.new_astrometric_position(log=False)
 
         return out
-        
+
     def __func_line_decalage(self, p, x):
         """ Private function returns a linear function, intended for fitting inside the self.check_decalage().
         """
         a, b = p
         return a*x + b
 
-    def __linear_fit_error(self, x,y,sx,sy,log=False,use_error=True):
+    def __linear_fit_error(self, x, y, sx, sy, log=False, use_error=True):
         """ Private function returns a linear fit, intended for fitting inside the self.check_decalage().
         """
         model = odr.Model(self.__func_line_decalage)

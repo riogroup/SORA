@@ -327,7 +327,7 @@ class Chord():
             center_f (int,float): The coordinate in f of the ellipse center. Default=0
             center_g (int,float): The coordinate in g of the ellipse center. Default=0
             log (bool): if True, prints the obtained values.
-            
+
         Returns:
             impact: Impact parameter, in km.
             sense: Direction of the chord relative the ellipse center, North (N), South (S), East (E) and West (W).
@@ -337,15 +337,15 @@ class Chord():
         impact = r.min()
         sense = 'NE'
         if g[np.argmin(r)] < center_g:
-            sense = sense.replace('N','S')
+            sense = sense.replace('N', 'S')
         if f[np.argmin(r)] < center_f:
-            sense = sense.replace('E','W')
+            sense = sense.replace('E', 'W')
         if log:
             print(self.name)
-            print('Impact parameter', np.round(impact,1),sense)
+            print('Impact parameter', np.round(impact, 1), sense)
         return impact, sense
 
-    def get_theoretical_times(self, equatorial_radius,center_f=0,center_g=0,oblateness=0,position_angle=0,sigma=0,
+    def get_theoretical_times(self, equatorial_radius, center_f=0, center_g=0, oblateness=0, position_angle=0, sigma=0,
                               step=1, log=True):
         """Get the theoretical times and chord size for a given ellipse.
 
@@ -369,7 +369,7 @@ class Chord():
             theory_emersion_time: Expected emersion time for the given ellipse
             theory_chord_size: Expected chord size for the given ellipse
         """
-        time_all = Time(np.arange(self.lightcurve.initial_time.jd,self.lightcurve.end_time.jd,step*u.s.to('d')),format='jd')
+        time_all = Time(np.arange(self.lightcurve.initial_time.jd, self.lightcurve.end_time.jd, step*u.s.to('d')), format='jd')
 
         f_all, g_all = self.get_fg(time=time_all)
         df_all = (f_all - center_f)
@@ -377,10 +377,10 @@ class Chord():
 
         r_all = np.sqrt(df_all**2 + dg_all**2)
         cut = r_all < 1.5*equatorial_radius
-        df_path = df_all[cut] 
-        dg_path = dg_all[cut] 
-        r_path = r_all[cut] 
-        time = time_all[cut] 
+        df_path = df_all[cut]
+        dg_path = dg_all[cut]
+        r_path = r_all[cut]
+        time = time_all[cut]
 
         theta_path = np.arctan2(dg_path, df_path)
 
@@ -396,14 +396,14 @@ class Chord():
             if log:
                 print(self.name)
                 print('Negative chord \n')
-            chord_size = 0
-            immersion_time = None
-            emersion_time = None
+            theory_chord_size = 0
+            theory_immersion_time = None
+            theory_emersion_time = None
         try:
             imm = time[ev].jd.argmin()
             eme = time[ev].jd.argmax()
-            df_chord = [df_path[ev].min(),df_path[ev].max()]
-            dg_chord = [dg_path[ev].min(),dg_path[ev].max()]
+            df_chord = [df_path[ev].min(), df_path[ev].max()]
+            dg_chord = [dg_path[ev].min(), dg_path[ev].max()]
             theory_chord_size = np.sqrt((df_chord[1]-df_chord[0])**2 + (dg_chord[1]-dg_chord[0])**2)
             theory_immersion_time = time[ev][imm]
             theory_emersion_time = time[ev][eme]

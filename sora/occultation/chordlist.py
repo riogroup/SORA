@@ -196,7 +196,7 @@ class ChordList(List):
         tabela = vstack(tables)
         tabela.pprint_all()
 
-    def get_impact_param(self,chords='all_chords',center_f=0,center_g=0,log=True):
+    def get_impact_param(self, chords='all_chords', center_f=0, center_g=0, log=True):
         """Get the impact parameter, minimal distance between the chord and the centre position.
 
         This Chord object must be associated to an Occultation to work, since it needs
@@ -207,7 +207,7 @@ class ChordList(List):
             center_f (int,float): The coordinate in f of the ellipse center. Default=0
             center_g (int,float): The coordinate in g of the ellipse center. Default=0
             log (bool): if True, prints the obtained values.
-            
+
         Returns:
             impact: Impact parameter, in km.
             sense: Direction of the chord relative the ellipse center, North (N), South (S), East (E) and West (W).
@@ -221,13 +221,13 @@ class ChordList(List):
         for i in chords:
             chord = self[i]
             im, se = chord.get_impact_param(center_f=center_f, center_g=center_g, log=log)
-            impact = np.append(impact,im)
-            sense = np.append(sense,se)
-            names = np.append(names,chord.name)
+            impact = np.append(impact, im)
+            sense = np.append(sense, se)
+            names = np.append(names, chord.name)
         return impact, sense, names
 
-    def get_theoretical_times(self, equatorial_radius,chords='all_chords',center_f=0,center_g=0,oblateness=0,position_angle=0,
-                              sigma=0, step=1, log=True):
+    def get_theoretical_times(self, equatorial_radius, chords='all_chords', center_f=0, center_g=0, oblateness=0,
+                              position_angle=0, sigma=0, step=1, log=True):
         """Get the theoretical times and chords sizes for a given ellipse.
 
         This Chord object must be associated to an Occultation to work, since it needs
@@ -260,12 +260,12 @@ class ChordList(List):
             chords = range(len(self))
         for i in chords:
             chord = self[i]
-            tit, tet, tcs = chord.get_theoretical_times(equatorial_radius=equatorial_radius, center_f=center_f, 
+            tit, tet, tcs = chord.get_theoretical_times(equatorial_radius=equatorial_radius, center_f=center_f,
                                                         center_g=center_g, oblateness=oblateness, position_angle=position_angle,
                                                         sigma=sigma, step=step, log=log)
-            theory_immersion_time = np.append(theory_immersion_time,tit)
-            theory_emersion_time = np.append(theory_emersion_time,tet)
-            theory_chord_size = np.append(theory_chord_size,tcs)
-            names = np.append(names,chord.name)
+            theory_immersion_time = np.append(theory_immersion_time, tit)
+            theory_emersion_time = np.append(theory_emersion_time, tet)
+            theory_chord_size = np.append(theory_chord_size, tcs)
+            names = np.append(names, chord.name)
         return theory_immersion_time, theory_emersion_time, theory_chord_size, names
 
