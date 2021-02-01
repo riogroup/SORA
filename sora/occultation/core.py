@@ -10,9 +10,11 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord, SkyOffsetFrame, Angle
 from astropy.time import Time
 import numpy as np
+import matplotlib.pyplot as plt
 import warnings
 from functools import partial
 from sora.config.visuals import progressbar_show
+import scipy.odr as odr
 
 __all__ = ['fit_ellipse', 'Occultation', 'positionv']
 warnings.simplefilter('always', UserWarning)
@@ -831,6 +833,90 @@ class Occultation():
         f.write(self.__str__())
         f.close()
 
+    def check_decalage(self,time_interval=30,time_resolution=0.001,log=False,plot=False,use_error=True,delta_plot=100):
+        """ Check the needed time offset (decalage), so all chords have their center aligned.
+
+        Parameters:
+            time_interval (int, float): Time interval to check, default is 30 seconds
+            time_resolution (int, float): Time resolution of the search, default is 0.001 seconds
+            log (bool): If True, it prints text, default is False.
+            plot (bool): If True, it plots figures as a visual aid, default is False.
+            use_error (bool): if True, the linear fit considers the time uncertainty, default is True.
+             delta_plot (int, float): Value to be added to increase the plot limit, in km. Default is 100
+        Return:
+            time_decalage: Needed time offset to align the chords.
+            chord_name: Name of the chord
+        """
+        fm = np.array([])
+        gm = np.array([])
+        dfm = np.array([])
+        dgm = np.array([])
+        vfm = np.array([])
+        vgm = np.array([])
+        chord_name = np.array([])
+
+        chords = range(len(self.chords))
+        for i in chords:
+            chord = self.chords[i]
+            if chord.status() == 'positive':
+                ffm, ggm, vffm, vggm = chord.get_fg(time=chord.lightcurve.time_mean, vel=True)
+                df1, dg1, df2, dg2 = chord.path(segment='error')
+                dfm = np.append(dfm, np.sqrt(((df1.max() - df1.min())/2)**2 + ((df2.max() - df2.min())/2)**2))
+                dgm = np.append(dgm, np.sqrt(((dg1.max() - dg1.min())/2)**2 + ((dg2.max() - dg2.min())/2)**2))
+                fm = np.append(fm,ffm)
+                gm = np.append(gm,ggm)
+                vfm = np.append(vfm,vffm)
+                vgm = np.append(vgm,vggm)
+                chord_name = np.append(chord_name,chord.name)
+
+        out = self.__linear_fit_error(x=fm,y=gm,sx=dfm, sy=dgm, log=log, use_error=use_error)
+        fm_fit = np.linspace(-delta_plot+np.min([fm.min(),gm.min()]), delta_plot+np.max([fm.max(),gm.max()]), 1000)
+        gm_fit = self.__func_line_decalage(out.beta, fm_fit)
+
+        previous_dt = np.array([])
+        fm_decalage = np.array([])
+        gm_decalage = np.array([])
+        time_decalage = np.array([])
+
+        for i, j in enumerate(chord_name):
+            previous_dt = np.append(previous_dt,self.chords[j].lightcurve.dt)
+            dist_min = np.array([])
+            dtt = np.arange(-time_interval,+time_interval,time_resolution)
+            for dt in dtt:
+                fm_new = fm[i] + dt*vfm[i]
+                gm_new = gm[i] + dt*vgm[i]
+                dist = np.sqrt((fm_new - fm_fit)**2 + (gm_new - gm_fit)**2)
+                dist_min = np.append(dist_min,dist.min())
+            print('dt = {:+6.3f} seconds; chord = {}'.format(previous_dt[i] + dtt[dist_min.argmin()],chord_name[i]))
+            fm_decalage = np.append(fm_decalage, fm[i] + dtt[dist_min.argmin()]*vfm[i])
+            gm_decalage = np.append(gm_decalage, gm[i] + dtt[dist_min.argmin()]*vgm[i])
+            time_decalage = np.append(time_decalage,dtt[dist_min.argmin()])
+
+        if plot:
+            plt.figure(figsize=(5,5)) #inches
+            plt.title('Before',fontsize=15)
+            self.chords.plot_chords(color='blue')
+            self.chords.plot_chords(color='red',segment='error')
+            plt.plot(fm, gm, linestyle='None', marker='o',color='k')
+            plt.plot(fm_fit, gm_fit,'k-')
+            plt.xlim(-delta_plot+np.min([fm.min(),gm.min()]), delta_plot+np.max([fm.max(),gm.max()]))
+            plt.ylim(-delta_plot+np.min([fm.min(),gm.min()]), delta_plot+np.max([fm.max(),gm.max()]))
+            plt.show()
+            for i, j in enumerate(chord_name):
+                self.chords[j].lightcurve.dt =  previous_dt[i] + time_decalage[i]
+            plt.figure(figsize=(5,5)) #inches
+            plt.title('After',fontsize=15)
+            self.chords.plot_chords(color='blue')
+            self.chords.plot_chords(color='red',segment='error')
+            plt.plot(fm_decalage, gm_decalage, linestyle='None', marker='o',color='k')
+            plt.plot(fm_fit, gm_fit,'k-')
+            plt.xlim(-delta_plot+np.min([fm.min(),gm.min()]), delta_plot+np.max([fm.max(),gm.max()]))
+            plt.ylim(-delta_plot+np.min([fm.min(),gm.min()]), delta_plot+np.max([fm.max(),gm.max()]))
+            plt.show()
+            for i, j in enumerate(chord_name):
+                self.chords[j].lightcurve.dt = previous_dt[i]
+        return time_decalage, chord_name
+
     def to_file(self):
         """ Saves the occultation data to a file
 
@@ -967,4 +1053,26 @@ class Occultation():
 
             out += '\n' + self.new_astrometric_position(log=False)
 
+        return out
+        
+    def __func_line_decalage(self, p, x):
+        """ Private function returns a linear function, intended for fitting inside the self.check_decalage().
+        """
+        a, b = p
+        return a*x + b
+
+    def __linear_fit_error(self, x,y,sx,sy,log=False,use_error=True):
+        """ Private function returns a linear fit, intended for fitting inside the self.check_decalage().
+        """
+        model = odr.Model(self.__func_line_decalage)
+        if use_error:
+            data = odr.RealData(x=x, y=y, sx=sx, sy=sy)
+        else:
+            data = odr.RealData(x=x, y=y)
+        fit = odr.ODR(data, model, beta0=[0., 1.])
+        out = fit.run()
+        if log:
+            print('Linear fit procedure')
+            out.pprint()
+            print('\n')
         return out
