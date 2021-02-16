@@ -128,14 +128,14 @@ class PredictionTable(Table):
             if 'mag' not in kwargs.keys() and 'mag_20' not in kwargs.keys():
                 raise ValueError('User must provide "mag" or "mag_20" parameters')
             if 'mag' in kwargs.keys():
-                values['G'] = Column(kwargs['mag'], format='6.3f', unit='mag')
+                values['G'] = Column(kwargs['mag'] * u.mag, format='6.3f', unit='mag')
                 del kwargs['mag']
             else:
                 values['G'] = kwargs['mag_20'] - 2.5*np.log10(np.absolute(values['Vel'])/20.0)
                 values['G'].unit = 'mag'
                 values['G'].format = '6.3f'
             if 'mag_20' in kwargs.keys():
-                values['G*'] = Column(kwargs['mag_20'], format='6.3f', unit='mag')
+                values['G*'] = Column(kwargs['mag_20'] * u.mag, format='6.3f', unit='mag')
                 del kwargs['mag_20']
             else:
                 values['G*'] = values['G'] + 2.5*np.log10(np.absolute(values['Vel'])/20.0)
@@ -158,11 +158,12 @@ class PredictionTable(Table):
             values['M-G-T'] = Column(moon_pos.separation(coord), unit='deg', format='3.0f')
             sun_pos = get_sun(time)
             values['S-G-T'] = Column(sun_pos.separation(coord), unit='deg', format='3.0f')
+            catalogue = kwargs.get('meta', {}).get('catalogue', '')
             if 'source' in kwargs.keys():
-                values['GAIA-DR2 Source ID'] = Column(kwargs['source'])
+                values[f'{catalogue} Source ID'] = Column(kwargs['source'], dtype=np.int64)
                 del kwargs['source']
             else:
-                values['GAIA-DR2 Source ID'] = Column(np.repeat('', len(time)))
+                values[f'{catalogue} Source ID'] = Column(np.repeat('', len(time)))
             super().__init__(values, **kwargs)
         else:
             super().__init__(*args, **kwargs)
@@ -503,7 +504,8 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
         return calc_min(time0=time, time_interval=600, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
 
 
-def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, step=60, divs=1, sigma=1, radius=None, log=True):
+def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='gaiaedr3', step=60, divs=1, sigma=1,
+               radius=None, log=True):
     """ Predicts stellar occultations
 
     Parameters:
@@ -513,6 +515,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, step=60,
                 name to search in the Small Body Database.
         ephem* (Ephem): object ephemeris. It must be an Ephemeris object.
         mag_lim (int,float): Faintest Gmag for search
+        catalogue (str): The catalogue to download data. It can be "gaiadr2" or "gaiaedr3"
         step (number): step, in seconds, of ephem times for search
         divs (int): number of regions the ephemeris will be splitted for better search of occultations
         sigma (number): ephemeris error sigma for search off-Earth.
@@ -550,10 +553,14 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, step=60,
     intervals = np.round(np.linspace(0, (time_end-time_beg).sec, divs+1))
 
     # define catalogue parameters
-    kwds = {}
-    kwds['columns'] = ['Source', 'RA_ICRS', 'DE_ICRS', 'pmRA', 'pmDE', 'Plx', 'RV', 'Epoch', 'Gmag']
-    kwds['row_limit'] = 10000000
-    kwds['timeout'] = 600
+    allowed_catalogues = ['gaiadr2', 'gaiaedr3']
+    if catalogue not in allowed_catalogues:
+        raise ValueError('Catalogue {} is not one of the allowed catalogues {}'.format(catalogue, allowed_catalogues))
+    vizpath = {'gaiadr2': 'I/345/gaia2', 'gaiaedr3': 'I/350/gaiaedr3'}[catalogue]
+    cat_name = {'gaiadr2': 'Gaia-DR2', 'gaiaedr3': 'Gaia-EDR3'}[catalogue]
+    columns = {'gaiadr2': ['Source', 'RA_ICRS', 'DE_ICRS', 'pmRA', 'pmDE', 'Plx', 'RV', 'Epoch', 'Gmag'],
+               'gaiaedr3': ['Source', 'RA_ICRS', 'DE_ICRS', 'pmRA', 'pmDE', 'Plx', 'RVDR2', 'Epoch', 'Gmag']}[catalogue]
+    kwds = {'columns': columns, 'row_limit': 10000000, 'timeout': 600}
     if mag_lim:
         kwds['column_filters'] = {"Gmag": "<{}".format(mag_lim)}
     vquery = Vizier(**kwds)
@@ -565,6 +572,8 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, step=60,
         except AttributeError:
             radius = 0
             warnings.warn('"radius" not given or found in body or ephem. Considering it to be zero.')
+        if np.isnan(radius):
+            radius = 0
     radius = u.Quantity(radius, unit=u.km)
 
     radius_search = radius + const.R_earth
@@ -591,20 +600,20 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, step=60,
 
         if log:
             print('Downloading stars ...')
-        catalogue = vquery.query_region(pos_search, width=width, height=height, catalog='I/345/gaia2', cache=False)
+        catalogue = vquery.query_region(pos_search, width=width, height=height, catalog=vizpath, cache=False)
         if len(catalogue) == 0:
             print('    No star found. The region is too small or VizieR is out.')
             continue
         catalogue = catalogue[0]
         if log:
-            print('    {} Gaia-DR2 stars downloaded'.format(len(catalogue)))
+            print('    {} {} stars downloaded'.format(len(catalogue), cat_name))
             print('Identifying occultations ...')
         pm_ra_cosdec = catalogue['pmRA'].quantity
         pm_ra_cosdec[np.where(np.isnan(pm_ra_cosdec))] = 0*u.mas/u.year
         pm_dec = catalogue['pmDE'].quantity
         pm_dec[np.where(np.isnan(pm_dec))] = 0*u.mas/u.year
         stars = SkyCoord(catalogue['RA_ICRS'].quantity, catalogue['DE_ICRS'].quantity, distance=np.ones(len(catalogue))*u.pc,
-                         pm_ra_cosdec=pm_ra_cosdec, pm_dec=pm_dec, obstime=Time(catalogue['Epoch'], format='jyear'))
+                         pm_ra_cosdec=pm_ra_cosdec, pm_dec=pm_dec, obstime=Time(catalogue['Epoch'].quantity.value, format='jyear'))
         prec_stars = stars.apply_space_motion(new_obstime=((nt[-1]-nt[0])/2+nt[0]))
         idx, d2d, d3d = prec_stars.match_to_catalog_sky(ncoord)
 
@@ -614,7 +623,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, step=60,
         for ev in k:
             star = Star(code=catalogue['Source'][ev], ra=catalogue['RA_ICRS'][ev]*u.deg, dec=catalogue['DE_ICRS'][ev]*u.deg,
                         pmra=catalogue['pmRA'][ev]*u.mas/u.year, pmdec=catalogue['pmDE'][ev]*u.mas/u.year,
-                        parallax=catalogue['Plx'][ev]*u.mas, rad_vel=catalogue['RV'][ev]*u.km/u.s,
+                        parallax=catalogue['Plx'][ev]*u.mas, rad_vel=catalogue[columns[6]][ev]*u.km/u.s,
                         epoch=Time(catalogue['Epoch'][ev], format='jyear'), local=True, nomad=False, log=False)
             c = star.geocentric(nt[idx][ev])
             pars = [star.code, SkyCoord(c.ra, c.dec), catalogue['Gmag'][ev]]
@@ -626,7 +635,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, step=60,
 
     meta = {'name': ephem.name, 'time_beg': time_beg, 'time_end': time_end, 'maglim': mag_lim, 'max_ca': mindist,
             'radius': radius.to(u.km).value, 'error_ra': ephem.error_ra.to(u.mas).value,
-            'error_dec': ephem.error_dec.to(u.mas).value, 'ephem': ephem.meta['kernels']}
+            'error_dec': ephem.error_dec.to(u.mas).value, 'ephem': ephem.meta['kernels'], 'catalogue': cat_name}
     if not occs:
         print('\nNo stellar occultation was found.')
         return PredictionTable(meta=meta)
