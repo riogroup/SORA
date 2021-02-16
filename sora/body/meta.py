@@ -292,7 +292,7 @@ class BaseBody():
         allowed_types = [EphemPlanete, EphemKernel, EphemJPL, EphemHorizons]
         if type(value) not in allowed_types:
             if isinstance(value, str) and value.lower() == 'horizons':
-                value = EphemHorizons(name=self._search_name)
+                value = EphemHorizons(name=self._search_name, id_type=self._id_type, spkid=self.spkid)
             elif isinstance(value, (list, str)):
                 value = EphemKernel(kernels=value, spkid=self.spkid)
             else:
@@ -305,9 +305,9 @@ class BaseBody():
         if hasattr(self, '_ephem'):
             self._ephem._shared_with['body'] = {}
         self._ephem = value
-        spkval = value.spkid
+        spkval = getattr(value, 'spkid', None)
         self._ephem._shared_with['body'] = self._shared_with['ephem']
-        spknewval = value.spkid
+        spknewval = getattr(value, 'spkid', None)
         if spkval != spknewval:
             warnings.warn('spkid is different in {0} ({1}) and {2} ({3}). {0}\'s spkid will have higher priority'.format(
                 self.__class__.__name__, spknewval, value.__class__.__name__, spkval))
