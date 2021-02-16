@@ -1185,7 +1185,9 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
 # plots the heights
     if 'heights' in kwargs.keys():
         for h in heights:
-            plt.plot(bordx*np.cos(h*u.deg), bordy*np.cos(h*u.deg), linestyle='dotted', color=hcolor)
+            lonb, latb = xy2latlon(bordx * np.cos(h * u.deg), bordy * np.cos(h * u.deg), center.lon.value,
+                                   center.lat.value, data)
+            axf.plot(lonb, latb, transform=ccrs.Geodetic(), linestyle='dotted', color=hcolor)
 
 # plots the the direction arrow
     if arrow:
