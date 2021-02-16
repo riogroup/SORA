@@ -474,7 +474,7 @@ class LightCurve():
         else:
             raise TypeError('Exposure time must be an integer, a float or an Astropy Unit object')
         if not np.isscalar(exptime):
-            raise TypeError('Exposure time must be an integer, a float or an Astropy Unit object')           
+            raise TypeError('Exposure time must be an integer, a float or an Astropy Unit object')
         if exptime <= 0:
             raise ValueError('Exposure time can not be zero or negative')
         self.exptime = exptime
@@ -729,14 +729,16 @@ class LightCurve():
             emersion_time (int, float): Initial guess for emersion time, in seconds.
             opacity (int, float): Initial guess for opacity. Opaque=1.0, transparent=0.0. Default=1.0
             delta_t (int, float): Interval to fit immersion or emersion time
-            dopacity (int, float): Interval to fit opacity. Default=0
-            loop (int): Number of tests to be done. Default=10000
+            dopacity (int, float): Interval to fit opacity. Default=0.
+            sigma (int, float, array, 'auto'): Fluxes errors. If None it wil use the self.dflux.
+                If 'auto' it calculate using the region outside the event.
+            loop (int): Number of tests to be done. Default=10000.
 
         Returns:
             chi2 (ChiSquare): ChiSquare object
         """
         allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max', 'immersion_time', 'emersion_time', 'opacity',
-                          'delta_t', 'dopacity', 'loop']
+                          'delta_t', 'dopacity', 'sigma', 'loop']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if not hasattr(self, 'flux'):
@@ -781,9 +783,22 @@ class LightCurve():
             do_emersion = True
         t_e = emersion_time + delta_t*(2*np.random.random(loop) - 1)
         mask = (self.time >= tmin) & (self.time <= tmax)
-        mask_sigma = (((self.time >= tmin) & (self.time < immersion_time - self.exptime)) +
-                      ((self.time > emersion_time + self.exptime) & (self.time <= tmax)))
-        sigma = kwargs.get('sigma', self.flux[mask_sigma].std(ddof=1))
+        if 'sigma' not in kwargs:
+            if self.dflux is not None:
+                sigma = self.dflux
+            else:
+                sigma = 'auto'
+        else:
+            if type(kwargs['sigma']) in [float, int]:
+                sigma = np.repeat(kwargs['sigma'], len(self.flux))
+            elif kwargs['sigma'] is None:
+                sigma = self.dflux
+            else:
+                sigma = kwargs['sigma']
+        if type(sigma) is str and sigma == 'auto':
+            mask_sigma = (((self.time >= tmin) & (self.time < immersion_time - self.exptime)) +
+                          ((self.time > emersion_time + self.exptime) & (self.time <= tmax)))
+            sigma = np.repeat(self.flux[mask_sigma].std(ddof=1), len(self.flux))
         if 'dopacity' in kwargs:
             delta_opacity = kwargs['dopacity']
             do_opacity = True
@@ -803,7 +818,7 @@ class LightCurve():
         chi2 = 999999*np.ones(loop)
         for i in range(loop):
             model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
-            chi2[i] = np.sum((self.flux[mask] - model_test)**2)/(sigma**2)
+            chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2))
         kkargs = {}
         if do_immersion:
             kkargs['immersion'] = t_i
@@ -1277,7 +1292,7 @@ class LightCurve():
                            self.exptime, self.exptime*self.vel, self.cycle-self.exptime,
                            (self.cycle-self.exptime)*self.vel, self.model_resolution,
                            self.model_resolution*self.vel, self.baseflux, self.bottomflux,
-                           self.lc_sigma)
+                           self.lc_sigma.mean())
                        )
         except:
             output += '\nObject LightCurve model was not fitted.\n\n'
