@@ -3,6 +3,7 @@ import matplotlib.pylab as pl
 import astropy.units as u
 from astropy.timeseries import BoxLeastSquares
 from astropy.time import Time
+from astropy.io import ascii
 import scipy.special as scsp
 from scipy.odr import odrpack as odr
 from scipy.odr import models
@@ -84,6 +85,7 @@ class LightCurve():
                     A third column with the error in flux can also be given.
                 usecols (int, tuple, array): Which columns to read, with the
                     first being the time, the seconds the flux and third the flux error [optional].
+                skiprows (int): Skip the first skiprows lines, including comments; default: 0 [optional].
 
             2) IF file is not given:
                 time: time must be a list of times, in seconds from tref,
@@ -113,7 +115,7 @@ class LightCurve():
         """
         allowed_kwargs = ['emersion', 'emersion_err', 'immersion', 'immersion_err', 'initial_time', 'end_time',
                           'file', 'time', 'flux', 'exptime', 'central_bandpass', 'delta_bandpass', 'tref', 'dflux',
-                          'usecols', 'dist', 'vel', 'd_star']
+                          'skiprows', 'usecols', 'dist', 'vel', 'd_star']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         input_done = False
         self.dflux = None
@@ -284,6 +286,86 @@ class LightCurve():
         except:
             raise AttributeError("'LightCurve' object has no attribute 'time'")
 
+    def read_lc_file(self, lc_file, usecols=None, skiprows=0):
+        """ Reads light curve data from a file.
+
+        Parameters:
+            file (str): a file with the time and flux in the first and second columns, respectively.
+                A third column with error in flux can also be given. (required)
+            usecols (int, tuple, array): Which columns to read, with the
+                    first being the time, the seconds the flux and third the flux error [optional].
+            skiprows (int): Skip the first skiprows lines, including comments; default: 0 [optional].
+        Returns:
+            :rtype: (array, array, array)
+        """
+        if not os.path.isfile(lc_file):
+            raise ValueError('{} not found'.format(lc_file))
+        if usecols is not None:
+            if len(usecols) == 2:
+                try:
+                    time, flux = np.loadtxt(lc_file, usecols=usecols, skiprows=skiprows, unpack=True)
+                    return time, flux
+                except:
+                    pass
+            elif len(usecols) == 3:
+                try:
+                    time, flux, dflux = np.loadtxt(lc_file, usecols=usecols, skiprows=skiprows, unpack=True)
+                    return time, flux, dflux
+                except:
+                    pass
+            else:
+                raise ValueError('usecols should have 2 or 3 values')
+        else:
+            try:
+                time, flux = np.loadtxt(lc_file, usecols=[0, 1], skiprows=skiprows, unpack=True)
+                return time, flux
+            except:
+                pass
+            try:
+                time, flux, dflux = np.loadtxt(lc_file, usecols=[0, 1, 2], skiprows=skiprows, unpack=True)
+                return time, flux, dflux
+            except:
+                pass
+        try:
+            lc_data = ascii.read(lc_file, data_start=skiprows)
+
+            if usecols is not None:
+                if len(usecols) == 2:
+                    time_col_index, flux_col_index = usecols
+                    time_col_name = lc_data.colnames[time_col_index]
+                    flux_col_name = lc_data.colnames[flux_col_index]
+                    time, flux = Time(lc_data[time_col_name].data).jd, lc_data[flux_col_name].data
+                    return time, flux
+                elif len(usecols) == 3:
+                    time_col_index, flux_col_index, dflux_col_index = usecols
+                    time_col_name = lc_data.colnames[time_col_index]
+                    flux_col_name = lc_data.colnames[flux_col_index]
+                    dflux_col_name = lc_data.colnames[dflux_col_index]
+                    time, flux = Time(lc_data[time_col_name].data).jd, lc_data[flux_col_name].data
+                    dflux = lc_data[dflux_col_name].data
+                    return time, flux, dflux
+                else:
+                    raise ValueError('usecols should have 2 or 3 values')
+            else:
+                if len(lc_data.colnames) == 2:
+                    time_col_index, flux_col_index = [0, 1]
+                    time_col_name = lc_data.colnames[time_col_index]
+                    flux_col_name = lc_data.colnames[flux_col_index]
+                    time, flux = Time(lc_data[time_col_name].data).jd, lc_data[flux_col_name].data
+                    return time, flux
+                elif len(lc_data.colnames) == 3:
+                    time_col_index, flux_col_index, dflux_col_index = [0, 1, 2]
+                    time_col_name = lc_data.colnames[time_col_index]
+                    flux_col_name = lc_data.colnames[flux_col_index]
+                    dflux_col_name = lc_data.colnames[dflux_col_index]
+                    time, flux = Time(lc_data[time_col_name].data).jd, lc_data[flux_col_name].data
+                    dflux = lc_data[dflux_col_name].data
+                    return time, flux, dflux
+                else:
+                    raise ValueError('file columns  should have 2 or 3 values')
+        except:
+            raise ValueError('An error has occurred in reading the {}'.format(lc_file))
+
     def set_flux(self, **kwargs):
         """ Sets the flux for the LightCurve
 
@@ -309,25 +391,18 @@ class LightCurve():
         usecols = None
         if 'usecols' in kwargs:
             usecols = kwargs['usecols']
+        skiprows = 0
+        if 'skiprows' in kwargs:
+            skiprows = int(kwargs['skiprows'])
         if 'file' in kwargs:
-            if not os.path.isfile(kwargs['file']):
-                raise ValueError('{} not found'.format(kwargs['file']))
-            if usecols is not None:
-                if len(usecols) == 2:
-                    time, self.flux = np.loadtxt(kwargs['file'], usecols=usecols, unpack=True)
-                elif len(usecols) == 3:
-                    time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=usecols, unpack=True)
-                else:
-                    raise ValueError('usecols should have 2 or 3 values')
-            else:
-                try:
-                    time, self.flux, self.dflux = np.loadtxt(kwargs['file'], usecols=[0, 1, 2], unpack=True)
-                except:
-                    pass
-                try:
-                    time, self.flux = np.loadtxt(kwargs['file'], usecols=[0, 1], unpack=True)
-                except:
-                    pass
+            try:
+                lc_data = self.read_lc_file(kwargs['file'], usecols=usecols, skiprows=skiprows)
+                if len(lc_data) == 2:
+                    time, self.flux = lc_data
+                elif len(lc_data) == 3:
+                    time, self.flux, self.dflux = lc_data
+            except:
+                pass
             if hasattr(self, 'flux'):
                 self.flux_obs = self.flux
             if not hasattr(self, 'flux_obs'):
@@ -399,7 +474,7 @@ class LightCurve():
         else:
             raise TypeError('Exposure time must be an integer, a float or an Astropy Unit object')
         if not np.isscalar(exptime):
-            raise TypeError('Exposure time must be an integer, a float or an Astropy Unit object')           
+            raise TypeError('Exposure time must be an integer, a float or an Astropy Unit object')
         if exptime <= 0:
             raise ValueError('Exposure time can not be zero or negative')
         self.exptime = exptime
@@ -654,14 +729,16 @@ class LightCurve():
             emersion_time (int, float): Initial guess for emersion time, in seconds.
             opacity (int, float): Initial guess for opacity. Opaque=1.0, transparent=0.0. Default=1.0
             delta_t (int, float): Interval to fit immersion or emersion time
-            dopacity (int, float): Interval to fit opacity. Default=0
-            loop (int): Number of tests to be done. Default=10000
+            dopacity (int, float): Interval to fit opacity. Default=0.
+            sigma (int, float, array, 'auto'): Fluxes errors. If None it wil use the self.dflux.
+                If 'auto' it calculate using the region outside the event.
+            loop (int): Number of tests to be done. Default=10000.
 
         Returns:
             chi2 (ChiSquare): ChiSquare object
         """
         allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max', 'immersion_time', 'emersion_time', 'opacity',
-                          'delta_t', 'dopacity', 'loop']
+                          'delta_t', 'dopacity', 'sigma', 'loop']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if not hasattr(self, 'flux'):
@@ -706,9 +783,22 @@ class LightCurve():
             do_emersion = True
         t_e = emersion_time + delta_t*(2*np.random.random(loop) - 1)
         mask = (self.time >= tmin) & (self.time <= tmax)
-        mask_sigma = (((self.time >= tmin) & (self.time < immersion_time - self.exptime)) +
-                      ((self.time > emersion_time + self.exptime) & (self.time <= tmax)))
-        sigma = kwargs.get('sigma', self.flux[mask_sigma].std(ddof=1))
+        if 'sigma' not in kwargs:
+            if self.dflux is not None:
+                sigma = self.dflux
+            else:
+                sigma = 'auto'
+        else:
+            if type(kwargs['sigma']) in [float, int]:
+                sigma = np.repeat(kwargs['sigma'], len(self.flux))
+            elif kwargs['sigma'] is None:
+                sigma = self.dflux
+            else:
+                sigma = kwargs['sigma']
+        if type(sigma) is str and sigma == 'auto':
+            mask_sigma = (((self.time >= tmin) & (self.time < immersion_time - self.exptime)) +
+                          ((self.time > emersion_time + self.exptime) & (self.time <= tmax)))
+            sigma = np.repeat(self.flux[mask_sigma].std(ddof=1), len(self.flux))
         if 'dopacity' in kwargs:
             delta_opacity = kwargs['dopacity']
             do_opacity = True
@@ -728,7 +818,7 @@ class LightCurve():
         chi2 = 999999*np.ones(loop)
         for i in range(loop):
             model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
-            chi2[i] = np.sum((self.flux[mask] - model_test)**2)/(sigma**2)
+            chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2))
         kkargs = {}
         if do_immersion:
             kkargs['immersion'] = t_i
@@ -1202,7 +1292,7 @@ class LightCurve():
                            self.exptime, self.exptime*self.vel, self.cycle-self.exptime,
                            (self.cycle-self.exptime)*self.vel, self.model_resolution,
                            self.model_resolution*self.vel, self.baseflux, self.bottomflux,
-                           self.lc_sigma)
+                           self.lc_sigma.mean())
                        )
         except:
             output += '\nObject LightCurve model was not fitted.\n\n'
