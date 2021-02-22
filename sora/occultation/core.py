@@ -833,8 +833,9 @@ class Occultation():
         f.write(self.__str__())
         f.close()
 
-    def check_decalage(self, time_interval=30, time_resolution=0.001, log=False, plot=False, use_error=True, delta_plot=100):
-        """ Check the needed time offset (decalage), so all chords have their center aligned.
+    def check_time_shift(self, time_interval=30, time_resolution=0.001, log=False, plot=False, use_error=True, delta_plot=100,
+                         ignore_chords=None):
+        """ Check the needed time offset, so all chords have their center aligned.
 
         Parameters:
             time_interval (int, float): Time interval to check, default is 30 seconds
@@ -844,8 +845,7 @@ class Occultation():
             use_error (bool): if True, the linear fit considers the time uncertainty, default is True.
              delta_plot (int, float): Value to be added to increase the plot limit, in km. Default is 100
         Return:
-            time_decalage: Needed time offset to align the chords.
-            chord_name: Name of the chord
+            time_decalage: Dictionary with needed time offset to align the chords, each key is the name of the chord.
         """
         fm = np.array([])
         gm = np.array([])
@@ -854,6 +854,9 @@ class Occultation():
         vfm = np.array([])
         vgm = np.array([])
         chord_name = np.array([])
+        ignore_chords = np.array(ignore_chords, ndmin=1)
+        use_chords = np.array([],dtype=bool)
+        out_dic = {}
 
         chords = range(len(self.chords))
         for i in chords:
@@ -868,9 +871,16 @@ class Occultation():
                 vfm = np.append(vfm, vffm)
                 vgm = np.append(vgm, vggm)
                 chord_name = np.append(chord_name, chord.name)
-
-        out = self.__linear_fit_error(x=fm, y=gm, sx=dfm, sy=dgm, log=log, use_error=use_error)
-        fm_fit = np.linspace(-delta_plot+np.min([fm.min(), gm.min()]), delta_plot+np.max([fm.max(), gm.max()]), 1000)
+                if chord.name in ignore_chords:
+                    use_chords = np.append(use_chords, False)
+                else:
+                    use_chords = np.append(use_chords, True)                
+        if len(fm[use_chords]) < 2:
+            raise ValueError('The number of fitted chords should be higher than two')        	
+        out = self.__linear_fit_error(x=fm[use_chords], y=gm[use_chords], sx=dfm[use_chords], sy=dgm[use_chords],
+                                      log=log, use_error=use_error)
+        fm_fit = np.arange(-delta_plot+np.min([fm.min(), gm.min()]), delta_plot+np.max([fm.max(), gm.max()]), 
+                           time_resolution*np.absolute(self.vel.value))
         gm_fit = self.__func_line_decalage(out.beta, fm_fit)
 
         previous_dt = np.array([])
@@ -891,13 +901,16 @@ class Occultation():
             fm_decalage = np.append(fm_decalage, fm[i] + dtt[dist_min.argmin()]*vfm[i])
             gm_decalage = np.append(gm_decalage, gm[i] + dtt[dist_min.argmin()]*vgm[i])
             time_decalage = np.append(time_decalage, dtt[dist_min.argmin()])
-
+        
+        for i in range(len(chord_name)):
+            out_dic[chord_name[i]] = time_decalage[i]
         if plot:
             plt.figure(figsize=(5, 5))
             plt.title('Before', fontsize=15)
             self.chords.plot_chords(color='blue')
             self.chords.plot_chords(color='red', segment='error')
-            plt.plot(fm, gm, linestyle='None', marker='o', color='k')
+            plt.plot(fm[use_chords], gm[use_chords], linestyle='None', marker='o', color='k')
+            plt.plot(fm[np.invert(use_chords)], gm[np.invert(use_chords)], linestyle='None', marker='x', color='r')
             plt.plot(fm_fit, gm_fit, 'k-')
             plt.xlim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
             plt.ylim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
@@ -908,14 +921,15 @@ class Occultation():
             plt.title('After', fontsize=15)
             self.chords.plot_chords(color='blue')
             self.chords.plot_chords(color='red', segment='error')
-            plt.plot(fm_decalage, gm_decalage, linestyle='None', marker='o', color='k')
+            plt.plot(fm_decalage[use_chords], gm_decalage[use_chords], linestyle='None', marker='o', color='k')
+            plt.plot(fm_decalage[np.invert(use_chords)], gm_decalage[np.invert(use_chords)], linestyle='None', marker='x', color='r')
             plt.plot(fm_fit, gm_fit, 'k-')
             plt.xlim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
             plt.ylim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
             plt.show()
             for i, j in enumerate(chord_name):
                 self.chords[j].lightcurve.dt = previous_dt[i]
-        return time_decalage, chord_name
+        return out_dic
 
     def to_file(self):
         """ Saves the occultation data to a file

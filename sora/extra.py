@@ -55,7 +55,7 @@ def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
         plt.plot(center_f, center_g, '.', **kwargs)
     plt.axis('equal')
 
-def get_ellipse(theta, equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
+def get_ellipse_points(theta, equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
                  position_angle=0.0):
     """ Get points for the ellipse with the given input parameters
 
@@ -88,7 +88,7 @@ def filter_negative_chord(chord,chisquare,step=1,sigma=0):
     keep = []
     if step == 'exposure':
         try:
-            step = np.min([chord.lightcurve.exptime/10., 1.0])
+            step = np.min([chord.lightcurve.exptime/10., step])
         except:
             raise ValueError('Chord.lightcurve does not have "exptime"')
         time_all = np.arange(chord.lightcurve.time.min(), chord.lightcurve.time.max(), step)
@@ -98,7 +98,7 @@ def filter_negative_chord(chord,chisquare,step=1,sigma=0):
             time_exposure = np.append(time_exposure,time_all[event_model])
             f_all, g_all = chord.get_fg(time=time_exposure*u.s + chord.lightcurve.tref)
     else:
-        f_all, g_all = chord.path(segment='full')
+        f_all, g_all = chord.path(segment='full', step=step)
     for i in progressbar(range(len(chisquare.data['chi2'])),'Filter chord: {}'.format(chord.name)):
         df_all = (f_all - chisquare.data['center_f'][i])
         dg_all = (g_all - chisquare.data['center_g'][i])
@@ -110,19 +110,19 @@ def filter_negative_chord(chord,chisquare,step=1,sigma=0):
         r_path = r_all[cut]
         theta_path = np.arctan2(dg_path, df_path)
 
-        x_ellipse, y_ellipse, r_ellipse, theta = get_ellipse(theta_path,
-                                                         equatorial_radius=chisquare.data['equatorial_radius'][i],
-                                                         oblateness=chisquare.data['oblateness'][i],
-                                                         center_f=chisquare.data['center_f'][i],
-                                                         center_g=chisquare.data['center_g'][i],
-                                                         position_angle=chisquare.data['position_angle'][i])
+        r_ellipse = get_ellipse_points(theta_path,
+                                       equatorial_radius=chisquare.data['equatorial_radius'][i],
+                                       oblateness=chisquare.data['oblateness'][i],
+                                       center_f=chisquare.data['center_f'][i],
+                                       center_g=chisquare.data['center_g'][i],
+                                       position_angle=chisquare.data['position_angle'][i])[2]
         keep.append(np.all(r_path - r_ellipse + sigma > 0))
 
     filtered_chisquare = ChiSquare(chisquare.data['chi2'][keep],chisquare.npts,
-                                   equatorial_radius= chisquare.data['equatorial_radius'][keep],
-                                   oblateness= chisquare.data['oblateness'][keep],
                                    center_f= chisquare.data['center_f'][keep],
                                    center_g= chisquare.data['center_g'][keep],
+                                   equatorial_radius= chisquare.data['equatorial_radius'][keep],
+                                   oblateness= chisquare.data['oblateness'][keep],
                                    position_angle= chisquare.data['position_angle'][keep])
     return filtered_chisquare
 

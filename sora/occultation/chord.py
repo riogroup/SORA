@@ -1,6 +1,6 @@
 from sora.observer import Observer
 from sora.lightcurve import LightCurve
-from sora.extra import get_ellipse
+from sora.extra import get_ellipse_points
 from astropy.time import Time
 import astropy.units as u
 import matplotlib.pyplot as plt
@@ -384,12 +384,12 @@ class Chord():
 
         theta_path = np.arctan2(dg_path, df_path)
 
-        f_ellipse, g_ellipse, r_ellipse, theta = get_ellipse(theta_path,
-                                                             equatorial_radius=equatorial_radius,
-                                                             center_f=center_f,
-                                                             center_g=center_g,
-                                                             oblateness=oblateness,
-                                                             position_angle=position_angle)
+        f_ellipse, g_ellipse, r_ellipse, theta = get_ellipse_points(theta_path,
+                                                                    equatorial_radius=equatorial_radius,
+                                                                    center_f=center_f,
+                                                                    center_g=center_g,
+                                                                    oblateness=oblateness,
+                                                                    position_angle=position_angle)
 
         ev = r_path < r_ellipse + sigma
         if np.all(ev == False):
