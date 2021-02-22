@@ -688,13 +688,13 @@ class LightCurve():
         flux_star = flux_fresnel.copy()
         if (self.d_star > 0):
             # Computing fresnel diffraction for the case where the star size is not negligenciable
-            resolucao = self.d_star/npt_star
+            resolucao = (self.d_star/2)/npt_star
             flux_star_1 = np.zeros(len(time_model))
             flux_star_2 = np.zeros(len(time_model))
             # Computing stellar diameter only near the immersion or emersion times
             star_diam = (np.absolute(x - x01) < 3*self.d_star) + (np.absolute(x - x02) < 3*self.d_star)
             p = np.arange(-npt_star, npt_star)*resolucao
-            coeff = np.sqrt(np.absolute(self.d_star**2 - p**2))
+            coeff = np.sqrt(np.absolute((self.d_star/2)**2 - p**2))
             for ii in np.where(star_diam == True)[0]:
                 xx = x[ii] + p
                 flux1 = self.__bar_fresnel(xx, x01, x02, fresnel_scale_1, opacity)
@@ -1236,13 +1236,13 @@ class LightCurve():
         flux_star = flux_fresnel.copy()
         if (self.d_star > 0):
             # Computing fresnel diffraction for the case where the star size is not negligenciable
-            resolucao = self.d_star/npt_star
+            resolucao = (self.d_star/2)/npt_star
             flux_star_1 = np.zeros(len(time_model))
             flux_star_2 = np.zeros(len(time_model))
             # Computing stellar diameter only near the immersion or emersion times
             star_diam = (np.absolute(x - x01) < 3*self.d_star) + (np.absolute(x - x02) < 3*self.d_star)
             p = np.arange(-npt_star, npt_star)*resolucao
-            coeff = np.sqrt(np.absolute(self.d_star**2 - p**2))
+            coeff = np.sqrt(np.absolute((self.d_star/2)**2 - p**2))
             for ii in np.where(star_diam == True)[0]:
                 xx = x[ii] + p
                 flux1 = self.__bar_fresnel(xx, x01, x02, fresnel_scale_1, opacity)
