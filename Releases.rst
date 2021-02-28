@@ -43,6 +43,14 @@ sora.occultation
 
 - New ChordList Class introduced to handle the list of Chords in an Occultation. [#53]
 
+- New functions .get_impact_param() in Chord and ChordList.
+
+- New functions .get_theoretical_times() in Chord and ChordList.
+
+- New fucntion .check_time_shift() in Occultation.
+
+- New parameters sigma_result and ellipse_error in Occultation.fit_ellipse().
+
 sora.prediction
 ^^^^^^^^^^^^^^^
 
@@ -74,6 +82,10 @@ sora.ephem
 
 sora.extra
 ^^^^^^^^^^
+
+- New function fiter_negative_chord()
+
+- New function get_ellipse_points()
 
 sora.lightcurve
 ^^^^^^^^^^^^^^^
@@ -125,6 +137,8 @@ sora.extra
 
 sora.lightcurve
 ^^^^^^^^^^^^^^^
+
+- Diameter of the star corrected during LightCurve.occ_model() and LightCurve.__occ_model()
 
 sora.observer
 ^^^^^^^^^^^^^
