@@ -12,9 +12,11 @@ from sora.config import input_tests
 import os
 import warnings
 from sora.config.decorators import deprecated_alias
+from sora.config.visuals import progressbar
 
 
 warnings.simplefilter('always', UserWarning)
+
 
 @deprecated_alias(lambida='bandpass')  # remove this line for v1.0
 def calc_fresnel(distance, bandpass):
@@ -686,13 +688,13 @@ class LightCurve():
         flux_star = flux_fresnel.copy()
         if (self.d_star > 0):
             # Computing fresnel diffraction for the case where the star size is not negligenciable
-            resolucao = self.d_star/npt_star
+            resolucao = (self.d_star/2)/npt_star
             flux_star_1 = np.zeros(len(time_model))
             flux_star_2 = np.zeros(len(time_model))
             # Computing stellar diameter only near the immersion or emersion times
             star_diam = (np.absolute(x - x01) < 3*self.d_star) + (np.absolute(x - x02) < 3*self.d_star)
             p = np.arange(-npt_star, npt_star)*resolucao
-            coeff = np.sqrt(np.absolute(self.d_star**2 - p**2))
+            coeff = np.sqrt(np.absolute((self.d_star/2)**2 - p**2))
             for ii in np.where(star_diam == True)[0]:
                 xx = x[ii] + p
                 flux1 = self.__bar_fresnel(xx, x01, x02, fresnel_scale_1, opacity)
@@ -733,12 +735,13 @@ class LightCurve():
             sigma (int, float, array, 'auto'): Fluxes errors. If None it wil use the self.dflux.
                 If 'auto' it calculate using the region outside the event.
             loop (int): Number of tests to be done. Default=10000.
+            sigma_result (int, float): Sigma value to be considered as result.
 
         Returns:
             chi2 (ChiSquare): ChiSquare object
         """
         allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max', 'immersion_time', 'emersion_time', 'opacity',
-                          'delta_t', 'dopacity', 'sigma', 'loop']
+                          'delta_t', 'dopacity', 'sigma', 'loop', 'sigma_result']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if not hasattr(self, 'flux'):
@@ -806,17 +809,20 @@ class LightCurve():
         opas[opas > 1.], opas[opas < 0.] = 1.0, 0.0
         flux_min = 0
         flux_max = 1
+        sigma_result = 1
         if 'flux_min' in kwargs:
             flux_min = kwargs['flux_min']
         if 'flux_max' in kwargs:
             flux_max = kwargs['flux_max']
+        if 'sigma_result' in kwargs:
+            sigma_result = kwargs['sigma_result']
 
         tflag = np.zeros(loop)
         tflag[t_i > t_e] = t_i[t_i > t_e]
         t_i[t_i > t_e] = t_e[t_i > t_e]
         t_e[t_i > t_e] = tflag[t_i > t_e]
         chi2 = 999999*np.ones(loop)
-        for i in range(loop):
+        for i in progressbar(range(loop), 'LightCurve fit:'):
             model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
             chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2))
         kkargs = {}
@@ -827,27 +833,27 @@ class LightCurve():
         if do_opacity:
             kkargs['opacity'] = opas
         chisquare = ChiSquare(chi2, len(self.flux[mask]), **kkargs)
-        onesigma = chisquare.get_nsigma(1)
-        if 'immersion' in onesigma:
-            self._immersion = self.tref + onesigma['immersion'][0]*u.s
-            self.immersion_err = onesigma['immersion'][1]
-            immersion_time = onesigma['immersion'][0]
+        result_sigma = chisquare.get_nsigma(sigma=sigma_result)
+        if 'immersion' in result_sigma:
+            self._immersion = self.tref + result_sigma['immersion'][0]*u.s
+            self.immersion_err = result_sigma['immersion'][1]
+            immersion_time = result_sigma['immersion'][0]
         else:
             try:
                 immersion_time = (self._immersion.jd - self.tref.jd)*u.d.to('s')
             except:
                 pass
-        if 'emersion' in onesigma:
-            self._emersion = self.tref + onesigma['emersion'][0]*u.s
-            self.emersion_err = onesigma['emersion'][1]
-            emersion_time = onesigma['emersion'][0]
+        if 'emersion' in result_sigma:
+            self._emersion = self.tref + result_sigma['emersion'][0]*u.s
+            self.emersion_err = result_sigma['emersion'][1]
+            emersion_time = result_sigma['emersion'][0]
         else:
             try:
                 emersion_time = (self._emersion.jd - self.tref.jd)*u.d.to('s')
             except:
                 pass
-        if 'opacity' in onesigma:
-            opacity = onesigma['opacity'][0]
+        if 'opacity' in result_sigma:
+            opacity = result_sigma['opacity'][0]
         # Run occ_model() to save best parameters in the Object.
         self.occ_model(immersion_time, emersion_time, opacity, np.repeat(True, len(self.flux)),
                        flux_min=flux_min, flux_max=flux_max)
@@ -1230,13 +1236,13 @@ class LightCurve():
         flux_star = flux_fresnel.copy()
         if (self.d_star > 0):
             # Computing fresnel diffraction for the case where the star size is not negligenciable
-            resolucao = self.d_star/npt_star
+            resolucao = (self.d_star/2)/npt_star
             flux_star_1 = np.zeros(len(time_model))
             flux_star_2 = np.zeros(len(time_model))
             # Computing stellar diameter only near the immersion or emersion times
             star_diam = (np.absolute(x - x01) < 3*self.d_star) + (np.absolute(x - x02) < 3*self.d_star)
             p = np.arange(-npt_star, npt_star)*resolucao
-            coeff = np.sqrt(np.absolute(self.d_star**2 - p**2))
+            coeff = np.sqrt(np.absolute((self.d_star/2)**2 - p**2))
             for ii in np.where(star_diam == True)[0]:
                 xx = x[ii] + p
                 flux1 = self.__bar_fresnel(xx, x01, x02, fresnel_scale_1, opacity)

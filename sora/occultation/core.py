@@ -7,12 +7,14 @@ from sora.extra import ChiSquare
 from sora.body import Body
 from sora.config.decorators import deprecated_alias, deprecated_function
 import astropy.units as u
-from astropy.coordinates import SkyCoord, SkyOffsetFrame
+from astropy.coordinates import SkyCoord, SkyOffsetFrame, Angle
 from astropy.time import Time
 import numpy as np
+import matplotlib.pyplot as plt
 import warnings
 from functools import partial
-
+from sora.config.visuals import progressbar_show
+import scipy.odr as odr
 
 __all__ = ['fit_ellipse', 'Occultation', 'positionv']
 warnings.simplefilter('always', UserWarning)
@@ -67,7 +69,7 @@ def positionv(star, ephem, observer, time):
 @deprecated_alias(pos_angle='position_angle', dpos_angle='dposition_angle')  # remove this line for v1.0
 def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
                 dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
-                loop=10000000, number_chi=10000, dchi_min=None, log=False):
+                loop=10000000, number_chi=10000, dchi_min=None, log=False, ellipse_error=0, sigma_result=1):
     """ Fits an ellipse to given occultation using given parameters
 
     Parameters:
@@ -94,6 +96,8 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         number_chi (int): if dchi_min is given, the procedure is repeated until
             number_chi is reached. Default: 10,000
         log (bool): If True, it prints information while fitting. Default: False.
+        ellipse_error (int, float): Model uncertainty to be considered in the fit, in km.
+        sigma_result (int, float): Sigma value to be considered as result.
 
     Returns:
         chisquare: A ChiSquare object with all parameters.
@@ -131,6 +135,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     chi2_best = np.array([])
 
     while (len(f0_chi) < number_chi):
+        progressbar_show(len(f0_chi), number_chi, prefix='Ellipse fit:')
         chi2 = np.zeros(loop)
         f0 = center_f + dcenter_f*(2*np.random.random(loop) - 1)
         g0 = center_g + dcenter_g*(2*np.random.random(loop) - 1)
@@ -151,7 +156,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
             r_model = (a*b)/np.sqrt((a*np.sin(ang))**2 + (b*np.cos(ang))**2)
             f_model = f0 + r_model*np.cos(theta)
             g_model = g0 + r_model*np.sin(theta)
-            chi2 += ((fi - f_model)**2 + (gi - g_model)**2)/(si**2)
+            chi2 += ((fi - f_model)**2 + (gi - g_model)**2)/(si**2 + ellipse_error**2)
 
         controle_f2 = Time.now()
         if dchi_min is not None:
@@ -168,20 +173,22 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         obla_chi = np.append(obla_chi, obla[region])
         posang_chi = np.append(posang_chi, phi_deg[region])
 
+    progressbar_show(number_chi, number_chi, prefix='Ellipse fit:')
     chisquare = ChiSquare(chi2_best, len(values), center_f=f0_chi, center_g=g0_chi, equatorial_radius=a_chi,
                           oblateness=obla_chi, position_angle=posang_chi)
     controle_f4 = Time.now()
     if log:
         print('Total elapsed time: {:.3f} seconds.'.format((controle_f4 - controle_f0).sec))
 
-    onesigma = chisquare.get_nsigma(sigma=1)
-    a = onesigma['equatorial_radius'][0]
-    f0 = onesigma['center_f'][0]
-    g0 = onesigma['center_g'][0]
-    obla = onesigma['oblateness'][0]
-    phi_deg = onesigma['position_angle'][0]
+    result_sigma = chisquare.get_nsigma(sigma=sigma_result)
+    a = result_sigma['equatorial_radius'][0]
+    f0 = result_sigma['center_f'][0]
+    g0 = result_sigma['center_g'][0]
+    obla = result_sigma['oblateness'][0]
+    phi_deg = result_sigma['position_angle'][0]
     radial_dispersion = np.array([])
     error_bar = np.array([])
+    position_angle_point = np.array([])
 
     for fi, gi, si in values:
         b = a - a*obla
@@ -196,15 +203,17 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         g_model = g0 + r_model*np.sin(theta)
         radial_dispersion = np.append(radial_dispersion, r - r_model)
         error_bar = np.append(error_bar, si)
+        position_angle_point = np.append(position_angle_point, Angle(90*u.deg - theta*u.rad).wrap_at(360 * u.deg).degree)
 
     for occ in args:
         if type(occ) == Occultation:
-            occ.fitted_params = {i: onesigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
-                                                          'oblateness', 'position_angle']}
+            occ.fitted_params = {i: result_sigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
+                                                              'oblateness', 'position_angle']}
             occ.chi2_params = {'chord_name': chord_name}
             occ.chi2_params['radial_dispersion'] = radial_dispersion
+            occ.chi2_params['position_angle'] = position_angle_point
             occ.chi2_params['radial_error'] = error_bar
-            occ.chi2_params['chi2_min'] = chisquare.get_nsigma()['chi2_min']
+            occ.chi2_params['chi2_min'] = chisquare.get_nsigma(sigma=sigma_result)['chi2_min']
             occ.chi2_params['nparam'] = chisquare.nparam
             occ.chi2_params['npts'] = chisquare.npts
     return chisquare
@@ -420,6 +429,8 @@ class Occultation():
             number_chi (int): if dchi_min is given, the procedure is repeated until
                 number_chi is reached. Default: 10,000
             log (bool): If True, it prints information while fitting. Default: False.
+            ellipse_error (int, float): Model uncertainty to be considered in the fit, in km.
+            sigma_result (int, float): Sigma value to be considered as result.
 
         Returns:
             chisquare: A ChiSquare object with all parameters.
@@ -822,6 +833,105 @@ class Occultation():
         f.write(self.__str__())
         f.close()
 
+    def check_time_shift(self, time_interval=30, time_resolution=0.001, log=False, plot=False, use_error=True, delta_plot=100,
+                         ignore_chords=None):
+        """ Check the needed time offset, so all chords have their center aligned.
+
+        Parameters:
+            time_interval (int, float): Time interval to check, default is 30 seconds
+            time_resolution (int, float): Time resolution of the search, default is 0.001 seconds
+            log (bool): If True, it prints text, default is False.
+            plot (bool): If True, it plots figures as a visual aid, default is False.
+            use_error (bool): if True, the linear fit considers the time uncertainty, default is True.
+            delta_plot (int, float): Value to be added to increase the plot limit, in km. Default is 100
+            ignore_chords (str, list): Names of the chords to be ignored in the linear fit. Default=None
+        Return:
+            time_decalage: Dictionary with needed time offset to align the chords, each key is the name of the chord.
+        """
+        fm = np.array([])
+        gm = np.array([])
+        dfm = np.array([])
+        dgm = np.array([])
+        vfm = np.array([])
+        vgm = np.array([])
+        chord_name = np.array([])
+        ignore_chords = np.array(ignore_chords, ndmin=1)
+        use_chords = np.array([],dtype=bool)
+        out_dic = {}
+
+        chords = range(len(self.chords))
+        for i in chords:
+            chord = self.chords[i]
+            if chord.status() == 'positive':
+                ffm, ggm, vffm, vggm = chord.get_fg(time=chord.lightcurve.time_mean, vel=True)
+                df1, dg1, df2, dg2 = chord.path(segment='error')
+                dfm = np.append(dfm, np.sqrt(((df1.max() - df1.min())/2)**2 + ((df2.max() - df2.min())/2)**2))
+                dgm = np.append(dgm, np.sqrt(((dg1.max() - dg1.min())/2)**2 + ((dg2.max() - dg2.min())/2)**2))
+                fm = np.append(fm, ffm)
+                gm = np.append(gm, ggm)
+                vfm = np.append(vfm, vffm)
+                vgm = np.append(vgm, vggm)
+                chord_name = np.append(chord_name, chord.name)
+                if chord.name in ignore_chords:
+                    use_chords = np.append(use_chords, False)
+                else:
+                    use_chords = np.append(use_chords, True)                
+        if len(fm[use_chords]) < 2:
+            raise ValueError('The number of fitted chords should be higher than two')        	
+        out = self.__linear_fit_error(x=fm[use_chords], y=gm[use_chords], sx=dfm[use_chords], sy=dgm[use_chords],
+                                      log=log, use_error=use_error)
+        fm_fit = np.arange(-delta_plot+np.min([fm.min(), gm.min()]), delta_plot+np.max([fm.max(), gm.max()]), 
+                           time_resolution*np.absolute(self.vel.value))
+        gm_fit = self.__func_line_decalage(out.beta, fm_fit)
+
+        previous_dt = np.array([])
+        fm_decalage = np.array([])
+        gm_decalage = np.array([])
+        time_decalage = np.array([])
+
+        for i, j in enumerate(chord_name):
+            previous_dt = np.append(previous_dt, self.chords[j].lightcurve.dt)
+            dist_min = np.array([])
+            dtt = np.arange(-time_interval, +time_interval, time_resolution)
+            for dt in dtt:
+                fm_new = fm[i] + dt*vfm[i]
+                gm_new = gm[i] + dt*vgm[i]
+                dist = np.sqrt((fm_new - fm_fit)**2 + (gm_new - gm_fit)**2)
+                dist_min = np.append(dist_min, dist.min())
+            print('dt = {:+6.3f} seconds; chord = {}'.format(previous_dt[i] + dtt[dist_min.argmin()], chord_name[i]))
+            fm_decalage = np.append(fm_decalage, fm[i] + dtt[dist_min.argmin()]*vfm[i])
+            gm_decalage = np.append(gm_decalage, gm[i] + dtt[dist_min.argmin()]*vgm[i])
+            time_decalage = np.append(time_decalage, dtt[dist_min.argmin()])
+        
+        for i in range(len(chord_name)):
+            out_dic[chord_name[i]] = time_decalage[i]
+        if plot:
+            plt.figure(figsize=(5, 5))
+            plt.title('Before', fontsize=15)
+            self.chords.plot_chords(color='blue')
+            self.chords.plot_chords(color='red', segment='error')
+            plt.plot(fm[use_chords], gm[use_chords], linestyle='None', marker='o', color='k')
+            plt.plot(fm[np.invert(use_chords)], gm[np.invert(use_chords)], linestyle='None', marker='x', color='r')
+            plt.plot(fm_fit, gm_fit, 'k-')
+            plt.xlim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
+            plt.ylim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
+            plt.show()
+            for i, j in enumerate(chord_name):
+                self.chords[j].lightcurve.dt = previous_dt[i] + time_decalage[i]
+            plt.figure(figsize=(5, 5))
+            plt.title('After', fontsize=15)
+            self.chords.plot_chords(color='blue')
+            self.chords.plot_chords(color='red', segment='error')
+            plt.plot(fm_decalage[use_chords], gm_decalage[use_chords], linestyle='None', marker='o', color='k')
+            plt.plot(fm_decalage[np.invert(use_chords)], gm_decalage[np.invert(use_chords)], linestyle='None', marker='x', color='r')
+            plt.plot(fm_fit, gm_fit, 'k-')
+            plt.xlim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
+            plt.ylim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
+            plt.show()
+            for i, j in enumerate(chord_name):
+                self.chords[j].lightcurve.dt = previous_dt[i]
+        return out_dic
+
     def to_file(self):
         """ Saves the occultation data to a file
 
@@ -958,4 +1068,26 @@ class Occultation():
 
             out += '\n' + self.new_astrometric_position(log=False)
 
+        return out
+
+    def __func_line_decalage(self, p, x):
+        """ Private function returns a linear function, intended for fitting inside the self.check_decalage().
+        """
+        a, b = p
+        return a*x + b
+
+    def __linear_fit_error(self, x, y, sx, sy, log=False, use_error=True):
+        """ Private function returns a linear fit, intended for fitting inside the self.check_decalage().
+        """
+        model = odr.Model(self.__func_line_decalage)
+        if use_error:
+            data = odr.RealData(x=x, y=y, sx=sx, sy=sy)
+        else:
+            data = odr.RealData(x=x, y=y)
+        fit = odr.ODR(data, model, beta0=[0., 1.])
+        out = fit.run()
+        if log:
+            print('Linear fit procedure')
+            out.pprint()
+            print('\n')
         return out
