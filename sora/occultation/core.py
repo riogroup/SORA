@@ -843,7 +843,8 @@ class Occultation():
             log (bool): If True, it prints text, default is False.
             plot (bool): If True, it plots figures as a visual aid, default is False.
             use_error (bool): if True, the linear fit considers the time uncertainty, default is True.
-             delta_plot (int, float): Value to be added to increase the plot limit, in km. Default is 100
+            delta_plot (int, float): Value to be added to increase the plot limit, in km. Default is 100
+            ignore_chords (str, list): Names of the chords to be ignored in the linear fit. Default=None
         Return:
             time_decalage: Dictionary with needed time offset to align the chords, each key is the name of the chord.
         """
