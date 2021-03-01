@@ -132,6 +132,22 @@ class ChiSquare:
         values = values.get(key, values)
         return values
 
+    def __len__(self):
+        return len(self.data['chi2'])
+
+    def __add__(self, other):
+        if not isinstance(other, ChiSquare):
+            raise TypeError(
+                f"unsupported operand type(s) for +: '{self.__class__.__name__}' and '{other.__class.__name}'")
+        if self._names != other._names:
+            raise ValueError(f"ChiSquare objects does not have the same keys: '{self._names}' and '{other._names}'")
+        if self.npts != other.npts:
+            raise ValueError(
+                f"The number of fitted points are different between the objects: '{self.npts}' and '{other.npts}'")
+        params = {key: np.hstack((self.data[key], other.data[key])) for key in self._names}
+        chi2 = params.pop('chi2')
+        return ChiSquare(chi2=chi2, npts=int((self.npts + other.npts) / 2), **params)
+
     def __str__(self):
         """ String representation of the ChiSquare Object
         """
