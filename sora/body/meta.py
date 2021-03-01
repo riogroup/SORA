@@ -1,10 +1,10 @@
-from sora.ephem import EphemPlanete, EphemKernel, EphemJPL, EphemHorizons
-import astropy.units as u
-import astropy.constants as const
-from astropy.coordinates import SkyCoord, Longitude, Latitude
-import numpy as np
 import warnings
 
+import astropy.units as u
+import numpy as np
+from astropy.coordinates import SkyCoord, Longitude, Latitude
+
+from sora.ephem import EphemPlanete, EphemKernel, EphemJPL, EphemHorizons
 
 __all__ = ['PhysicalData']
 
@@ -220,6 +220,8 @@ class BaseBody():
 
     @property
     def mass(self):
+        import astropy.constants as const
+
         return PhysicalData('Mass', self.GM/const.G, self.GM.uncertainty/const.G,
                             self.GM.reference, self.GM.notes, unit=u.kg)
 

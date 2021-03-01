@@ -1,9 +1,5 @@
-from . import values
-from astroquery.jplsbdb import SBDB
-import numpy as np
 import astropy.units as u
-from astropy.table import Table
-
+import numpy as np
 
 __all__ = ['search_sbdb', 'apparent_magnitude']
 
@@ -26,6 +22,9 @@ def search_sbdb(name):
         will not find Chariklo. If more than 1 object is found, the user
         is asked to select the correct one (e.g: name='neowise')
     """
+    from astroquery.jplsbdb import SBDB
+    from . import values
+
     print('Obtaining data for {} from SBDB'.format(name))
     sbdb = SBDB.query(name, full_precision=True, solution_epoch=True, validity=True, phys=True, discovery=True)
     if 'message' in sbdb:
@@ -46,20 +45,22 @@ def select_body(sbdb):
     Return:
         sbdb (dict): An OrderedDict with the data of the selected object.
     """
+    from astropy.table import Table
+
     print('{} bodies were found.'.format(sbdb['count']))
     t = Table()
-    t['num'] = np.arange(sbdb['count'])+1
+    t['num'] = np.arange(sbdb['count']) + 1
     t['Designation'] = sbdb['list']['pdes']
     t['Name'] = sbdb['list']['name']
     while True:
         t.pprint_all()
         print('0: Cancel')
         choice = int(input('Choose the corresponding number of the correct small body: '))
-        if choice in np.arange(sbdb['count']+1):
+        if choice in np.arange(sbdb['count'] + 1):
             break
     if choice == 0:
         raise ValueError('It was not possible to define a Small Body')
-    return search_sbdb(name=sbdb['list']['pdes'][choice-1])
+    return search_sbdb(name=sbdb['list']['pdes'][choice - 1])
 
 
 def apparent_magnitude(H, G, dist, sundist, phase=0.0):
@@ -75,8 +76,8 @@ def apparent_magnitude(H, G, dist, sundist, phase=0.0):
     Returns:
         ap_mag (float): Apparent Magnitude
     """
-    phi0 = np.exp(-3.33*(np.tan(0.5*phase*u.deg)**0.63))
-    phi1 = np.exp(-1.87*(np.tan(0.5*phase*u.deg)**1.22))
-    Ha = H - 2.5*np.log10((1.0-G)*phi0 + G*phi1)
-    ap_mag = Ha + 5*np.log10(sundist*dist)
+    phi0 = np.exp(-3.33 * (np.tan(0.5 * phase * u.deg) ** 0.63))
+    phi1 = np.exp(-1.87 * (np.tan(0.5 * phase * u.deg) ** 1.22))
+    Ha = H - 2.5 * np.log10((1.0 - G) * phi0 + G * phi1)
+    ap_mag = Ha + 5 * np.log10(sundist * dist)
     return ap_mag.value

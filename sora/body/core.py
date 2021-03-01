@@ -1,13 +1,13 @@
-from sora.config import input_tests
-from .utils import search_sbdb, apparent_magnitude
-from .meta import BaseBody, PhysicalData
-import astropy.units as u
-from astropy.coordinates import SkyCoord, Longitude, Latitude, get_sun
-from astropy.time import Time
-from astroquery.jplhorizons import Horizons
-import numpy as np
 import warnings
 
+import astropy.units as u
+import numpy as np
+from astropy.coordinates import SkyCoord, Longitude, Latitude, get_sun
+from astropy.time import Time
+
+from sora.config import input_tests
+from .meta import BaseBody, PhysicalData
+from .utils import search_sbdb, apparent_magnitude
 
 __all__ = ['Body']
 
@@ -52,7 +52,7 @@ class Body(BaseBody):
             smass (str): The spectral type in SMASS classification.
             tholen (str): The spectral type in Tholen classification.
         """
-        allowed_kwargs = ["albedo", "H", "G", "diameter", "density", "GM", "rotation", "pole", "BV", "UB", "smass", "tholen",
+        allowed_kwargs = ["albedo", "H", "G", "diameter", "density", "GM", "rotation", "pole", "BV", "UB", "smass","tholen",
                           "ephem"]
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         self._shared_with = {'ephem': {}, 'occultation': {}}
@@ -179,6 +179,8 @@ class Body(BaseBody):
         Returns:
             ap_mag (float): Object apparent magnitude
         """
+        from astroquery.jplhorizons import Horizons
+
         time = Time(time)
 
         if np.isnan(self.H) or np.isnan(self.G):
@@ -211,9 +213,8 @@ class Body(BaseBody):
 
     def __str__(self):
         from .values import smass, tholen
-        out = []
-        out.append('#'*79 + '\n{:^79s}\n'.format(self.name) + '#'*79 + '\n')
-        out.append('Object Orbital Class: {}\n'.format(self.orbit_class))
+        out = ['#' * 79 + '\n{:^79s}\n'.format(self.name) + '#' * 79 + '\n',
+               'Object Orbital Class: {}\n'.format(self.orbit_class)]
         if self.spectral_type['Tholen']['value'] or self.spectral_type['SMASS']['value']:
             out += 'Spectral Type:\n'
             value = self.spectral_type['SMASS']['value']
