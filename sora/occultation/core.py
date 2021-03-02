@@ -1,280 +1,17 @@
-from .chordlist import ChordList
-from sora.star import Star
-from sora.ephem import EphemPlanete, EphemJPL, EphemKernel, EphemHorizons
-from sora.observer import Observer
-from sora.prediction import occ_params, PredictionTable
-from sora.extra import ChiSquare
-from sora.body import Body
-from sora.config.decorators import deprecated_alias, deprecated_function
-import astropy.units as u
-from astropy.coordinates import SkyCoord, SkyOffsetFrame, Angle
-from astropy.time import Time
-import numpy as np
-import matplotlib.pyplot as plt
 import warnings
-from functools import partial
-from sora.config.visuals import progressbar_show
-import scipy.odr as odr
 
-__all__ = ['fit_ellipse', 'Occultation', 'positionv']
+import astropy.units as u
+import numpy as np
+from astropy.time import Time
+
+from sora.config.decorators import deprecated_function
+from sora.prediction import occ_params, PredictionTable
+
+__all__ = ['Occultation']
 warnings.simplefilter('always', UserWarning)
 
 
-def positionv(star, ephem, observer, time):
-    """ Calculates the position and velocity of the occultation shadow relative to the observer.
-
-    Parameters:
-        star (Star): The coordinate of the star in the same reference frame as the ephemeris.
-           It must be a Star object.
-        ephem (Ephem): The object ephemeris. It must be an Ephemeris object.
-        observer (Observer): The Observer information. It must be an Observer object.
-        time (Time): Reference instant to calculate position and velocity.
-
-    Return:
-        f, g (float): The orthographic projection of the shadow relative to the observer.
-            f is in the x-axis (East-West direction; East positive)
-            g is in the y-axis (North-South direction; North positive)
-    """
-    if type(star) != Star:
-        raise ValueError('star must be a Star object')
-    if type(ephem) not in [EphemPlanete, EphemJPL, EphemKernel, EphemHorizons]:
-        raise ValueError('ephem must be an Ephemeris object')
-    if type(observer) != Observer:
-        raise ValueError('observer must be an Observer object')
-    time = Time(time)
-
-    coord = star.geocentric(time)
-    dt = 0.1*u.s
-
-    if type(ephem) == EphemPlanete:
-        ephem.fit_d2_ksi_eta(coord, log=False)
-    ksio1, etao1 = observer.get_ksi_eta(time=time, star=coord)
-    ksie1, etae1 = ephem.get_ksi_eta(time=time, star=coord)
-
-    f = ksio1-ksie1
-    g = etao1-etae1
-
-    ksio2, etao2 = observer.get_ksi_eta(time=time+dt, star=coord)
-    ksie2, etae2 = ephem.get_ksi_eta(time=time+dt, star=coord)
-
-    nf = ksio2-ksie2
-    ng = etao2-etae2
-
-    vf = (nf-f)/0.1
-    vg = (ng-g)/0.1
-
-    return f, g, vf, vg
-
-
-@deprecated_alias(pos_angle='position_angle', dpos_angle='dposition_angle')  # remove this line for v1.0
-def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
-                dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
-                loop=10000000, number_chi=10000, dchi_min=None, log=False, ellipse_error=0, sigma_result=1):
-    """ Fits an ellipse to given occultation using given parameters
-
-    Parameters:
-        required params:
-        Each occultation is added as the first arguments directly.
-            center_f (int,float): The coordinate in f of the ellipse center. Default=0
-            center_g (int,float): The coordinate in g of the ellipse center. Default=0
-            equatorial_radius (int,float): The Equatorial radius (semi-major axis) of the ellipse.
-            oblateness (int,float): The oblateness of the ellipse. Default=0 (circle)
-            position_angle (int,float): The pole position angle of the ellipse in degrees. Default=0
-                Zero is in the North direction ('g-positive'). Positive clockwise.
-
-        Parameters interval of fitting. Default values are set to zero.
-        Search between (value - dvalue) and (value + dvalue):
-            dcenter_f (int,float): Interval for coordinate f of the ellipse center
-            dcenter_g (int,float): Interval for coordinate g of the ellipse center
-            dequatorial_radius (int,float): Interval for the Equatorial radius (semi-major axis) of the ellipse
-            doblateness (int,float): Interval for the oblateness of the ellipse
-            dposition_angle (int,float): Interval for the pole position angle of the ellipse in degrees
-
-        loop (int): The number of ellipses to attempt fitting. Default: 10,000,000
-        dchi_min (intt,float): If given, it will only save ellipsis which chi square are
-            smaller than chi_min + dchi_min.
-        number_chi (int): if dchi_min is given, the procedure is repeated until
-            number_chi is reached. Default: 10,000
-        log (bool): If True, it prints information while fitting. Default: False.
-        ellipse_error (int, float): Model uncertainty to be considered in the fit, in km.
-        sigma_result (int, float): Sigma value to be considered as result.
-
-    Returns:
-        chisquare: A ChiSquare object with all parameters.
-
-    Examples:
-        fit_ellipse(occ1, **kwargs) to fit the ellipse to the chords of occ1 Occultation object
-        fit_ellipse(occ1, occ2, **kwargs) to fit the ellipse to the chords of occ1 and occ2 Occultation objects together
-    """
-    values = []
-    chord_name = []
-    if len(args) == 0:
-        raise ValueError('No occultation have been given as input.')
-    for occ in args:
-        if not isinstance(occ, Occultation):
-            raise TypeError('Given argument must be an Occultation object.')
-        for name, chord in occ.chords.items():
-            if chord.status() == 'positive':
-                if chord.is_able['immersion']:
-                    f, g, vf, vg = chord.get_fg(time='immersion', vel=True)
-                    err = np.linalg.norm([vf, vg])*chord.lightcurve.immersion_err
-                    values.append([f, g, err])
-                    chord_name.append(name + '_immersion')
-                if chord.is_able['emersion']:
-                    f, g, vf, vg = chord.get_fg(time='emersion', vel=True)
-                    err = np.linalg.norm([vf, vg])*chord.lightcurve.emersion_err
-                    values.append([f, g, err])
-                    chord_name.append(name + '_emersion')
-
-    controle_f0 = Time.now()
-    f0_chi = np.array([])
-    g0_chi = np.array([])
-    a_chi = np.array([])
-    obla_chi = np.array([])
-    posang_chi = np.array([])
-    chi2_best = np.array([])
-
-    while (len(f0_chi) < number_chi):
-        progressbar_show(len(f0_chi), number_chi, prefix='Ellipse fit:')
-        chi2 = np.zeros(loop)
-        f0 = center_f + dcenter_f*(2*np.random.random(loop) - 1)
-        g0 = center_g + dcenter_g*(2*np.random.random(loop) - 1)
-        a = equatorial_radius + dequatorial_radius*(2*np.random.random(loop) - 1)
-        obla = oblateness + doblateness*(2*np.random.random(loop) - 1)
-        obla[obla < 0], obla[obla > 1] = 0, 1
-        phi_deg = position_angle + dposition_angle*(2*np.random.random(loop) - 1)
-        controle_f1 = Time.now()
-
-        for fi, gi, si in values:
-            b = a - a*obla
-            phi = phi_deg*(np.pi/180.0)
-            dfi = fi-f0
-            dgi = gi-g0
-            r = np.sqrt(dfi**2 + dgi**2)
-            theta = np.arctan2(dgi, dfi)
-            ang = theta+phi
-            r_model = (a*b)/np.sqrt((a*np.sin(ang))**2 + (b*np.cos(ang))**2)
-            f_model = f0 + r_model*np.cos(theta)
-            g_model = g0 + r_model*np.sin(theta)
-            chi2 += ((fi - f_model)**2 + (gi - g_model)**2)/(si**2 + ellipse_error**2)
-
-        controle_f2 = Time.now()
-        if dchi_min is not None:
-            region = np.where(chi2 < chi2.min() + dchi_min)[0]
-        else:
-            region = np.arange(len(chi2))
-        chi2_best = np.append(chi2_best, chi2[region])
-        if log:
-            print('Elapsed time: {:.3f} seconds.'.format((controle_f2 - controle_f1).sec))
-            print(len(chi2[region]), len(chi2_best))
-        f0_chi = np.append(f0_chi, f0[region])
-        g0_chi = np.append(g0_chi, g0[region])
-        a_chi = np.append(a_chi, a[region])
-        obla_chi = np.append(obla_chi, obla[region])
-        posang_chi = np.append(posang_chi, phi_deg[region])
-
-    progressbar_show(number_chi, number_chi, prefix='Ellipse fit:')
-    chisquare = ChiSquare(chi2_best, len(values), center_f=f0_chi, center_g=g0_chi, equatorial_radius=a_chi,
-                          oblateness=obla_chi, position_angle=posang_chi)
-    controle_f4 = Time.now()
-    if log:
-        print('Total elapsed time: {:.3f} seconds.'.format((controle_f4 - controle_f0).sec))
-
-    result_sigma = chisquare.get_nsigma(sigma=sigma_result)
-    a = result_sigma['equatorial_radius'][0]
-    f0 = result_sigma['center_f'][0]
-    g0 = result_sigma['center_g'][0]
-    obla = result_sigma['oblateness'][0]
-    phi_deg = result_sigma['position_angle'][0]
-    radial_dispersion = np.array([])
-    error_bar = np.array([])
-    position_angle_point = np.array([])
-
-    for fi, gi, si in values:
-        b = a - a*obla
-        phi = phi_deg*(np.pi/180.0)
-        dfi = fi-f0
-        dgi = gi-g0
-        r = np.sqrt(dfi**2 + dgi**2)
-        theta = np.arctan2(dgi, dfi)
-        ang = theta+phi
-        r_model = (a*b)/np.sqrt((a*np.sin(ang))**2 + (b*np.cos(ang))**2)
-        f_model = f0 + r_model*np.cos(theta)
-        g_model = g0 + r_model*np.sin(theta)
-        radial_dispersion = np.append(radial_dispersion, r - r_model)
-        error_bar = np.append(error_bar, si)
-        position_angle_point = np.append(position_angle_point, Angle(90*u.deg - theta*u.rad).wrap_at(360 * u.deg).degree)
-
-    for occ in args:
-        if type(occ) == Occultation:
-            occ.fitted_params = {i: result_sigma[i] for i in ['equatorial_radius', 'center_f', 'center_g',
-                                                              'oblateness', 'position_angle']}
-            occ.chi2_params = {'chord_name': chord_name}
-            occ.chi2_params['radial_dispersion'] = radial_dispersion
-            occ.chi2_params['position_angle'] = position_angle_point
-            occ.chi2_params['radial_error'] = error_bar
-            occ.chi2_params['chi2_min'] = chisquare.get_nsigma(sigma=sigma_result)['chi2_min']
-            occ.chi2_params['nparam'] = chisquare.nparam
-            occ.chi2_params['npts'] = chisquare.npts
-    return chisquare
-
-
-class _PositionDict(dict):
-    """ This is a modified Dictionary object to allow switching on/off of data points.
-        It also avoids user to change data.
-    """
-    def __setitem__(self, key, value):
-        """ Redefines how to set a value to a key in the dictionary.
-            It only sets a value if the key starts with '_occ_'. Otherwise, it only allows for the user to provide
-            'on' or 'off' which is passed only to change the 'on' keyword.
-        """
-        status = {'on': True, 'off': False}
-        n = 0
-        if key.startswith('_occ_'):
-            super().__setitem__(key[5:], value)
-            n = 1
-        elif key in self.keys():
-            n = 1
-            if value not in status.keys():
-                raise ValueError("Value must be 'on' or 'off' only.")
-            if type(self[key]) == _PositionDict:
-                for k in self[key].keys():
-                    self[key][k] = value
-            elif key == 'on':
-                super().__setitem__('on', status[value])
-                if status[value]:
-                    self['enable']()
-                else:
-                    self['disable']()
-        else:
-            if value not in status.keys():
-                raise ValueError("Value must be 'on' or 'off' only.")
-            for key1 in self.keys():
-                if type(self[key1]) == _PositionDict:
-                    if key in self[key1].keys():
-                        n = 1
-                        self[key1][key] = value
-        if n == 0:
-            raise KeyError('Key "{}" does not exist'.format(key))
-
-    def __str__(self):
-        out = []
-        for key in self.keys():
-            if key not in ['enable', 'disable']:
-                out.append('{}: {}'.format(key, self[key]))
-        out = '\n' + '\n'.join(out)
-        return out.replace('\n', '\n  ')
-
-    def __repr__(self):
-        out = []
-        for key in self.keys():
-            if key not in ['enable', 'disable']:
-                out.append('\'{}\': {}'.format(key, self[key].__repr__()))
-        out = ',\n'.join(out)
-        return '{' + out.replace('\n', '\n  ') + '}'
-
-
-class Occultation():
+class Occultation:
     """ Does the reduction of the occultation
     """
     def __init__(self, star, body=None, ephem=None, time=None):
@@ -298,6 +35,10 @@ class Occultation():
             - With only "ephem". In this case, the "ephem" parameter must be one of the Ephem Classes
                 and have a name (see Ephem documentation) to search for the body in the Small Body Database.
         """
+        from sora.body import Body
+        from sora.star import Star
+        from .chordlist import ChordList
+
         if body is None and ephem is None:
             raise ValueError('"body" and/or "ephem" must be given.')
         if time is None:
@@ -343,7 +84,6 @@ class Occultation():
             dist=[dist.value], mag=[self.star.mag['G']], source=[self.star.code], meta=meta)
 
         self.__observations = []
-        self._position = _PositionDict()
         self._chords = ChordList(star=self.star, body=self._body, time=self.tca)
         self._chords._shared_with['occultation'] = {"vel": np.absolute(self.vel), "dist": float(self.dist.AU),
                                                     "star_diam": float(self.star_diam.km)}
@@ -376,7 +116,7 @@ class Occultation():
 
         Parameters:
             key (str): The name given to Observer or LightCurve to remove from the list.
-            keylc (str): In the case where repeated names are present for different observations,
+            key_lc (str): In the case where repeated names are present for different observations,
                 keylc must be given for the name of the LightCurve and key will be used for the name of the Observer.
         """
         try:
@@ -403,38 +143,9 @@ class Occultation():
         print(self.chords.__repr__())
 
     def fit_ellipse(self, **kwargs):
-        """ Fits an ellipse to the chords of this occultation
+        from .fitting import fit_ellipse
+        Occultation.fit_ellipse.__doc__ = fit_ellipse.__doc__
 
-        Parameters:
-        Required parameters:
-            Each occultation is added as the first arguments directly.
-            center_f (int,float): The coordinate in f of the ellipse center.
-            center_g (int,float): The coordinate in g of the ellipse center.
-            equatorial_radius (int,float): The Equatorial radius (semi-major axis) of the ellipse.
-            oblateness (int,float): The oblateness of the ellipse.
-            position_angle (int,float): The pole position angle of the ellipse in degrees. Default=0
-                Zero is in the North direction ('g-positive'). Positive clockwise.
-
-        Parameters interval of fitting. Default values are set to zero.
-            Search between (value - dvalue) and (value + dvalue):
-            dcenter_f (int,float): Interval for coordinate f of the ellipse center
-            dcenter_g (int,float): Interval for coordinate g of the ellipse center
-            dequatorial_radius (int,float): Interval for the Equatorial radius (semi-major axis) of the ellipse
-            doblateness (int,float): Interval for the oblateness of the ellipse
-            dposition_angle (int,float): Interval for the pole position angle of the ellipse in degrees
-
-            loop (int): The number of ellipses to attempt fitting. Default: 10,000,000
-            dchi_min (int,float): If given, it will only save ellipsis which chi square are
-                smaller than chi_min + dchi_min.
-            number_chi (int): if dchi_min is given, the procedure is repeated until
-                number_chi is reached. Default: 10,000
-            log (bool): If True, it prints information while fitting. Default: False.
-            ellipse_error (int, float): Model uncertainty to be considered in the fit, in km.
-            sigma_result (int, float): Sigma value to be considered as result.
-
-        Returns:
-            chisquare: A ChiSquare object with all parameters.
-        """
         chisquare = fit_ellipse(self, **kwargs)
         return chisquare
 
@@ -444,6 +155,11 @@ class Occultation():
         """ Calculates the position and velocity for all chords.
             Saves it into an _PositionDict object.
         """
+        from functools import partial
+        from .meta import _PositionDict
+
+        if not hasattr(self, '_position'):
+            self._position = _PositionDict()
         position = self._position
         if len(self.chords) == 0:
             raise ValueError('There is no observation defined for this occultation')
@@ -618,6 +334,8 @@ class Occultation():
                 It does not need to be in the same unit as offset.
             log (bool): If true, it Prints text, else it Returns text.
         """
+        from astropy.coordinates import SkyCoord, SkyOffsetFrame
+
         if time is not None:
             time = Time(time)
         else:
@@ -699,7 +417,7 @@ class Occultation():
 
     @deprecated_function(message="Please use chords.plot_chord to have a better control of the plots")
     def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red',
-                    ax=None, lw=2, axis_labels=True):
+                    ax=None, lw=2):
         """ Plots the chords of the occultation
 
         Parameters:
@@ -710,7 +428,6 @@ class Occultation():
             error_color (str): color for the error bars of the chords. Default: red
             ax (maptlotlib.Axes): Axis where to plot chords. Default: Use matplotlib pool.
             lw (int, float): linewidth of the chords. Default: 2
-            axis_labels (bool): If True it prints the labels of the axis of the image.
         """
         self.chords.plot_chords(segment='positive', only_able=not all_chords, color=positive_color, lw=lw, ax=ax)
         self.chords.plot_chords(segment='error', only_able=not all_chords, color=error_color, lw=lw, ax=ax)
@@ -821,6 +538,8 @@ class Occultation():
             kwargs['offset'] = [off_ra, off_dec]
         self.predict.plot_occ_map(**kwargs)
 
+    plot_occ_map.__doc__ = PredictionTable.plot_occ_map.__doc__
+
     def to_log(self, namefile=None):
         """ Saves the occultation log to a file
 
@@ -848,6 +567,7 @@ class Occultation():
         Return:
             time_decalage: Dictionary with needed time offset to align the chords, each key is the name of the chord.
         """
+        import matplotlib.pyplot as plt
         fm = np.array([])
         gm = np.array([])
         dfm = np.array([])
@@ -856,7 +576,7 @@ class Occultation():
         vgm = np.array([])
         chord_name = np.array([])
         ignore_chords = np.array(ignore_chords, ndmin=1)
-        use_chords = np.array([],dtype=bool)
+        use_chords = np.array([], dtype=bool)
         out_dic = {}
 
         chords = range(len(self.chords))
@@ -1079,6 +799,8 @@ class Occultation():
     def __linear_fit_error(self, x, y, sx, sy, log=False, use_error=True):
         """ Private function returns a linear fit, intended for fitting inside the self.check_decalage().
         """
+        import scipy.odr as odr
+
         model = odr.Model(self.__func_line_decalage)
         if use_error:
             data = odr.RealData(x=x, y=y, sx=sx, sy=sy)

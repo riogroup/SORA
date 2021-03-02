@@ -1,9 +1,9 @@
-from .chord import Chord
-from sora.config.list import List
-import numpy as np
-from astropy.table import Table, vstack
 import warnings
 
+import numpy as np
+
+from sora.config.list import List
+from .chord import Chord
 
 __all__ = ['ChordList']
 
@@ -22,6 +22,7 @@ class ChordList(List):
             body (Body): The occulting Body.
             time (Time): The occultation time.
         """
+        super().__init__()
         self._star = star
         self._body = body
         self._time = time
@@ -165,6 +166,8 @@ class ChordList(List):
     def summary(self):
         """Prints a table with the summary of the chords.
         """
+        from astropy.table import Table, vstack
+
         tables = []
         for key in self.keys():
             tt = Table()
@@ -268,4 +271,3 @@ class ChordList(List):
             theory_chord_size = np.append(theory_chord_size, tcs)
             names = np.append(names, chord.name)
         return theory_immersion_time, theory_emersion_time, theory_chord_size, names
-

@@ -1,17 +1,13 @@
-from sora.observer import Observer
-from sora.lightcurve import LightCurve
-from sora.extra import get_ellipse_points
-from astropy.time import Time
-import astropy.units as u
-import matplotlib.pyplot as plt
-import numpy as np
 import warnings
 
+import astropy.units as u
+import numpy as np
+from astropy.time import Time
 
 __all__ = ['Chord']
 
 
-class Chord():
+class Chord:
     def __init__(self, *, name, observer, lightcurve):
         """Defines an Occultation Chord
 
@@ -20,6 +16,9 @@ class Chord():
             observer (Observer): The site of observation.
             lightcurve (LightCurve): The lightcurve observed.
         """
+        from sora.lightcurve import LightCurve
+        from sora.observer import Observer
+
         if not isinstance(observer, Observer):
             raise ValueError('obs must be an Observer object')
         if not isinstance(lightcurve, LightCurve):
@@ -278,6 +277,8 @@ class Chord():
         Returns:
             Default list of plots made by matplotlib.
         """
+        import matplotlib.pyplot as plt
+
         ax = ax or plt.gca()
         ax.set_xlabel('f (km)')
         ax.set_ylabel('g (km)')
@@ -369,6 +370,8 @@ class Chord():
             theory_emersion_time: Expected emersion time for the given ellipse
             theory_chord_size: Expected chord size for the given ellipse
         """
+        from sora.extra import get_ellipse_points
+
         time_all = Time(np.arange(self.lightcurve.initial_time.jd, self.lightcurve.end_time.jd, step*u.s.to('d')), format='jd')
 
         f_all, g_all = self.get_fg(time=time_all)
@@ -392,13 +395,10 @@ class Chord():
                                                                     position_angle=position_angle)
 
         ev = r_path < r_ellipse + sigma
-        if np.all(ev == False):
+        if not np.any(ev):
             if log:
                 print(self.name)
                 print('Negative chord \n')
-            theory_chord_size = 0
-            theory_immersion_time = None
-            theory_emersion_time = None
         try:
             imm = time[ev].jd.argmin()
             eme = time[ev].jd.argmax()
