@@ -1,17 +1,15 @@
-from .utils import search_star, van_belle, kervella, spatial_motion, choice_star
-from .meta import MetaStar
-from astropy.coordinates import SkyCoord, SphericalCosLatDifferential
-from astropy.coordinates import get_sun, SphericalRepresentation, SkyOffsetFrame, ICRS
-from astropy.time import Time
-import astropy.units as u
-import astropy.constants as const
 import warnings
-import numpy as np
-from sora.config import test_attr, input_tests
 
+import astropy.units as u
+import numpy as np
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
+
+from sora.config import test_attr, input_tests
+from .meta import MetaStar
+from .utils import search_star, van_belle, kervella, spatial_motion, choice_star
 
 warnings.simplefilter('always', UserWarning)
-
 
 __all__ = ['Star']
 
@@ -328,6 +326,8 @@ class Star(MetaStar):
         Parameters:
             time (float, Time): reference time to apply proper motion and calculate paralax.
         """
+        from astropy.coordinates import get_sun, SphericalRepresentation, SkyOffsetFrame, ICRS
+
         try:
             time = Time(time)
         except:
@@ -388,6 +388,8 @@ class Star(MetaStar):
             da_cosdec (int, float): offset in Delta_alpha_cos_delta in mas
             ddec (int, float): offset in Delta_delta in mas
         """
+        from astropy.coordinates import SphericalCosLatDifferential
+
         dadc = test_attr(da_cosdec, float, 'da_cosdec')
         dd = test_attr(ddec, float, 'ddec')
         self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)

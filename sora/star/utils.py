@@ -1,11 +1,8 @@
-from astropy.coordinates import SkyCoord
-from astropy.table import Table
 import astropy.units as u
-import astropy.constants as const
-from astroquery.vizier import Vizier
 import numpy as np
-from sora.config import input_tests
+from astropy.coordinates import SkyCoord
 
+from sora.config import input_tests
 
 __all__ = ['van_belle', 'kervella']
 
@@ -23,6 +20,8 @@ def search_star(**kwargs):
     Returns:
         catalogue(astropy.Table): An astropy Table with the catalogue informations.
     """
+    from astroquery.vizier import Vizier
+
     input_tests.check_kwargs(kwargs, allowed_kwargs=['catalog', 'code', 'columns', 'coord', 'log', 'radius'])
     row_limit = 100
     if 'log' in kwargs and kwargs['log']:
@@ -94,12 +93,12 @@ def kervella(magB=None, magV=None, magK=None):
     const2 = np.array([0.5170, 0.5159])
     mag = np.array([magV, magB])
     vals = 10**(const1*(mag-magK)+const2-0.2*magK)
-    diam = {}
+    diameter = {}
     if not np.isnan(vals[0]):
-        diam['V'] = vals[0]*u.mas
+        diameter['V'] = vals[0]*u.mas
     if not np.isnan(vals[1]):
-        diam['B'] = vals[1]*u.mas
-    return diam
+        diameter['B'] = vals[1]*u.mas
+    return diameter
 
 
 def spatial_motion(ra, dec, pmra, pmdec, parallax=0, rad_vel=0,  dt=0, cov_matrix=None):
@@ -115,6 +114,8 @@ def spatial_motion(ra, dec, pmra, pmdec, parallax=0, rad_vel=0,  dt=0, cov_matri
         dt (int, float): Variation of time from catalogue epoch, in days.
         cov_matrix (2D-array): 6x6 covariance matrix.
     """
+    import astropy.constants as const
+
     A = (1*u.AU).to(u.km).value  # Astronomical units in km
     c = const.c.to(u.km/u.year).value  # light velocity
 
@@ -272,6 +273,8 @@ def spatial_motion(ra, dec, pmra, pmdec, parallax=0, rad_vel=0,  dt=0, cov_matri
 
 
 def choice_star(catalogue, coord, columns, source):
+    from astropy.table import Table
+
     tstars = SkyCoord(catalogue[columns[0]], catalogue[columns[1]])
     sep = tstars.separation(coord)
     k = sep.argsort()

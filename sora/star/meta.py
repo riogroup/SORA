@@ -1,13 +1,10 @@
-from .utils import search_star, choice_star
-from astropy.coordinates import SkyCoord, Distance, ICRS, Longitude, Latitude
-from astropy.time import Time
 import astropy.units as u
-import astropy.constants as const
-import warnings
 import numpy as np
+from astropy.time import Time
 
 
-class MetaStar():
+# noinspection PyUnresolvedReferences
+class MetaStar:
     """docstring for MetaStar"""
 
     @property
@@ -24,6 +21,7 @@ class MetaStar():
         Parameter:
             value(int, float, astropy.unit): RA in deg
         """
+        from astropy.coordinates import Longitude
         self._attributes['RA'] = Longitude(value, unit=u.hourangle)
 
     @property
@@ -40,6 +38,7 @@ class MetaStar():
         Parameter:
             value(int, float, astropy.unit): DEC in deg
         """
+        from astropy.coordinates import Latitude
         self._attributes['DEC'] = Latitude(value, unit=u.deg)
 
     @property
@@ -69,6 +68,7 @@ class MetaStar():
         """
         Return the Distance of the star
         """
+        from astropy.coordinates import Distance
         if self.parallax > 0*u.mas:
             return Distance(parallax=self.parallax, allow_negative=False)
         else:
@@ -76,6 +76,7 @@ class MetaStar():
 
     @property
     def coord(self):
+        from astropy.coordinates import SkyCoord
         try:
             return SkyCoord(self.ra, self.dec, self.distance)
         except ValueError:
@@ -151,6 +152,7 @@ class MetaStar():
 
     @bjones.setter
     def bjones(self, value):
+        from .utils import search_star, choice_star
         if value not in [True, False]:
             raise AttributeError('bjones attribute must be True or False')
         if value and 'bjones_par' not in self._attributes:
