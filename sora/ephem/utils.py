@@ -5,31 +5,6 @@ warnings.simplefilter('always', UserWarning)
 __all__ = ['getBSPfromJPL', 'ephem_kernel']
 
 
-def read_obj_data():
-    """ Reads an online table (link below) with physical parameters for selected objects
-
-    Table url: http://devel2.linea.gov.br/~altair.gomes/radius.txt
-
-    Table content: Object name; radius (km); uncertainty in RA; uncertainty in DEC
-        RA: Delta * alpha * cos (delta)
-        DEC: Delta * delta
-
-    Returns:
-        python dictionary
-    """
-    import urllib.request
-
-    obj = {}
-    try:
-        data = urllib.request.urlopen('http://devel2.linea.gov.br/~altair.gomes/radius.txt')
-        for line in data:
-            arr = line.split()
-            obj[arr[0].decode().lower()] = [float(i) for i in arr[1:]]
-    except:
-        warnings.warn('Online object data table could not be found. Please check internet connection.')
-    return obj
-
-
 def getBSPfromJPL(identifier, initial_date, final_date, email, directory='./'):
     """ Download bsp files from JPL database
 

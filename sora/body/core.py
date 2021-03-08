@@ -7,36 +7,39 @@ from astropy.time import Time
 
 from sora.config import input_tests
 from .meta import BaseBody, PhysicalData
-from .utils import search_sbdb, apparent_magnitude
+from .utils import search_sbdb, search_satdb, apparent_magnitude
 
 __all__ = ['Body']
 
 
 class Body(BaseBody):
 
-    def __init__(self, name, mode='sbdb', orbit_class=None, spkid=None, **kwargs):
+    def __init__(self, name, database='auto', **kwargs):
         """ Class that contains and manage the information of the body
 
         Parameters:
             name (str): The name of the object. It can be the used spkid or designation number
                 to query the SBDB. In this case, the name is case insensitive. (Required)
-            mode (str): If mode='sbdb', a query on the Small-Body DataBase is made
-                to identify physical parameter of the object. If mode='local', it uses the
-                user parameters. In this case, "orbit_class" and "spkid" parameters may be required.
+            database (str): The database to query the object. It can be 'satdb' for our
+                temporary hardcoded satellite database, or 'sbdb' to query on the Small-Body
+                DataBase. If 'auto' it will try first with 'satdb', then 'sbdb'. If the user
+                wants to use their own information, database must be given as None. In this case,
+                "spkid" parameter must be given. Default='auto'
             ephem (EphemKernel, EphemHorizons, EphemJPL, EphemPlanete): An Ephem Class that
                 contains information about the ephemeris. It can be "horizons" to automatically
                 defined an EphemHorizons object or a list of kernels to automatically define an
                 EphemKernel object.
 
-        Parameters that are returned from the Small-Body DataBase if mode='sbdbd'. These are
+        Parameters that are returned from the Small-Body DataBase if database='sbdb' or from
+            our temporary hardcoded Satellite Database if database='satdb'. These are
             the physical paramaters the user can give to the object. If a query is made and
             user gives a parameter, the parameter given by the user is defined in the Body object:
 
             orbit_class (str): It defines the Orbital class of the body. It can be 'TNO',
                 'Satellite', 'Centaur', 'comet', 'asteroid', 'trojan', 'neo' and 'planet'.
                 It is important for a better characterization of the object.
-                It is required if mode='local', else it will be replaced by the queried value.
-            spkid (str, number): If mode='local', the user must give a spkid or an ephem
+                If a different value is given, it will be defined as 'unclassified'.
+            spkid (str, number): If database=None, the user must give a spkid or an ephem
                 which has the spkid parameter.
             albedo (number): The albedo of the object.
             H (number): The absolute magnitude.
@@ -52,25 +55,35 @@ class Body(BaseBody):
             smass (str): The spectral type in SMASS classification.
             tholen (str): The spectral type in Tholen classification.
         """
-        allowed_kwargs = ["albedo", "H", "G", "diameter", "density", "GM", "rotation", "pole", "BV", "UB", "smass","tholen",
-                          "ephem"]
+        allowed_kwargs = ["albedo", "H", "G", "diameter", "density", "GM", "rotation", "pole", "BV", "UB", "smass",
+                          "orbit_class", "spkid", "tholen", "ephem"]
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         self._shared_with = {'ephem': {}, 'occultation': {}}
-        self.orbit_class = orbit_class
-        if spkid:
-            self.spkid = spkid
-        modes = {'sbdb': self.__from_sbdb, 'local': self.__from_local}
-        if mode not in modes:
-            raise ValueError("'mode' parameter can only be 'sbdb' or 'local'")
-        modes[mode](name=name)
-
+        if database not in ['auto', 'satdb', 'sbdb', None]:
+            raise ValueError(f'{database} is not a valid database argument.')
+        if database is None:
+            self.__from_local(name=name, spkid=kwargs.get('spkid'))
+        if database in ['auto', 'satdb']:
+            try:
+                self.__from_satdb(name=name)
+            except ValueError:
+                pass
+            else:
+                database = 'satdb'
+        if database in ['auto', 'sbdb']:
+            try:
+                self.__from_sbdb(name=name)
+            except ValueError:
+                pass
+            else:
+                database = 'sbdb'
+        if database == 'auto':
+            raise ValueError('Object was not located on satdb or sbdb.')
         # set the physical parameters based on the kwarg name.
         if 'smass' in kwargs:
             self.spectral_type['SMASS']['value'] = kwargs.pop('smass')
         if 'tholen' in kwargs:
             self.spectral_type['Tholen']['value'] = kwargs.pop('tholen')
-        if spkid:
-            self.spkid = spkid
         for key in kwargs:
             setattr(self, key, kwargs[key])
         self._shared_with['ephem']['search_name'] = self._search_name
@@ -119,7 +132,38 @@ class Body(BaseBody):
         self.discovery = "Discovered {} by {} at {}".format(sbdb['discovery'].get('date'), sbdb['discovery'].get('who'),
                                                             sbdb['discovery'].get('location'))
 
-    def __from_local(self, name):
+    def __from_satdb(self, name):
+        satdb = search_satdb(name)
+        self.name = name.capitalize()
+        self.shortname = name.capitalize()
+        self.orbit_class = 'satellite'
+
+        self.albedo = PhysicalData('Albedo', *satdb.get('albedo', [None, None, None]))
+        self.H = PhysicalData('Absolute Magnitude', *satdb.get('H', [None, None, None]), unit=u.mag)
+        self.G = PhysicalData('Phase Slope', *satdb.get('G', [None, None, None]))
+        self.diameter = PhysicalData('Diameter', *satdb.get('diameter', [None, None, None]), unit=u.km)
+        self.density = PhysicalData('Density', *satdb.get('density', [None, None, None]), unit=u.g / u.cm ** 3)
+        self.GM = PhysicalData('Standard Gravitational Parameter', *satdb.get('GM', [None, None, None]),
+                               unit=u.km ** 3 / u.s ** 2)
+        self.rotation = PhysicalData('Rotation', *satdb.get('rotation', [None, None, None]), unit=u.h)
+        if 'pole' in satdb:
+            self.pole = SkyCoord(satdb['pole'][0].replace('/', ' '), unit=('deg', 'deg'))
+            self.pole.ra.uncertainty = Longitude(satdb['pole'][1].split('/')[0], unit=u.deg)
+            self.pole.dec.uncertainty = Latitude(satdb['pole'][1].split('/')[1], unit=u.deg)
+            self.pole.reference = satdb['pole'][2] or ""
+            self.pole.notes = ""
+        else:
+            self.pole = None
+        self.BV = None
+        self.UB = None
+        self.spectral_type = {
+            "SMASS": {"value": None, "reference": "", "notes": ""},
+            "Tholen": {"value": None, "reference": "", "notes": ""}}
+        self.spkid = satdb['spkid']
+        self._des_name = name
+        self.discovery = ""
+
+    def __from_local(self, name, spkid):
         """Define Body object with default values for mode="local"
 
         Parameters:
@@ -127,13 +171,10 @@ class Body(BaseBody):
         """
         self.name = name
         self.shortname = name
-        orbit_classes = {'tno': 'TransNeptunian Object', 'satellite': 'Natural Satellite', 'centaur': 'Centaur',
-                         'comet': 'Comet', 'asteroid': 'Main-belt Asteroid', 'trojan': 'Jupiter Trojan',
-                         'neo': 'Near-Earth Object', 'planet': "Planet"}
-        self.orbit_class = orbit_classes.get(self.orbit_class.lower())
-        if not self.orbit_class:
-            raise ValueError(("'orbit_class' must be one of the following: {}".
-                             format([k.capitalize() for k in orbit_classes.keys()])))
+        self.orbit_class = None
+        if not spkid:
+            raise ValueError("'spkid' must be given.")
+        self.spkid = spkid
         self.albedo = None
         self.H = None
         self.G = None

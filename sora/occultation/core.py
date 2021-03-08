@@ -52,14 +52,14 @@ class Occultation:
             if not isinstance(body, (str, Body)):
                 raise ValueError('"body" must be a string with the name of the object or a Body object')
             if isinstance(body, str):
-                body = Body(name=body, mode='sbdb')
+                body = Body(name=body)
             self._body = body
         if ephem is not None:
             if body is not None:
                 self.body.ephem = ephem
             else:
                 if hasattr(ephem, 'name'):
-                    self._body = Body(name=ephem.name, mode='sbdb', ephem=ephem)
+                    self._body = Body(name=ephem.name, ephem=ephem)
                 else:
                     raise ValueError('When only "ephem" is given, "ephem" must have a name for search.')
         try:

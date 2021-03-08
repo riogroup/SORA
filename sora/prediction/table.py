@@ -207,7 +207,7 @@ class PredictionTable(Table):
         Returns:
             A PredictionTable
         """
-        from sora.ephem.utils import read_obj_data
+        from sora.body.utils import search_satdb, search_sbdb
         if not os.path.isfile(filename):
             raise IOError('File {} not found'.format(filename))
         input_tests.check_kwargs(kwargs, allowed_kwargs=['radius'])
@@ -253,8 +253,16 @@ class PredictionTable(Table):
         time = Time(np.char.array(tim) + '000')
 
         # defining parameters
-        data = read_obj_data()
-        radius, error_ra, error_dec = data.get(name.lower(), [0, 0, 0])
+        try:
+            data = search_satdb(name.lower())
+            radius = data.get('diameter', 0) / 2
+        except ValueError:
+            try:
+                data = search_sbdb(name.lower())
+                radius = data.get('diameter', 0)/2
+            except ValueError:
+                radius = 0
+        error_ra, error_dec = 0, 0
         radius = kwargs.get('radius', radius)*u.km
         meta = {'name': name, 'radius': radius, 'max_ca': max_ca, 'ephem': lines[17].split()[-1],
                 'error_ra': error_ra*1000, 'error_dec': error_dec*1000}

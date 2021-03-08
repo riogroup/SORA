@@ -283,6 +283,22 @@ class BaseBody():
         self._shared_with['ephem']['spkid'] = spkid
 
     @property
+    def orbit_class(self):
+        return self._orbit_class
+
+    @orbit_class.setter
+    def orbit_class(self, value):
+        orbit_classes = {'tno': 'TransNeptunian Object', 'satellite': 'Natural Satellite', 'centaur': 'Centaur',
+                         'comet': 'Comet', 'asteroid': 'Main-belt Asteroid', 'trojan': 'Jupiter Trojan',
+                         'neo': 'Near-Earth Object', 'planet': "Planet", 'unclassified': "Unclassified"}
+        if value in orbit_classes.keys():
+            self._orbit_class = orbit_classes[value.lower()]
+        elif value in orbit_classes.values():
+            self._orbit_class = value
+        else:
+            self._orbit_class = orbit_classes['unclassified']
+
+    @property
     def ephem(self):
         try:
             return self._ephem
