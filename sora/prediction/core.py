@@ -9,6 +9,7 @@ from astropy.time import Time
 from sora.body import Body
 from sora.ephem import EphemKernel, EphemJPL, EphemPlanete, EphemHorizons
 from sora.star import Star
+from sora.config.decorators import deprecated_alias
 
 __all__ = ['occ_params', 'prediction']
 
@@ -45,7 +46,7 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
     coord = star.geocentric(time)
 
     if type(ephem) == EphemPlanete:
-        ephem.fit_d2_ksi_eta(coord, log=False)
+        ephem.fit_d2_ksi_eta(coord, verbose=False)
 
     def calc_min(time0, time_interval, delta_t, n_recursions=5, max_tdiff=None):
         if max_tdiff is not None:
@@ -88,8 +89,9 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
         return calc_min(time0=time, time_interval=600, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
 
 
+@deprecated_alias(log='verbose')  # remove this line in v1.0
 def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='gaiaedr3', step=60, divs=1, sigma=1,
-               radius=None, log=True):
+               radius=None, verbose=True):
     """ Predicts stellar occultations
 
     Parameters:
@@ -104,7 +106,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         divs (int): number of regions the ephemeris will be splitted for better search of occultations
         sigma (number): ephemeris error sigma for search off-Earth.
         radius (number): The radius of the body. It is important if not defined in body or ephem.
-        log (bool): To show what is being done at the moment.
+        verbose (bool): To show what is being done at the moment.
 
     When instantiating with "body" and "ephem", the user may call the function in 3 ways:
         - With "body" and "ephem".
@@ -165,7 +167,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
 
     radius_search = radius + const.R_earth
 
-    if log:
+    if verbose:
         print('Ephemeris was split in {} parts for better search of stars'.format(divs))
 
     # makes predictions for each division
@@ -173,7 +175,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
     for i in range(divs):
         dt = np.arange(intervals[i], intervals[i+1], step)*u.s
         nt = time_beg + dt
-        if log:
+        if verbose:
             print('\nSearching occultations in part {}/{}'.format(i+1, divs))
             print("Generating Ephemeris between {} and {} ...".format(nt.min(), nt.max()))
         ncoord = ephem.get_position(nt)
@@ -185,14 +187,14 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         height = ncoord.dec.max() - ncoord.dec.min() + 2*mindist
         pos_search = SkyCoord(ra*u.deg, dec*u.deg)
 
-        if log:
+        if verbose:
             print('Downloading stars ...')
         catalogue = vquery.query_region(pos_search, width=width, height=height, catalog=vizpath, cache=False)
         if len(catalogue) == 0:
             print('    No star found. The region is too small or VizieR is out.')
             continue
         catalogue = catalogue[0]
-        if log:
+        if verbose:
             print('    {} {} stars downloaded'.format(len(catalogue), cat_name))
             print('Identifying occultations ...')
         pm_ra_cosdec = catalogue['pmRA'].quantity
@@ -211,7 +213,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
             star = Star(code=catalogue['Source'][ev], ra=catalogue['RA_ICRS'][ev]*u.deg, dec=catalogue['DE_ICRS'][ev]*u.deg,
                         pmra=catalogue['pmRA'][ev]*u.mas/u.year, pmdec=catalogue['pmDE'][ev]*u.mas/u.year,
                         parallax=catalogue['Plx'][ev]*u.mas, rad_vel=catalogue[columns[6]][ev]*u.km/u.s,
-                        epoch=Time(catalogue['Epoch'][ev], format='jyear'), local=True, nomad=False, log=False)
+                        epoch=Time(catalogue['Epoch'][ev], format='jyear'), local=True, nomad=False, verbose=False)
             c = star.geocentric(nt[idx][ev])
             pars = [star.code, SkyCoord(c.ra, c.dec), catalogue['Gmag'][ev]]
             try:
@@ -236,6 +238,6 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
         pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
         dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
-    if log:
+    if verbose:
         print('\n{} occultations found.'.format(len(t)))
     return t

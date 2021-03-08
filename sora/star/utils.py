@@ -3,10 +3,12 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 
 from sora.config import input_tests
+from sora.config.decorators import deprecated_alias
 
 __all__ = ['van_belle', 'kervella']
 
 
+@deprecated_alias(log='verbose')  # remove this line for v1.0
 def search_star(**kwargs):
     """ Searches position on VizieR and returns a catalogue.
 
@@ -22,9 +24,9 @@ def search_star(**kwargs):
     """
     from astroquery.vizier import Vizier
 
-    input_tests.check_kwargs(kwargs, allowed_kwargs=['catalog', 'code', 'columns', 'coord', 'log', 'radius'])
+    input_tests.check_kwargs(kwargs, allowed_kwargs=['catalog', 'code', 'columns', 'coord', 'verbose', 'radius'])
     row_limit = 100
-    if 'log' in kwargs and kwargs['log']:
+    if 'verbose' in kwargs and kwargs['verbose']:
         print('\nDownloading star parameters from {}'.format(kwargs['catalog']))
     vquery = Vizier(columns=kwargs['columns'], row_limit=row_limit, timeout=600)
     if 'code' in kwargs:

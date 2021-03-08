@@ -7,10 +7,10 @@ from sora.config.decorators import deprecated_alias
 __all__ = ['fit_ellipse']
 
 
-@deprecated_alias(pos_angle='position_angle', dpos_angle='dposition_angle')  # remove this line for v1.0
+@deprecated_alias(pos_angle='position_angle', dpos_angle='dposition_angle', log='verbose')  # remove this line for v1.0
 def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
                 dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
-                loop=10000000, number_chi=10000, dchi_min=None, log=False, ellipse_error=0, sigma_result=1):
+                loop=10000000, number_chi=10000, dchi_min=None, verbose=False, ellipse_error=0, sigma_result=1):
     """ Fits an ellipse to given occultation using given parameters
 
     Parameters:
@@ -36,7 +36,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
             smaller than chi_min + dchi_min.
         number_chi (int): if dchi_min is given, the procedure is repeated until
             number_chi is reached. Default: 10,000
-        log (bool): If True, it prints information while fitting. Default: False.
+        verbose (bool): If True, it prints information while fitting. Default: False.
         ellipse_error (int, float): Model uncertainty to be considered in the fit, in km.
         sigma_result (int, float): Sigma value to be considered as result.
 
@@ -109,7 +109,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         else:
             region = np.arange(len(chi2))
         chi2_best = np.append(chi2_best, chi2[region])
-        if log:
+        if verbose:
             print('Elapsed time: {:.3f} seconds.'.format((controle_f2 - controle_f1).sec))
             print(len(chi2[region]), len(chi2_best))
         f0_chi = np.append(f0_chi, f0[region])
@@ -122,7 +122,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     chisquare = ChiSquare(chi2_best, len(values), center_f=f0_chi, center_g=g0_chi, equatorial_radius=a_chi,
                           oblateness=obla_chi, position_angle=posang_chi)
     controle_f4 = Time.now()
-    if log:
+    if verbose:
         print('Total elapsed time: {:.3f} seconds.'.format((controle_f4 - controle_f0).sec))
 
     result_sigma = chisquare.get_nsigma(sigma=sigma_result)

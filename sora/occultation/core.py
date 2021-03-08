@@ -4,7 +4,7 @@ import astropy.units as u
 import numpy as np
 from astropy.time import Time
 
-from sora.config.decorators import deprecated_function
+from sora.config.decorators import deprecated_function, deprecated_alias
 from sora.prediction import occ_params, PredictionTable
 
 __all__ = ['Occultation']
@@ -73,7 +73,7 @@ class Occultation:
         self.vel = vel  # Shadow velocity at CA
         self.dist = dist  # object distance at CA
         self.tca = tca   # Instant of CA
-        self.star_diam = self.star.apparent_diameter(self.dist, log=False)
+        self.star_diam = self.star.apparent_diameter(self.dist, verbose=False)
 
         meta = {
             'name': self.body.name, 'radius': self.body.radius.to(u.km).value,
@@ -315,7 +315,8 @@ class Occultation:
                 print('    Emersion Radial Velocity: {:.3f}'.
                       format(np.abs(np.dot(np.array(vals[2:]), delta)/np.linalg.norm(delta))))
 
-    def new_astrometric_position(self, time=None, offset=None, error=None, log=True):
+    @deprecated_alias(log='verbose')  # remove this line in v1.0
+    def new_astrometric_position(self, time=None, offset=None, error=None, verbose=True):
         """ Calculates the new astrometric position for the object given fitted parameters
 
         Parameters:
@@ -332,7 +333,7 @@ class Occultation:
             error (list): Error bar of the given offset. If not given, it uses the 1-sigma value of the fitted ellipse.
                 Error must be a list of 3 values being [dX, dY, 'unit'], similar to offset.
                 It does not need to be in the same unit as offset.
-            log (bool): If true, it Prints text, else it Returns text.
+            verbose (bool): If true, it Prints text, else it Returns text.
         """
         from astropy.coordinates import SkyCoord, SkyOffsetFrame
 
@@ -410,7 +411,7 @@ class Occultation:
                new_pos.ra.to_string(u.hourangle, precision=7, sep=' '), error_ra.to(u.mas).value,
                new_pos.dec.to_string(u.deg, precision=6, sep=' '), error_dec.to(u.mas).value)
 
-        if log:
+        if verbose:
             print(out)
         else:
             return out
@@ -552,14 +553,14 @@ class Occultation:
         f.write(self.__str__())
         f.close()
 
-    def check_time_shift(self, time_interval=30, time_resolution=0.001, log=False, plot=False, use_error=True, delta_plot=100,
+    def check_time_shift(self, time_interval=30, time_resolution=0.001, verbose=False, plot=False, use_error=True, delta_plot=100,
                          ignore_chords=None):
         """ Check the needed time offset, so all chords have their center aligned.
 
         Parameters:
             time_interval (int, float): Time interval to check, default is 30 seconds
             time_resolution (int, float): Time resolution of the search, default is 0.001 seconds
-            log (bool): If True, it prints text, default is False.
+            verbose (bool): If True, it prints text, default is False.
             plot (bool): If True, it plots figures as a visual aid, default is False.
             use_error (bool): if True, the linear fit considers the time uncertainty, default is True.
             delta_plot (int, float): Value to be added to increase the plot limit, in km. Default is 100
@@ -599,7 +600,7 @@ class Occultation:
         if len(fm[use_chords]) < 2:
             raise ValueError('The number of fitted chords should be higher than two')        	
         out = self.__linear_fit_error(x=fm[use_chords], y=gm[use_chords], sx=dfm[use_chords], sy=dgm[use_chords],
-                                      log=log, use_error=use_error)
+                                      verbose=verbose, use_error=use_error)
         fm_fit = np.arange(-delta_plot+np.min([fm.min(), gm.min()]), delta_plot+np.max([fm.max(), gm.max()]), 
                            time_resolution*np.absolute(self.vel.value))
         gm_fit = self.__func_line_decalage(out.beta, fm_fit)
@@ -786,7 +787,7 @@ class Occultation:
             out += 'Radial error:      {:.3f} +/- {:.3f} km\n'.format(
                 self.chi2_params['radial_error'].mean(), self.chi2_params['radial_error'].std(ddof=1))
 
-            out += '\n' + self.new_astrometric_position(log=False)
+            out += '\n' + self.new_astrometric_position(verbose=False)
 
         return out
 
@@ -796,7 +797,7 @@ class Occultation:
         a, b = p
         return a*x + b
 
-    def __linear_fit_error(self, x, y, sx, sy, log=False, use_error=True):
+    def __linear_fit_error(self, x, y, sx, sy, verbose=False, use_error=True):
         """ Private function returns a linear fit, intended for fitting inside the self.check_decalage().
         """
         import scipy.odr as odr
@@ -808,7 +809,7 @@ class Occultation:
             data = odr.RealData(x=x, y=y)
         fit = odr.ODR(data, model, beta0=[0., 1.])
         out = fit.run()
-        if log:
+        if verbose:
             print('Linear fit procedure')
             out.pprint()
             print('\n')

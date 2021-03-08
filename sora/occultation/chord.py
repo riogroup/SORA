@@ -318,7 +318,7 @@ class Chord:
             var[0].set_label(label)
         return var
 
-    def get_impact_param(self, center_f=0, center_g=0, log=True):
+    def get_impact_param(self, center_f=0, center_g=0, verbose=True):
         """Get the impact parameter, minimal distance between the chord and the centre position.
 
         This Chord object must be associated to an Occultation to work, since it needs
@@ -327,7 +327,7 @@ class Chord:
         Parameters:
             center_f (int,float): The coordinate in f of the ellipse center. Default=0
             center_g (int,float): The coordinate in g of the ellipse center. Default=0
-            log (bool): if True, prints the obtained values.
+            verbose (bool): if True, prints the obtained values.
 
         Returns:
             impact: Impact parameter, in km.
@@ -341,13 +341,13 @@ class Chord:
             sense = sense.replace('N', 'S')
         if f[np.argmin(r)] < center_f:
             sense = sense.replace('E', 'W')
-        if log:
+        if verbose:
             print(self.name)
             print('Impact parameter', np.round(impact, 1), sense)
         return impact, sense
 
     def get_theoretical_times(self, equatorial_radius, center_f=0, center_g=0, oblateness=0, position_angle=0, sigma=0,
-                              step=1, log=True):
+                              step=1, verbose=True):
         """Get the theoretical times and chord size for a given ellipse.
 
         This Chord object must be associated to an Occultation to work, since it needs
@@ -363,7 +363,7 @@ class Chord:
 
             sigma (int, float): Unceartity of the expected ellipse, in km.
             step (int, float): Time resolution of the chord, in seconds.
-            log (bool): if True, prints the obtained values.
+            verbose (bool): if True, prints the obtained values.
 
         Returns:
             theory_immersion_time: Expected immersion time for the given ellipse
@@ -396,7 +396,7 @@ class Chord:
 
         ev = r_path < r_ellipse + sigma
         if not np.any(ev):
-            if log:
+            if verbose:
                 print(self.name)
                 print('Negative chord \n')
         try:
@@ -407,7 +407,7 @@ class Chord:
             theory_chord_size = np.sqrt((df_chord[1]-df_chord[0])**2 + (dg_chord[1]-dg_chord[0])**2)
             theory_immersion_time = time[ev][imm]
             theory_emersion_time = time[ev][eme]
-            if log:
+            if verbose:
                 print(self.name)
                 print('IMMERSION TIME: {} UTC'.format(theory_immersion_time.iso))
                 print('EMERSION  TIME: {} UTC'.format(theory_emersion_time.iso))

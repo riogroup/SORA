@@ -48,13 +48,14 @@ class EphemPlanete(BaseEphem):
         pos = SkyCoord(lon=off_ra, lat=off_dec, distance=distance, frame=coord_frame)
         return pos.icrs
 
-    def fit_d2_ksi_eta(self, star, log=True):
+    @deprecated_alias(log='verbose')  # remove this line in v1.0
+    def fit_d2_ksi_eta(self, star, verbose=True):
         """ Fits the projected position* of the object in the tangent sky plane relative to a star
             * ortographic projection.
 
         Parameters:
             star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
-            log (bool): if True, log is printed. Default: True
+            verbose (bool): if True, log is printed. Default: True
         """
         if type(star) == str:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
@@ -75,7 +76,7 @@ class EphemPlanete(BaseEphem):
         deta = dd.to(u.km).value - eta(dt)
         rmsk = np.sqrt(np.mean(np.square(dksi)))
         rmse = np.sqrt(np.mean(np.square(deta)))
-        if log:
+        if verbose:
             output = ('Fitting ephemeris position relative to star coordinate {}\n'
                       'ksi = aksi*t\u00b2 + bksi*t + cksi\n'
                       'eta = aeta*t\u00b2 + beta*t + ceta\n'

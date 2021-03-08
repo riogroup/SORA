@@ -36,7 +36,7 @@ def positionv(star, ephem, observer, time):
     dt = 0.1*u.s
 
     if type(ephem) == EphemPlanete:
-        ephem.fit_d2_ksi_eta(coord, log=False)
+        ephem.fit_d2_ksi_eta(coord, verbose=False)
     ksio1, etao1 = observer.get_ksi_eta(time=time, star=coord)
     ksie1, etae1 = ephem.get_ksi_eta(time=time, star=coord)
 

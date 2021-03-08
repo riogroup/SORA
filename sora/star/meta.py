@@ -157,10 +157,10 @@ class MetaStar:
             raise AttributeError('bjones attribute must be True or False')
         if value and 'bjones_par' not in self._attributes:
             if hasattr(self, 'code'):
-                catalogue = search_star(code=self.code, columns=['**'], catalog='I/347/gaia2dis', log=self._log)
+                catalogue = search_star(code=self.code, columns=['**'], catalog='I/347/gaia2dis', verbose=self._verbose)
             else:
                 catalogue = search_star(coord=self.coord, columns=['**'], radius=2*u.arcsec,
-                                        catalog='I/347/gaia2dis', log=self._log)
+                                        catalog='I/347/gaia2dis', verbose=self._verbose)
             if len(catalogue) == 0:
                 raise ValueError('No star was found in the Bailer-Jones catalogue. It does not exist or VizieR is out.')
             catalogue = catalogue[0]
