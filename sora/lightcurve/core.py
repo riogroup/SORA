@@ -473,6 +473,11 @@ class LightCurve:
                 if F > 1.05:
                     flux_poly_model = flux_poly_model_new.copy()
                     n = nn
+                    if plot:
+                        plt.plot(norm_time[mask], lc_flux[mask], 'k.-')
+                        plt.plot(norm_time[mask], flux_poly_model[mask], 'r-')
+                        plt.title('Polynomial degree = {}'.format(nn), fontsize=15)
+                        plt.show()
                 else:
                     print('Normalization using a {} degree polynom'.format(n))
                     print('There is no improvement with a {} degree polynom'.format(n+1))

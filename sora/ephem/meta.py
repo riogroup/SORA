@@ -61,7 +61,7 @@ class BaseEphem:
         if 'radius' in self._shared_with['body']:
             raise AttributeError('When {} is associated to a Body object, radius must be given to the Body'
                                  ' object.'.format(self.__class__.__name__))
-        self._radius = str(value)
+        self._radius = float(value)
 
     @property
     def H(self):
@@ -77,7 +77,7 @@ class BaseEphem:
         if 'H' in self._shared_with['body']:
             raise AttributeError('When {} is associated to a Body object, H must be given to the Body'
                                  ' object.'.format(self.__class__.__name__))
-        self._H = str(value)
+        self._H = float(value)
 
     @property
     def G(self):
@@ -93,7 +93,7 @@ class BaseEphem:
         if 'G' in self._shared_with['body']:
             raise AttributeError('When {} is associated to a Body object, G must be given to the Body'
                                  ' object.'.format(self.__class__.__name__))
-        self._G = str(value)
+        self._G = float(value)
 
     def apparent_magnitude(self, time):
         """ Calculates the Object Apparent Magnitude

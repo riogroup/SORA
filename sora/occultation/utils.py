@@ -73,9 +73,9 @@ def filter_negative_chord(chord, chisquare, step=1, sigma=0):
     keep = []
     if step == 'exposure':
         try:
-            step = np.min([chord.lightcurve.exptime/10., step])
-        except:
-            raise ValueError('Chord.lightcurve does not have "exptime"')
+            step = chord.lightcurve.exptime/10.
+        except AttributeError:
+            raise AttributeError('Chord.lightcurve does not have "exptime"')
         time_all = np.arange(chord.lightcurve.time.min(), chord.lightcurve.time.max(), step)
         time_exposure = np.array([])
         for i in range(len(chord.lightcurve.time)):

@@ -3,7 +3,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord, SkyOffsetFrame, ICRS
 from astropy.time import Time
 
-from sora.config.decorators import deprecated_alias
+from sora.config.decorators import deprecated_alias, deprecated_function
 from .meta import BaseEphem
 
 __all__ = ['EphemHorizons', 'EphemJPL', 'EphemKernel', 'EphemPlanete']
@@ -236,6 +236,7 @@ class EphemHorizons(BaseEphem):
 
 
 # remove this block for v1.0
+@deprecated_function(message='Please use EphemHorizons')
 class EphemJPL(EphemHorizons):
     pass
 # end of block removal for v1.0
