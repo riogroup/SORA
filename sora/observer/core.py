@@ -1,32 +1,14 @@
-from astropy.coordinates import SkyCoord, EarthLocation, GCRS, AltAz
-from astropy.coordinates.matrix_utilities import rotation_matrix
-from astropy.time import Time
 import astropy.units as u
-from astroquery.mpc import MPC
-import numpy as np
+from astropy.coordinates import SkyCoord, EarthLocation, GCRS, AltAz
+from astropy.time import Time
+
 from sora.config import test_attr, input_tests
+from .utils import search_code_mpc
+
+__all__ = ['Observer']
 
 
-def search_code_mpc():
-    """ Reads the MPC Observer Database
-
-    Returns:
-        observatories (dict): A python dictionaty with all the sites as an Astropy EarthLocation object
-    """
-    obs = MPC.get_observatory_codes()
-    observatories = {}
-    for line in obs:
-        code = line['Code']
-        lon = line['Longitude']*u.deg
-        rcphi = line['cos']*6378.137*u.km
-        rsphi = line['sin']*6378.137*u.km
-        name = line['Name']
-        site = EarthLocation.from_geocentric(rcphi*np.cos(lon), rcphi*np.sin(lon), rsphi)
-        observatories[code] = (name, site)
-    return observatories
-
-
-class Observer():
+class Observer:
 
     def __init__(self, **kwargs):
         """ Defines the observer object
@@ -87,6 +69,8 @@ class Observer():
                 Ksi is in the North-South direction (North positive)
                 Eta is in the East-West direction (East positive)
         """
+        from astropy.coordinates.matrix_utilities import rotation_matrix
+
         time = test_attr(time, Time, 'time')
         try:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))

@@ -1,22 +1,22 @@
-from .utils import search_star, van_belle, kervella, spatial_motion, choice_star
-from .meta import MetaStar
-from astropy.coordinates import SkyCoord, SphericalCosLatDifferential
-from astropy.coordinates import get_sun, SphericalRepresentation, SkyOffsetFrame, ICRS
-from astropy.time import Time
-import astropy.units as u
-import astropy.constants as const
 import warnings
-import numpy as np
-from sora.config import test_attr, input_tests
 
+import astropy.units as u
+import numpy as np
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
+
+from sora.config import test_attr, input_tests
+from sora.config.decorators import deprecated_alias
+from .meta import MetaStar
+from .utils import search_star, van_belle, kervella, spatial_motion, choice_star
 
 warnings.simplefilter('always', UserWarning)
-
 
 __all__ = ['Star']
 
 
 class Star(MetaStar):
+    @deprecated_alias(log='verbose')  # remove this line in v1.0
     def __init__(self, catalogue='gaiaedr3', **kwargs):
         """ Defines a star
 
@@ -36,7 +36,7 @@ class Star(MetaStar):
                 catalogue. Default = True
             bjones (bool): If true, it uses de star distance from Bailer-Jones et al. (2018)
                 Default = True
-            log (bool): If true, it prints the downloaded information. Default = True
+            verbose (bool): If true, it prints the downloaded information. Default = True
             local (bool): If true, it uses the given coordinate in 'coord'
                 as final coordinate. Default = False
 
@@ -49,14 +49,14 @@ class Star(MetaStar):
         self.mag = {}
         self.errors = {'RA': 0*u.mas, 'DEC': 0*u.mas, 'Plx': 0*u.mas, 'pmRA': 0*u.mas/u.year,
                        'pmDE': 0*u.mas/u.year, 'rad_vel': 0*u.km/u.year}
-        allowed_kwargs = ['bjones', 'code', 'coord', 'dec', 'epoch', 'local', 'log', 'nomad', 'parallax', 'pmdec', 'pmra',
+        allowed_kwargs = ['bjones', 'code', 'coord', 'dec', 'epoch', 'local', 'verbose', 'nomad', 'parallax', 'pmdec', 'pmra',
                           'ra', 'rad_vel']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         allowed_catalogues = ['gaiadr2', 'gaiaedr3']
         if catalogue not in allowed_catalogues:
             raise ValueError('Catalogue {} is not one of the allowed catalogues {}'.format(catalogue, allowed_catalogues))
         self._catalogue = {'gaiadr2': 'Gaia-DR2', 'gaiaedr3': 'Gaia-EDR3'}[catalogue]
-        self._log = kwargs.get('log', True)
+        self._verbose = kwargs.get('verbose', True)
         local = kwargs.get('local', False)
         self.bjones = False
         if 'code' in kwargs:
@@ -127,7 +127,8 @@ class Star(MetaStar):
         """
         return kervella(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
 
-    def apparent_diameter(self, distance, mode='auto', band='V', star_type='sg', log=True):
+    @deprecated_alias(log='verbose')  # remove this line in v1.0
+    def apparent_diameter(self, distance, mode='auto', band='V', star_type='sg', verbose=True):
         """ Calculates the apparent diameter of the star at a given distance
 
         Parameters:
@@ -149,7 +150,7 @@ class Star(MetaStar):
                     - 'sg' for 'Super Giant'
                     - 'ms' for 'Main Sequence'
                     - 'vs' for 'Variable Star'
-            'log' (bool): If True, it prints the mode used by 'auto'.
+            'verbose' (bool): If True, it prints the mode used by 'auto'.
         """
         try:
             distance = distance.to(u.km)
@@ -159,7 +160,7 @@ class Star(MetaStar):
         if mode in ['user', 'auto']:
             try:
                 diam = distance*np.tan(self.diameter_user)
-                if log:
+                if verbose:
                     print('Calculating apparent diameter from user defined diameter')
                 return diam.to(u.km)
             except:
@@ -171,7 +172,7 @@ class Star(MetaStar):
         if mode in ['gaia', 'auto']:
             try:
                 diam = distance*np.tan(self.diameter_gaia)
-                if log:
+                if verbose:
                     text = ''
                     if self.bjones:
                         text += ' + Bailer-Jones et al. (2018)'
@@ -190,7 +191,7 @@ class Star(MetaStar):
             diam_kerv = self.kervella().get(band)
             if diam_kerv is None:
                 raise ValueError('Diameter could not be calculated for given band')
-            if log:
+            if verbose:
                 print('Apparent diameter using Kervella et al. (2004)')
             diam = distance*np.tan(diam_kerv)
             return diam.to(u.km)
@@ -205,7 +206,7 @@ class Star(MetaStar):
             diam_van = diam_van.get(band)
             if diam_van is None:
                 raise ValueError('Diameter could not be calculated for given band')
-            if log:
+            if verbose:
                 print('Apparent diameter using van Belle (1999)')
             diam = distance*np.tan(diam_van)
             return diam.to(u.km)
@@ -222,15 +223,15 @@ class Star(MetaStar):
         catalogues = {'gaiadr2': 'I/345/gaia2', 'gaiaedr3': 'I/350/gaiaedr3'}
         cat = catalogues[catalog]
         if hasattr(self, 'code'):
-            catalogue = search_star(code=self.code, columns=['**'], catalog=cat, log=self._log)
+            catalogue = search_star(code=self.code, columns=['**'], catalog=cat, verbose=self._verbose)
         else:
             catalogue = search_star(coord=self.coord, columns=['**'], radius=2*u.arcsec,
-                                    catalog=cat, log=self._log)
+                                    catalog=cat, verbose=self._verbose)
         if len(catalogue) == 0:
             raise ValueError('No star was found. It does not exist or VizieR is out.')
         catalogue = catalogue[0]
         if len(catalogue) > 1:
-            if self._log:
+            if self._verbose:
                 print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
                 print('The list below is sorted by distance. Please select the correct star')
             catalogue = choice_star(catalogue, self.coord, ['RA_ICRS', 'DE_ICRS', 'Gmag'], source='gaia')
@@ -286,7 +287,7 @@ class Star(MetaStar):
         cov[np.where(np.isnan(cov))] = 0.0
         self.cov = cov
 
-        if self._log:
+        if self._verbose:
             print('1 {} star found G={}'.format(self._catalogue, catalogue['Gmag'][0]))
             print('star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}'.format(self.epoch.jyear,
                   self.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
@@ -297,9 +298,9 @@ class Star(MetaStar):
         """
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
         catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec,
-                                catalog='I/297/out', log=self._log)
+                                catalog='I/297/out', verbose=self._verbose)
         if len(catalogue) == 0:
-            if self._log:
+            if self._verbose:
                 warnings.warn('No star was found on NOMAD that matches the star')
             return
         catalogue = catalogue[0]
@@ -319,7 +320,7 @@ class Star(MetaStar):
                 errors.append(mag)
                 continue
             self.set_magnitude(**{mag: catalogue[name][0]})
-        if len(errors) > 0 and self._log:
+        if len(errors) > 0 and self._verbose:
             print('Magnitudes in {} were not located in NOMAD'.format(errors))
 
     def geocentric(self, time):
@@ -328,6 +329,8 @@ class Star(MetaStar):
         Parameters:
             time (float, Time): reference time to apply proper motion and calculate paralax.
         """
+        from astropy.coordinates import get_sun, SphericalRepresentation, SkyOffsetFrame, ICRS
+
         try:
             time = Time(time)
         except:
@@ -388,6 +391,8 @@ class Star(MetaStar):
             da_cosdec (int, float): offset in Delta_alpha_cos_delta in mas
             ddec (int, float): offset in Delta_delta in mas
         """
+        from astropy.coordinates import SphericalCosLatDifferential
+
         dadc = test_attr(da_cosdec, float, 'da_cosdec')
         dd = test_attr(ddec, float, 'ddec')
         self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)

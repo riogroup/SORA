@@ -1,17 +1,13 @@
-from sora.observer import Observer
-from sora.lightcurve import LightCurve
-from sora.extra import get_ellipse_points
-from astropy.time import Time
-import astropy.units as u
-import matplotlib.pyplot as plt
-import numpy as np
 import warnings
 
+import astropy.units as u
+import numpy as np
+from astropy.time import Time
 
 __all__ = ['Chord']
 
 
-class Chord():
+class Chord:
     def __init__(self, *, name, observer, lightcurve):
         """Defines an Occultation Chord
 
@@ -20,6 +16,9 @@ class Chord():
             observer (Observer): The site of observation.
             lightcurve (LightCurve): The lightcurve observed.
         """
+        from sora.lightcurve import LightCurve
+        from sora.observer import Observer
+
         if not isinstance(observer, Observer):
             raise ValueError('obs must be an Observer object')
         if not isinstance(lightcurve, LightCurve):
@@ -278,6 +277,8 @@ class Chord():
         Returns:
             Default list of plots made by matplotlib.
         """
+        import matplotlib.pyplot as plt
+
         ax = ax or plt.gca()
         ax.set_xlabel('f (km)')
         ax.set_ylabel('g (km)')
@@ -317,7 +318,7 @@ class Chord():
             var[0].set_label(label)
         return var
 
-    def get_impact_param(self, center_f=0, center_g=0, log=True):
+    def get_impact_param(self, center_f=0, center_g=0, verbose=True):
         """Get the impact parameter, minimal distance between the chord and the centre position.
 
         This Chord object must be associated to an Occultation to work, since it needs
@@ -326,7 +327,7 @@ class Chord():
         Parameters:
             center_f (int,float): The coordinate in f of the ellipse center. Default=0
             center_g (int,float): The coordinate in g of the ellipse center. Default=0
-            log (bool): if True, prints the obtained values.
+            verbose (bool): if True, prints the obtained values.
 
         Returns:
             impact: Impact parameter, in km.
@@ -340,13 +341,13 @@ class Chord():
             sense = sense.replace('N', 'S')
         if f[np.argmin(r)] < center_f:
             sense = sense.replace('E', 'W')
-        if log:
+        if verbose:
             print(self.name)
             print('Impact parameter', np.round(impact, 1), sense)
         return impact, sense
 
     def get_theoretical_times(self, equatorial_radius, center_f=0, center_g=0, oblateness=0, position_angle=0, sigma=0,
-                              step=1, log=True):
+                              step=1, verbose=True):
         """Get the theoretical times and chord size for a given ellipse.
 
         This Chord object must be associated to an Occultation to work, since it needs
@@ -362,13 +363,15 @@ class Chord():
 
             sigma (int, float): Unceartity of the expected ellipse, in km.
             step (int, float): Time resolution of the chord, in seconds.
-            log (bool): if True, prints the obtained values.
+            verbose (bool): if True, prints the obtained values.
 
         Returns:
             theory_immersion_time: Expected immersion time for the given ellipse
             theory_emersion_time: Expected emersion time for the given ellipse
             theory_chord_size: Expected chord size for the given ellipse
         """
+        from sora.extra import get_ellipse_points
+
         time_all = Time(np.arange(self.lightcurve.initial_time.jd, self.lightcurve.end_time.jd, step*u.s.to('d')), format='jd')
 
         f_all, g_all = self.get_fg(time=time_all)
@@ -392,13 +395,10 @@ class Chord():
                                                                     position_angle=position_angle)
 
         ev = r_path < r_ellipse + sigma
-        if np.all(ev == False):
-            if log:
+        if not np.any(ev):
+            if verbose:
                 print(self.name)
                 print('Negative chord \n')
-            theory_chord_size = 0
-            theory_immersion_time = None
-            theory_emersion_time = None
         try:
             imm = time[ev].jd.argmin()
             eme = time[ev].jd.argmax()
@@ -407,7 +407,7 @@ class Chord():
             theory_chord_size = np.sqrt((df_chord[1]-df_chord[0])**2 + (dg_chord[1]-dg_chord[0])**2)
             theory_immersion_time = time[ev][imm]
             theory_emersion_time = time[ev][eme]
-            if log:
+            if verbose:
                 print(self.name)
                 print('IMMERSION TIME: {} UTC'.format(theory_immersion_time.iso))
                 print('EMERSION  TIME: {} UTC'.format(theory_emersion_time.iso))
