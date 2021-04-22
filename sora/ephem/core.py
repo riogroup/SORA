@@ -1,3 +1,5 @@
+import warnings
+
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord, SkyOffsetFrame, ICRS
@@ -236,9 +238,12 @@ class EphemHorizons(BaseEphem):
 
 
 # remove this block for v1.0
-@deprecated_function(message='Please use EphemHorizons')
 class EphemJPL(EphemHorizons):
-    pass
+    def __init__(self, name, id_type='smallbody', spkid=None, **kwargs):
+        warnings.warn('EphemJPL is deprecated and will be removed in v1.0. Please use EphemHorizons.')
+        super().__init__(name=name, id_type=id_type, spkid=spkid, **kwargs)
+
+    __init__.__doc__ = EphemHorizons.__init__.__doc__
 # end of block removal for v1.0
 
 
