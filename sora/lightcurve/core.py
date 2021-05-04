@@ -814,7 +814,7 @@ class LightCurve:
             'snr': 7.886138392251848,
             'occ_mask': array([False, False, False, ..., False, False, False])}
         """
-        from .occdectect import occ_detect
+        from .occdetect import occ_detect
         occ = occ_detect(self.flux, self.dflux, self.time, self.cycle, maximum_duration=maximum_duration,
                          dur_step=dur_step, snr_limit=snr_limit, n_detections=n_detections, plot=plot)
         return occ
