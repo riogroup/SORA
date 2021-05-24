@@ -1,9 +1,11 @@
+import warnings
+
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
-from sora.config import test_attr, input_tests
+from sora.config import input_tests
 from sora.config.decorators import deprecated_function
 
 
@@ -17,8 +19,14 @@ class BaseEphem:
         if spkid:
             self.spkid = spkid
             self.code = self.spkid  # remove this line for v1.0
-        self.error_ra = kwargs.get('error_ra', 0) * u.arcsec
-        self.error_dec = kwargs.get('error_dec', 0) * u.arcsec
+        self.error_ra = u.Quantity(kwargs.get('error_ra', 0), unit=u.arcsec)
+        if self.error_ra < 0:
+            warnings.warn("Error in RA cannot be negative. Using absolute value.")
+            self.error_ra = np.absolute(self.error_ra)
+        self.error_dec = u.Quantity(kwargs.get('error_dec', 0), unit=u.arcsec)
+        if self.error_dec < 0:
+            warnings.warn("Error in DEC cannot be negative. Using absolute value.")
+            self.error_dec = np.absolute(self.error_dec)
         self.offset = (0, 0)
         # start of block removal for v1.0
         if 'radius' in kwargs:
@@ -96,13 +104,18 @@ class BaseEphem:
         self._G = float(value)
 
     def apparent_magnitude(self, time):
-        """ Calculates the Object Apparent Magnitude
+        """Calculates the object's apparent magnitude.
 
-        Parameters:
-            time (str, Time): Reference time to calculate the object aparent magnitude.
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to calculate the object's apparent magnitude.
+            It can be a string in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-        Returns:
-            ap_mag (float): Object apparent magnitude
+        Returns
+        -------
+        ap_mag : `float`
+            Object apparent magnitude.
         """
         from sora.body.utils import apparent_magnitude
         from astroquery.jplhorizons import Horizons
@@ -141,15 +154,24 @@ class BaseEphem:
 
     @deprecated_function(message="Please use get_pole_position_angle from Body object")
     def get_pole_position_angle(self, pole, time):
-        """ Returns the object geocentric position.
+        """Returns the object's geocentric position.
 
-        Parameters:
-            pole (str, SkyCoord): Coordinate of the object pole ICRS.
-            time (str, Time): Time from which to calculate the position.
+        Parameters
+        ----------
+        pole : `str`, `astropy.coordinates.SkyCoord`
+            Coordinate of the object pole ICRS.
 
-        Returns:
-            position_angle (float): Position angle of the object pole, in degrees
-            aperture_angle (float): Apeture angle of the object pole, in degrees
+        time : `str`, `astropy.time.Time`
+            Time from which to calculate the position. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        Returns
+        -------
+        position_angle : `float`
+            Position angle of the object pole, in degrees.
+
+        aperture_angle : `float`
+            Aperture angle of the object pole, in degrees.
         """
         time = Time(time)
         if type(pole) == str:
@@ -165,18 +187,27 @@ class BaseEphem:
     # End of block removal for v1.0
 
     def get_ksi_eta(self, time, star):
-        """ Returns projected position* of the object in the tangent sky plane relative to a star.
-            * ortographic projection.
+        """Returns the object's projected position relative to a star.
 
-        Parameters:
-            time (str, Time): Reference time to calculate the object position.
-            star (str, SkyCoord): Coordinate of the star in the same reference frame as the ephemeris.
+        Returns the projected position (orthographic projection) of the object
+        in the tangent sky plane relative to a star.
 
-        Returns:
-            ksi, eta (float): projected position (ortographic projection) of the object in the tangent sky plane
-                relative to a star.
-                Ksi is in the North-South direction (North positive)
-                Eta is in the East-West direction (East positive)
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to calculate the object position. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        star : `str`, `astropy.coordinates.SkyCoord`
+            Coordinate of the star in the same reference frame as the ephemeris.
+
+        Returns
+        -------
+        ksi, eta : `float`
+            Projected position (orthographic projection) of the object in the
+            tangent sky plane relative to a star.
+            ``ksi`` is in the North-South direction (North positive).
+            ``eta`` is in the East-West direction (East positive).
         """
         from astropy.coordinates import SkyOffsetFrame
         time = Time(time)
@@ -189,11 +220,15 @@ class BaseEphem:
         return da.to(u.km).value, dd.to(u.km).value
 
     def add_offset(self, da_cosdec, ddec):
-        """ Adds an offset to the Ephemeris
+        """Adds an offset to the Ephemeris.
 
-        Parameters:
-            da_cosdec (int, float): Delta_alpha_cos_delta in mas
-            ddec (int, float): Delta_delta in mas
+        Parameters
+        ----------
+        da_cosdec : `int`, `float`
+            Delta_alpha_cos_delta, in mas.
+
+        ddec : `int`, `float`
+            Delta_delta, in mas.
         """
         self.offset = (da_cosdec, ddec)
 
@@ -208,17 +243,26 @@ class BaseEphem:
         self._offset = SphericalCosLatDifferential(dadc * u.mas, dd * u.mas, 0.0 * u.km)
 
     def to_file(self, time, namefile=None):
-        """ Save the ephemerides to a file. It will be saved starting one hour before the
-        central time untill one hour after it, with a step of one minute. This file can be
-        used as an input for EphemPlanete().
+        """Saves the ephemerides to a file.
 
-        Parameters:
-            time (str, Time): central time to be saved
-            namefile (str): Filename to save
+        Ephemeris will be saved starting one hour before the central time
+        untill one hour after it, with a step of one minute.
+
+        Note
+        ----
+            This file can be used as an input for ``EphemPlanete()``.
+
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Central time to be saved.
+
+        namefile : `str`
+            Filename to save.
         """
         if namefile is None:
             namefile = 'Ephem_' + self.name.replace(' ', '_') + '.dat'
-        time = test_attr(time, Time, 'time')
+        time = input_tests.test_attr(time, Time, 'time')
         time_output = time + np.arange(-60, 61, 1) * u.min
         ephem_output = self.get_position(time_output.utc)
         array_output = np.array([time_output.utc.jd, ephem_output.ra.deg, ephem_output.dec.deg,
@@ -226,7 +270,7 @@ class BaseEphem:
         np.savetxt(namefile, array_output, delimiter='    ', fmt='%.14f')
 
     def __str__(self):
-        """ String representation of the Ephem Class.
+        """String representation of the Ephem Class.
         """
         out = ("----------- Ephemeris -----------\n"
                "\n{}: {{ephem_info}} (SPKID={})\n"

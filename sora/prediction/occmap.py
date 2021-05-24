@@ -12,17 +12,29 @@ __all__ = ['plot_occ_map']
 
 
 def xy2latlon(x, y, loncen, latcen, time):
-    """ Calculates the longitude and latitude given projected positions x and y
+    """Calculates the longitude and latitude given projected positions x and y.
 
-    Parameters:
-        x (int, float): Projected position in x, in the GCRS (meters)
-        y (int, float): Projected position in y, in the GCRS (meters)
-        loncen (int, float): Center longitude of projection (deg)
-        latcen (int, float): Center latitude of projection (deg)
-        time (Time): Time of refered projection
+    Parameters
+    ----------
+    x : `int`, `float`
+        Projected position in x, in the GCRS, in meters.
 
-    Returns:
-        lon, lat (float): Longitude and Latitude whose projection at loncen, lat results in x, y. (deg)
+    y : `int`, `float`
+        Projected position in y, in the GCRS, in meters.
+
+    loncen : `int`, `float`
+        Center longitude of projection, in degrees.
+
+    latcen : `int`, `float`
+        Center latitude of projection, in degrees.
+    time : `astropy.time.Time`
+        Time of referred projection.
+
+    Returns
+    -------
+    lon, lat : `list`
+        Longitude and Latitude whose projection at loncen, lat results
+        in x, y. (deg).
     """
     r = const.R_earth.to(u.m).value
     site_cen = EarthLocation(loncen*u.deg, latcen*u.deg)
@@ -64,16 +76,27 @@ def xy2latlon(x, y, loncen, latcen, time):
 
 
 def latlon2xy(lon, lat, loncen, latcen):
-    """ Calculates the projection of longitude and latitude in the loncen, latcen direction.
+    """Calculates the projection of longitude and latitude in the loncen,
+    latcen direction.
 
-    Parameters:
-        lon (int, float): Longitude to calculate projection
-        lat (int, float): Latitude to calculate projection
-        loncen (int, float): Center longitude of projection (deg)
-        latcen (int, float): Center latitude of projection (deg)
+    Parameters
+    ----------
+    lon : `int`, `float`
+        Longitude to calculate projection.
 
-    Returns:
-        x, y (float): Projection of lon, lat at loncen, latcen, in the ITRS (meters)
+    lat : `int`, `float`
+        Latitude to calculate projection.
+
+    loncen : `int`, `float`
+        Center longitude of projection, in degrees.
+
+    latcen : `int`, `float`
+        Center latitude of projection, in degrees.
+
+    Returns
+    -------
+    x, y : `list`
+        Projection of lon, lat at loncen, latcen, in the ITRS (meters).
     """
     site_cen = EarthLocation(loncen*u.deg, latcen*u.deg)
     itrs_cen = site_cen.get_itrs()
@@ -93,88 +116,199 @@ def latlon2xy(lon, lat, loncen, latcen):
 
 
 def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, **kwargs):
-    """ Plots map of the occultation
+    """Plots the map of the occultation.
 
-    Parameters:
-        Required params:
-        name (str): Name of the object
-        radius (int, float): radius of the object (km)
-        coord (str, SkyCoord): Coordinate of the star
-            ("hh mm ss.sss dd mm ss.sss" or "hh.hhhhhhhh dd.dddddddd")
-        time (str, Time): Instant of Closest Approach (iso or isot format)
-        ca (int, float): Closest Approach Distance (arcsec)
-        pa (int, float): Position Angle at C/A (deg)
-        vel (int, vel): Velocity of the event (km/s)
-        dist (int, float): Object distance at C/A (AU)
+    Parameters
+    ----------
+    name : `str`
+        Name of the object.
 
-        Not required params (only printed in label):
-        mag (int,float): Mag* = Normalized magnitude to vel=20km/s
-        longi (int,float): East longitude of sub-planet point, deg, positive towards East
+    radius : `int`, `float`
+        Radius of the object, in km.
 
-        Map configuration:
-        nameimg (str): Change the name of the imaged saved.
-        path (str): Path to a directory where to save map.
-        resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
-            "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
-        states (bool): True to plot the state division of the countries. The states of
-            some countries will only be shown depending on the resolution.
-        zoom (int, float): Zooms in or out of the map.
-        centermap_geo (list): Center the map given coordinates in longitude and latitude.
-            It must be a list with two numbers. Default=None.
-        centermap_delta (list): Displace the center of the map given displacement
-            in X and Y, in km. It must be a list with two numbers. Default=None.
-        centerproj (list): Rotates the Earth to show occultation with the center
-            projected at a given longitude and latitude. It must be a list with two numbers
-        labels (bool): Plots text above and below the map with the occultation parameters.
-            Default=True.
-        meridians (int): Plots lines representing the meridians for given interval. Default=30 deg
-        parallels (int): Plots lines representing the parallels for given interval. Default=30 deg
-        sites (dict): Plots site positions in map. It must be a python dictionary where the key is
-            the name of the site, and the value is a list with longitude, latitude, delta_x,
-            delta_y and color. delta_x and delta_y are displacement, in km, from the point
-            of the site in the map and the name. color is the color of the point.
-        site_name (bool): If True, it prints the name of the sites given, else it plots only the points
-        countries (dict): Plots the names of countries. It must be a python dictionary where the key
-            is the name of the country and the value is a list with longitude and latitude
-            of the lower left part of the text.
-        offset (list): applies an offset to the ephemeris, calculating new CA and instant of CA.
-            It is a pair of delta_RA*cosDEC and delta_DEC.
-        mapstyle (int): Define the color style of the map. 1 is the default black and white scale.
-            2 is a colored map.
-        error (int,float): Ephemeris error in mas. It plots a dashed line representing radius + error.
-        ercolor (str): Changes the color of the lines of the error bar.
-        ring (int,float): plots a dashed line representing the location of a ring.
-            It is given in km, from the center.
-        rncolor (str): Changes the color of ring lines.
-        atm (int,float): plots a dashed line representing the location of an atmosphere.
-            It is given in km, from the center.
-        atcolor (str): Changes the color of atm lines.
-        chord_delta (list): list with distances from center to plot chords
-        chord_geo (2d-list): list with pairs of coordinates to plot chords
-        chcolor (str): color of the line of the chords. Default: grey
-        heights (list): It plots a circular dashed line showing the locations where the observer
-            would observe the occultation at a given height above the horizons.
-            This must be a list.
-        hcolor (str): Changes the color of the height lines.
-        mapsize (list): The size of figure, in cm. It must be a list with two values.
-            Default = [46.0, 38.0].
-        cpoints (int,float): Interval for the small points marking the center of shadow,
-            in seconds. Default=60.
-        ptcolor (str): Change the color of the center points.
-        alpha (float): The transparency of the night shade, where 0.0 is full transparency
-            and 1.0 is full black. Default = 0.2.
-        fmt (str): The format to save the image. It is parsed directly by matplotlib.pyplot.
-            Default = 'png'
-        dpi (int): "Dots per inch". It defines the quality of the image. Default = 100.
-        lncolor (str): Changes the color of the line that represents the limits of the shadow over Earth.
-        outcolor (str): Changes the color of the lines that represents the limits of the shadow outside Earth
-        nscale (int,float): Arbitrary scale for the size of the name of the site.
-        cscale (int,float): Arbitrary scale for the name of the country.
-        sscale (int,float): Arbitrary scale for the size of point of the site.
-        pscale (int,float): Arbitrary scale for the size of the points that represent the center of the shadow
-        arrow (bool): If true, it plots the arrow with the occultation direction.
+    coord : `str`, `astropy.coordinates.SkyCoord`
+        Coordinates of the star (``"hh mm ss.sss dd mm ss.sss"`` or
+        ``"hh.hhhhhhhh dd.dddddddd"``).
 
-        Comment: Only one of centermap_geo and centermap_delta can be given
+    time : `str`, `astropy.time.Time`
+        Instant of Closest Approach (iso or isot format).
+
+    ca : `int`, `float`
+        Closest Approach Distance, in arcsec.
+
+    pa : `int`, `float`
+        Position Angle at C/A, in degrees.
+
+    vel : `int`, `float`
+        Velocity of the event, in km/s.
+
+    dist : `int`, `float`
+        Object distance at C/A, in AU.
+
+    mag : `int`, `float`, default=0
+        Mag* = Normalized magnitude to vel=20km/s.
+
+    longi : `int`, `float`, default=0
+        East longitude of sub-planet point, deg, positive towards East.
+
+    nameimg : `str`
+        Change the name of the imaged saved.
+
+    path : `str`
+        Path to a directory where to save map.
+
+    resolution : `int`, default=2
+        Cartopy feature resolution.\n
+        - ``1`` means a resolution of "10m";\n
+        - ``2`` a resolution of "50m";\n
+        - ``3`` a resolution of "100m".
+
+    states : `bool`
+        If True, plots the states borders of the countries. The states
+        of some countries will only be shown depending on the resolution.
+
+    zoom : `int`, `float`
+        Zooms in or out of the map.
+
+    centermap_geo : `list`, default=None
+        Center the map given coordinates in longitude and latitude. It must be
+        a list with two numbers.
+
+    centermap_delta : `list`, default=None
+        Displace the center of the map given displacement in X and Y, in km.
+        It must be a list with two numbers.
+
+    centerproj : `list`
+        Rotates the Earth to show occultation with the center projected at a
+        given longitude and latitude. It must be a list with two numbers.
+
+    labels : `bool`, default=True
+        Plots text above and below the map with the occultation parameters.
+
+    meridians : `int`, default=30
+        Plots lines representing the meridians for given interval, in degrees.
+
+    parallels : `int`, default=30
+        Plots lines representing the parallels for given interval, in degrees.
+
+    sites : `dict`
+        Plots site positions in map. It must be a python dictionary where the
+        key is  the `name` of the site, and the value is a list with `longitude`,
+        `latitude`, `delta_x`, `delta_y` and `color`. `delta_x` and `delta_y`
+        are displacement, in km, from the point position of the site in the map
+        and the `name`. `color` is the color of the point.
+
+    site_name : `bool`
+        If True, it prints the name of the sites given, else it plots only the points.
+
+    countries : `dict`
+        Plots the names of countries. It must be a python dictionary where the
+        key is the name of the country and the value is a list with longitude
+        and latitude of the lower left part of the text.
+
+    offset : `list`
+        Applies an offset to the ephemeris, calculating new CA and instant of
+        CA. It is a pair of `delta_RA*cosDEC` and `delta_DEC`.
+
+    mapstyle : `int`, default=1
+        Define the color style of the map. ``'1'`` is the default black
+        and white scale. ``'2'`` is a colored map.
+
+    error : `int`, `float`
+        Ephemeris error in mas. It plots a dashed line representing radius + error.
+
+    ercolor : `str`
+        Changes the color of the lines of the error bar.
+
+    ring : `int`, `float`
+        Plots a dashed line representing the location of a ring. It is given
+        in km, from the center.
+
+    rncolor : `str`
+        Changes the color of ring lines.
+
+    atm : `int`, `float`
+        Plots a dashed line representing the location of an atmosphere. It is
+        given in km, from the center.
+
+    atcolor : `str`
+        Changes the color of atm lines.
+
+    chord_delta : `list`
+        List with distances from center to plot chords.
+
+    chord_geo : `2d-list`
+        List with pairs of coordinates to plot chords.
+
+    chcolor : `str`, default='grey'
+        Color of the line of the chords.
+
+    heights : `list`
+        It plots a circular dashed line showing the locations where the observer
+        would observe the occultation at a given height above the horizons.
+        This must be a list.
+
+    hcolor : `str`
+        Changes the color of the height lines.
+
+    mapsize : `list`, default= [46.0, 38.0]
+        The size of figure, in cm. It must be a list with two values.
+
+    cpoints : `int`, `float`, default=60
+        Interval for the small points marking the center of shadow, in seconds.
+
+    ptcolor : `str`
+        Change the color of the center points.
+
+    alpha : `float`, default=0.2
+        The transparency of the night shade, where 0.0 is full transparency and
+        1.0 is full black.
+
+    fmt : `str`, default:'png'
+        The format to save the image. It is parsed directly by `matplotlib.pyplot`.
+
+    dpi : `int`, default=100
+        Resolution in "dots per inch". It defines the quality of the image.
+
+    lncolor : `str`
+        Changes the color of the line that represents the limits of the shadow
+        over Earth.
+
+    outcolor :`str`
+        Changes the color of the lines that represents the limits of the shadow
+        outside Earth.
+
+    scale : `int`, `float`
+        Arbitrary scale for the size of the name of the site.
+
+    cscale : `int`, `float`
+        Arbitrary scale for the name of the country.
+
+    sscale : `int`, `float`
+        Arbitrary scale for the size of point of the site.
+
+    pscale : `int`, `float`
+        Arbitrary scale for the size of the points that represent the center of
+        the shadow.
+
+    arrow : `bool`
+        If True, it plots the arrow with the occultation direction.
+
+
+    Important
+    ---------
+    Required parameters to plot an occultation map: 'name', 'radius', 'coord',
+    'time', 'ca', 'pa', 'vel', and 'dist'.
+
+
+    Note
+    ----
+    The parameters 'mag' and 'longi' are optional and only printed in label.
+    All other remaining parameters can be used to further customize the Map
+    configuration.
+
+    When producing the map, only one of 'centermap_geo' or 'centermap_delta'
+    options can be used at a time.
     """
     import matplotlib.pyplot as plt
     import cartopy.crs as ccrs
@@ -243,10 +377,14 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     if 'centermap_geo' in kwargs and 'centermap_delta' in kwargs:
         raise ValueError('User must give "centermap_geo" OR "centermap_delta"')
     zoom = kwargs.get('zoom', 1)
+    if zoom <= 0:
+        raise ValueError('zoom can not be equal or smaller than 0.')
     off_ra, off_de = kwargs.get('offset', [0.0, 0.0])*u.mas
     arrow = kwargs.get('arrow', True)
     site_name = kwargs.get('site_name', True)
     path = kwargs.get('path', '.')
+    if not os.path.exists(path):
+        raise IOError('Path does not exists')
     chord_delta = np.array(kwargs.get('chord_delta', []), ndmin=1)*u.km
     chord_geo = kwargs.get('chord_geo', [])
     if len(chord_geo) > 0:
@@ -282,13 +420,14 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         else:
             raise TypeError('country keyword must be a file or a dictionary')
 
-# calculates offsets
+    # calculates offsets
     dca = off_ra*np.sin(occs['posa']) + off_de*np.cos(occs['posa'])
-    dt = (-(off_ra*np.cos(occs['posa']) - off_de*np.sin(occs['posa'])).to(u.rad)*occs['dist'].to(u.km)/np.absolute(occs['vel'])).value*u.s
+    dt = (-(off_ra * np.cos(occs['posa']) - off_de * np.sin(occs['posa'])).to(u.rad) * occs['dist'].to(u.km) / np.absolute(
+        occs['vel'])).value * u.s
     ca1 = occs['ca'] + dca
     data = occs['datas'] + dt
 
-# define map parameters
+    # define map parameters
     center_gcrs = GCRS(occs['stars'].ra, occs['stars'].dec, 1*u.R_earth, obstime=data)
     center_itrs = center_gcrs.transform_to(ITRS(obstime=data))
     center_map = center_itrs.earth_location
@@ -309,7 +448,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         axf = plt.axes([-0.001, -0.001, 1.002, 1.002], projection=projection)
     axf.set_global()
 
-# calculates regions for zoom
+    # calculates regions for zoom
     limits = None
     r = const.R_earth.to(u.m).value
     if centermap_geo is not None:
@@ -341,7 +480,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         if labels and zoom > 1:
             centert = False
 
-# plots features
+    # plots features
     axf.coastlines(resolution=resolution, color='0.3')
     ocean = cfeature.NaturalEarthFeature('physical', 'ocean', resolution)
     land = cfeature.NaturalEarthFeature('physical', 'land', resolution)
@@ -401,7 +540,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     hcolor = kwargs.get('hcolor', hcolor)
     chcolor = kwargs.get('chcolor', chcolor)
 
-# calculates path
+    # calculates path
     vec = np.arange(0, int(8000/(np.absolute(occs['vel'].value))), step)
     vec = np.sort(np.concatenate((vec, -vec[1:]), axis=0))
     pa = Angle(occs['posa'])
@@ -423,8 +562,8 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     ax = dista*np.sin(pa) + (deltatime*occs['vel'])*np.cos(paplus)
     by = dista*np.cos(pa) - (deltatime*occs['vel'])*np.sin(paplus)
 
-    ax2 = ax - (radius)*np.sin(paplus)
-    by2 = by - (radius)*np.cos(paplus)
+    ax2 = ax - radius * np.sin(paplus)
+    by2 = by - radius * np.cos(paplus)
     lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
     j = np.where(lon1 < 1e+30)
     axf.plot(lon1[j], lat1[j], transform=ccrs.Geodetic(), color=lncolor)
@@ -432,16 +571,16 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     if 'centerproj' not in kwargs:
         plt.plot(ax2[j].to(u.m).value, by2[j].to(u.m).value, color=outcolor, clip_on=(not centert), zorder=-0.2)
 
-    ax3 = ax + (radius)*np.sin(paplus)
-    by3 = by + (radius)*np.cos(paplus)
+    ax3 = ax + radius * np.sin(paplus)
+    by3 = by + radius * np.cos(paplus)
     lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
     j = np.where(lon2 < 1e+30)
-    axf.plot(lon2[j], lat2[j], transform=ccrs.Geodetic(),  color=lncolor)
+    axf.plot(lon2[j], lat2[j], transform=ccrs.Geodetic(), color=lncolor)
     j = np.where(lon2 > 1e+30)
     if 'centerproj' not in kwargs:
         plt.plot(ax3[j].to(u.m).value, by3[j].to(u.m).value, color=outcolor, clip_on=(not centert), zorder=-0.2)
 
-# plots chords_delta
+    # plots chords_delta
     for val in chord_delta:
         ax2 = ax + val*np.sin(paplus)
         by2 = by + val*np.cos(paplus)
@@ -449,7 +588,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         j = np.where(lon1 < 1e+30)
         axf.plot(lon1[j], lat1[j], transform=ccrs.Geodetic(), color=chcolor)
 
-# plots chords_geo
+    # plots chords_geo
     for coord_geo in chord_geo:
         xt, yt = latlon2xy(coord_geo.lon.deg, coord_geo.lat.deg, centers.lon.value, centers.lat.value)*u.m
         val = np.sqrt((xt-ax)**2 + (yt-by)**2)
@@ -462,7 +601,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         j = np.where(lon1 < 1e+30)
         axf.plot(lon1[j], lat1[j], transform=ccrs.Geodetic(), color=chcolor)
 
-# plots error
+    # plots error
     if erro is not None:
         err = erro*u.mas
         errd = (occs['dist'].to(u.km)*err.to(u.rad)).value*u.km
@@ -470,43 +609,43 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         by2 = by - errd*np.cos(paplus) - radius*np.cos(paplus)
         lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon1 < 1e+30)
-        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(),  color=ercolor)
+        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(), color=ercolor)
 
         ax3 = ax + errd*np.sin(paplus) + radius*np.sin(paplus)
         by3 = by + errd*np.cos(paplus) + radius*np.cos(paplus)
         lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon2 < 1e+30)
-        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(),  color=ercolor)
+        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(), color=ercolor)
 
-# plots ring
+    # plots ring
     if ring is not None:
         rng = ring*u.km
         ax2 = ax - rng*np.sin(paplus)
         by2 = by - rng*np.cos(paplus)
         lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon1 < 1e+30)
-        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(),  color=rncolor)
+        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(), color=rncolor)
 
         ax3 = ax + rng*np.sin(paplus)
         by3 = by + rng*np.cos(paplus)
         lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon2 < 1e+30)
-        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(),  color=rncolor)
+        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(), color=rncolor)
 
-# plots atm
+    # plots atm
     if atm is not None:
         atmo = atm*u.km
         ax2 = ax - atmo*np.sin(paplus)
         by2 = by - atmo*np.cos(paplus)
         lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon1 < 1e+30)
-        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(),  color=atcolor)
+        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(), color=atcolor)
 
         ax3 = ax + atmo*np.sin(paplus)
         by3 = by + atmo*np.cos(paplus)
         lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon2 < 1e+30)
-        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(),  color=atcolor)
+        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(), color=atcolor)
 
 # plots center points
     vec = np.arange(0, int(8000/(np.absolute(occs['vel'].value))), cpoints)
@@ -541,14 +680,14 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     elif not centert:
         plt.plot(xp, yp, 'o', color=ptcolor, clip_on=False, markersize=mapsize[0].value*pscale*24.0/46.0)
 
-# plots the heights
+    # plots the heights
     if 'heights' in kwargs.keys():
         for h in heights:
             lonb, latb = xy2latlon(bordx * np.cos(h * u.deg), bordy * np.cos(h * u.deg), center.lon.value,
                                    center.lat.value, data)
             axf.plot(lonb, latb, transform=ccrs.Geodetic(), linestyle='dotted', color=hcolor)
 
-# plots the the direction arrow
+    # plots the the direction arrow
     if arrow:
         if limits is None:
             plt.quiver(5500000, -5500000, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
@@ -557,12 +696,12 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
             plt.quiver(lx + (ux-lx)*0.9, ly + (uy-ly)*0.1, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
                        (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005, zorder=1.3)
 
-# plots the countries names
+    # plots the countries names
     for country in countries.keys():
         plt.text(countries[country][0], countries[country][1], country, transform=ccrs.Geodetic(),
                  weight='bold', color='grey', fontsize=30*cscale, family='monospace')
 
-# plots the sites
+    # plots the sites
     for site in sites.keys():
         s = EarthLocation.from_geodetic(sites[site][0], sites[site][1], 0.0*u.km)
         axf.plot(s.lon.deg, s.lat.deg, 'o', transform=ccrs.Geodetic(),
@@ -572,7 +711,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
             axf.text(xt + sites[site][2]*1000, yt+sites[site][3]*1000, site, weight='bold',
                      fontsize=25*nscale, family='monospace')
 
-# Define the title and label of the output
+    # Define the title and label of the output
     title = ('Object        Diam   Tmax   dots <> ra_offset_dec\n'
              '{:10s} {:4.0f} km  {:5.1f}s  {:02d} s <>{:+6.1f} {:+6.1f} \n'.
              format(name, 2*radius.value, (2*radius/np.absolute(occs['vel'])).value,
@@ -584,7 +723,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
                      np.absolute(occs['stars'].dec.dms.s), ca1.value, occs['posa'].value,
                      occs['vel'].value, occs['dist'].value, occs['magG'], occs['longi']))
 
-# plots the map
+    # plots the map
     if labels:
         axf.set_title(title, family='monospace', weight='bold', fontsize=22)
         axf.text(0.5, -0.1, labelx, va='bottom', ha='center', rotation='horizontal', rotation_mode='anchor',

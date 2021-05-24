@@ -5,10 +5,12 @@ __all__ = ['search_code_mpc']
 
 
 def search_code_mpc():
-    """ Reads the MPC Observer Database
+    """Reads the MPC Observer Database.
 
-    Returns:
-        observatories (dict): A python dictionaty with all the sites as an Astropy EarthLocation object
+    Returns
+    -------
+    observatories : `dict`
+        A python dictionary with all the sites as Astropy EarthLocation objects.
     """
     from astropy.coordinates import EarthLocation
     from astroquery.mpc import MPC

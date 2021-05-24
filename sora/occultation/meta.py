@@ -1,11 +1,13 @@
+# remove this block for v1.0
 class _PositionDict(dict):
-    """ This is a modified Dictionary object to allow switching on/off of data points.
-        It also avoids user to change data.
+    """This is a modified Dictionary object to allow switching on/off of data points.
+    It also avoids user to change data.
     """
+
     def __setitem__(self, key, value):
         """ Redefines how to set a value to a key in the dictionary.
-            It only sets a value if the key starts with '_occ_'. Otherwise, it only allows for the user to provide
-            'on' or 'off' which is passed only to change the 'on' keyword.
+        It only sets a value if the key starts with '_occ_'. Otherwise, it only allows for the user to provide
+        'on' or 'off' which is passed only to change the 'on' keyword.
         """
         status = {'on': True, 'off': False}
         n = 0
@@ -51,3 +53,4 @@ class _PositionDict(dict):
                 out.append('\'{}\': {}'.format(key, self[key].__repr__()))
         out = ',\n'.join(out)
         return '{' + out.replace('\n', '\n  ') + '}'
+# end of block removal

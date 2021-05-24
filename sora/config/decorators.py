@@ -1,7 +1,6 @@
 import functools
 import warnings
 
-
 next_major_version = 'v1.0'
 
 warnings.simplefilter('always', FutureWarning)
@@ -14,7 +13,9 @@ def deprecated_alias(**aliases):
         def wrapper(*args, **kwargs):
             rename_kwargs(f.__name__, kwargs, aliases)
             return f(*args, **kwargs)
+
         return wrapper
+
     return deco
 
 
@@ -34,6 +35,7 @@ def deprecated_function(message):
         """This is a decorator which can be used to mark functions
         as deprecated. It will result in a warning being emitted
         when the function is used."""
+
         @functools.wraps(func)
         def new_func(*args, **kwargs):
             warnings.warn("{} is deprecated and will be removed in {}; {}".
@@ -41,5 +43,7 @@ def deprecated_function(message):
                           category=FutureWarning,
                           stacklevel=2)
             return func(*args, **kwargs)
+
         return new_func
+
     return deco

@@ -5,19 +5,31 @@ __all__ = ['filter_negative_chord', 'positionv']
 
 
 def positionv(star, ephem, observer, time):
-    """ Calculates the position and velocity of the occultation shadow relative to the observer.
+    """Calculates the position and velocity of the occultation shadow relative
+    to the observer.
 
-    Parameters:
-        star (Star): The coordinate of the star in the same reference frame as the ephemeris.
-           It must be a Star object.
-        ephem (Ephem): The object ephemeris. It must be an Ephemeris object.
-        observer (Observer): The Observer information. It must be an Observer object.
-        time (Time): Reference instant to calculate position and velocity.
+    Parameters
+    ----------
+    star : `sora.Star`
+        The coordinate of the star in the same reference frame as the ephemeris.
+        It must be a Star object.
 
-    Return:
-        f, g (float): The orthographic projection of the shadow relative to the observer.
-            f is in the x-axis (East-West direction; East positive)
-            g is in the y-axis (North-South direction; North positive)
+    ephem : `sora.Ephem`
+        The object ephemeris. It must be an Ephemeris object.
+
+    observer : `sora.Observer`
+        The Observer information. It must be an Observer object.
+
+    time : `astropy.time.Time`
+        Reference instant to calculate position and velocity. It can be a string
+        in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+    Returns
+    -------
+    f, g, vf, vg : `list`
+        The orthographic projection of the shadow relative to the observer.
+        ``'f'`` is in the x-axis (East-West direction; East positive).
+        ``'g'`` is in the y-axis (North-South direction; North positive).
     """
     from sora.ephem import EphemPlanete, EphemJPL, EphemKernel, EphemHorizons
     from sora.observer import Observer
@@ -56,15 +68,24 @@ def positionv(star, ephem, observer, time):
 
 
 def filter_negative_chord(chord, chisquare, step=1, sigma=0):
-    """ Get points for the ellipse with the given input parameters
+    """Get points for the ellipse with the given input parameters.
 
-    Parameters:
-        chord (Chord): Chord object, must be associated to an Occultation to work.
-        chisquare (ChiSquare): Resulted ChiSquare object of fit_ellipse.
-        sigma (int, float): Unceartity of the expected ellipse, in km.
-        step (number, 'exposure'): If a number, it corresponds to the step, in seconds, for each point of the chord path.
-            The step can also be equal to 'exposure'. In this case, the chord path will consider the lightcurve individual
-            times and exptime.
+    Parameters
+    ----------
+    chord : `sora.observer.Chord`
+        Chord object, must be associated to an Occultation to work.
+
+    chisquare : `sora.extra.ChiSquare`
+        Resulted ChiSquare object of fit_ellipse.
+
+    sigma : `int`, `float`
+        Uncertainty of the expected ellipse, in km.
+
+    step : `int`, `float`, `str`
+        If a number, it corresponds to the step, in seconds, for each point of
+        the chord path. The step can also be equal to ``'exposure'``. In this
+        case, the chord path will consider the lightcurve individual times and
+        exptime.
     """
     from sora.config.visuals import progressbar
     from sora.extra import ChiSquare
@@ -79,12 +100,13 @@ def filter_negative_chord(chord, chisquare, step=1, sigma=0):
         time_all = np.arange(chord.lightcurve.time.min(), chord.lightcurve.time.max(), step)
         time_exposure = np.array([])
         for i in range(len(chord.lightcurve.time)):
-            event_model = (time_all > chord.lightcurve.time[i]-chord.lightcurve.exptime/2.) & (time_all < chord.lightcurve.time[i]+chord.lightcurve.exptime/2.)
-            time_exposure = np.append(time_exposure,time_all[event_model])
+            event_model = (time_all > chord.lightcurve.time[i] - chord.lightcurve.exptime/2.) & (
+                        time_all < chord.lightcurve.time[i] + chord.lightcurve.exptime/2.)
+            time_exposure = np.append(time_exposure, time_all[event_model])
             f_all, g_all = chord.get_fg(time=time_exposure*u.s + chord.lightcurve.tref)
     else:
         f_all, g_all = chord.path(segment='full', step=step)
-    for i in progressbar(range(len(chisquare.data['chi2'])),'Filter chord: {}'.format(chord.name)):
+    for i in progressbar(range(len(chisquare.data['chi2'])), 'Filter chord: {}'.format(chord.name)):
         df_all = (f_all - chisquare.data['center_f'][i])
         dg_all = (g_all - chisquare.data['center_g'][i])
 
@@ -103,10 +125,10 @@ def filter_negative_chord(chord, chisquare, step=1, sigma=0):
                                        position_angle=chisquare.data['position_angle'][i])[2]
         keep.append(np.all(r_path - r_ellipse + sigma > 0))
 
-    filtered_chisquare = ChiSquare(chisquare.data['chi2'][keep],chisquare.npts,
-                                   center_f= chisquare.data['center_f'][keep],
-                                   center_g= chisquare.data['center_g'][keep],
-                                   equatorial_radius= chisquare.data['equatorial_radius'][keep],
-                                   oblateness= chisquare.data['oblateness'][keep],
-                                   position_angle= chisquare.data['position_angle'][keep])
+    filtered_chisquare = ChiSquare(chisquare.data['chi2'][keep], chisquare.npts,
+                                   center_f=chisquare.data['center_f'][keep],
+                                   center_g=chisquare.data['center_g'][keep],
+                                   equatorial_radius=chisquare.data['equatorial_radius'][keep],
+                                   oblateness=chisquare.data['oblateness'][keep],
+                                   position_angle=chisquare.data['position_angle'][keep])
     return filtered_chisquare

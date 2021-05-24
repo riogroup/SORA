@@ -6,35 +6,53 @@ from astropy.time import Time
 
 from sora.config.decorators import deprecated_function, deprecated_alias
 from sora.prediction import occ_params, PredictionTable
+from .fitting import fit_ellipse as ellipse_fitting
 
 __all__ = ['Occultation']
 warnings.simplefilter('always', UserWarning)
 
 
 class Occultation:
-    """ Does the reduction of the occultation
+    """Instantiates the Occultation object and performs the reduction of the
+    occultation.
+
+    Attributes
+    ----------
+    star : `sora.Star`, `str`, required
+        the coordinate of the star in the same reference frame as the ephemeris.
+        It must be a Star object or a string with the coordinates of the object
+        to search on Vizier.
+
+    body : `sora.Body`, `str`
+        Object that will occult the star. It must be a Body object or its name
+        to search in the Small Body Database.
+
+    ephem : `sora.Ephem`, `list`
+        Object ephemeris. It must be an Ephemeris object or a list.
+
+    time : `str`, `astropy.time.Time`, required
+        Reference time of the occultation. Time does not need to be exact, but
+        needs to be within approximately 50 minutes of the occultation closest
+        approach to calculate occultation parameters.
+
+    Important
+    ---------
+    When instantiating with "body" and "ephem", the user may define the
+    Occultation in 3 ways:
+
+    1. With `body` and `ephem`.
+
+    2. With only "body". In this case, the "body" parameter must be a Body
+    object and have an ephemeris associated (see Body documentation).
+
+    3. With only `ephem`. In this case, the `ephem` parameter must be one of the
+    Ephem Classes and have a name (see Ephem documentation) to search for the
+    body in the Small Body Database.
+
     """
+
     def __init__(self, star, body=None, ephem=None, time=None):
-        """ Instantiates the Occultation object.
 
-        Parameters:
-            star (Star, str): The coordinate of the star in the same reference frame as the ephemeris.
-                It must be a Star object or a string with the coordinates of the object to search on
-                Vizier (required).
-            body* (Body, str): Object that will occult the star. It must be a Body object or its
-                name to search in the Small Body Database.
-            ephem* (Ephem): object ephemeris. It must be an Ephemeris object or a list .
-            time (str, Time): Reference time of the occultation.
-                Time does not need to be exact, but needs to be within approximately 50 minutes
-                of the occultation closest approach to calculate occultation parameters (required).
-
-        * When instantiating with "body" and "ephem", the user may define the Occultation in 3 ways:
-            - With "body" and "ephem".
-            - With only "body". In this case, the "body" parameter must be a Body object and have an
-                ephemeris associated (see Body documentation).
-            - With only "ephem". In this case, the "ephem" parameter must be one of the Ephem Classes
-                and have a name (see Ephem documentation) to search for the body in the Small Body Database.
-        """
         from sora.body import Body
         from sora.star import Star
         from .chordlist import ChordList
@@ -100,24 +118,34 @@ class Occultation:
     def chords(self):
         return self._chords
 
+    # remove this block for v1.0
     @deprecated_function(message="Please use chords.add_chord to add new observations.")
     def add_observation(self, obs, lightcurve):
-        """ Adds observations to the Occultation object.
+        """Adds observations to the Occultation object.
 
-        Parameters:
-            obs (Observer): The Observer object to be added.
-            lightcurve (LightCurve): The LightCurve object to be added
+        Parameters
+        ----------
+        obs : `sora.Observer`
+            The Observer object to be added.
+
+        lightcurve : `sora.LightCurve`
+            The LightCurve object to be added.
         """
         self.chords.add_chord(name=lightcurve.name, observer=obs, lightcurve=lightcurve)
 
     @deprecated_function(message="Please use chords.remove_chord to remove observations.")
     def remove_observation(self, key, key_lc=None):
-        """ Removes an observation from the Occultation object.
+        """Removes an observation from the Occultation object.
 
-        Parameters:
-            key (str): The name given to Observer or LightCurve to remove from the list.
-            key_lc (str): In the case where repeated names are present for different observations,
-                keylc must be given for the name of the LightCurve and key will be used for the name of the Observer.
+        Parameters
+        ----------
+        key : `str`
+            The name given to `Observer` or `LightCurve` to remove from the list.
+
+        key_lc : `str`
+            In the case where repeated names are present for different
+            observations, `key_lc` must be given for the name of the `LightCurve`
+            and key will be used for the name of the `Observer`.
         """
         try:
             self.chords.remove_chord(name=key)
@@ -138,22 +166,24 @@ class Occultation:
     @deprecated_function(message="Please use chords.")
     def observations(self):
         """ Print all the observations added to the Occultation object
-            Pair (Observer, LightCurve)
+        Pair (`Observer`, `LightCurve`)
         """
         print(self.chords.__repr__())
 
-    def fit_ellipse(self, **kwargs):
-        from .fitting import fit_ellipse
-        Occultation.fit_ellipse.__doc__ = fit_ellipse.__doc__
+    # end of block removal
 
-        chisquare = fit_ellipse(self, **kwargs)
+    def fit_ellipse(self, **kwargs):
+        chisquare = ellipse_fitting(self, **kwargs)
         return chisquare
 
+    fit_ellipse.__doc__ = ellipse_fitting.__doc__
+
+    # remove this block for v1.0
     @property
     @deprecated_function(message="Please use chords.summary()")
     def positions(self):
         """ Calculates the position and velocity for all chords.
-            Saves it into an _PositionDict object.
+        Saves it into an `_PositionDict` object.
         """
         from functools import partial
         from .meta import _PositionDict
@@ -282,8 +312,11 @@ class Occultation:
 
     @positions.setter
     def positions(self, value):
-        """ If the users tries to set a value to position, it must be 'on' or 'off',
-            and it will be assigned to all chords.
+        """
+        Note
+        ----
+        If the users tries to set a value to position, it must be ``'on'`` or
+        ``'off'``, and it will be assigned to all chords.
         """
         if value not in ['on', 'off']:
             raise ValueError("Value must be 'on' or 'off' only.")
@@ -291,8 +324,10 @@ class Occultation:
         for key in pos.keys():
             pos[key] = value
 
+    # end of block removal
+
     def check_velocities(self):
-        """ Prints the current velocity used by the LightCurves and its Radial velocity.
+        """Prints the current velocity used by the LightCurves and its radial velocity.
         """
         if hasattr(self, 'fitted_params'):
             center = np.array([self.fitted_params['center_f'][0], self.fitted_params['center_g'][0]])
@@ -317,23 +352,41 @@ class Occultation:
 
     @deprecated_alias(log='verbose')  # remove this line in v1.0
     def new_astrometric_position(self, time=None, offset=None, error=None, verbose=True):
-        """ Calculates the new astrometric position for the object given fitted parameters
+        """Calculates the new astrometric position for the object given fitted parameters.
 
-        Parameters:
-            time (str,Time): Reference time to calculate the position.
-                If not given, it uses the instant of the occultation Closest Approach.
-            offset (list): Offset to apply to the position. If not given, uses the parameters from the fitted ellipse.
-                Must be a list of 3 values being [X, Y, 'unit']
-                    'unit' must be Angular or Distance unit.
-                    - If Distance units for X and Y
-                        Ex: [100, -200, 'km'], [0.001, 0.002, 'AU']
-                    - If Angular units fox X [d*a*cos(dec)] and Y [d*dec]
-                        Ex: [30.6, 20, 'mas'], or [-15, 2, 'arcsec']
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to calculate the position. If not given, it uses the
+            instant of the occultation Closest Approach. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-            error (list): Error bar of the given offset. If not given, it uses the 1-sigma value of the fitted ellipse.
-                Error must be a list of 3 values being [dX, dY, 'unit'], similar to offset.
-                It does not need to be in the same unit as offset.
-            verbose (bool): If true, it Prints text, else it Returns text.
+        offset : `list`
+            Offset to apply to the position. If not given, uses the parameters
+            from the fitted ellipse.
+
+            Note
+            ----
+            Must be a list of 3 values being [X, Y, 'unit']. 'unit' must be
+            Angular or Distance unit.
+
+            If Distance units for X and Y:
+            Ex: [100, -200, 'km'], [0.001, 0.002, 'AU']
+
+            If Angular units fox X [d*a*cos(dec)] and Y [d*dec]:
+            Ex: [30.6, 20, 'mas'], or [-15, 2, 'arcsec']
+
+        error : `list`
+            Error bar of the given offset. If not given, it uses the 1-sigma
+            value of the fitted ellipse.
+
+            Note
+            ----
+            Error must be a list of 3 values being [dX, dY, 'unit'], similar to
+            offset. It does not need to be in the same unit as offset.
+
+        verbose : `bool`
+            If true, it Prints text, else it Returns text.
         """
         from astropy.coordinates import SkyCoord, SkyOffsetFrame
 
@@ -402,43 +455,62 @@ class Occultation:
         error_dec = np.sqrt(error_star[1]**2 + e_off_dec**2)
 
         out = 'Ephemeris offset (km): X = {:.1f} +/- {:.1f}; Y = {:.1f} +/- {:.1f}\n'.format(
-              distance*np.sin(off_ra.to(u.mas)).value, distance*np.sin(e_off_ra.to(u.mas)).value,
-              distance*np.sin(off_dec.to(u.mas)).value, distance*np.sin(e_off_dec.to(u.mas)).value)
+            distance*np.sin(off_ra.to(u.mas)).value, distance*np.sin(e_off_ra.to(u.mas)).value,
+            distance*np.sin(off_dec.to(u.mas)).value, distance*np.sin(e_off_dec.to(u.mas)).value)
         out += 'Ephemeris offset (mas): da_cos_dec = {:.3f} +/- {:.3f}; d_dec = {:.3f} +/- {:.3f}\n'.format(
-              off_ra.to(u.mas).value, e_off_ra.to(u.mas).value, off_dec.to(u.mas).value, e_off_dec.to(u.mas).value)
+            off_ra.to(u.mas).value, e_off_ra.to(u.mas).value, off_dec.to(u.mas).value, e_off_dec.to(u.mas).value)
         out += '\nAstrometric object position at time {}\n'.format(time.iso)
         out += 'RA = {} +/- {:.3f} mas; DEC = {} +/- {:.3f} mas'.format(
-               new_pos.ra.to_string(u.hourangle, precision=7, sep=' '), error_ra.to(u.mas).value,
-               new_pos.dec.to_string(u.deg, precision=6, sep=' '), error_dec.to(u.mas).value)
+            new_pos.ra.to_string(u.hourangle, precision=7, sep=' '), error_ra.to(u.mas).value,
+            new_pos.dec.to_string(u.deg, precision=6, sep=' '), error_dec.to(u.mas).value)
 
         if verbose:
             print(out)
         else:
             return out
 
+    # remove this block for v1.0
     @deprecated_function(message="Please use chords.plot_chord to have a better control of the plots")
     def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red',
                     ax=None, lw=2):
-        """ Plots the chords of the occultation
+        """Plots the chords of the occultation.
 
-        Parameters:
-            all_chords (bool): if True, it plots all the chords,
-                if False, it sees what was deactivated in self.positions and ignores them
-            positive_color (str): color for the positive chords. Default: blue
-            negative_color (str): color for the negative chords. Default: green
-            error_color (str): color for the error bars of the chords. Default: red
-            ax (maptlotlib.Axes): Axis where to plot chords. Default: Use matplotlib pool.
-            lw (int, float): linewidth of the chords. Default: 2
+        Parameters
+        ----------
+        all_chords : `bool`, default=True
+            If True, it plots all the chords. If False, it sees what was
+            deactivated in self.positions and ignores them.
+
+        positive_color : `str`, default='blue'
+            Color for the positive chords.
+
+        negative_color : `str`, default='green'
+            Color for the negative chords.
+
+        error_color : `str`, default='red'
+            Color for the error bars of the chords.
+
+        ax : `maptlotlib.pyplot.Axes`, default=None
+            Axis where to plot chords (default: Uses matplotlib pool).
+
+        lw : `int`, `float`, default=2
+            Linewidth of the chords.
+
         """
         self.chords.plot_chords(segment='positive', only_able=not all_chords, color=positive_color, lw=lw, ax=ax)
         self.chords.plot_chords(segment='error', only_able=not all_chords, color=error_color, lw=lw, ax=ax)
         self.chords.plot_chords(segment='negative', color=negative_color, lw=lw, ax=ax, linestyle='--')
 
-    def get_map_sites(self):
-        """ Returns Dictionary with sites in the format required by plot_occ_map function
+    # end of block removal
 
-        Returns:
-            sites (dict): Dictionary with the sites in the format required by plot_occ_map function
+    def get_map_sites(self):
+        """Returns Dictionary with sites in the format required by plot_occ_map function.
+
+        Returns
+        -------
+        sites : `dict`
+            Dictionary with the sites in the format required by `plot_occ_map`
+            function.
         """
         sites = {}
         color = {'positive': 'blue', 'negative': 'red'}
@@ -448,77 +520,6 @@ class Occultation:
         return sites
 
     def plot_occ_map(self, **kwargs):
-        """ Plots the occultation map
-
-        Parameters:
-            radius: The radius of the shadow. If not given it uses the equatorial radius
-                from the ellipse fit, else it uses the radius obtained from ephem upon instantiating.
-            nameimg (str): Change the name of the image saved.
-            path (str): Path to a directory where to save map.
-            resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
-                "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
-            states (bool): True to plot the state division of the countries. The states of
-                some countries will only be shown depending on the resolution.
-            zoom (int, float): Zooms in or out of the map.
-            centermap_geo (list): Center the map for a given coordinates in longitude and latitude.
-                It must be a list with two numbers. Default=None.
-            centermap_delta (list): Displace the center of the map given displacement
-                in X and Y, in km. It must be a list with two numbers. Default=None.
-            centerproj (list): Rotates the Earth to show occultation with the center
-                projected at a given longitude and latitude. It must be a list with two numbers
-            labels (bool): Plots text above and below the map with the occultation parameters.
-                Default=True.
-            meridians (int): Plots lines representing the meridians for given interval. Default=30 deg
-            parallels (int): Plots lines representing the parallels for given interval. Default=30 deg
-            sites (dict): Plots site positions in map. It must be a python dictionary where the key is
-                the name of the site, and the value is a list with longitude, latitude, delta_x,
-                delta_y and color. delta_x and delta_y are displacement, in km, from the point
-                of the site in the map and the name. color is the color of the point.
-                If not given, it calculates from observations added to Occultation
-            site_name (bool): If True, it prints the name of the sites given, else it plots only the points
-            countries (dict): Plots the names of countries. It must be a python dictionary where the key
-                is the name of the country and the value is a list with longitude and latitude
-                of the lower left part of the text.
-            offset (list): applies an offset to the ephemeris, calculating new CA and instant of CA.
-                It is a pair of delta_RA*cosDEC and delta_DEC.
-                If not given it uses the center from ellipse fitted.
-            mapstyle (int): Define the color style of the map. 1 is the default black and white scale.
-                "2" is a colored map.
-            error (int,float): Ephemeris error in mas. It plots a dashed line representing radius + error.
-            ercolor (str): Changes the color of the lines of the error bar.
-            ring (int,float): It plots a dashed line representing the location of a ring.
-                It is given in km, from the center.
-            rncolor (str): Changes the color of ring lines.
-            atm (int,float): plots a dashed line representing the location of an atmosphere.
-                It is given in km, from the center.
-            atcolor (str): Changes the color of atm lines.
-            chord_delta (list): list with distances from center to plot chords
-            chord_geo (2d-list): list with pairs of coordinates to plot chords
-            chcolor (str): color of the line of the chords. Default: grey
-            heights (list): plots a circular dashed line showing the locations where the observer
-                would observe the occultation at a given height above the horizons.
-                This must be a list.
-            hcolor (str): Changes the color of the height lines.
-            mapsize (list): The size of figure, in cm. It must be a list with two values.
-                Default = [46.0, 38.0].
-            cpoints (int,float): Interval for the small points marking the center of shadow,
-                in seconds. Default=60.
-            ptcolor (str): Change the color of the center points.
-            alpha (float): The transparency of the night shade, where 0.0 is full transparency
-                and 1.0 is full black. Default = 0.2.
-            fmt (str): The format to save the image. It is parsed directly by matplotlib.pyplot.
-                Default = 'png'
-            dpi (int): "Dots per inch". It defines the quality of the image. Default = 100.
-            lncolor (str): Changes the color of the line that represents the limits of the shadow over Earth.
-            outcolor (str): Changes the color of the lines that represents the limits of the shadow outside Earth
-            nscale (int,float): Arbitrary scale for the size of the name of the site.
-            cscale (int,float): Arbitrary scale for the name of the country.
-            sscale (int,float): Arbitrary scale for the size of point of the site.
-            pscale (int,float): Arbitrary scale for the size of the points that represent the center of the shadow
-            arrow (bool): If true, it plots the arrow with the occultation direction.
-
-            Comment: Only one of centermap_geo and centermap_delta can be given
-        """
         if 'radius' not in kwargs and hasattr(self, 'fitted_params'):
             r_equa = self.fitted_params['equatorial_radius'][0]
             obla = self.fitted_params['oblateness'][0]
@@ -542,10 +543,12 @@ class Occultation:
     plot_occ_map.__doc__ = PredictionTable.plot_occ_map.__doc__
 
     def to_log(self, namefile=None):
-        """ Saves the occultation log to a file
+        """Saves the occultation log to a file.
 
-        Parameters:
-            namefile (str): Filename to save the log
+        Parameters
+        ----------
+        namefile : `str`
+            Filename to save the log.
         """
         if namefile is None:
             namefile = 'occ_{}_{}.log'.format(self.body.shortname.replace(' ', '_'), self.tca.isot[:16])
@@ -555,18 +558,36 @@ class Occultation:
 
     def check_time_shift(self, time_interval=30, time_resolution=0.001, verbose=False, plot=False, use_error=True, delta_plot=100,
                          ignore_chords=None):
-        """ Check the needed time offset, so all chords have their center aligned.
+        """Check the needed time offset, so all chords have their center aligned.
 
-        Parameters:
-            time_interval (int, float): Time interval to check, default is 30 seconds
-            time_resolution (int, float): Time resolution of the search, default is 0.001 seconds
-            verbose (bool): If True, it prints text, default is False.
-            plot (bool): If True, it plots figures as a visual aid, default is False.
-            use_error (bool): if True, the linear fit considers the time uncertainty, default is True.
-            delta_plot (int, float): Value to be added to increase the plot limit, in km. Default is 100
-            ignore_chords (str, list): Names of the chords to be ignored in the linear fit. Default=None
-        Return:
-            time_decalage: Dictionary with needed time offset to align the chords, each key is the name of the chord.
+        Parameters
+        ----------
+        time_interval : `int`, `float`
+            Time interval to check, default is 30 seconds.
+
+        time_resolution : `int`, `float`
+            Time resolution of the search, default is 0.001 seconds.
+
+        verbose : `bool`
+            If True, it prints text, default is False.
+
+        plot : `bool`, default=False
+            If True, it plots figures as a visual aid.
+
+        use_error : `bool`, default=True
+            if True, the linear fit considers the time uncertainty.
+
+        delta_plot : `int`, `float`, default=100
+            Value to be added to increase the plot limit, in km.
+
+        ignore_chords : `str`, list, default=None
+            Names of the chords to be ignored in the linear fit.
+
+        Returns
+        -------
+        time_shift : `dict`
+            Dictionary with needed time offset to align the chords, each key is
+            the name of the chord.
         """
         import matplotlib.pyplot as plt
         fm = np.array([])
@@ -596,12 +617,12 @@ class Occultation:
                 if chord.name in ignore_chords:
                     use_chords = np.append(use_chords, False)
                 else:
-                    use_chords = np.append(use_chords, True)                
+                    use_chords = np.append(use_chords, True)
         if len(fm[use_chords]) < 2:
-            raise ValueError('The number of fitted chords should be higher than two')        	
+            raise ValueError('The number of fitted chords should be higher than two')
         out = self.__linear_fit_error(x=fm[use_chords], y=gm[use_chords], sx=dfm[use_chords], sy=dgm[use_chords],
                                       verbose=verbose, use_error=use_error)
-        fm_fit = np.arange(-delta_plot+np.min([fm.min(), gm.min()]), delta_plot+np.max([fm.max(), gm.max()]), 
+        fm_fit = np.arange(-delta_plot+np.min([fm.min(), gm.min()]), delta_plot+np.max([fm.max(), gm.max()]),
                            time_resolution*np.absolute(self.vel.value))
         gm_fit = self.__func_line_decalage(out.beta, fm_fit)
 
@@ -623,7 +644,7 @@ class Occultation:
             fm_decalage = np.append(fm_decalage, fm[i] + dtt[dist_min.argmin()]*vfm[i])
             gm_decalage = np.append(gm_decalage, gm[i] + dtt[dist_min.argmin()]*vgm[i])
             time_decalage = np.append(time_decalage, dtt[dist_min.argmin()])
-        
+
         for i in range(len(chord_name)):
             out_dic[chord_name[i]] = time_decalage[i]
         if plot:
@@ -644,7 +665,8 @@ class Occultation:
             self.chords.plot_chords(color='blue')
             self.chords.plot_chords(color='red', segment='error')
             plt.plot(fm_decalage[use_chords], gm_decalage[use_chords], linestyle='None', marker='o', color='k')
-            plt.plot(fm_decalage[np.invert(use_chords)], gm_decalage[np.invert(use_chords)], linestyle='None', marker='x', color='r')
+            plt.plot(fm_decalage[np.invert(use_chords)], gm_decalage[np.invert(use_chords)], linestyle='None', marker='x',
+                     color='r')
             plt.plot(fm_fit, gm_fit, 'k-')
             plt.xlim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
             plt.ylim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
@@ -654,13 +676,14 @@ class Occultation:
         return out_dic
 
     def to_file(self):
-        """ Saves the occultation data to a file
+        """Saves the occultation data to a file.
 
-        Three files are saved containing the positions and velocities for the observations.
-        They are for the positive, negative and error bars positions.
+        Three files are saved containing the positions and velocities for the
+        observations. They are for the positive, negative and error bars positions.
 
-        The format of the files are: positions in f and g, velocities in f and g, the Julian Date of the observation,
-        light curve name of the corresponding position.
+        The format of the files are: positions in f and g, velocities in f and
+        g, the Julian Date of the observation, light curve name of the
+        corresponding position.
         """
         pos = []
         neg = []

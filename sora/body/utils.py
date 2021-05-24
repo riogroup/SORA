@@ -5,22 +5,27 @@ __all__ = ['search_sbdb', 'apparent_magnitude']
 
 
 def search_sbdb(name):
-    """Searchs JPL Small-Body DataBase to search for object information.
-    As the name implies, it looks only for Small Bodies.
-    Planets and satellites information are not retrieved by this function.
+    """Searches JPL Small-Body DataBase to search for object information.
 
-    Parameters:
-        name (str): The name of the object for the search.
-            It can be the used spkid or designation number.
-            The name is case insensitive.
+    As the name implies, it searches only for Small Bodies. Planets and
+    satellites information are not retrieved by this function.
 
-    Return:
-        sbdb (dict): An OrderedDict with the object information
+    Parameters
+    ----------
+    name : `str`
+        The name of the object for the search. It can be the attributed `spkid`
+        or `designation number`. The name is case insensitive.
 
-    Important note:
-        The query is not an autocomplete search, so name='Charikl'
-        will not find Chariklo. If more than 1 object is found, the user
-        is asked to select the correct one (e.g: name='neowise')
+    Returns
+    -------
+    sbdb : `dict`
+        An ordered dictionary with the object information.
+
+    Important
+    ---------
+    The query is not an autocomplete search, so ``name='Charikl'`` will not find
+    Chariklo. If more than 1 object is found, the user is asked to select the
+    correct one (e.g: ``name='neowise'``).
     """
     from astroquery.jplsbdb import SBDB
     from . import values
@@ -36,14 +41,20 @@ def search_sbdb(name):
 
 
 def select_body(sbdb):
-    """Creates table to select object when SBDB search returns more than 1 object.
-    This function is not supposed to be called by the user.
+    """Creates an object selection table.
 
-    Parameters:
-        sbdb (dict): An OrderedDict object returned by SBDB search.
+    A table to select object is created when the SBDB search returns more than
+    one object. This function is not supposed to be called by the user.
 
-    Return:
-        sbdb (dict): An OrderedDict with the data of the selected object.
+    Parameters
+    ----------
+    sbdb : `dict`
+        An ordered dictionary object returned by SBDB search.
+
+    Returns
+    -------
+    sbdb : `dict`
+        An ordered dictionary with the data of the selected object.
     """
     from astropy.table import Table
 
@@ -64,17 +75,30 @@ def select_body(sbdb):
 
 
 def apparent_magnitude(H, G, dist, sundist, phase=0.0):
-    """ Calculates the Object Apparent Magnitude
+    """Calculates the object's apparent magnitude.
 
-    Parameters:
-        H (int, float): Absolute Magnitude
-        G (int, float): Slope parameter
-        dist (int, float): Observer-Object distance, in AU
-        sundist (int, float): Sun-Object distance, in AU
-        phase (int, float): Phase Angle: Sun-Target-Observer, in deg
+    Parameters
+    ----------
+    H : `int`, `float`
+        Absolute magnitude.
 
-    Returns:
-        ap_mag (float): Apparent Magnitude
+    G : `int`, `float`
+        Slope parameter.
+
+    dist : `int`, `float`
+        Observer-object distance, in AU.
+
+    sundist : `int`, `float`
+        Sun-object distance, in AU.
+
+    phase : `int`, `float`, default=0
+        Phase angle (Sun-Target-Observer), in degrees.
+
+
+    Returns
+    -------
+    ap_mag : `float`
+        Apparent magnitude.
     """
     phi0 = np.exp(-3.33 * (np.tan(0.5 * phase * u.deg) ** 0.63))
     phi1 = np.exp(-1.87 * (np.tan(0.5 * phase * u.deg) ** 1.22))

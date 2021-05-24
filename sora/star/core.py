@@ -5,7 +5,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
-from sora.config import test_attr, input_tests
+from sora.config import input_tests
 from sora.config.decorators import deprecated_alias
 from .meta import MetaStar
 from .utils import search_star, van_belle, kervella, spatial_motion, choice_star
@@ -16,35 +16,67 @@ __all__ = ['Star']
 
 
 class Star(MetaStar):
+    """Defines a star.
+
+    Parameters
+    ----------
+    catalogue : `str`
+        The catalogue to download data. It can be ``'gaiadr2'`` or ``'gaiaedr3'``.
+
+    code : `str`
+        Gaia Source code for searching in VizieR.
+
+    coord : `str`, `astropy.coordinates.SkyCoord`
+        If code is not given, coord nust have the coordinates RA and DEC of the
+        star to search in VizieR: ``'hh mm ss.ss +dd mm ss.ss'``.
+
+    ra : `int`, `float`
+        Right Ascension, in deg.
+
+    dec : `int`, `float`
+        Declination, in deg.
+
+    parallax : `int`, `float`. default=0
+        Parallax, in mas.
+
+    pmra : `int`, `float`, default=0
+        Proper Motion in RA*, in mas/year.
+
+    pmdec : `int`, `float`, default=0
+        Proper Motion in DEC, in mas/year.
+
+    rad_vel : `int`, `float`, default=0
+        Radial Velocity, in km/s.
+
+    epoch : `str`, `astropy.time.Time`, default='J2000'
+        Epoch of the coordinates.
+
+    nomad : `bool`
+        If True, it tries to download the magnitudes from NOMAD catalogue.
+
+    bjones : `bool`, default=True
+        If True, it uses de star distance from Bailer-Jones et al. (2018).
+
+    verbose : `bool`, default=True
+        If True, it prints the downloaded information
+
+    local : `bool`, default=False
+        If True, it uses the given coordinate in 'coord' as final coordinate.
+
+    Note
+    ----
+    The user can give either 'coord' or 'ra' and 'dec', but not both.
+
+    To download the coordinates from Gaia, "local" must be set as False
+    and the ("code") or ("coord") or ("ra" and "dec") must be given.
+
+    All values downloaded from Gaia will replace the ones given by the user.
+
+    """
+
     @deprecated_alias(log='verbose')  # remove this line in v1.0
     def __init__(self, catalogue='gaiaedr3', **kwargs):
-        """ Defines a star
 
-        Parameters:
-            catalogue (str): The catalogue to download data. It can be "gaiadr2" or "gaiaedr3"
-            code (str): Gaia Source code for searching in VizieR.
-            coord (str, SkyCoord): if code is not given, coord nust have the coordinates
-                RA and DEC of the star to search in VizieR: 'hh mm ss.ss +dd mm ss.ss'
-            ra (int, float): Right Ascension, in deg.
-            dec (int, float): Declination, in deg.
-            parallax (int, float): Parallax, in mas. Default = 0
-            pmra (int, float): Proper Motion in RA*, in mas/year. Default = 0
-            pmdec (int, float): Proper Motion in DEC, in mas/year. Default = 0
-            rad_vel (int, float): Radial Velocity, in km/s. Default = 0 km/s
-            epoch (str, Time): Epoch of the coordinates. Default = 'J2000'
-            nomad (bool): If true, it tries to download the magnitudes from NOMAD
-                catalogue. Default = True
-            bjones (bool): If true, it uses de star distance from Bailer-Jones et al. (2018)
-                Default = True
-            verbose (bool): If true, it prints the downloaded information. Default = True
-            local (bool): If true, it uses the given coordinate in 'coord'
-                as final coordinate. Default = False
-
-        - The user can only give ("coord") or ("ra" and "dec"), but not both.
-        - To download the coordinates from Gaia, "local" must be set as False
-            and the ("code") or ("coord") or ("ra" and "dec") must be given.
-            All values downloaded from Gaia will replace the ones given by the user.
-        """
         self._attributes = {}
         self.mag = {}
         self.errors = {'RA': 0*u.mas, 'DEC': 0*u.mas, 'Plx': 0*u.mas, 'pmRA': 0*u.mas/u.year,
@@ -90,72 +122,100 @@ class Star(MetaStar):
             pass
 
     def set_magnitude(self, **kwargs):
-        """ Sets the magnitudes of a star.
+        """Sets the magnitudes of a star.
 
-        Parameters:
-            (band name)=(float): The star magnitude for given band. The band name can be any string the user wants.
+        Parameters
+        ----------
+        band=value : `str`
+            The star magnitude for given band. The band name can be any string
+            the user wants.
 
-        Examples:
-            set_magnitude(G=10)
-            set_magnitude(K=15)
-            set_magnitude(newband=6)
+        Examples
+        --------
+        To set the stars magnitude in the band G:\n
+        >>> set_magnitude(G=10)
+
+        To set the star's magnitude in the band K:\n
+        >>> set_magnitude(K=15)
+
+        To set the star's magnitude in a customized band:\n
+        >>> set_magnitude(newband=6)
         """
         for key in kwargs:
-            mag = test_attr(kwargs[key], float, key)
+            mag = input_tests.test_attr(kwargs[key], float, key)
             if key in self.mag:
                 warnings.warn('{0} mag already defined. {0}={1} will be replaced by {0}={2}'.format(
                     key, self.mag[key], mag))
             self.mag[key] = mag
 
     def set_diameter(self, diameter):
-        """ Sets an user diameter for the star, in mas.
+        """Sets an user diameter for the star, in mas.
 
-        Parameters:
-            diameter (int,float): sets the user diameter of the star, in mas
+        Parameters
+        ----------
+        diameter : `int`, `float`
+            Sets the user diameter of the star, in mas.
         """
-        self.diameter_user = diameter*u.mas
+        self.diameter_user = diameter * u.mas
+        if diameter < 0:
+            warnings.warn("negative sizes are converted to positive.")
+            self.diameter_user = np.absolute(self.diameter_user)
 
     def van_belle(self):
-        """ Determines the diameter of a star in mas using equations from van Belle (1999)
-            -- Publi. Astron. Soc. Pacific 111, 1515-1523:
+        """Determines the diameter of a star in mas using equations from van Belle (1999).
+
+        See: Publi. Astron. Soc. Pacific 111, 1515-1523:.
         """
         return van_belle(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
 
     def kervella(self):
-        """ Determines the diameter of a star in mas using equations from Kervella et. al (2004)
-            -- A&A Vol.  426, No.  1:
+        """Determines the diameter of a star in mas using equations from Kervella et. al (2004).
+
+        See: A&A Vol.  426, No.  1:.
         """
         return kervella(self.mag.get('B'), self.mag.get('V'), self.mag.get('K'))
 
     @deprecated_alias(log='verbose')  # remove this line in v1.0
     def apparent_diameter(self, distance, mode='auto', band='V', star_type='sg', verbose=True):
-        """ Calculates the apparent diameter of the star at a given distance
+        """Calculates the apparent diameter of the star at a given distance.
 
-        Parameters:
-            distance (int, float): Object geocentric distance, in AU
-            mode (str): The mode to calculate the apparent diameter
-                'user': calculates using user given diameter
-                'gaia': calculates using diameter obtained from Gaia
-                'kervella': calculates using Kervella equations
-                'van_belle': calculates using van Belle equations
-                'auto' (default): tries all the above methods until it is able to calculate diameter.
-                    The order of try is the same as shown above (user, Gaia, Kervella, Van Belle).
-            'band' (str): The band filter to calculate the diameter.
-                If mode is 'kervella' or 'van_belle', the filter must be given, 'B' or 'V'.
-                If mode 'auto', 'V' is selected.
-            'star_type' (str): type of star to calculate the diameter.
-                If mode is 'van_belle', the star type must be given.
-                If mode is 'auto', type = 'sg'.
-                Types can be:
-                    - 'sg' for 'Super Giant'
-                    - 'ms' for 'Main Sequence'
-                    - 'vs' for 'Variable Star'
-            'verbose' (bool): If True, it prints the mode used by 'auto'.
+        Parameters
+        ----------
+        distance : `int`, `float`
+            Object geocentric distance, in AU.
+
+        mode : `str`, default='auto'
+            The mode to calculate the apparent diameter.\n
+            - ``'user'``: calculates using user given diameter.\n
+            - ``'gaia'``: calculates using diameter obtained from Gaia.\n
+            - ``'kervella'``: calculates using Kervella equations.\n
+            - ``'van_belle'``: calculates using van Belle equations.\n
+            - ``'auto'``: tries all the above methods until it is able to calculate diameter.\n
+            The order of try is the same as shown above (user, Gaia, Kervella, Van Belle).
+
+        band : `str`
+            The band filter to calculate the diameter. If mode is `kervella`
+            or `van_belle`, the filter must be given, ``'B'`` or ``'V'``.
+            If mode `auto`, ``'V'`` is selected.
+
+        star_type :`str`
+            Type of star to calculate the diameter. If mode is `van_belle`,
+            the star type must be given. If mode is `auto`, ``star_type='sg'``.\n
+            Accepted types:\n
+            - ``'sg'`` for 'Super Giant'.\n
+            - ``'ms'`` for 'Main Sequence'.\n
+            - ``'vs'`` for 'Variable Star'.
+
+        verbose : `bool`
+            If True, it prints the mode used by `auto`.
         """
         try:
             distance = distance.to(u.km)
         except:
-            distance = distance*u.AU
+            distance = distance * u.AU
+        if distance < 0:
+            warnings.warn("negative distances are converted to positive.")
+            distance = np.absolute(distance)
 
         if mode in ['user', 'auto']:
             try:
@@ -215,10 +275,12 @@ class Star(MetaStar):
                              "Please define star diameter or B,V,K magnitudes.")
 
     def __searchgaia(self, catalog):
-        """ Searches for the star position in the Gaia catalogue and save informations
+        """Searches for the star position in the Gaia catalogue and save information.
 
-        Parameters:
-            catalog (str): The catalogue to download data. It can be "gaiadr2" or "gaiaedr3"
+        Parameters
+        ----------
+        catalog : `str`
+            The catalogue to download data. It can be ``'gaiadr2'`` or ``'gaiaedr3'``.
         """
         catalogues = {'gaiadr2': 'I/345/gaia2', 'gaiaedr3': 'I/350/gaiaedr3'}
         cat = catalogues[catalog]
@@ -294,7 +356,7 @@ class Star(MetaStar):
                   self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
 
     def __getcolors(self):
-        """ Searches for the B,V,K magnitudes of the star in the NOMAD catalogue on VizieR
+        """ Searches for the B,V,K magnitudes of the star in the NOMAD catalogue on VizieR.
         """
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
         catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec,
@@ -324,10 +386,14 @@ class Star(MetaStar):
             print('Magnitudes in {} were not located in NOMAD'.format(errors))
 
     def geocentric(self, time):
-        """ Calculates the position of the star, propagating the position using parallax and proper motion
+        """Calculates the position of the star, propagating the position using
+        parallax and proper motion.
 
-        Parameters:
-            time (float, Time): reference time to apply proper motion and calculate paralax.
+        Parameters
+        ----------
+        time : `float, `astropy.time.Time`
+            Reference time to apply proper motion and calculate parallax. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
         """
         from astropy.coordinates import get_sun, SphericalRepresentation, SkyOffsetFrame, ICRS
 
@@ -353,27 +419,36 @@ class Star(MetaStar):
         return g_coord
 
     def barycentric(self, time):
-        """ Calculates the position of the star using proper motion
+        """Calculates the position of the star using proper motion.
 
-        Parameters:
-            time (str, Time): reference time to apply proper motion.
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to apply proper motion. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
         """
         try:
             time = Time(time)
         except:
             time = Time(time, format='jd', scale='utc')
         dt = time - self.epoch
-        n_coord = spatial_motion(self.ra, self.dec, self.pmra, self.pmdec, self.parallax, self.rad_vel,  dt=dt.jd)
+        n_coord = spatial_motion(self.ra, self.dec, self.pmra, self.pmdec, self.parallax, self.rad_vel, dt=dt.jd)
         return n_coord
 
     def error_at(self, time):
-        """ Estimates the star position error at a given time
+        """Estimates the star position error at a given time.
 
-        Parameters:
-            time (str, Time): reference time to project star error.
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to project star error. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-        Returns:
-            errors in RA* and DEC
+        Returns
+        -------
+        errors : `list`
+            In RA* and DEC.
+
         """
         try:
             time = Time(time)
@@ -381,24 +456,28 @@ class Star(MetaStar):
             time = Time(time, format='jd', scale='utc')
         dt = time - self.epoch
         n_coord, errors = spatial_motion(self.ra, self.dec, self.pmra, self.pmdec, self.parallax,
-                                         self.rad_vel,  dt=dt.jd, cov_matrix=self.cov)
+                                         self.rad_vel, dt=dt.jd, cov_matrix=self.cov)
         return errors[0]*u.mas, errors[1]*u.mas
 
     def add_offset(self, da_cosdec, ddec):
-        """ Adds an offset to the star position
+        """Adds an offset to the star position.
 
-        Parameters:
-            da_cosdec (int, float): offset in Delta_alpha_cos_delta in mas
-            ddec (int, float): offset in Delta_delta in mas
+        Parameters
+        ----------
+        da_cosdec : `int`, `float`
+            Offset in Delta_alpha_cos_delta, in mas.
+
+        ddec : `int`, `float`
+            Offset in Delta_delta, in mas.
         """
         from astropy.coordinates import SphericalCosLatDifferential
 
-        dadc = test_attr(da_cosdec, float, 'da_cosdec')
-        dd = test_attr(ddec, float, 'ddec')
-        self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
+        dadc = input_tests.test_attr(da_cosdec, float, 'da_cosdec')
+        dd = input_tests.test_attr(ddec, float, 'ddec')
+        self.offset = SphericalCosLatDifferential(dadc * u.mas, dd * u.mas, 0.0 * u.km)
 
     def __str__(self):
-        """ String representation of the Star class
+        """String representation of the Star class.
         """
         out = ''
         if hasattr(self, 'code'):

@@ -10,33 +10,46 @@ __all__ = ['PhysicalData']
 
 
 class PhysicalData(u.Quantity):
-    """ Define PhysicalData with uncertainty, reference and notes.
-    It inherits from astropy.units.quantity.Quantity()
+    """Defines PhysicalData with uncertainty, reference and notes.
 
-    Parameters:
-        name (str): The name representing the corresponding physical parameter.
-        value (number, `~numpy.ndarray`, `Quantity` object (sequence), str):
-            The numerical value of this quantity in the units given by unit.  If a
-            `Quantity`  (or any other valid object with a ``unit`` attribute),
-            creates a new `Quantity` object, converting to `unit` units as needed.
-            If a string, it is converted to a number or `Quantity`, depending on
-            whether a unit is present.
-        uncertainty (number, `~numpy.ndarray`, `Quantity` object (sequence), str):
-            The numerical value of this quantity in the units given by unit.  If a
-            `Quantity` (or any other valid object with a ``unit`` attribute),
-            creates a new `Quantity` object, converting to `unit` units as needed.
-            If a string, it is converted to a number or `Quantity`, depending on
-            whether a unit is present. Default = 0.0
-        reference (str): A string stating the reference for the parameter value.
-            Default = "User"
-        notes (str): Any other important information about the physical parameter.
-            Default = ""
-        unit: `~astropy.units.UnitBase` instance, str
-            An object that represents the unit associated with the input value.
-            Must be an `~astropy.units.UnitBase` object or a string parseable by
-            the :mod:`~astropy.units` package. Default = "dimensionless"
-        raise_error (bool): If value=None, the function raise an error if
-            raise_error=True, else value is redefined to NaN.
+    Note
+    ----
+    It inherits from astropy.units.quantity.Quantity().
+
+    Parameters
+    ----------
+    name :`str`
+        The name representing the corresponding physical parameter.
+
+    value : `int`, `float`, `str`, `~numpy.ndarray`, `astropy.quantity.Quantity`
+        The numerical value of this quantity in the units given by unit.  If
+        a `Quantity`  (or any other valid object with a ``unit`` attribute),
+        creates a new `Quantity` object, converting to `unit` units as needed.
+        If a string, it is converted to a number or `Quantity`, depending on
+        whether a unit is present.
+
+    uncertainty : `int`, `float`, `str`, `~numpy.ndarray`, `astropy.quantity.Quantity`, default=0
+        The numerical value of this quantity in the units given by unit.  If
+        a `Quantity` (or any other valid object with a ``unit`` attribute),
+        creates a new `Quantity` object, converting to `unit` units as needed.
+        If a string, it is converted to a number or `Quantity`, depending on
+        whether a unit is present.
+
+    reference : `str`, default='User'
+        A string stating the reference for the parameter value.
+
+    notes : `str`, default=''
+        Any other important information about the physical parameter.
+
+    unit : `str`, `~astropy.units.UnitBase` instance, default='dimensionless'
+        An object that represents the unit associated with the input value. Must
+        be an `~astropy.units.UnitBase` object or a string parsable by the
+        :mod:`~astropy.units` package.
+
+    raise_error : `bool`, default=False
+        If ``value=None`` or ``raise_error=True`` the function raises an error,
+        else `value` is redefined to ``NaN``.
+
     """
 
     def __new__(cls, name, value, uncertainty=0.0, reference="User", notes="", unit=u.dimensionless_unscaled,
@@ -92,6 +105,8 @@ class PhysicalData(u.Quantity):
         if not unit.is_equivalent(self.unit):
             raise ValueError('{} is not equivalent to {}'.format(unit, given_unit))
         self._uncertainty = u.Quantity(value, unit).to(given_unit)
+        if self._uncertainty < 0:
+            raise ValueError('uncertainty cannot be a negative value')
 
     @property
     def reference(self):
@@ -141,9 +156,13 @@ class BaseBody():
     @albedo.setter
     def albedo(self, value):
         if isinstance(value, PhysicalData):
-            self._albedo = value
+            albedo = value
+            albedo.name = "Albedo"
         else:
-            self._albedo = PhysicalData('Albedo', value)
+            albedo = PhysicalData('Albedo', value)
+        if albedo < 0:
+            raise ValueError("albedo cannot be a negative value")
+        self._albedo = albedo
 
     @property
     def H(self):
@@ -178,9 +197,13 @@ class BaseBody():
     @diameter.setter
     def diameter(self, value):
         if isinstance(value, PhysicalData):
-            self._diameter = value
+            diameter = value
+            diameter.name = "Diameter"
         else:
-            self._diameter = PhysicalData('Diameter', value, unit=u.km)
+            diameter = PhysicalData('Diameter', value, unit=u.km)
+        if diameter < 0:
+            raise ValueError("diameter cannot be a negative value")
+        self._diameter = diameter
         self._shared_with['ephem']['radius'] = self.radius
 
     @property
@@ -192,9 +215,10 @@ class BaseBody():
     def radius(self, value):
         if isinstance(value, PhysicalData):
             self.diameter = value*2.0
+            self.diameter.uncertainty = value.uncertainty * 2.0
             self.diameter.name = 'Diameter'
         else:
-            self.diameter = PhysicalData('Diameter', value*2.0, unit=u.km)
+            self.diameter = PhysicalData('Diameter', float(value) * 2.0, unit=u.km)
 
     @property
     def density(self):
@@ -203,9 +227,13 @@ class BaseBody():
     @density.setter
     def density(self, value):
         if isinstance(value, PhysicalData):
-            self._density = value
+            density = value
+            density.name = "Density"
         else:
-            self._density = PhysicalData('Density', value, unit=u.g/u.cm**3)
+            density = PhysicalData('Density', value, unit=u.g / u.cm ** 3)
+        if density < 0:
+            raise ValueError("density cannot be a negative value")
+        self._density = density
 
     @property
     def GM(self):
@@ -214,9 +242,13 @@ class BaseBody():
     @GM.setter
     def GM(self, value):
         if isinstance(value, PhysicalData):
-            self._GM = value
+            GM = value
+            GM.name = 'Standard Gravitational Parameter'
         else:
-            self._GM = PhysicalData('Standard Gravitational Parameter', value, unit=u.km**3/u.s**2)
+            GM = PhysicalData('Standard Gravitational Parameter', value, unit=u.km ** 3 / u.s ** 2)
+        if GM < 0:
+            raise ValueError("GM cannot be a negative value")
+        self._GM = GM
 
     @property
     def mass(self):
@@ -232,9 +264,13 @@ class BaseBody():
     @rotation.setter
     def rotation(self, value):
         if isinstance(value, PhysicalData):
-            self._rotation = value
+            rotation = value
+            rotation.name = "Rotation"
         else:
-            self._rotation = PhysicalData('Rotation', value, unit=u.h)
+            rotation = PhysicalData('Rotation', value, unit=u.h)
+        if rotation < 0:
+            raise ValueError("rotation cannot be a negative value")
+        self._rotation = rotation
 
     @property
     def pole(self):

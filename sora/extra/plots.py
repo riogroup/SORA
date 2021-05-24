@@ -6,17 +6,33 @@ __all__ = ['draw_ellipse']
 
 def draw_ellipse(equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
                  position_angle=0.0, center_dot=False, ax=None, **kwargs):
-    """ Plots an ellipse with the given input parameters
+    """Plots an ellipse with the given input parameters.
 
-    Parameters:
-        equatorial_radius (float, int): Semi-major axis of the ellipse.
-        oblateness (float, int): Oblateness of the ellipse. Default=0.0 (circle)
-        center_f (float, int): Coordinate of the ellipse (abscissa). Default=0.0
-        center_g (float, int): Coordinate of the ellipse (ordinate). Default=0.0
-        center_dot (bool): If True, plots a dot at the center of the ellipse. Default=False
-        position_angle (float, int): Pole position angle. Default=0.0
-        ax (maptlotlib.Axes): Axis where to plot ellipse
-        **kwargs: all other parameters will be parsed directly to matplotlib
+    Parameters
+    ----------
+    equatorial_radius : `float`, `int`, default=0
+        Semi-major axis of the ellipse.
+
+    oblateness : `float`, `int`, default=0
+        Oblateness of the ellipse.
+
+    center_f : `float`, `int`, default=0
+        Coordinate of the ellipse (abscissa).
+
+    center_g : `float`, `int`, default=0
+        Coordinate of the ellipse (ordinate).
+
+    center_dot : `bool`, default=False
+        If True, plots a dot at the center of the ellipse.
+
+    position_angle : `float`, `int`, default= 0
+        Pole position angle (Default=0.0).
+
+    ax : `maptlotlib.pyplot.Axes`
+        Axis where to plot ellipse.
+
+    **kwargs
+        All other parameters. They will be parsed directly by matplotlib.
     """
     import matplotlib.pyplot as plt
 

@@ -9,19 +9,28 @@ __all__ = ['ChordList']
 
 
 class ChordList(List):
+    """Defines a collection of Chord objects associated to an Occultation.
+
+    This object is not supposed to be defined by the user. It will be automatically
+    defined in Occultation.
+
+    Attributes
+    ----------
+    star : `sora.Star`
+        The Star occulted.
+
+    body : `sora.Body`
+        The occulting Body.
+
+    time : `astropy.time.Time`
+        The occultation time.
+
+    """
     _allowed_types = (Chord,)  # (Chord, AstrometricChord)
     _set_func = 'add_chord'
 
     def __init__(self, *, star, body, time):
-        """Defines a collection of Chord objects associated to an Occultation.
 
-        This object is not supposed to be defined by the user. It will be automaticaly defined in Occultation.
-
-        Parameters:
-            star (Star): The Star occulted.
-            body (Body): The occulting Body.
-            time (Time): The occultation time.
-        """
         super().__init__()
         self._star = star
         self._body = body
@@ -32,20 +41,37 @@ class ChordList(List):
     def add_chord(self, *, name=None, chord=None, observer=None, lightcurve=None):
         """Add a chord to the occultation chord list
 
-        Parameters:
-            name (str): The name of the Chord. It must be unique within the list of chords. If not given, it will use
-                the name in chord if chord is directly given or the name in the observer object. If the name in Chord
-                already exists in the list, the name parameter can be given to update the chord name. The "name"
-                parameter is required if given together with observer and lightcurve. It can not be an empty string.
-            chord (Chord): A chord instance defined by the user.
-            observer (Observer): An Observer instance defined by the user. It must be given together with lightcurve.
-            lightcurve (LightCurve): A lightcurve defined by the user. It must be given together with observer.
+        Parameters
+        ----------
+        name : `str`
+            The name of the Chord. It must be unique within the list of chords.
+            If not given, it will use the name in chord if chord is directly
+            given or the name in the observer object. If the name in Chord already
+            exists in the list, the name parameter can be given to update the
+            chord name. The `name` parameter is required if given together with
+            observer and lightcurve. It can not be an empty string.
 
+        chord `sora.occultation.Chord`
+            A chord instance defined by the user.
+
+        observer : `sora.Observer`
+            An Observer instance defined by the user. It must be given together
+            with a lightcurve.
+
+        lightcurve : `sora.LightCurve`
+            A lightcurve defined by the user. It must be given together with observer.
+
+        Examples
+        --------
         Ways to add a chord:
-            obj.add_chord(chord) # where the name in chord will be used.
-            obj.add_chord(name, chord) # where the name in chord will be replaced by "name".
-            obj.add_chord(observer, lightcurve) # where the name in observer will be used.
-            obj.add_chord(name, observer, lightcurve)
+
+        >>> obj.add_chord(chord) # where the name in chord will be used.
+
+        >>> obj.add_chord(name, chord) # where the name in chord will be replaced by "name".
+
+        >>> obj.add_chord(observer, lightcurve) # where the name in observer will be used.
+
+        >>> obj.add_chord(name, observer, lightcurve)
         """
         if chord and (observer or lightcurve):
             raise ValueError("User must give only chord or (name and observer and lightcurve)")
@@ -75,8 +101,10 @@ class ChordList(List):
     def remove_chord(self, *, name):
         """Remove a chord from the chord list and disassociate it from the Occultation.
 
-        Parameters:
-            name (str): the name of the chord.
+        Parameters
+        ----------
+        name : `str`
+            The name of the chord.
         """
         del(self[name]._shared_with['chordlist'])
         del(self[name])
@@ -88,10 +116,14 @@ class ChordList(List):
     def enable(self, *, chord=None, time=None):
         """Enable a contact point of the curve to be used in the fit.
 
-        Parameters:
-            chord (str): Name of the chord to enable. If None, it applies to all chords.
-            time (None, str): if None, it will enable all contact points.
-                if 'immersion' or 'emersion', it will enable respective contact point.
+        Parameters
+        ----------
+        chord : `str`
+            Name of the chord to enable. If ``chord=None``, it applies to all chords.
+
+        time : Non`, `str`
+            If ``time=None``, it will enable all contact points.
+            If 'immersion' or 'emersion', it will enable respective contact point.
         """
         n = 0
         for key in self.keys():
@@ -104,10 +136,14 @@ class ChordList(List):
     def disable(self, *, chord=None, time=None):
         """Disable a contact point of the curve to be used in the fit.
 
-        Parameters:
-            chord (str): Name of the chord to disable. If None, it applies to all chords.
-            time (None, str): if None, it will disable all contact points.
-                if 'immersion' or 'emersion', it will disable respective contact point.
+        Parameters
+        ----------
+        chord : `str`
+            Name of the chord to disable. If ``chord=None``, it applies to all chords.
+
+        time : None, `str`
+            If ``time=None``, it will disable all contact points.
+            If 'immersion' or 'emersion', it will disable respective contact point.
         """
         n = 0
         for key in self.keys():
@@ -120,33 +156,54 @@ class ChordList(List):
     def plot_chords(self, *, segment='standard', ignore_chords=None, only_able=False, ax=None, linestyle='-', **kwargs):
         """Plots the on-sky path of this chord.
 
-        Parameters:
-            segment (str): The segment to plot the chord. The available options are:
-                - 'positive' to get the path between the immersion and emersion times if the chord is positive.
-                - 'negative' to get the path between the start and end of observation if the chord is negative.
-                - 'standard' to get the 'positive' path if the chord is positive or 'negative' if the chord is negative.
-                - 'full' to get  the path between the start and end of observation independent
-                    if the chord is positive or negative.
-                - 'outer' to get the path outside the 'positive' path, for instance between the start and immersion times
-                    and between the emersion and end times.
-                - 'error' to get the path corresponding to the error bars.
-            ignore_chords (str, list): Name of chord or list of names to ignore in the plot.
-            only_able (bool): Plot only the chords or contact points that are able to be used in the fit.
-                If segment='error' it will show only the contact points able. If segment is any other, the path
-                will be plotted only if both immersion and emersion are able, or it is a negative chord.
-            ax (matplotlib.Axes): The axes where to make the plot. If None, it will use the default axes.
-            linestyle (str): Default linestyle used in matplotlib.pyplot.plot. The difference is that now it accept
-                linestyle='exposure', where the plot will be a dashed line corresponding to each exposure. The blank
-                space between the lines can be interpreted as 'dead time'.
-            kwargs: Any other kwarg will be parsed directly by maplotlip.pyplot.plot. The only difference is that
-                the default linewidth lw=2.
+        Parameters
+        ----------
+        segment : `str`
+            The segment to plot the chord. The available options are:
 
-        Returns:
-            Default list of plots made by matplotlib.
+            ``'positive'`` to get the path between the immersion and emersion
+            times if the chord is positive.
+
+            ``'negative'`` to get the path between the start and end of
+            observation if the chord is negative.
+
+            ``'standard'`` to get the 'positive' path if the chord is positive
+            or 'negative' if the chord is negative.
+
+            ``'full'`` to get  the path between the start and end of observation
+            independent if the chord is positive or negative.
+
+            ``'outer'`` to get the path outside the 'positive' path, for instance
+            between the start and immersion times and between the emersion and
+            end times.
+
+            ``'error'`` to get the path corresponding to the error bars.
+
+        ignore_chords : `str`, `list`
+            Name of chord or list of names to ignore in the plot.
+
+        only_able : `bool`
+            Plot only the chords or contact points that are able to be used in the fit.
+            If ``segment='error'`` it will show only the contact points able.
+            If segment is any other, the path will be plotted only if both
+            immersion and emersion are able, or it is a negative chord.
+
+        ax : `matplotlib.pyplot.Axes`
+            The axes where to make the plot. If None, it will use the default axes.
+
+        linestyle : `str`
+            Default linestyle used in `matplotlib.pyplot.plot`. The difference
+            is that now it accept ``linestyle='exposure'``, where the plot will
+            be a dashed line corresponding to each exposure. The blank space
+            between the lines can be interpreted as 'dead time'.
+
+        **kwargs
+            Any other kwarg will be parsed directly by `maplotlip.pyplot.plot`.
+            The only difference is that the default linewidth ``lw=2``.
+
         """
         n = 0
         keys = list(self.keys())
-        plots = []
         if ignore_chords is not None:
             ignore_chords = np.array(ignore_chords, ndmin=1)
         for i in range(len(self)):
@@ -155,13 +212,11 @@ class ChordList(List):
             if segment != 'error':
                 kwargs['label'] = keys[i]
             try:
-                p = self[i].plot_chord(segment=segment, only_able=only_able, ax=ax, linestyle=linestyle, **kwargs)
-                plots += p
+                _ = self[i].plot_chord(segment=segment, only_able=only_able, ax=ax, linestyle=linestyle, **kwargs)
             except ValueError:
                 n += 1
         if n == len(self):
             warnings.warn('Segment "{}" was not found on any chord'.format(segment))
-        return plots
 
     def summary(self):
         """Prints a table with the summary of the chords.
@@ -200,21 +255,33 @@ class ChordList(List):
         tabela.pprint_all()
 
     def get_impact_param(self, chords='all_chords', center_f=0, center_g=0, verbose=True):
-        """Get the impact parameter, minimal distance between the chord and the centre position.
+        """Get the impact parameter, minimal distance between the chord and the
+        centre position.
 
-        This Chord object must be associated to an Occultation to work, since it needs
-        the position of the star and an ephemeris.
+        This Chord object must be associated to an Occultation to work, since it
+        needs the position of the star and an ephemeris.
 
-        Parameters:
-            chords (int, str): Index or names of the chords to be considered. Default=all_chords
-            center_f (int,float): The coordinate in f of the ellipse center. Default=0
-            center_g (int,float): The coordinate in g of the ellipse center. Default=0
-            verbose (bool): if True, prints the obtained values.
+        Parameters
+        ----------
+        chords : `int`, `str`, default='all_chords'
+            Index or names of the chords to be considered.
 
-        Returns:
-            impact: Impact parameter, in km.
-            sense: Direction of the chord relative the ellipse center, North (N), South (S), East (E) and West (W).
-            chord_name: Name of the chord
+        center_f : `int`, `float`, default=0
+            The coordinate in f of the ellipse center.
+
+        center_g : `int`, `float`, default=0
+            The coordinate in g of the ellipse center.
+
+        verbose : `bool`
+            If True, prints the obtained values.
+
+
+        Returns
+        -------
+        impact, sense, chord_name : `list`
+            The impact parameter (in km), the direction of the chord relative
+            the ellipse center, North (N), South (S), East (E) and West (W), and
+            the name of the chord
         """
         impact = np.array([])
         sense = np.array([])
@@ -236,24 +303,43 @@ class ChordList(List):
         This Chord object must be associated to an Occultation to work, since it needs
         the position of the star and an ephemeris.
 
-        Parameters:
-            chords (int, str): Index or names of the chords to be considered. Default=all_chords
-            equatorial_radius (int,float): The Equatorial radius (semi-major axis) of the ellipse.
-            center_f (int,float): The coordinate in f of the ellipse center. Default=0
-            center_g (int,float): The coordinate in g of the ellipse center. Default=0
-            oblateness (int,float): The oblateness of the ellipse. Default=0 (circle)
-            position_angle (int,float): The pole position angle of the ellipse in degrees. Default=0
-                Zero is in the North direction ('g-positive'). Positive clockwise.
+        Parameters
+        ----------
+        chords : `int`, `str`, default='all_chords'
+            Index or names of the chords to be considered.
 
-            sigma (int, float): Unceartity of the expected ellipse, in km.
-            step (int, float): Time resolution of the chord, in seconds.
-            verbose (bool): if True, prints the obtained values.
+        equatorial_radius : `int`, `float`
+            The Equatorial radius (semi-major axis) of the ellipse.
 
-        Returns:
-            theory_immersion_time: Expected immersion time for the given ellipse
-            theory_emersion_time: Expected emersion time for the given ellipse
-            theory_chord_size: Expected chord size for the given ellipse
-            chord_name: Name of the chord
+        center_f : `int`, `float`, default=0
+            The coordinate in f of the ellipse center.
+
+        center_g : `int`, `float`, default=0
+            The coordinate in g of the ellipse center.
+
+        oblateness : `int`, `float`, default=0
+            The oblateness of the ellipse.
+
+        position_angle : `int`, `float`, default=0
+            The pole position angle of the ellipse in degrees.
+            Zero is in the North direction ('g-positive'). Positive clockwise.
+
+        sigma : `int`, `float`
+            Uncertainty of the expected ellipse, in km.
+
+        step : `int`, `float`
+            Time resolution of the chord, in seconds.
+
+        verbose : `bool`
+            If True, prints the obtained values.
+
+
+        Returns
+        -------
+        theory_immersion_time, theory_emersion_time, theory_chord_size, chord_name : `list`
+            The expected immersion time for the given ellipse, the expected
+            emersion time for the given ellipse, the expected chord size for the
+            given ellipse, and the name of the chord.
         """
         theory_immersion_time = np.array([])
         theory_emersion_time = np.array([])
