@@ -5,7 +5,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
-from sora.config import test_attr, input_tests
+from sora.config import input_tests
 from sora.config.decorators import deprecated_alias
 from .meta import MetaStar
 from .utils import search_star, van_belle, kervella, spatial_motion, choice_star
@@ -142,7 +142,7 @@ class Star(MetaStar):
         >>> set_magnitude(newband=6)
         """
         for key in kwargs:
-            mag = test_attr(kwargs[key], float, key)
+            mag = input_tests.test_attr(kwargs[key], float, key)
             if key in self.mag:
                 warnings.warn('{0} mag already defined. {0}={1} will be replaced by {0}={2}'.format(
                     key, self.mag[key], mag))
@@ -466,9 +466,9 @@ class Star(MetaStar):
         """
         from astropy.coordinates import SphericalCosLatDifferential
 
-        dadc = test_attr(da_cosdec, float, 'da_cosdec')
-        dd = test_attr(ddec, float, 'ddec')
-        self.offset = SphericalCosLatDifferential(dadc*u.mas, dd*u.mas, 0.0*u.km)
+        dadc = input_tests.test_attr(da_cosdec, float, 'da_cosdec')
+        dd = input_tests.test_attr(ddec, float, 'ddec')
+        self.offset = SphericalCosLatDifferential(dadc * u.mas, dd * u.mas, 0.0 * u.km)
 
     def __str__(self):
         """String representation of the Star class.

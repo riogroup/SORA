@@ -3,7 +3,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
-from sora.config import test_attr, input_tests
+from sora.config import input_tests
 from sora.config.decorators import deprecated_function
 
 
@@ -254,7 +254,7 @@ class BaseEphem:
         """
         if namefile is None:
             namefile = 'Ephem_' + self.name.replace(' ', '_') + '.dat'
-        time = test_attr(time, Time, 'time')
+        time = input_tests.test_attr(time, Time, 'time')
         time_output = time + np.arange(-60, 61, 1) * u.min
         ephem_output = self.get_position(time_output.utc)
         array_output = np.array([time_output.utc.jd, ephem_output.ra.deg, ephem_output.dec.deg,

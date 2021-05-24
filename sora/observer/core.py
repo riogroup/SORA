@@ -2,7 +2,7 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord, EarthLocation, GCRS, AltAz
 from astropy.time import Time
 
-from sora.config import test_attr, input_tests
+from sora.config import input_tests
 from .utils import search_code_mpc
 
 __all__ = ['Observer']
@@ -73,7 +73,7 @@ class Observer:
             except:
                 raise ValueError('code {} could not be located in MPC database'.format(self.code))
         elif 'site' in kwargs:
-            self.site = test_attr(kwargs['site'], EarthLocation, 'site')
+            self.site = input_tests.test_attr(kwargs['site'], EarthLocation, 'site')
         elif all(i in kwargs for i in ['lon', 'lat', 'height']):
             self.site = EarthLocation(kwargs['lon'], kwargs['lat'], kwargs['height'])
         else:
@@ -103,7 +103,7 @@ class Observer:
         """
         from astropy.coordinates.matrix_utilities import rotation_matrix
 
-        time = test_attr(time, Time, 'time')
+        time = input_tests.test_attr(time, Time, 'time')
         try:
             star = SkyCoord(star, unit=(u.hourangle, u.deg))
         except:
@@ -140,7 +140,7 @@ class Observer:
             An Astropy Longitude object with the Sidereal Time.
         """
         # return local or greenwich sidereal time
-        time = test_attr(time, Time, 'time')
+        time = input_tests.test_attr(time, Time, 'time')
         time.location = self.site
         if mode == 'local':
             return time.sidereal_time('apparent')
@@ -170,7 +170,7 @@ class Observer:
         azimuth : `float`
             Object azimuth in degrees.
         """
-        time = test_attr(time, Time, 'time')
+        time = input_tests.test_attr(time, Time, 'time')
         if type(coord) == str:
             coord = SkyCoord(coord, unit=(u.hourangle, u.deg))
         ephem_altaz = coord.transform_to(AltAz(obstime=time, location=self.site))
