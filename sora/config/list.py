@@ -1,6 +1,5 @@
 from collections import OrderedDict
 
-
 __all__ = ['List']
 
 
@@ -67,7 +66,6 @@ class List(OrderedDict):
         else:
             raise TypeError("{} can only be indexed with the "
                             "named keys and integers.".format(self.__class__.__name__))
-        return super().__getitem__(key)
 
     def __delitem__(self, key):
         """Defines behaviour of ``del(obj[item])`` to delete only one item in the list.

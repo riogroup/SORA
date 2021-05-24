@@ -156,7 +156,10 @@ class Star(MetaStar):
         diameter : `int`, `float`
             Sets the user diameter of the star, in mas.
         """
-        self.diameter_user = diameter*u.mas
+        self.diameter_user = diameter * u.mas
+        if diameter < 0:
+            warnings.warn("negative sizes are converted to positive.")
+            self.diameter_user = np.absolute(self.diameter_user)
 
     def van_belle(self):
         """Determines the diameter of a star in mas using equations from van Belle (1999).
@@ -209,7 +212,10 @@ class Star(MetaStar):
         try:
             distance = distance.to(u.km)
         except:
-            distance = distance*u.AU
+            distance = distance * u.AU
+        if distance < 0:
+            warnings.warn("negative distances are converted to positive.")
+            distance = np.absolute(distance)
 
         if mode in ['user', 'auto']:
             try:
@@ -426,7 +432,7 @@ class Star(MetaStar):
         except:
             time = Time(time, format='jd', scale='utc')
         dt = time - self.epoch
-        n_coord = spatial_motion(self.ra, self.dec, self.pmra, self.pmdec, self.parallax, self.rad_vel,  dt=dt.jd)
+        n_coord = spatial_motion(self.ra, self.dec, self.pmra, self.pmdec, self.parallax, self.rad_vel, dt=dt.jd)
         return n_coord
 
     def error_at(self, time):
@@ -450,7 +456,7 @@ class Star(MetaStar):
             time = Time(time, format='jd', scale='utc')
         dt = time - self.epoch
         n_coord, errors = spatial_motion(self.ra, self.dec, self.pmra, self.pmdec, self.parallax,
-                                         self.rad_vel,  dt=dt.jd, cov_matrix=self.cov)
+                                         self.rad_vel, dt=dt.jd, cov_matrix=self.cov)
         return errors[0]*u.mas, errors[1]*u.mas
 
     def add_offset(self, da_cosdec, ddec):

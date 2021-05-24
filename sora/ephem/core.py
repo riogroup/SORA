@@ -5,7 +5,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord, SkyOffsetFrame, ICRS
 from astropy.time import Time
 
-from sora.config.decorators import deprecated_alias, deprecated_function
+from sora.config.decorators import deprecated_alias
 from .meta import BaseEphem
 
 __all__ = ['EphemHorizons', 'EphemJPL', 'EphemKernel', 'EphemPlanete']
@@ -247,6 +247,7 @@ class EphemHorizons(BaseEphem):
 
         super().__init__(name=name, spkid=spkid, **kwargs)
         self.id_type = id_type
+        _ = self.get_position(Time.now())  # test if Horizons can proceed for this object
 
     def get_position(self, time):
         """Returns the geocentric position of the object.

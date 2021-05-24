@@ -73,8 +73,8 @@ def occ_detect(flux, dflux, time, cycle, maximum_duration=None, dur_step=None, s
     time_span = time[-1] - time[0]
     if maximum_duration and (maximum_duration > time_span):
         warnings.warn('Occultation duration (maximum_duration={0}) '
-                      'exceeds the time series lenght ({1:0.5f}).'
-                      ' maximum_duration reset to the time series lenght.'
+                      'exceeds the time series length ({1:0.5f}).'
+                      ' maximum_duration reset to the time series length.'
                       .format(maximum_duration, time_span))
         maximum_duration = time_span
     if not maximum_duration:
@@ -92,7 +92,7 @@ def occ_detect(flux, dflux, time, cycle, maximum_duration=None, dur_step=None, s
     duration_grid = np.arange(dur_step, maximum_duration, dur_step)
     # initial occultation mask (all data points)
     mask = np.ones(len(time), dtype=bool)
-    # inital detection rank
+    # initial detection rank
     rank = 1
 
     if snr_limit:

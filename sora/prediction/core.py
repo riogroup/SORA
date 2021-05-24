@@ -246,11 +246,13 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         pm_dec = catalogue['pmDE'].quantity
         pm_dec[np.where(np.isnan(pm_dec))] = 0*u.mas/u.year
         stars = SkyCoord(catalogue['RA_ICRS'].quantity, catalogue['DE_ICRS'].quantity, distance=np.ones(len(catalogue))*u.pc,
-                         pm_ra_cosdec=pm_ra_cosdec, pm_dec=pm_dec, obstime=Time(catalogue['Epoch'].quantity.value, format='jyear'))
+                         pm_ra_cosdec=pm_ra_cosdec, pm_dec=pm_dec,
+                         obstime=Time(catalogue['Epoch'].quantity.value, format='jyear'))
         prec_stars = stars.apply_space_motion(new_obstime=((nt[-1]-nt[0])/2+nt[0]))
         idx, d2d, d3d = prec_stars.match_to_catalog_sky(ncoord)
 
-        dist = np.arcsin(radius_search/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec \
+        dist = np.arcsin(radius_search/ncoord[idx].distance) + sigma*np.max([ephem.error_ra.value,
+                                                                             ephem.error_dec.value])*u.arcsec \
             + np.sqrt(stars.pm_ra_cosdec**2+stars.pm_dec**2)*(nt[-1]-nt[0])/2
         k = np.where(d2d < dist)[0]
         for ev in k:
@@ -266,7 +268,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
             except:
                 pass
 
-    meta = {'name': ephem.name or getattr(body, 'name', ''), 'time_beg': time_beg, 'time_end': time_end,
+    meta = {'name': ephem.name or getattr(body, 'shortname', ''), 'time_beg': time_beg, 'time_end': time_end,
             'maglim': mag_lim, 'max_ca': mindist, 'radius': radius.to(u.km).value,
             'error_ra': ephem.error_ra.to(u.mas).value, 'error_dec': ephem.error_dec.to(u.mas).value,
             'ephem': ephem.meta['kernels'], 'catalogue': cat_name}

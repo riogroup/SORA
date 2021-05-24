@@ -98,6 +98,13 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     from astropy.coordinates import Angle
     from .core import Occultation
 
+    v = {'dcenter_f': dcenter_f, 'dcenter_g': dcenter_g, 'doblateness': doblateness, 'dposition_angle': dposition_angle,
+         'dequatorial_radius': dequatorial_radius, 'ellipse_error': ellipse_error, 'sigma_result': sigma_result,
+         'dchi_min': dchi_min}
+    for key, item in v.items():
+        if item is not None and item < 0:
+            raise ValueError("{} must be a positive number.".format(key))
+
     values = []
     chord_name = []
     if len(args) == 0:

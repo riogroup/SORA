@@ -65,6 +65,8 @@ class Observer:
 
         input_tests.check_kwargs(kwargs, allowed_kwargs=['code', 'height', 'lat', 'lon', 'name', 'site'])
         self.__name = kwargs.get('name', '')
+        if 'code' in kwargs and any(i in kwargs for i in ['lon', 'lat', 'height']):
+            raise ValueError("The Observer object is instantiated with IAU code or coordinates, not both.")
         if 'code' in kwargs:
             self.code = kwargs['code']
             try:
@@ -74,8 +76,8 @@ class Observer:
                 raise ValueError('code {} could not be located in MPC database'.format(self.code))
         elif 'site' in kwargs:
             self.site = input_tests.test_attr(kwargs['site'], EarthLocation, 'site')
-        elif all(i in kwargs for i in ['lon', 'lat', 'height']):
-            self.site = EarthLocation(kwargs['lon'], kwargs['lat'], kwargs['height'])
+        elif all(i in kwargs for i in ['lon', 'lat']):
+            self.site = EarthLocation(kwargs['lon'], kwargs['lat'], kwargs.get('height', 0.0))
         else:
             raise ValueError('Input parameters could not be determined')
 

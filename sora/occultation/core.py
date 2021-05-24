@@ -6,6 +6,7 @@ from astropy.time import Time
 
 from sora.config.decorators import deprecated_function, deprecated_alias
 from sora.prediction import occ_params, PredictionTable
+from .fitting import fit_ellipse as ellipse_fitting
 
 __all__ = ['Occultation']
 warnings.simplefilter('always', UserWarning)
@@ -117,6 +118,7 @@ class Occultation:
     def chords(self):
         return self._chords
 
+    # remove this block for v1.0
     @deprecated_function(message="Please use chords.add_chord to add new observations.")
     def add_observation(self, obs, lightcurve):
         """Adds observations to the Occultation object.
@@ -168,13 +170,15 @@ class Occultation:
         """
         print(self.chords.__repr__())
 
-    def fit_ellipse(self, **kwargs):
-        from .fitting import fit_ellipse
-        Occultation.fit_ellipse.__doc__ = fit_ellipse.__doc__
+    # end of block removal
 
-        chisquare = fit_ellipse(self, **kwargs)
+    def fit_ellipse(self, **kwargs):
+        chisquare = ellipse_fitting(self, **kwargs)
         return chisquare
 
+    fit_ellipse.__doc__ = ellipse_fitting.__doc__
+
+    # remove this block for v1.0
     @property
     @deprecated_function(message="Please use chords.summary()")
     def positions(self):
@@ -320,6 +324,8 @@ class Occultation:
         for key in pos.keys():
             pos[key] = value
 
+    # end of block removal
+
     def check_velocities(self):
         """Prints the current velocity used by the LightCurves and its radial velocity.
         """
@@ -449,20 +455,21 @@ class Occultation:
         error_dec = np.sqrt(error_star[1]**2 + e_off_dec**2)
 
         out = 'Ephemeris offset (km): X = {:.1f} +/- {:.1f}; Y = {:.1f} +/- {:.1f}\n'.format(
-              distance*np.sin(off_ra.to(u.mas)).value, distance*np.sin(e_off_ra.to(u.mas)).value,
-              distance*np.sin(off_dec.to(u.mas)).value, distance*np.sin(e_off_dec.to(u.mas)).value)
+            distance*np.sin(off_ra.to(u.mas)).value, distance*np.sin(e_off_ra.to(u.mas)).value,
+            distance*np.sin(off_dec.to(u.mas)).value, distance*np.sin(e_off_dec.to(u.mas)).value)
         out += 'Ephemeris offset (mas): da_cos_dec = {:.3f} +/- {:.3f}; d_dec = {:.3f} +/- {:.3f}\n'.format(
-              off_ra.to(u.mas).value, e_off_ra.to(u.mas).value, off_dec.to(u.mas).value, e_off_dec.to(u.mas).value)
+            off_ra.to(u.mas).value, e_off_ra.to(u.mas).value, off_dec.to(u.mas).value, e_off_dec.to(u.mas).value)
         out += '\nAstrometric object position at time {}\n'.format(time.iso)
         out += 'RA = {} +/- {:.3f} mas; DEC = {} +/- {:.3f} mas'.format(
-               new_pos.ra.to_string(u.hourangle, precision=7, sep=' '), error_ra.to(u.mas).value,
-               new_pos.dec.to_string(u.deg, precision=6, sep=' '), error_dec.to(u.mas).value)
+            new_pos.ra.to_string(u.hourangle, precision=7, sep=' '), error_ra.to(u.mas).value,
+            new_pos.dec.to_string(u.deg, precision=6, sep=' '), error_dec.to(u.mas).value)
 
         if verbose:
             print(out)
         else:
             return out
 
+    # remove this block for v1.0
     @deprecated_function(message="Please use chords.plot_chord to have a better control of the plots")
     def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red',
                     ax=None, lw=2):
@@ -493,6 +500,8 @@ class Occultation:
         self.chords.plot_chords(segment='positive', only_able=not all_chords, color=positive_color, lw=lw, ax=ax)
         self.chords.plot_chords(segment='error', only_able=not all_chords, color=error_color, lw=lw, ax=ax)
         self.chords.plot_chords(segment='negative', color=negative_color, lw=lw, ax=ax, linestyle='--')
+
+    # end of block removal
 
     def get_map_sites(self):
         """Returns Dictionary with sites in the format required by plot_occ_map function.
@@ -608,12 +617,12 @@ class Occultation:
                 if chord.name in ignore_chords:
                     use_chords = np.append(use_chords, False)
                 else:
-                    use_chords = np.append(use_chords, True)                
+                    use_chords = np.append(use_chords, True)
         if len(fm[use_chords]) < 2:
-            raise ValueError('The number of fitted chords should be higher than two')        	
+            raise ValueError('The number of fitted chords should be higher than two')
         out = self.__linear_fit_error(x=fm[use_chords], y=gm[use_chords], sx=dfm[use_chords], sy=dgm[use_chords],
                                       verbose=verbose, use_error=use_error)
-        fm_fit = np.arange(-delta_plot+np.min([fm.min(), gm.min()]), delta_plot+np.max([fm.max(), gm.max()]), 
+        fm_fit = np.arange(-delta_plot+np.min([fm.min(), gm.min()]), delta_plot+np.max([fm.max(), gm.max()]),
                            time_resolution*np.absolute(self.vel.value))
         gm_fit = self.__func_line_decalage(out.beta, fm_fit)
 
@@ -635,7 +644,7 @@ class Occultation:
             fm_decalage = np.append(fm_decalage, fm[i] + dtt[dist_min.argmin()]*vfm[i])
             gm_decalage = np.append(gm_decalage, gm[i] + dtt[dist_min.argmin()]*vgm[i])
             time_decalage = np.append(time_decalage, dtt[dist_min.argmin()])
-        
+
         for i in range(len(chord_name)):
             out_dic[chord_name[i]] = time_decalage[i]
         if plot:
@@ -656,7 +665,8 @@ class Occultation:
             self.chords.plot_chords(color='blue')
             self.chords.plot_chords(color='red', segment='error')
             plt.plot(fm_decalage[use_chords], gm_decalage[use_chords], linestyle='None', marker='o', color='k')
-            plt.plot(fm_decalage[np.invert(use_chords)], gm_decalage[np.invert(use_chords)], linestyle='None', marker='x', color='r')
+            plt.plot(fm_decalage[np.invert(use_chords)], gm_decalage[np.invert(use_chords)], linestyle='None', marker='x',
+                     color='r')
             plt.plot(fm_fit, gm_fit, 'k-')
             plt.xlim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))
             plt.ylim(-delta_plot + np.min([fm.min(), gm.min()]), delta_plot + np.max([fm.max(), gm.max()]))

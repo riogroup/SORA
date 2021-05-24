@@ -1,3 +1,5 @@
+import warnings
+
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -17,8 +19,14 @@ class BaseEphem:
         if spkid:
             self.spkid = spkid
             self.code = self.spkid  # remove this line for v1.0
-        self.error_ra = kwargs.get('error_ra', 0) * u.arcsec
-        self.error_dec = kwargs.get('error_dec', 0) * u.arcsec
+        self.error_ra = u.Quantity(kwargs.get('error_ra', 0), unit=u.arcsec)
+        if self.error_ra < 0:
+            warnings.warn("Error in RA cannot be negative. Using absolute value.")
+            self.error_ra = np.absolute(self.error_ra)
+        self.error_dec = u.Quantity(kwargs.get('error_dec', 0), unit=u.arcsec)
+        if self.error_dec < 0:
+            warnings.warn("Error in DEC cannot be negative. Using absolute value.")
+            self.error_dec = np.absolute(self.error_dec)
         self.offset = (0, 0)
         # start of block removal for v1.0
         if 'radius' in kwargs:

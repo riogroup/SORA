@@ -100,12 +100,13 @@ def filter_negative_chord(chord, chisquare, step=1, sigma=0):
         time_all = np.arange(chord.lightcurve.time.min(), chord.lightcurve.time.max(), step)
         time_exposure = np.array([])
         for i in range(len(chord.lightcurve.time)):
-            event_model = (time_all > chord.lightcurve.time[i]-chord.lightcurve.exptime/2.) & (time_all < chord.lightcurve.time[i]+chord.lightcurve.exptime/2.)
-            time_exposure = np.append(time_exposure,time_all[event_model])
+            event_model = (time_all > chord.lightcurve.time[i] - chord.lightcurve.exptime/2.) & (
+                        time_all < chord.lightcurve.time[i] + chord.lightcurve.exptime/2.)
+            time_exposure = np.append(time_exposure, time_all[event_model])
             f_all, g_all = chord.get_fg(time=time_exposure*u.s + chord.lightcurve.tref)
     else:
         f_all, g_all = chord.path(segment='full', step=step)
-    for i in progressbar(range(len(chisquare.data['chi2'])),'Filter chord: {}'.format(chord.name)):
+    for i in progressbar(range(len(chisquare.data['chi2'])), 'Filter chord: {}'.format(chord.name)):
         df_all = (f_all - chisquare.data['center_f'][i])
         dg_all = (g_all - chisquare.data['center_g'][i])
 
@@ -124,10 +125,10 @@ def filter_negative_chord(chord, chisquare, step=1, sigma=0):
                                        position_angle=chisquare.data['position_angle'][i])[2]
         keep.append(np.all(r_path - r_ellipse + sigma > 0))
 
-    filtered_chisquare = ChiSquare(chisquare.data['chi2'][keep],chisquare.npts,
-                                   center_f= chisquare.data['center_f'][keep],
-                                   center_g= chisquare.data['center_g'][keep],
-                                   equatorial_radius= chisquare.data['equatorial_radius'][keep],
-                                   oblateness= chisquare.data['oblateness'][keep],
-                                   position_angle= chisquare.data['position_angle'][keep])
+    filtered_chisquare = ChiSquare(chisquare.data['chi2'][keep], chisquare.npts,
+                                   center_f=chisquare.data['center_f'][keep],
+                                   center_g=chisquare.data['center_g'][keep],
+                                   equatorial_radius=chisquare.data['equatorial_radius'][keep],
+                                   oblateness=chisquare.data['oblateness'][keep],
+                                   position_angle=chisquare.data['position_angle'][keep])
     return filtered_chisquare

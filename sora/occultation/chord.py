@@ -382,7 +382,6 @@ class Chord:
             var += ax.plot(*vals, **kwargs)
         if len(var) > 0:
             var[0].set_label(label)
-        return var
 
     def get_impact_param(self, center_f=0, center_g=0, verbose=True):
         """Gets the impact parameter, minimal distance between the chord and the

@@ -204,7 +204,6 @@ class ChordList(List):
         """
         n = 0
         keys = list(self.keys())
-        plots = []
         if ignore_chords is not None:
             ignore_chords = np.array(ignore_chords, ndmin=1)
         for i in range(len(self)):
@@ -213,13 +212,11 @@ class ChordList(List):
             if segment != 'error':
                 kwargs['label'] = keys[i]
             try:
-                p = self[i].plot_chord(segment=segment, only_able=only_able, ax=ax, linestyle=linestyle, **kwargs)
-                plots += p
+                _ = self[i].plot_chord(segment=segment, only_able=only_able, ax=ax, linestyle=linestyle, **kwargs)
             except ValueError:
                 n += 1
         if n == len(self):
             warnings.warn('Segment "{}" was not found on any chord'.format(segment))
-        return plots
 
     def summary(self):
         """Prints a table with the summary of the chords.

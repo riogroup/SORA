@@ -377,10 +377,14 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     if 'centermap_geo' in kwargs and 'centermap_delta' in kwargs:
         raise ValueError('User must give "centermap_geo" OR "centermap_delta"')
     zoom = kwargs.get('zoom', 1)
+    if zoom <= 0:
+        raise ValueError('zoom can not be equal or smaller than 0.')
     off_ra, off_de = kwargs.get('offset', [0.0, 0.0])*u.mas
     arrow = kwargs.get('arrow', True)
     site_name = kwargs.get('site_name', True)
     path = kwargs.get('path', '.')
+    if not os.path.exists(path):
+        raise IOError('Path does not exists')
     chord_delta = np.array(kwargs.get('chord_delta', []), ndmin=1)*u.km
     chord_geo = kwargs.get('chord_geo', [])
     if len(chord_geo) > 0:
@@ -416,13 +420,14 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         else:
             raise TypeError('country keyword must be a file or a dictionary')
 
-# calculates offsets
+    # calculates offsets
     dca = off_ra*np.sin(occs['posa']) + off_de*np.cos(occs['posa'])
-    dt = (-(off_ra*np.cos(occs['posa']) - off_de*np.sin(occs['posa'])).to(u.rad)*occs['dist'].to(u.km)/np.absolute(occs['vel'])).value*u.s
+    dt = (-(off_ra * np.cos(occs['posa']) - off_de * np.sin(occs['posa'])).to(u.rad) * occs['dist'].to(u.km) / np.absolute(
+        occs['vel'])).value * u.s
     ca1 = occs['ca'] + dca
     data = occs['datas'] + dt
 
-# define map parameters
+    # define map parameters
     center_gcrs = GCRS(occs['stars'].ra, occs['stars'].dec, 1*u.R_earth, obstime=data)
     center_itrs = center_gcrs.transform_to(ITRS(obstime=data))
     center_map = center_itrs.earth_location
@@ -443,7 +448,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         axf = plt.axes([-0.001, -0.001, 1.002, 1.002], projection=projection)
     axf.set_global()
 
-# calculates regions for zoom
+    # calculates regions for zoom
     limits = None
     r = const.R_earth.to(u.m).value
     if centermap_geo is not None:
@@ -475,7 +480,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         if labels and zoom > 1:
             centert = False
 
-# plots features
+    # plots features
     axf.coastlines(resolution=resolution, color='0.3')
     ocean = cfeature.NaturalEarthFeature('physical', 'ocean', resolution)
     land = cfeature.NaturalEarthFeature('physical', 'land', resolution)
@@ -535,7 +540,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     hcolor = kwargs.get('hcolor', hcolor)
     chcolor = kwargs.get('chcolor', chcolor)
 
-# calculates path
+    # calculates path
     vec = np.arange(0, int(8000/(np.absolute(occs['vel'].value))), step)
     vec = np.sort(np.concatenate((vec, -vec[1:]), axis=0))
     pa = Angle(occs['posa'])
@@ -557,8 +562,8 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     ax = dista*np.sin(pa) + (deltatime*occs['vel'])*np.cos(paplus)
     by = dista*np.cos(pa) - (deltatime*occs['vel'])*np.sin(paplus)
 
-    ax2 = ax - (radius)*np.sin(paplus)
-    by2 = by - (radius)*np.cos(paplus)
+    ax2 = ax - radius * np.sin(paplus)
+    by2 = by - radius * np.cos(paplus)
     lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
     j = np.where(lon1 < 1e+30)
     axf.plot(lon1[j], lat1[j], transform=ccrs.Geodetic(), color=lncolor)
@@ -566,16 +571,16 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     if 'centerproj' not in kwargs:
         plt.plot(ax2[j].to(u.m).value, by2[j].to(u.m).value, color=outcolor, clip_on=(not centert), zorder=-0.2)
 
-    ax3 = ax + (radius)*np.sin(paplus)
-    by3 = by + (radius)*np.cos(paplus)
+    ax3 = ax + radius * np.sin(paplus)
+    by3 = by + radius * np.cos(paplus)
     lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
     j = np.where(lon2 < 1e+30)
-    axf.plot(lon2[j], lat2[j], transform=ccrs.Geodetic(),  color=lncolor)
+    axf.plot(lon2[j], lat2[j], transform=ccrs.Geodetic(), color=lncolor)
     j = np.where(lon2 > 1e+30)
     if 'centerproj' not in kwargs:
         plt.plot(ax3[j].to(u.m).value, by3[j].to(u.m).value, color=outcolor, clip_on=(not centert), zorder=-0.2)
 
-# plots chords_delta
+    # plots chords_delta
     for val in chord_delta:
         ax2 = ax + val*np.sin(paplus)
         by2 = by + val*np.cos(paplus)
@@ -583,7 +588,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         j = np.where(lon1 < 1e+30)
         axf.plot(lon1[j], lat1[j], transform=ccrs.Geodetic(), color=chcolor)
 
-# plots chords_geo
+    # plots chords_geo
     for coord_geo in chord_geo:
         xt, yt = latlon2xy(coord_geo.lon.deg, coord_geo.lat.deg, centers.lon.value, centers.lat.value)*u.m
         val = np.sqrt((xt-ax)**2 + (yt-by)**2)
@@ -596,7 +601,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         j = np.where(lon1 < 1e+30)
         axf.plot(lon1[j], lat1[j], transform=ccrs.Geodetic(), color=chcolor)
 
-# plots error
+    # plots error
     if erro is not None:
         err = erro*u.mas
         errd = (occs['dist'].to(u.km)*err.to(u.rad)).value*u.km
@@ -604,43 +609,43 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         by2 = by - errd*np.cos(paplus) - radius*np.cos(paplus)
         lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon1 < 1e+30)
-        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(),  color=ercolor)
+        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(), color=ercolor)
 
         ax3 = ax + errd*np.sin(paplus) + radius*np.sin(paplus)
         by3 = by + errd*np.cos(paplus) + radius*np.cos(paplus)
         lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon2 < 1e+30)
-        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(),  color=ercolor)
+        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(), color=ercolor)
 
-# plots ring
+    # plots ring
     if ring is not None:
         rng = ring*u.km
         ax2 = ax - rng*np.sin(paplus)
         by2 = by - rng*np.cos(paplus)
         lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon1 < 1e+30)
-        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(),  color=rncolor)
+        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(), color=rncolor)
 
         ax3 = ax + rng*np.sin(paplus)
         by3 = by + rng*np.cos(paplus)
         lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon2 < 1e+30)
-        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(),  color=rncolor)
+        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(), color=rncolor)
 
-# plots atm
+    # plots atm
     if atm is not None:
         atmo = atm*u.km
         ax2 = ax - atmo*np.sin(paplus)
         by2 = by - atmo*np.cos(paplus)
         lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon1 < 1e+30)
-        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(),  color=atcolor)
+        axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(), color=atcolor)
 
         ax3 = ax + atmo*np.sin(paplus)
         by3 = by + atmo*np.cos(paplus)
         lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon2 < 1e+30)
-        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(),  color=atcolor)
+        axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(), color=atcolor)
 
 # plots center points
     vec = np.arange(0, int(8000/(np.absolute(occs['vel'].value))), cpoints)
@@ -675,14 +680,14 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     elif not centert:
         plt.plot(xp, yp, 'o', color=ptcolor, clip_on=False, markersize=mapsize[0].value*pscale*24.0/46.0)
 
-# plots the heights
+    # plots the heights
     if 'heights' in kwargs.keys():
         for h in heights:
             lonb, latb = xy2latlon(bordx * np.cos(h * u.deg), bordy * np.cos(h * u.deg), center.lon.value,
                                    center.lat.value, data)
             axf.plot(lonb, latb, transform=ccrs.Geodetic(), linestyle='dotted', color=hcolor)
 
-# plots the the direction arrow
+    # plots the the direction arrow
     if arrow:
         if limits is None:
             plt.quiver(5500000, -5500000, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
@@ -691,12 +696,12 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
             plt.quiver(lx + (ux-lx)*0.9, ly + (uy-ly)*0.1, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
                        (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005, zorder=1.3)
 
-# plots the countries names
+    # plots the countries names
     for country in countries.keys():
         plt.text(countries[country][0], countries[country][1], country, transform=ccrs.Geodetic(),
                  weight='bold', color='grey', fontsize=30*cscale, family='monospace')
 
-# plots the sites
+    # plots the sites
     for site in sites.keys():
         s = EarthLocation.from_geodetic(sites[site][0], sites[site][1], 0.0*u.km)
         axf.plot(s.lon.deg, s.lat.deg, 'o', transform=ccrs.Geodetic(),
@@ -706,7 +711,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
             axf.text(xt + sites[site][2]*1000, yt+sites[site][3]*1000, site, weight='bold',
                      fontsize=25*nscale, family='monospace')
 
-# Define the title and label of the output
+    # Define the title and label of the output
     title = ('Object        Diam   Tmax   dots <> ra_offset_dec\n'
              '{:10s} {:4.0f} km  {:5.1f}s  {:02d} s <>{:+6.1f} {:+6.1f} \n'.
              format(name, 2*radius.value, (2*radius/np.absolute(occs['vel'])).value,
@@ -718,7 +723,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
                      np.absolute(occs['stars'].dec.dms.s), ca1.value, occs['posa'].value,
                      occs['vel'].value, occs['dist'].value, occs['magG'], occs['longi']))
 
-# plots the map
+    # plots the map
     if labels:
         axf.set_title(title, family='monospace', weight='bold', fontsize=22)
         axf.text(0.5, -0.1, labelx, va='bottom', ha='center', rotation='horizontal', rotation_mode='anchor',

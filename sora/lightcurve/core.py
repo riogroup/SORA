@@ -129,22 +129,35 @@ class LightCurve:
         if 'immersion' in kwargs:
             self.immersion = kwargs['immersion']
             self.immersion_err = kwargs.get('immersion_err', 0.0)
+            if self.immersion_err < 0:
+                warnings.warn("Immersion Error must be positive. Using absolute value.")
+                self.immersion_err = np.absolute(self.immersion_err)
             input_done = True
         if 'emersion' in kwargs:
             self.emersion = kwargs['emersion']
             self.emersion_err = kwargs.get('emersion_err', 0.0)
+            if self.emersion_err < 0:
+                warnings.warn("Emersion Error must be positive. Using absolute value.")
+                self.emersion_err = np.absolute(self.emersion_err)
+            try:
+                if self.emersion <= self.immersion:
+                    raise ValueError("emersion time must be greater than immersion time")
+            except AttributeError:
+                pass
             input_done = True
         if 'initial_time' in kwargs and 'end_time' in kwargs:
             self.initial_time = kwargs['initial_time']
             self.end_time = kwargs['end_time']
+            if self.end_time <= self.initial_time:
+                raise ValueError('end_time must be greater than initial_time')
             input_done = True
         if not input_done:
             try:
                 self.set_flux(**kwargs)
             except:
                 raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')
-        self.lambda_0 = kwargs.get('central_bandpass', 0.70)
-        self.delta_lambda = kwargs.get('delta_bandpass', 0.30)
+        self.set_filter(central_bandpass=kwargs.get('central_bandpass', 0.70),
+                        delta_bandpass=kwargs.get('delta_bandpass', 0.30))
         self.dt = 0.0
 
     @property
@@ -191,7 +204,7 @@ class LightCurve:
         if hasattr(self, '_immersion'):
             return self._immersion + self.dt*u.s
         else:
-            raise AttributeError('The immersion time was not fitted or instanciated.')
+            raise AttributeError('The immersion time was not fitted or instantiated.')
 
     @immersion.setter
     def immersion(self, value):
@@ -451,7 +464,9 @@ class LightCurve:
             Object distance in AU.
         """
         dist = u.Quantity(dist, unit=u.AU)
-        self.dist = dist.value
+        if dist.value < 0:
+            warnings.warn("distance cannot be negative. Using absolute value.")
+        self.dist = np.absolute(dist.value)
 
     def set_star_diam(self, d_star):
         """Sets the star diameter.
@@ -462,7 +477,9 @@ class LightCurve:
             Star diameter, in km.
         """
         d_star = u.Quantity(d_star, unit=u.km)
-        self.d_star = d_star.value
+        if d_star.value < 0:
+            warnings.warn("star diameter cannot be negative. Using absolute value.")
+        self.d_star = np.absolute(d_star.value)
 
     @deprecated_alias(lambda_0='central_bandpass', delta_lambda='delta_bandpass')  # remove this line for v1.0
     def set_filter(self, central_bandpass, delta_bandpass):
@@ -477,9 +494,17 @@ class LightCurve:
             Bandwidth in microns.
         """
         central_bandpass = u.Quantity(central_bandpass, unit=u.micrometer)
+        if central_bandpass.value <= 0:
+            raise ValueError("central bandpass cannot be negative.")
         self.lambda_0 = central_bandpass.value
         delta_bandpass = u.Quantity(delta_bandpass, unit=u.micrometer)
+        if delta_bandpass <= 0:
+            raise ValueError("delta bandpass cannot be negative")
         self.delta_lambda = delta_bandpass.value
+        if (central_bandpass - delta_bandpass).value <= 0:
+            raise ValueError("The given central and delta bandpass give a range ({}, {}) microns. Bandpass cannot be negative. "
+                             "Please give appropriate values".format(*(central_bandpass +
+                                                                       np.array([-1, 1])*delta_bandpass).value))
 
     def calc_magnitude_drop(self, mag_star, mag_obj):
         """Determines the magnitude drop of the occultation.
@@ -530,7 +555,7 @@ class LightCurve:
 
         # Create a mask where the polynomial fit will be done
         if not all(self.flux):
-            raise ValueError('Normalization is only possible when a LightCurve is instatiated with time and flux.')
+            raise ValueError('Normalization is only possible when a LightCurve is instantiated with time and flux.')
         self.reset_flux()
         lc_flux = (self.flux - flux_min)/(flux_max-flux_min)
         if mask is None:
@@ -577,8 +602,8 @@ class LightCurve:
                         plt.title('Polynomial degree = {}'.format(nn), fontsize=15)
                         plt.show()
                 else:
-                    print('Normalization using a {} degree polynom'.format(n))
-                    print('There is no improvement with a {} degree polynom'.format(n+1))
+                    print('Normalization using a {} degree polynomial'.format(n))
+                    print('There is no improvement with a {} degree polynomial'.format(n+1))
                     break
         self.flux = lc_flux/flux_poly_model
         self.normalizer_flux = flux_poly_model
@@ -590,7 +615,7 @@ class LightCurve:
         try:
             self.flux = self.flux_obs
         except:
-            raise ValueError('Reset is only possible when a LightCurve is instatiated with time and flux.')
+            raise ValueError('Reset is only possible when a LightCurve is instantiated with time and flux.')
         return
 
     def occ_model(self, immersion_time, emersion_time, opacity, mask, npt_star=12,
@@ -639,7 +664,7 @@ class LightCurve:
         fresnel_scale = (fresnel_scale_1 + fresnel_scale_2)/2.0
         time_resolution = (np.min([fresnel_scale/vel, self.exptime]))/time_resolution_factor
 
-        # Creating a high resolution curve to compute fresnel difraction, stellar diameter and instrumental integration
+        # Creating a high resolution curve to compute fresnel diffraction, stellar diameter and instrumental integration
         time_model = np.arange(time_obs.min()-5*self.exptime, time_obs.max()+5*self.exptime, time_resolution)
 
         # Changing X: time (s) to distances in the sky plane (km), considering the tangential velocity (vel in km/s)
@@ -739,7 +764,7 @@ class LightCurve:
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if not hasattr(self, 'flux'):
-            raise ValueError('Fit curve is only possible when a LightCurve is instatiated with time and flux.')
+            raise ValueError('Fit curve is only possible when a LightCurve is instantiated with time and flux.')
 
         preliminar_occ = self.occ_detect()
 
@@ -753,7 +778,7 @@ class LightCurve:
         do_emersion = False
         opacity = kwargs.get('opacity', 1.0)
         delta_opacity = kwargs.get('dopacity', 0.0)
-        do_opacity = False
+        do_opacity = 'dopacity' in kwargs
         if ('immersion_time' not in kwargs) and ('emersion_time' not in kwargs):
             immersion_time = preliminar_occ['immersion_time']
             do_immersion = True
@@ -851,7 +876,7 @@ class LightCurve:
 
         if not any(self.flux):
             raise ValueError('Plotting the light curve is only possible when the '
-                             'Object LightCurve is instatiated with time and flux')
+                             'Object LightCurve is instantiated with time and flux')
         ax = ax or plt.gca()
         ax.plot(self.time, self.flux, 'k.-', label='Obs.', zorder=0)
         if any(self.model):
@@ -1033,7 +1058,7 @@ class LightCurve:
         time_resolution = (np.min([fresnel_scale/vel, self.exptime]))/time_resolution_factor
         self.model_resolution = time_resolution
 
-        # Creating a high resolution curve to compute fresnel difraction, stellar diameter and instrumental integration
+        # Creating a high resolution curve to compute fresnel diffraction, stellar diameter and instrumental integration
         time_model = np.arange(time_obs.min()-5*self.exptime, time_obs.max()+5*self.exptime, time_resolution)
 
         # Changing X: time (s) to distances in the sky plane (km), considering the tangential velocity (vel in km/s)

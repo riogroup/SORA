@@ -440,8 +440,12 @@ class PredictionTable(Table):
         f.close()
 
     def plot_occ_map(self, **kwargs):
+        basename = kwargs.get('nameimg', None)
         for i in range(len(self)):
+            if basename and len(self) > 1:
+                kwargs['nameimg'] = f'{basename}_{i}'
             self[i].plot_occ_map(**kwargs)
+
     plot_occ_map.__doc__ = PredictRow.plot_occ_map.__doc__
 
     def remove_occ(self, date):
