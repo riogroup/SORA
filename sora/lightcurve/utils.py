@@ -9,31 +9,51 @@ __all__ = ['calc_fresnel', 'calc_magnitude_drop']
 
 @deprecated_alias(lambida='bandpass')  # remove this line for v1.0
 def calc_fresnel(distance, bandpass):
-    """ Calculates the Fresnel scale.
-        (Fresnel Scale = square root of half the multiplication of wavelength and object distance.)
+    """Calculates the Fresnel scale.
 
-    Parameters:
-        distance  (int, float, array): distances, in km.
-        bandpass  (int, float, array): wavelength, in km.
+    Fresnel Scale = square root of half the multiplication of wavelength and
+    object distance.
 
-    Returns:
-        fresnel_scale  (float, array): Fresnel scale, in km
+    Parameters
+    ----------
+    distance : `int`, `float` array
+        Distances, in km.
+
+    bandpass : `int`, `float`, array
+        Wavelength, in km.
+
+    Returns
+    -------
+    fresnel_scale : `float`, array
+        Fresnel scale, in km.
     """
     return np.sqrt(bandpass * distance / 2)
 
 
 def bar_fresnel(X, X01, X02, fresnel_scale, opacity):
-    """ Returns the modelled light curve considering fresnel difraction.
+    """Returns the modelled light curve considering fresnel diffraction.
 
-    Parameters:
-        X (array): Array with time values converted in km using the event velocity.
-        X01 (int, float): Immersion time converted in km using the event velocity.
-        X02 (int, float): Emersion time converted in km using the event velocity.
-        fresnel_scale (int, float): Fresnel scale, in km.
-        opacity (int, float): Opacity. Opaque = 1.0, transparent = 0.0
+    Parameters
+    ----------
+    X : array
+        Array with time values converted in km using the event velocity.
 
-    Returns:
-        flux_fresnel (array): the light curve with fresnel diffraction
+    X01 : `int`, `float`
+        Immersion time converted in km using the event velocity.
+
+    X02 `int`, `float`
+        Emersion time converted in km using the event velocity.
+
+    fresnel_scale : `int`, `float`
+        Fresnel scale, in km.
+
+    opacity : `int`, `float`
+        Opacity. Opaque = 1.0, transparent = 0.0.
+
+    Returns
+    -------
+    flux_fresnel : array
+        The light curve with fresnel diffraction.
     """
     import scipy.special as scsp
 
@@ -41,7 +61,7 @@ def bar_fresnel(X, X01, X02, fresnel_scale, opacity):
     x = X / fresnel_scale
     x01 = X01 / fresnel_scale
     x02 = X02 / fresnel_scale
-    # Fresnel difraction parameters
+    # Fresnel diffraction parameters
     x1 = x - x01
     x2 = x - x02
     s1, c1 = scsp.fresnel(x1)
@@ -50,22 +70,33 @@ def bar_fresnel(X, X01, X02, fresnel_scale, opacity):
     ss = s1 - s2
     r_ampli = - (cc + ss) * (opacity / 2.)
     i_ampli = (cc - ss) * (opacity / 2.)
-    # Determining the flux considering fresnel difraction
+    # Determining the flux considering fresnel diffraction
     flux_fresnel = (1.0 + r_ampli) ** 2 + i_ampli ** 2
     return flux_fresnel
 
 
 def fit_pol(x, y, deg):
-    """ Fits a n-degree polynom to the data.
+    """Fits a n-degree polynomial to the data.
 
-    Parameters:
-        x (array): x-values
-        y (array): y-values
-        deg (int): degree of the polynom
+    Parameters
+    ----------
+    x : `array`
+        x-values.
 
-    Returns:
-        param (array): Array with the fitted values
-        param_err (array): Array with the errors of the fitted values
+    y : `array`
+        y-values.
+
+    deg : `int`
+        Degree of the polynomial.
+
+
+    Returns
+    -------
+    param : array
+        Array with the fitted values.
+
+    param_err : array
+        Array with the errors of the fitted values.
     """
     from scipy.odr import odrpack as odr
     from scipy.odr import models
@@ -81,15 +112,24 @@ def fit_pol(x, y, deg):
 
 
 def calc_magnitude_drop(mag_star, mag_obj):
-    """ Determines the magnitude drop of the occultation
+    """Determines the magnitude drop of the occultation.
 
-    Parameters:
-        mag_star (int,float): Star magnitude.
-        mag_obj (int,float): Object apparent magnitude to the date.
+    Parameters
+    ----------
+    mag_star : `int`, `float`
+        Star magnitude.
 
-    Returns:
-        mag_drop (float): Magnitude drop for the given magnitudes
-        bottom_flux (float): Normalized bottom flux for the given magnitudes
+    mag_obj : `int`, `float`
+        Object apparent magnitude to the date.
+
+
+    Returns
+    -------
+    mag_drop : `float`
+        Magnitude drop for the given magnitudes.
+
+    bottom_flux : `float`
+        Normalized bottom flux for the given magnitudes.
     """
     contrast = 1 / (1 + (10 ** ((mag_star - mag_obj) * 0.4)))
     mag_combined = mag_star - (2.5 * (np.log10(1 / contrast)))
@@ -101,16 +141,25 @@ def calc_magnitude_drop(mag_star, mag_obj):
 
 
 def read_lc_file(lc_file, usecols=None, skiprows=0):
-    """ Reads light curve data from a file.
+    """Reads light curve data from a file.
 
-    Parameters:
-        file (str): a file with the time and flux in the first and second columns, respectively.
-            A third column with error in flux can also be given. (required)
-        usecols (int, tuple, array): Which columns to read, with the
-                first being the time, the seconds the flux and third the flux error [optional].
-        skiprows (int): Skip the first skiprows lines, including comments; default: 0 [optional].
-    Returns:
-        :rtype: (array, array, array)
+    Parameters
+    ----------
+    file : `str`, required
+        A file with the time and flux in the first and second columns, respectively.
+        A third column with error in flux can also be given.
+
+    usecols : `int`, `tuple`, array, optional
+        Which columns to read, with the first being the time, the seconds the
+        flux and third the flux error.
+
+    skiprows : `int`, optional, default=0
+        Skip the first skiprows lines, including comments.
+
+    Returns
+    -------
+    :rtype: : (array, array, array)
+
     """
     from astropy.io import ascii
     from astropy.time import Time

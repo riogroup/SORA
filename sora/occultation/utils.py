@@ -5,19 +5,31 @@ __all__ = ['filter_negative_chord', 'positionv']
 
 
 def positionv(star, ephem, observer, time):
-    """ Calculates the position and velocity of the occultation shadow relative to the observer.
+    """Calculates the position and velocity of the occultation shadow relative
+    to the observer.
 
-    Parameters:
-        star (Star): The coordinate of the star in the same reference frame as the ephemeris.
-           It must be a Star object.
-        ephem (Ephem): The object ephemeris. It must be an Ephemeris object.
-        observer (Observer): The Observer information. It must be an Observer object.
-        time (Time): Reference instant to calculate position and velocity.
+    Parameters
+    ----------
+    star : `sora.Star`
+        The coordinate of the star in the same reference frame as the ephemeris.
+        It must be a Star object.
 
-    Return:
-        f, g (float): The orthographic projection of the shadow relative to the observer.
-            f is in the x-axis (East-West direction; East positive)
-            g is in the y-axis (North-South direction; North positive)
+    ephem : `sora.Ephem`
+        The object ephemeris. It must be an Ephemeris object.
+
+    observer : `sora.Observer`
+        The Observer information. It must be an Observer object.
+
+    time : `astropy.time.Time`
+        Reference instant to calculate position and velocity. It can be a string
+        in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+    Returns
+    -------
+    f, g, vf, vg : `list`
+        The orthographic projection of the shadow relative to the observer.
+        ``'f'`` is in the x-axis (East-West direction; East positive).
+        ``'g'`` is in the y-axis (North-South direction; North positive).
     """
     from sora.ephem import EphemPlanete, EphemJPL, EphemKernel, EphemHorizons
     from sora.observer import Observer
@@ -56,15 +68,24 @@ def positionv(star, ephem, observer, time):
 
 
 def filter_negative_chord(chord, chisquare, step=1, sigma=0):
-    """ Get points for the ellipse with the given input parameters
+    """Get points for the ellipse with the given input parameters.
 
-    Parameters:
-        chord (Chord): Chord object, must be associated to an Occultation to work.
-        chisquare (ChiSquare): Resulted ChiSquare object of fit_ellipse.
-        sigma (int, float): Unceartity of the expected ellipse, in km.
-        step (number, 'exposure'): If a number, it corresponds to the step, in seconds, for each point of the chord path.
-            The step can also be equal to 'exposure'. In this case, the chord path will consider the lightcurve individual
-            times and exptime.
+    Parameters
+    ----------
+    chord : `sora.observer.Chord`
+        Chord object, must be associated to an Occultation to work.
+
+    chisquare : `sora.extra.ChiSquare`
+        Resulted ChiSquare object of fit_ellipse.
+
+    sigma : `int`, `float`
+        Uncertainty of the expected ellipse, in km.
+
+    step : `int`, `float`, `str`
+        If a number, it corresponds to the step, in seconds, for each point of
+        the chord path. The step can also be equal to ``'exposure'``. In this
+        case, the chord path will consider the lightcurve individual times and
+        exptime.
     """
     from sora.config.visuals import progressbar
     from sora.extra import ChiSquare

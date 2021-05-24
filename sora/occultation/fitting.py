@@ -11,41 +11,87 @@ __all__ = ['fit_ellipse']
 def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
                 dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
                 loop=10000000, number_chi=10000, dchi_min=None, verbose=False, ellipse_error=0, sigma_result=1):
-    """ Fits an ellipse to given occultation using given parameters
+    """Fits an ellipse to given occultation using given parameters.
 
-    Parameters:
-        required params:
-        Each occultation is added as the first arguments directly.
-            center_f (int,float): The coordinate in f of the ellipse center. Default=0
-            center_g (int,float): The coordinate in g of the ellipse center. Default=0
-            equatorial_radius (int,float): The Equatorial radius (semi-major axis) of the ellipse.
-            oblateness (int,float): The oblateness of the ellipse. Default=0 (circle)
-            position_angle (int,float): The pole position angle of the ellipse in degrees. Default=0
-                Zero is in the North direction ('g-positive'). Positive clockwise.
+    Parameters
+    ----------
+    center_f : `int`, `float`, default=0
+        The coordinate in f of the ellipse center.
 
-        Parameters interval of fitting. Default values are set to zero.
-        Search between (value - dvalue) and (value + dvalue):
-            dcenter_f (int,float): Interval for coordinate f of the ellipse center
-            dcenter_g (int,float): Interval for coordinate g of the ellipse center
-            dequatorial_radius (int,float): Interval for the Equatorial radius (semi-major axis) of the ellipse
-            doblateness (int,float): Interval for the oblateness of the ellipse
-            dposition_angle (int,float): Interval for the pole position angle of the ellipse in degrees
+    center_g : `int`, `float`, default=0
+        The coordinate in g of the ellipse center.
 
-        loop (int): The number of ellipses to attempt fitting. Default: 10,000,000
-        dchi_min (intt,float): If given, it will only save ellipsis which chi square are
-            smaller than chi_min + dchi_min.
-        number_chi (int): if dchi_min is given, the procedure is repeated until
-            number_chi is reached. Default: 10,000
-        verbose (bool): If True, it prints information while fitting. Default: False.
-        ellipse_error (int, float): Model uncertainty to be considered in the fit, in km.
-        sigma_result (int, float): Sigma value to be considered as result.
+    equatorial_radius : `int`, `float`
+        The Equatorial radius (semi-major axis) of the ellipse.
 
-    Returns:
-        chisquare: A ChiSquare object with all parameters.
+    oblateness : `int`, `float`, default=0
+        The oblateness of the ellipse.
 
-    Examples:
-        fit_ellipse(occ1, **kwargs) to fit the ellipse to the chords of occ1 Occultation object
-        fit_ellipse(occ1, occ2, **kwargs) to fit the ellipse to the chords of occ1 and occ2 Occultation objects together
+    position_angle : `int`, `float`, default=0
+        The pole position angle of the ellipse in degrees.
+        Zero is in the North direction ('g-positive'). Positive clockwise.
+
+    dcenter_f : `int`, `float`
+        Interval for coordinate f of the ellipse center.
+
+    dcenter_g : `int`, `float`
+        Interval for coordinate g of the ellipse center.
+
+    dequatorial_radius `int`, `float`
+        Interval for the Equatorial radius (semi-major axis) of the ellipse.
+
+    doblateness : `int`, `float`
+        Interval for the oblateness of the ellipse
+
+    dposition_angle : `int`, `float`
+        Interval for the pole position angle of the ellipse in degrees.
+
+    loop : `int`, default=10000000
+        The number of ellipses to attempt fitting.
+
+    dchi_min : `int`, `float`
+        If given, it will only save ellipsis which chi square are smaller than
+        chi_min + dchi_min.
+
+    number_chi : `int`, default=10000
+        If dchi_min is given, the procedure is repeated until number_chi is
+        reached.
+
+    verbose : `bool`, default=False
+        If True, it prints information while fitting.
+
+    ellipse_error : `int`, `float`
+        Model uncertainty to be considered in the fit, in km.
+
+    sigma_result : `int`, `float`
+        Sigma value to be considered as result.
+
+    Returns
+    -------
+    chisquare : `sora.ChiSquare`
+        A ChiSquare object with all parameters.
+
+    Important
+    ---------
+    Each occultation is added as the first argument(s) directly.
+
+    Mandatory input parameters: 'center_f', 'center_g', 'equatorial_radius',
+    'oblateness', and 'position_angle'.
+
+    Parameters fitting interval: 'dcenter_f', 'dcenter_g', 'dequatorial_radius',
+    'doblateness', and 'dposition_angle'. Default values are set to zero.
+    Search done between (value - dvalue) and (value + dvalue).
+
+
+    Examples
+    --------
+    To fit the ellipse to the chords of occ1 Occultation object:
+
+    >>> fit_ellipse(occ1, **kwargs)
+
+    To fit the ellipse to the chords of occ1 and occ2 Occultation objects together:
+
+    >>> fit_ellipse(occ1, occ2, **kwargs)
     """
     from sora.extra import ChiSquare
     from sora.config.visuals import progressbar_show

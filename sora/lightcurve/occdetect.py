@@ -6,37 +6,67 @@ __all__ = ['occ_detect']
 
 def occ_detect(flux, dflux, time, cycle, maximum_duration=None, dur_step=None, snr_limit=None,
                n_detections=None, plot=False):
-    """ Detects automatically the occultation event in the light curve
-        (detects a 'square well transit')
+    """Detects automatically the occultation event in the light curve.
 
-    Parameters:
-    (All parameters are optional)
-        maximum_duration (float): Maximum duration of the occultation event. Default: light curve's time span
-        dur_step (float): Step size to sweep occultation duration event. Default=1/2 of sampling
-        snr_limit (float): Minimum occultation SNR. Default=none
-        n_detections (int): Number of detections regardless the SNR.
-            n_detections is superseded by snr_limit. Default=1
-        plot (boolean): True if output plots are desired.
+    Detects a 'square well' shaped transit. All parameters are optional.
 
-    Returns:
-        OrderedDict = An ordered dictionary of :attr:`name`::attr:`value` pairs for each Parameter.
 
-    Examples:
-        >>> lc = LightCurve(time=time, flux=flux, exptime=0.0, name='lc_example')
-        >>> params = lc.occ_detect()
-        >>> params
-        {'rank': 1,
-        'occultation_duration': 40.1384063065052,
-        'central_time': 7916.773870512843,
-        'immersion_time': 7896.7046673595905,
-        'emersion_time': 7936.843073666096,
-        'time_err': 0.05011036992073059,
-        'depth': 0.8663887801707082,
-        'depth_err': 0.10986223384336465,
-        'baseline': 0.9110181732552853,
-        'baseline_err': 0.19045768512595365,
-        'snr': 7.886138392251848,
-        'occ_mask': array([False, False, False, ..., False, False, False])}
+    Parameters
+    ----------
+    flux : `float` array
+        Flux of the time series. Dependent variable.
+
+    dflux: `float` array
+        Error in the flux. Error in the dependent variable.
+
+    time: `float` array
+        Time variable. Independent variable.
+
+    cycle: `float`
+        Sampling value of the time series.
+
+    maximum_duration : `float`, default: light curve time span
+        Maximum duration of the occultation event.
+
+    dur_step : `float`, default: 1/2 cycle
+        Step size to sweep occultation duration event.
+
+    snr_limit : `float`, default=None
+        Minimum occultation SNR.
+
+    n_detections : `int`, default=1
+        Number of detections regardless the SNR. `n_detections` is superseded by
+        `snr_limit`.
+
+    plot : `boolean`, default=False
+        True if output plots are desired.
+
+
+    Returns
+    -------
+    OrderedDict : `dict`
+        An ordered dictionary of :attr:`name`::attr:`value` pairs for each
+        parameter.
+
+
+    Examples
+    --------
+    >>> from sora.lightcurve.occdetect import occ_detect
+    >>> params = occ_detect(flux, dflux, time, 0.2)
+    >>> params
+    {'rank': 1,
+    'occultation_duration': 40.1384063065052,
+    'central_time': 7916.773870512843,
+    'immersion_time': 7896.7046673595905,
+    'emersion_time': 7936.843073666096,
+    'time_err': 0.05011036992073059,
+    'depth': 0.8663887801707082,
+    'depth_err': 0.10986223384336465,
+    'baseline': 0.9110181732552853,
+    'baseline_err': 0.19045768512595365,
+    'snr': 7.886138392251848,
+    'occ_mask': array([False, False, False, ..., False, False, False])}
+
     """
 
     # duration of the light curve

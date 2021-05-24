@@ -13,65 +13,108 @@ warnings.simplefilter('always', UserWarning)
 
 
 class LightCurve:
+    """Defines a Light Curve.
+
+    Parameters
+    ----------
+    name : `str`
+        The name of the LightCurve. Each time an LightCurve object is defined
+        the name must be different.
+
+    tref : `astropy.time.Time`, `str`, `float`
+        Instant of reference.
+
+        Format: `Julian Date`, string in ISO format or Time object.
+        Required only if LightCurve have input fluxes and given time is
+        not in Julian Date.
+
+    central_bandpass : `int`, `float`, otpional, default=0.7
+        The center band pass of the detector used in observation. Value in microns.
+
+    delta_bandpass : `int`, `float`, optional, default=0.3
+        The band pass width of the detector used in observation. Value in microns.
+
+    exptime : `int`, `float`
+        The exposure time of the observation, in seconds.
+        *NOT* required in cases *2*, *3* and *4* below.
+        *Required* in case *1* below.
+
+    **kwargs: `int`, `float`
+        Object velocity, distance, and star diameter.
+
+        Note
+        ----
+        vel : `int`, `float`
+            Velocity in km/s.
+
+        dist : `int`, `float`
+            Object distance in AU.
+
+        d_star : `float`
+            Star diameter, in km.
+
+
+    Warning
+    -------
+    Input data must be one of the 4 options below:
+
+    1) Input data from file with time and flux
+        `file (str)`: a file with the time and flux. A third column with the error in
+        flux can also be given.
+
+        `usecols (int, tuple, array)`: Which columns to read, with the first being the
+        time, the seconds the flux and third the flux error (optional).
+
+        **Example:**
+
+        >>> LightCurve(name, file, exptime) # dflux can also be given
+
+
+    2) Input data when file is not given:
+        `time`: time must be a list of times, in seconds from tref, or Julian Date, or
+        a Time object.
+
+        `flux`: flux must be a list of fluxes. It must have the same lenght as time.
+
+        `dflux`: if file not given, dflux must be a list of fluxes errors. It must
+        have the same lenght as time. (not required)
+
+        **Example:**
+
+        >>> LightCurve(name, flux, time, exptime) # dflux can also be given
+
+
+    Cases for when `time` and `flux` are not given.
+
+
+    3) Input for a positive occultation:
+        `immersion`: The instant of immersion.
+
+        `emersion`: The instant of emersion.
+
+        `immersion_err`: Immersion time uncertainty, in seconds.
+
+        `emersion_err`: Emersion time uncertainty, in seconds.
+
+        **Example:**
+
+        >>> LightCurve(name, immersion, immersion_err, emersion, emersion_err)
+
+
+    4) Input for a negative occultation:
+        `initial_time`: The initial time of observation.
+
+        `end_time`: The end time of observation.
+
+        **Example:**
+
+        >>> LightCurve(name, initial_time, end_time)
+
+    """
 
     @deprecated_alias(lambda_0='central_bandpass', delta_lambda='delta_bandpass')  # remove this line for v1.0
     def __init__(self, name='', **kwargs):
-        """ Defines a Light Curve
 
-        Parameters:
-            name (str): The name of the LightCurve.
-                Each time an LightCurve object is defined the name must be different.
-            tref (Time,str,float): Instant of reference.
-                Format: Julian Date, string in ISO format or Time object.
-                Required only if LightCurve have input fluxes and given time is not in Julian Date.
-            central_bandpass (int,float): The center band pass of the detector used in observation.
-                Value in microns (not required). Default=0.7
-            delta_bandpass (int,float): The band pass width of the detector used in observation.
-                Value in microns (not required). Default=0.3
-            exptime (int,float): The exposure time of the observation, in seconds.
-                NOT required in cases 2, 3 and 4 below.
-                Required in case 1 below.
-
-        Kwargs:
-            vel (int,float):  velocity in km/s.
-            dist (int,float): object distance in AU.
-            d_star (float):   star diameter, in km.
-
-        Input data must be one of the 4 options below:
-
-            1) Input file with time and flux
-                file (str): a file with the time and flux.
-                    A third column with the error in flux can also be given.
-                usecols (int, tuple, array): Which columns to read, with the
-                    first being the time, the seconds the flux and third the flux error [optional].
-                skiprows (int): Skip the first skiprows lines, including comments; default: 0 [optional].
-
-            2) IF file is not given:
-                time: time must be a list of times, in seconds from tref,
-                    or Julian Date, or a Time object.
-                flux: flux must be a list of fluxes. It must have the
-                    same lenght as time.
-                dflux: if file not given, dflux must be a list of fluxes errors.
-                    It must have the same lenght as time. (not required)
-
-            IF time and flux are not given.
-            3) For a positive occultation
-                immersion: The instant of immersion.
-                emersion: The instant of emersion.
-                immersion_err: Immersion time uncertainty, in seconds.
-                emersion_err: Emersion time uncertainty, in seconds.
-
-            4) For a negative occultation
-                initial_time: The initial time of observation.
-                end_time: The end time of observation.
-
-        Examples: The user can provide one of the followings:
-
-            LightCurve(name, flux, time, exptime) # dflux can also be given
-            LightCurve(name, file, exptime) # dflux can also be given
-            LightCurve(name, immersion, immersion_err, emersion, emersion_err)
-            LightCurve(name, initial_time, end_time)
-        """
         allowed_kwargs = ['emersion', 'emersion_err', 'immersion', 'immersion_err', 'initial_time', 'end_time',
                           'file', 'time', 'flux', 'exptime', 'central_bandpass', 'delta_bandpass', 'tref', 'dflux',
                           'skiprows', 'usecols', 'dist', 'vel', 'd_star']
@@ -246,25 +289,50 @@ class LightCurve:
             raise AttributeError("'LightCurve' object has no attribute 'time'")
 
     def set_flux(self, **kwargs):
-        """ Sets the flux for the LightCurve
+        """Sets the flux for the LightCurve.
 
-        Parameters:
-            exptime (int,float): The exposure time of the observation, in seconds (required)
-            file (str): a file with the time and flux in the first and second columns, respectively.
-                A third column with error in flux can also be given.
-            time: if file not given, time must be a list of times, in seconds from tref, or Julian Date,
-                or a Time object.
-            flux: if file not given, flux must be a list of fluxes. It must have the same lenght as time.
-            dflux: if file not given, dflux must be a list of fluxes errors.
-                It must have the same lenght as time.
-            tref (Time,str,float): Instant of reference. It can be in Julian Date, string in ISO format
-                or Time object.
-            usecols (int, tuple, array): Which columns to read, with the
-                    first being the time, the seconds the flux and third the flux error [optional].
-        Kwargs:
-            vel (int,float):  velocity in km/s
-            dist (int,float): object distance in AU
-            d_star (float):   star diameter, in km
+        Parameters
+        ----------
+        exptime : `int`, `float`, required
+            The exposure time of the observation, in seconds.
+
+        file : `str`
+            A file with the time and flux in the first and second columns,
+            respectively. A third column with error in flux can also be given.
+
+        time
+            If file not given, time must be a list of times, in seconds from `tref`,
+            or `Julian Date`, or a `Time object`.
+
+        flux
+            If file not given, flux must be a list of fluxes. It must have the
+            same lenght as time.
+
+        dflux
+            If file not given, dflux must be a list of fluxes errors. It must
+            have the same lenght as time.
+
+        tref : `astropy.time.Time`, `str`, `float`
+            Instant of reference. It can be in `Julian Date`, string in ISO
+            format or `Time object`.
+
+        usecols : `int`, `tuple`, array, optional
+            Which columns to read, with the first being the time, the seconds
+            the flux and third the flux error.
+
+        **kwargs : `int`, `float`
+            Object velocity, object distance, star diameter.
+
+            Note
+            ----
+            vel : `int`, `float`
+                Velocity in km/s.
+
+            dist : `int`, `float`:
+                Object distance in AU.
+
+            d_star : `float`
+                Star diameter, in km.
         """
         from .utils import read_lc_file
 
@@ -343,10 +411,12 @@ class LightCurve:
                               format(self.exptime, self.cycle))
 
     def set_exptime(self, exptime):
-        """ Sets the light curve exposure time
+        """Sets the light curve exposure time.
 
-        Parameters:
-            exptime (int,float): exposure time, in seconds
+        Parameters
+        ----------
+        exptime : `int`, `float`
+            Exposure time, in seconds.
         """
         exptime = u.Quantity(exptime, unit=u.s)
         if not np.isscalar(exptime):
@@ -362,39 +432,49 @@ class LightCurve:
             pass
 
     def set_vel(self, vel):
-        """ Sets the occultation velocity
+        """Sets the occultation velocity.
 
-        Parameters:
-            vel (int,float): velocity in km/s
+        Parameters
+        ----------
+        vel : `int`, `float`
+            Velocity in km/s.
         """
         vel = u.Quantity(vel, unit=u.km/u.s)
         self.vel = np.absolute(vel.value)
 
     def set_dist(self, dist):
-        """ Sets the object distance
+        """Sets the object distance.
 
-        Parameters:
-            dist (int,float): object distance in AU
+        Parameters
+        ----------
+        dist : `int`, `float`
+            Object distance in AU.
         """
         dist = u.Quantity(dist, unit=u.AU)
         self.dist = dist.value
 
     def set_star_diam(self, d_star):
-        """ Sets the star diameter
+        """Sets the star diameter.
 
-        Parameters:
-            d_star (float): star diameter, in km
+        Parameters
+        ----------
+        d_star : `float`
+            Star diameter, in km.
         """
         d_star = u.Quantity(d_star, unit=u.km)
         self.d_star = d_star.value
 
     @deprecated_alias(lambda_0='central_bandpass', delta_lambda='delta_bandpass')  # remove this line for v1.0
     def set_filter(self, central_bandpass, delta_bandpass):
-        """ Sets the filter bandwidth in microns
+        """Sets the filter bandwidth in microns.
 
-        Parameters:
-            central_bandpass (float): center band in microns
-            delta_bandpass (float): bandwidth in microns
+        Parameters
+        ----------
+        central_bandpass : `float`
+            Center band in microns.
+
+        delta_bandpass : `float`
+            Bandwidth in microns.
         """
         central_bandpass = u.Quantity(central_bandpass, unit=u.micrometer)
         self.lambda_0 = central_bandpass.value
@@ -402,15 +482,23 @@ class LightCurve:
         self.delta_lambda = delta_bandpass.value
 
     def calc_magnitude_drop(self, mag_star, mag_obj):
-        """ Determines the magnitude drop of the occultation
+        """Determines the magnitude drop of the occultation.
 
-        Parameters:
-            mag_star (int,float): Star magnitude.
-            mag_obj (int,float): Object apparent magnitude to the date.
+        Parameters
+        ----------
+        mag_star : `int`, `float`
+            Star magnitude.
 
-        Returns:
-            mag_drop (float): Magnitude drop for the given magnitudes
-            bottom_flux (float): Normalized bottom flux for the given magnitudes
+        mag_obj `int`, `float`
+            Object apparent magnitude to the date.
+
+        Returns
+        -------
+        mag_drop : `float`
+            Magnitude drop for the given magnitudes.
+
+        bottom_flux : `float`
+            Normalized bottom flux for the given magnitudes.
         """
         from .utils import calc_magnitude_drop
         mag_drop, bottom_flux = calc_magnitude_drop(mag_star, mag_obj)
@@ -418,14 +506,24 @@ class LightCurve:
         self.bottom_flux = bottom_flux
 
     def normalize(self, poly_deg=None, mask=None, flux_min=0.0, flux_max=1.0, plot=False):
-        """ Returns the fresnel scale.
+        """Returns the fresnel scale.
 
-        Parameters:
-            poly_deg (int): degree of the polynom to be fitted
-            mask (array of Bolleans): which values to be fitted
-            flux_min (int,float): event flux to be setted as 0.0
-            flux_max (int,float): baseline flux to be setted as 1.0
-            plot (Bollean): If True plot the steps for visual aid
+        Parameters
+        ----------
+        poly_deg : `int`
+            Degree of the polynomial to be fitted.
+
+        mask : `bool` array
+            Which values to be fitted.
+
+        flux_min : `int`, `float`
+            Event flux to be set as 0.
+
+        flux_max : `int`, `float`
+            Baseline flux to be set as 1.
+
+        plot : `bool`
+            If True plot the steps for visual aid.
         """
         from .utils import fit_pol
         import matplotlib.pyplot as plt
@@ -497,18 +595,36 @@ class LightCurve:
 
     def occ_model(self, immersion_time, emersion_time, opacity, mask, npt_star=12,
                   time_resolution_factor=10, flux_min=0, flux_max=1):
-        """ Returns the modelled light curve considering fresnel difraction, star diameter and intrumental response.
+        """Returns the modelled light curve.
 
-        Parameters:
-            immersion_time (int, float): Immersion time, in seconds.
-            emersion_time (int, float): Emersion time, in seconds.
-            opacity (int, float): Opacity. Opaque = 1.0, transparent = 0.0
-            mask (array with Booleans): Mask with True values to be computed
-            npt_star  (int): Number of subdivisions for computing the star size's effects. Default=12
-            time_resolution_factor (int,float): Steps for fresnel scale used for modelling the light curve.
-                Default=10*fresnel scale.
-            flux_min (int,float): Bottom flux (only object). Default=0.0
-            flux_max (int,float): Base flux (object plus star). Default=1.0
+        The modelled light curve takes into account the fresnel diffraction, the
+        star diameter and the instrumental response.
+
+        Parameters
+        ----------
+        immersion_time : `int`, `float`
+            Immersion time, in seconds.
+
+        emersion_time : `int`, `float`
+            Emersion time, in seconds.
+
+        opacity : `int`, `float`
+            Opacity. Opaque = 1.0, transparent = 0.0,
+
+        mask : `bool` array
+            Mask with True values to be computed.
+
+        npt_star : `int`, default=12
+            Number of subdivisions for computing the star size effects.
+
+        time_resolution_factor : `int`, `float`, default: 10*fresnel scale
+            Steps for fresnel scale used for modelling the light curve.
+
+        flux_min : `int`, `float`, default=0
+            Bottom flux (only object).
+
+        flux_max : `int`, `float`, default=1
+            Base flux (object plus star).
         """
         from .utils import bar_fresnel
 
@@ -569,25 +685,51 @@ class LightCurve:
         self.bottomflux = flux_min
 
     def occ_lcfit(self, **kwargs):
-        """ Monte Carlo chi square fit for occultations lightcurve.
+        """Monte Carlo chi square fit for occultations lightcurve.
 
-        Parameters:
-            tmin (int,float): Minimum time to consider in the fit procedure, in seconds
-            tmax (int,float): Maximum time to consider in the fit procedure, in seconds
-            flux_min (int,float): Bottom flux (only object). Default=0.0
-            flux_max (int,float): Base flux (object plus star). Default=1.0
-            immersion_time (int, float): Initial guess for immersion time, in seconds.
-            emersion_time (int, float): Initial guess for emersion time, in seconds.
-            opacity (int, float): Initial guess for opacity. Opaque=1.0, transparent=0.0. Default=1.0
-            delta_t (int, float): Interval to fit immersion or emersion time
-            dopacity (int, float): Interval to fit opacity. Default=0.
-            sigma (int, float, array, 'auto'): Fluxes errors. If None it wil use the self.dflux.
-                If 'auto' it calculate using the region outside the event.
-            loop (int): Number of tests to be done. Default=10000.
-            sigma_result (int, float): Sigma value to be considered as result.
+        Parameters
+        ----------
+        tmin : `int`, `float`
+            Minimum time to consider in the fit procedure, in seconds.
 
-        Returns:
-            chi2 (ChiSquare): ChiSquare object
+        tmax : `int`, `float`
+            Maximum time to consider in the fit procedure, in seconds.
+
+        flux_min : `int`, `float`, default=0
+            Bottom flux (only object).
+
+        flux_max :`int`, `float`, default=1
+            Base flux (object plus star).
+
+        immersion_time : `int`, `float`
+            Initial guess for immersion time, in seconds.
+
+        emersion_time : `int`, `float`
+            Initial guess for emersion time, in seconds.
+
+        opacity : `int`, `float`, default=1
+            Initial guess for opacity. Opaque = 1, Transparent = 0.
+
+        delta_t : `int`, `float`
+            Interval to fit immersion or emersion time.
+
+        dopacity : `int`, `float`, default=0
+            Interval to fit opacity.
+
+        sigma : `int`, `float`, `array`, 'auto'
+            Fluxes errors. If None it will use the `self.dflux`. If 'auto' it
+            will calculate using the region outside the event.
+
+        loop : `int`, default=10000
+            Number of tests to be done.
+
+        sigma_result : `int`, `float`
+            Sigma value to be considered as result.
+
+        Returns
+        -------
+        chi2 : `sora.extra.ChiSquare`
+            ChiSquare object.
         """
         from sora.config.visuals import progressbar
         from sora.extra import ChiSquare
@@ -736,10 +878,12 @@ class LightCurve:
         ax.legend()
 
     def to_log(self, namefile=None):
-        """ Saves the light curve log to a file
+        """Saves the light curve log to a file.
 
-        Parameters:
-            namefile (str): Filename to save the log
+        Parameters
+        ----------
+        namefile : `str`
+            Filename to save the log.
         """
         if namefile is None:
             namefile = self.name.replace(' ', '_')+'.log'
@@ -748,10 +892,12 @@ class LightCurve:
         f.close()
 
     def to_file(self, namefile=None):
-        """ Saves the light curve to a file
+        """Saves the light curve to a file.
 
-        Parameters:
-            namefile (str): Filename to save the data
+        Parameters
+        ----------
+        namefile : `str`
+            Filename to save the data.
         """
         # Observational data
         if namefile is None:
@@ -782,37 +928,52 @@ class LightCurve:
 
     def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None,
                    n_detections=None, plot=False):
-        """ Detects automatically the occultation event in the light curve
-            (detects a 'square well transit')
+        """Detects automatically the occultation event in the light curve.
 
-        Parameters:
-        (All parameters are optional)
-            maximum_duration (float): Maximum duration of the occultation event. Default: light curve's time span
-            dur_step (float): Step size to sweep occultation duration event. Default=1/2 of sampling
-            snr_limit (float): Minimum occultation SNR. Default=none
-            n_detections (int): Number of detections regardless the SNR.
-                n_detections is superseded by snr_limit. Default=1
-            plot (boolean): True if output plots are desired.
+        Detects a 'square well' shaped transit. All parameters are optional.
 
-        Returns:
-            OrderedDict = An ordered dictionary of :attr:`name`::attr:`value` pairs for each Parameter.
+        Parameters
+        ----------
+        maximum_duration : `float`, default: light curve time span
+            Maximum duration of the occultation event.
 
-        Examples:
-            >>> lc = LightCurve(time=time, flux=flux, exptime=0.0, name='lc_example')
-            >>> params = lc.occ_detect()
-            >>> params
-            {'rank': 1,
-            'occultation_duration': 40.1384063065052,
-            'central_time': 7916.773870512843,
-            'immersion_time': 7896.7046673595905,
-            'emersion_time': 7936.843073666096,
-            'time_err': 0.05011036992073059,
-            'depth': 0.8663887801707082,
-            'depth_err': 0.10986223384336465,
-            'baseline': 0.9110181732552853,
-            'baseline_err': 0.19045768512595365,
-            'snr': 7.886138392251848,
-            'occ_mask': array([False, False, False, ..., False, False, False])}
+        dur_step : `float`, default: 1/2 of sampling rate
+            Step size to sweep occultation duration event.
+
+        snr_limit : `float`, default=None
+            Minimum occultation SNR.
+
+        n_detections : `int`, default=1
+            Number of detections regardless the SNR. `n_detections` is
+            superseded by `snr_limit`.
+
+        plot : `bool`
+            True if output plots are desired.
+
+
+        Returns
+        -------
+        OrderedDict : `dict`
+            An ordered dictionary of :attr:`name`::attr:`value` pairs for each
+            parameter.
+
+        Examples
+        --------
+        >>> lc = LightCurve(time=time, flux=flux, exptime=0.0, name='lc_example')
+        >>> params = lc.occ_detect()
+        >>> params
+        {'rank': 1,
+        'occultation_duration': 40.1384063065052,
+        'central_time': 7916.773870512843,
+        'immersion_time': 7896.7046673595905,
+        'emersion_time': 7936.843073666096,
+        'time_err': 0.05011036992073059,
+        'depth': 0.8663887801707082,
+        'depth_err': 0.10986223384336465,
+        'baseline': 0.9110181732552853,
+        'baseline_err': 0.19045768512595365,
+        'snr': 7.886138392251848,
+        'occ_mask': array([False, False, False, ..., False, False, False])}
         """
         from .occdetect import occ_detect
         occ = occ_detect(self.flux, self.dflux, self.time, self.cycle, maximum_duration=maximum_duration,
@@ -821,22 +982,42 @@ class LightCurve:
 
     def __occ_model(self, immersion_time, emersion_time, opacity, mask, npt_star=12,
                     time_resolution_factor=10, flux_min=0.0, flux_max=1.0):
-        """ Private function returns the modelled light curve considering fresnel difraction,
-            star diameter and intrumental response, intended for fitting inside the self.occ_lcfit().
+        """Private function. Returns the modelled light curve.
 
-        Parameters:
-            immersion_time (int, float): Immersion time, in seconds.
-            emersion_time (int, float): Emersion time, in seconds.
-            opacity (int, float): Opacity. Opaque = 1.0, transparent = 0.0.
-            mask (array with Booleans): Mask with True values to be computed
-            npt_star (int): Number of subdivisions for computing the star size's effects. Default=12
-            time_resolution_factor (int,float): Steps for fresnel scale used for modelling the light curve.
-                Default=10*fresnel scale.
-            flux_min (int,float): Bottom flux (only object). Default=0.0
-            flux_max (int,float): Base flux (object plus star). Default=1.0
+        Returns the modelled light curve considering fresnel diffraction, star
+        diameter and instrumental response, intended for fitting inside the
+        `self.occ_lcfit()`.
 
-        Returns:
-            flux_inst (array): Modelled Instrumental light flux.
+        Parameters
+        ----------
+        immersion_time : `int`, `float`
+            Immersion time, in seconds.
+
+        emersion_time : `int`, `float`
+            Emersion time, in seconds.
+
+        opacity `int`, `float`
+            Opacity. Opaque = 1, Transparent = 0.
+
+        mask : `bool` array
+            Mask with True values to be computed.
+
+        npt_star : `int`, default=12
+            Number of subdivisions for computing the star size effects.
+
+        time_resolution_factor : `int`, `float`, default=10*fresnel scale
+            Steps for fresnel scale used for modelling the light curve.
+
+        flux_min : `int`, `float`, default=0
+            Bottom flux (only object).
+
+        flux_max : `int`, `float`, default=1
+            Base flux (object plus star).
+
+        Returns
+        -------
+        flux_inst : array
+            Modelled Instrumental light flux.
         """
         from .utils import bar_fresnel
 

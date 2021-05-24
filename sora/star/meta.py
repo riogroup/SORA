@@ -5,46 +5,47 @@ from astropy.time import Time
 
 # noinspection PyUnresolvedReferences
 class MetaStar:
-    """docstring for MetaStar"""
+    """Docstring for MetaStar"""
 
     @property
     def ra(self):
-        """
-        Return the Right Ascension of the star
+        """Return the Right Ascension of the star
         """
         return self._attributes['RA']
 
     @ra.setter
     def ra(self, value):
-        """ Define Right Ascension
+        """Defines the Right Ascension.
 
-        Parameter:
-            value(int, float, astropy.unit): RA in deg
+        Parameters
+        ----------
+        value : `int`, `float`, `astropy.unit`
+            RA, in deg.
         """
         from astropy.coordinates import Longitude
         self._attributes['RA'] = Longitude(value, unit=u.hourangle)
 
     @property
     def dec(self):
-        """
-        Return the Declination of the star
+        """Return the Declination of the star
         """
         return self._attributes['DEC']
 
     @dec.setter
     def dec(self, value):
-        """ Define Declination
+        """Defines the Declination.
 
-        Parameter:
-            value(int, float, astropy.unit): DEC in deg
+        Parameters
+        ----------
+        value : `int`, `float`, `astropy.unit`
+            DEC, in deg.
         """
         from astropy.coordinates import Latitude
         self._attributes['DEC'] = Latitude(value, unit=u.deg)
 
     @property
     def parallax(self):
-        """
-        Return the Parallax of the star
+        """Return the Parallax of the star
         """
         if self.bjones:
             return self._attributes['bjones_par']
@@ -53,10 +54,12 @@ class MetaStar:
 
     @parallax.setter
     def parallax(self, value):
-        """ Define Parallax
+        """Defines the Parallax.
 
-        Parameter:
-            value(int, float, astropy.unit): Parallax in mas
+        Parameters
+        ----------
+        value : `int`, `float`, `astropy.unit`
+            Parallax, in mas.
         """
         par = u.Quantity(value, unit=u.mas)
         if par <= 0*u.mas:
@@ -65,8 +68,7 @@ class MetaStar:
 
     @property
     def distance(self):
-        """
-        Return the Distance of the star
+        """Return the Distance of the star
         """
         from astropy.coordinates import Distance
         if self.parallax > 0*u.mas:
@@ -84,65 +86,69 @@ class MetaStar:
 
     @property
     def pmra(self):
-        """
-        Return the Proper Motion in Right Ascension of the star
+        """Return the Proper Motion in Right Ascension of the star
         """
         return self._attributes.get('PMRA', 0*u.mas/u.year)
 
     @pmra.setter
     def pmra(self, value):
-        """ Define Parallax
+        """Defines the Proper Motion in RA*.
 
-        Parameter:
-            value(int, float, astropy.unit): RA Proper Motion in mas/year
+        Parameters
+        ----------
+        value : `int`, `float`, `astropy.unit`
+            RA Proper Motion, in mas/year.
         """
         self._attributes['PMRA'] = u.Quantity(value, unit=u.mas/u.year)
 
     @property
     def pmdec(self):
-        """
-        Return the Proper Motion in Declination of the star
+        """ Return the Proper Motion in Declination of the star
         """
         return self._attributes.get('PMDEC', 0*u.mas/u.year)
 
     @pmdec.setter
     def pmdec(self, value):
-        """ Define Parallax
+        """Defines the Proper Motion in DEC.
 
-        Parameter:
-            value(int, float, astropy.unit): DEC Proper Motion in mas/year
+        Parameters
+        ----------
+        value : `int`, `float`, `astropy.unit`
+            DEC Proper Motion, in mas/year.
         """
         self._attributes['PMDEC'] = u.Quantity(value, unit=u.mas/u.year)
 
     @property
     def rad_vel(self):
-        """
-        Return the Radial Velocity of the star
+        """Return the Radial Velocity of the star
         """
         return self._attributes.get('RAD_VEL', 0*u.km/u.s)
 
     @rad_vel.setter
     def rad_vel(self, value):
-        """ Define Radial Velocity
+        """Defines the Radial Velocity.
 
-        Parameter:
-            value(int, float, astropy.unit): Radial Velocity in km/s
+        Parameters
+        ----------
+        value : `int`, `float`, `astropy.unit`
+            Radial Velocity, in km/s.
         """
         self._attributes['RAD_VEL'] = u.Quantity(value, unit=u.km/u.s)
 
     @property
     def epoch(self):
-        """
-        Return the Epoch of the position of the star
+        """Return the Epoch of the position of the star
         """
         return self._attributes['EPOCH']
 
     @epoch.setter
     def epoch(self, value):
-        """ Define Radial Velocity
+        """Defines the Epoch of the position.
 
-        Parameter:
-            value(int, float, astropy.unit): Radial Velocity in km/s
+        Parameters
+        ----------
+        value : `int`, `float`, `astropy.unit`
+            Radial Velocity, in km/s.
         """
         self._attributes['EPOCH'] = Time(value)
 

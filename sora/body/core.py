@@ -13,48 +13,93 @@ __all__ = ['Body']
 
 
 class Body(BaseBody):
+    """Class that contains and manages the information of the body.
+
+    Attributes
+    ----------
+    name : `str`, required
+        The name of the object. It can be the used `spkid` or `designation
+        number` to query the SBDB (Small-Body DataBase). In this case, the name
+        is case insensitive.
+
+    database : `str`, optional, default='auto'
+        The database to query the object. It can be ``satdb`` for our temporary
+        hardcoded satellite database, or ``'sbdb'`` to query on the SBDB. If
+        database is set as ``auto`` it will try first with ``satdb``,
+        then ``sbdb``. If the user wants to use their own information,
+        database must be given as ``None``. In this case, `spkid` parameter
+        must be given.
+
+    ephem : `sora.EphemKernel`, `sora.EphemHorizons`, `sora.EphemJPL`, `sora.EphemPlanete`
+        An Ephem Class that contains information about the ephemeris. It can be
+        "horizons" to automatically defined an EphemHorizons object or a list of
+        kernels to automatically define an EphemKernel object.
+
+    orbit_class : `str`
+        It defines the Orbital class of the body. It can be ``TNO``,
+        ``Satellite``, ``Centaur``, ``comet``, ``asteroid``, ``trojan``, ``neo``,
+        and ``planet``. It is important for a better characterization of the
+        object. If a different value is given, it will be defined as
+        ``unclassified``.
+
+    spkid : `str`, `int`, `float`
+        If ``database=None``, the user must give a `spkid` or an `ephem`
+        which has the `spkid` parameter.
+
+    albedo : `float`, `int`
+        The albedo of the object.
+
+    H : `float`, `int`
+        The absolute magnitude.
+
+    G : `float`, `int`
+        The phase slope.
+
+    diameter : `float`, `int`, `astropy.quantity.Quantity`
+        The diameter of the object, in km.
+
+    density : `float`, `int`, `astropy.quantity.Quantity`
+        The density of the object, in g/cm³.
+
+    GM : `float`, `int`, `astropy.quantity.Quantity`
+        The Standard Gravitational Parameter, in km³/s².
+
+    rotation : `float`, `int`, `astropy.quantity.Quantity`
+        The Rotation of the object, in hours.
+
+    pole : `str`, `astropy.coordinates.SkyCoord`
+        The Pole coordinates of the object. It can be a `SkyCoord object` or a
+        string in the format ``'hh mm ss.ss +dd mm ss.ss'``.
+
+    BV : `float`, `int`
+        The B-V color.
+
+    UB : `float`, `int`
+        The U-B color.
+
+    smass : `str`
+        The spectral type in SMASS classification.
+
+    tholen : `str`
+        The spectral type in Tholen classification.
+
+    Note
+    ----
+    The following attributes are are returned from the Small-Body DataBase when
+    ``database='sbdb'`` or from our temporary hardcoded Satellite DataBase when
+    ``database='satdb'``:
+
+    `orbit_class`, `spkid`, `albedo`, `H`, `G`, `diameter`, `density`, `GM`,
+    `rotation`, `pole`, `BV`, `UB`, `smass`, and `tholen`.
+
+    These are physical parameters the user can give to the object. If a query is
+    made and user gives a parameter, the parameter given by the user is defined
+    in the *Body* object.
+
+    """
 
     def __init__(self, name, database='auto', **kwargs):
-        """ Class that contains and manage the information of the body
 
-        Parameters:
-            name (str): The name of the object. It can be the used spkid or designation number
-                to query the SBDB. In this case, the name is case insensitive. (Required)
-            database (str): The database to query the object. It can be 'satdb' for our
-                temporary hardcoded satellite database, or 'sbdb' to query on the Small-Body
-                DataBase. If 'auto' it will try first with 'satdb', then 'sbdb'. If the user
-                wants to use their own information, database must be given as None. In this case,
-                "spkid" parameter must be given. Default='auto'
-            ephem (EphemKernel, EphemHorizons, EphemJPL, EphemPlanete): An Ephem Class that
-                contains information about the ephemeris. It can be "horizons" to automatically
-                defined an EphemHorizons object or a list of kernels to automatically define an
-                EphemKernel object.
-
-        Parameters that are returned from the Small-Body DataBase if database='sbdb' or from
-            our temporary hardcoded Satellite Database if database='satdb'. These are
-            the physical paramaters the user can give to the object. If a query is made and
-            user gives a parameter, the parameter given by the user is defined in the Body object:
-
-            orbit_class (str): It defines the Orbital class of the body. It can be 'TNO',
-                'Satellite', 'Centaur', 'comet', 'asteroid', 'trojan', 'neo' and 'planet'.
-                It is important for a better characterization of the object.
-                If a different value is given, it will be defined as 'unclassified'.
-            spkid (str, number): If database=None, the user must give a spkid or an ephem
-                which has the spkid parameter.
-            albedo (number): The albedo of the object.
-            H (number): The absolute magnitude.
-            G (number): The phase slope.
-            diameter (number, Quantity): The dimater of the object, in km.
-            density: (number, Quantity): The density of the object, in g/cm^3.
-            GM (number, Quantity): The Standard Gravitational Parameter, in km^3/s^2.
-            rotation (number, Quantity): The Rotation of the object, in hours.
-            pole (str, SkyCoord): The Pole coordinates of the object. It can be a SkyCoord
-                object or a string in the format 'hh mm ss.ss +dd mm ss.ss'
-            BV (number): The B-V color.
-            UB (number): The U-B color.
-            smass (str): The spectral type in SMASS classification.
-            tholen (str): The spectral type in Tholen classification.
-        """
         allowed_kwargs = ["albedo", "H", "G", "diameter", "density", "GM", "rotation", "pole", "BV", "UB", "smass",
                           "orbit_class", "spkid", "tholen", "ephem"]
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
@@ -90,10 +135,13 @@ class Body(BaseBody):
         self._shared_with['ephem']['id_type'] = self._id_type
 
     def __from_sbdb(self, name):
-        """Search the object in SBDB and define its physical parameters
+        """Searches the object in the SBDB and defines its physical parameters.
 
-        Parameters:
-            name (str): The name, spkid or designation number of the Small Body.
+        Parameters
+        ----------
+        name : `str`
+            The `name`, `spkid` or `designation number` of the Small Body.
+
         """
         sbdb = search_sbdb(name)
         self.meta_sbdb = sbdb
@@ -164,10 +212,7 @@ class Body(BaseBody):
         self.discovery = ""
 
     def __from_local(self, name, spkid):
-        """Define Body object with default values for mode="local"
-
-        Parameters:
-
+        """Defines Body object with default values for mode='local'.
         """
         self.name = name
         self.shortname = name
@@ -190,14 +235,19 @@ class Body(BaseBody):
         self.discovery = ""
 
     def get_pole_position_angle(self, time):
-        """ Returns the pole position angle and aperture angle relative to the geocenter
+        """Returns the pole position angle and the aperture angle relative to
+        the geocenter.
 
-        Parameters:
-            time (str, Time): Time from which to calculate the position.
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Time from which to calculate the position.
+            It can be a string in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-        Returns:
-            position_angle (float): Position angle of the object pole, in degrees
-            aperture_angle (float): Apeture angle of the object pole, in degrees
+        Returns
+        -------
+        position_angle, aperture_angle : `float` array
+            Position angle and aperture angle of the object's pole, in degrees.
         """
         time = Time(time)
         pole = self.pole
@@ -212,13 +262,18 @@ class Body(BaseBody):
         return position_angle.to('deg'), aperture_angle.to('deg')
 
     def apparent_magnitude(self, time):
-        """ Calculates the Object Apparent Magnitude
+        """Calculates the object's apparent magnitude.
 
-        Parameters:
-            time (str, Time): Reference time to calculate the object aparent magnitude.
+        Parameters
+        ----------
+        time :  `str`, `astropy.time.Time`
+            Reference time to calculate the object's apparent magnitude.
+            It can be a string in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-        Returns:
-            ap_mag (float): Object apparent magnitude
+        Returns
+        -------
+        ap_mag : `float`
+            Object apparent magnitude.
         """
         from astroquery.jplhorizons import Horizons
 

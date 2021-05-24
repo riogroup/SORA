@@ -6,37 +6,44 @@ __all__ = ['getBSPfromJPL', 'ephem_kernel']
 
 
 def getBSPfromJPL(identifier, initial_date, final_date, email, directory='./'):
-    """ Download bsp files from JPL database
+    """Downloads BSP files from JPL database.
 
-        Bsp files, which have information to generate
-        the ephemeris of the objects, will be downloaded
-        The files will be named as (without spaces): [identifier].bsp
+    BSP files, which have information to generate the ephemeris of the objects,
+    will be downloaded and named as (without spaces): '[identifier].bsp'.
 
-    Important:
-        It is not able to download bsp files of planets or satellites.
+    Important
+    ---------
+    It is not possible to download BSP files for Planets or Satellites.
 
-    Parameters:
-        identifier (str or list): Identifier of the object(s).
-            It can be the name, number or SPK ID.
-            It can also be a list of objects.
-            Examples:
-                '2137295'
-                '1999 RB216'
-                '137295'
-                ['2137295', '136199', '1999 RC216', 'Chariklo']
-        initial_date (str): Date the bsp file is to begin, within span [1900-2100].
-            Examples:
-                '2003-02-01'
-                '2003-3-5'
-        final_date (str): Date the bsp file is to end, within span [1900-2100].
-            Must be more than 32 days later than [initial_date].
-            Examples:
-                '2006-01-12'
-                '2006-1-12'
-        email (str): User's e-mail contact address.
-            Required by JPL web service
-            Example: username@user.domain.name
-        directory (str): Directory path to save the bsp files.
+    Parameters
+    ----------
+    identifier : `str`, `list`
+        Identifier of the object(s).
+        It can be the `name`, `number` or `SPK ID`.
+        It can also be a list of objects.
+
+        Examples: ``'2137295'``, ``'1999 RB216'``, ``'137295'``,
+        ``['2137295', '136199', '1999 RC216', 'Chariklo']``.
+
+    initial_date : `str`
+        Date the bsp file is to begin, within span `1900-2100`.
+
+        Examples: ``'2003-02-01'``, ``'2003-3-5'``.
+
+    final_date : `str`
+        Date the bsp file is to end, within span [1900-2100].
+        Must be more than 32 days later than `initial_date`.
+
+        Examples: ``'2006-01-12'``, ``'2006-1-12'``.
+
+    email : `str`
+        User's e-mail contact address.
+        Required by JPL web service.
+
+        Example: ``username@user.domain.name``.
+
+    directory : `str`
+        Directory path to save the bsp files.
     """
     import pathlib
     import shutil
@@ -116,16 +123,27 @@ def getBSPfromJPL(identifier, initial_date, final_date, email, directory='./'):
 
 
 def ephem_kernel(time, target, observer, kernels):
-    """ Calculates the ephemeris from kernel files
+    """Calculates the ephemeris from kernel files.
 
-    Parameters:
-        time (str, Time): reference instant to calculate ephemeris
-        target (str): IAU (kernel) code of the target
-        observer (str): IAU (kernel) code of the observer
-        kernels (list, str): list of paths for all the kernels
+    Parameters
+    ----------
+    time : `str`, `astropy.time.Time`
+        Reference instant to calculate ephemeris. It can be a string
+        in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-    Returns:
-        coord (SkyCoord): ICRS coordinate of the target.
+    target : `str`
+        IAU (kernel) code of the target.
+
+    observer : `str`
+        IAU (kernel) code of the observer.
+
+    kernels : `list`, `str`
+        List of paths for all the kernels.
+
+    Returns
+    -------
+    coord : `astropy.coordinates.SkyCoord`
+        ICRS coordinate of the target.
     """
     import numpy as np
     import astropy.units as u
@@ -145,12 +163,12 @@ def ephem_kernel(time, target, observer, kernels):
         time = Time([time])
     dt = (time - t0)
     delt = 0 * u.s
-    # calculates vector Observer -> Solar System Baricenter
+    # calculates vector Observer -> Solar System Barycenter
     position1 = np.array(spice.spkpos('0', dt.sec, 'J2000', 'NONE', observer)[0])
     while True:
         # calculates new time
         tempo = dt - delt
-        # calculates vector Solar System Baricenter -> Object
+        # calculates vector Solar System Barycenter -> Object
         position2 = spice.spkpos(target, tempo.sec, 'J2000', 'NONE', '0')[0]
         position = (position1 + position2).T
         # calculates linear distance Earth Topocenter -> Object

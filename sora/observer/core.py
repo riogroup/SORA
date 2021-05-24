@@ -9,35 +9,60 @@ __all__ = ['Observer']
 
 
 class Observer:
+    """Defines the observer object.
+
+    Attributes
+    ----------
+    name : `str`
+        Name for the Observer. Observer is uniquely defined (name must be
+        different for each observer).
+
+    code : `str`
+        The IAU code for SORA to search for its coordinates in MPC database.
+
+    site : `astropy.coordinates.EarthLocation`
+        User provides an EarthLocation object.
+
+    lon : `str`, `float`
+        The Longitude of the site in degrees.
+        Positive to East. Range (0 to 360) or (-180 to +180).
+        User can provide in degrees (`float`) or hexadecimal (`string`).
+
+    lat : `str`, `float`
+        The Latitude of the site in degrees.
+        Positive North. Range (+90 to -90).
+        User can provide in degrees (float) or hexadecimal (string).
+
+    height : `int`, `float`
+        The height of the site in meters above see level.
+
+
+    Examples
+    --------
+    User can provide one of the following to define an observer:
+
+    - If user will use the MPC name for the site:
+
+    >>> Observer(code)
+
+    - If user wants to use a different name from the MPC database:
+
+    >>> Observer(name, code)
+
+    - If user wants to use an EarthLocation value:
+
+    >>> from astropy.coordinates import EarthLocation
+    >>> EarthLocation(lon, lat, height)
+    >>> Observer(name, site)
+
+    - If user wants to give site coordinates directly:
+
+    >>> Observer(name, lon, lat, height)
+
+    """
 
     def __init__(self, **kwargs):
-        """ Defines the observer object
 
-        Parameters:
-            name (str): Name for the Observer.
-                Observer is uniquely defined (name must be different for each observer).
-            code (str): The IAU code for SORA to search for its coordinates in MPC database
-            site (EarthLocation): User provides an EarthLocation object.
-            lon (str, float): The Longitude of the site in degrees.
-                Positive to East. Range (0 to 360) or (-180 to +180)
-                User can provide in degrees (float) or hexadecimal (string)
-            lat (str, float): The Latitude of the site in degrees.
-                Positive North. Range (+90 to -90)
-                User can provide in degrees (float) or hexadecimal (string)
-            height (int, float): The height of the site in meters above see level.
-
-        Examples:
-            User can provide one of the following to define an observer:
-            - If user will use the MPC name for the site:
-                Observer(code)
-            - If user wants to use a different name from the MPC database:
-                Observer(name, code)
-            - If user wants to use an EarthLocation value:
-                EarthLocation(lon, lat, height)
-                Observer(name, site)
-            - If user wants to give site coordinates directly:
-                Observer(name, lon, lat, height)
-        """
         input_tests.check_kwargs(kwargs, allowed_kwargs=['code', 'height', 'lat', 'lon', 'name', 'site'])
         self.__name = kwargs.get('name', '')
         if 'code' in kwargs:
@@ -55,19 +80,26 @@ class Observer:
             raise ValueError('Input parameters could not be determined')
 
     def get_ksi_eta(self, time, star):
-        """ Calculates relative position to star in the orthographic projection.
+        """Calculates relative position to star in the orthographic projection.
 
-        Parameters:
-            time (str, Time): Reference time to calculate the position.
-                It can be a string in the format "yyyy-mm-dd hh:mm:ss.s" or an astropy Time object
-            star (str, SkyCoord): The coordinate of the star in the same reference frame as the ephemeris.
-                It can be a string in the format "hh mm ss.s +dd mm ss.ss"
-                or an astropy SkyCoord object.
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to calculate the position. It can be a string in the
+            format ``'yyyy-mm-dd hh:mm:ss.s'`` or an astropy `Time` object.
 
-        Returns:
-            ksi, eta (float): on-sky orthographic projection of the observer relative to a star
-                Ksi is in the North-South direction (North positive)
-                Eta is in the East-West direction (East positive)
+        star : `str`, `astropy.coordinates.SkyCoord`
+            The coordinate of the star in the same reference frame as the
+            ephemeris. It can be a string in the format ``'hh mm ss.s +dd mm ss.ss'``
+            or an astropy `SkyCoord` object.
+
+
+        Returns
+        -------
+        ksi, eta : `float`
+            On-sky orthographic projection of the observer relative to a star.
+            ``ksi`` is in the North-South direction (North positive).
+            ``eta`` is in the East-West direction (East positive).
         """
         from astropy.coordinates.matrix_utilities import rotation_matrix
 
@@ -86,16 +118,26 @@ class Observer:
         return cp.y.to(u.km).value, cp.z.to(u.km).value
 
     def sidereal_time(self, time, mode='local'):
-        """ Calculates the Apparent Sidereal Time at a reference time
+        """Calculates the Apparent Sidereal Time at a reference time.
 
-        Parameters:
-            time (str,Time): Reference time to calculate sidereal time.
-            mode (str): local or greenwich
-                If 'local': calculates the sidereal time for the coordinates of this object.
-                If 'greenwich': calculates the Greenwich Apparent Sidereal Time.
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to calculate sidereal time.It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-        Returns:
-            sidereal_time: An Astropy Longitude object with the Sidereal Time.
+        mode : `str`
+            Local or greenwich time.
+            If mode set ``'local'`` calculates the sidereal time for the
+            coordinates of this object.
+            If mode set ``'greenwich'`` calculates the Greenwich Apparent
+            Sidereal Time.
+
+
+        Returns
+        -------
+        sidereal_time
+            An Astropy Longitude object with the Sidereal Time.
         """
         # return local or greenwich sidereal time
         time = test_attr(time, Time, 'time')
@@ -108,15 +150,25 @@ class Observer:
             raise ValueError('mode must be "local" or "greenwich"')
 
     def altaz(self, time, coord):
-        """ Calculates the Altitude and Azimuth at a reference time for a coordinate
+        """Calculates the Altitude and Azimuth at a reference time for a coordinate.
 
-        Parameters:
-            time (str,Time): Reference time to calculate the sidereal time.
-            coord (str, astropy.SkyCoord): Coordinate of the target ICRS.
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to calculate the sidereal time. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-        Returns:
-            altitude (float): object altitude in degrees.
-            azimuth (float): object azimuth in degrees.
+        coord : `str`, `astropy.coordinates.SkyCoord`
+            Coordinate of the target ICRS.
+
+
+        Returns
+        -------
+        altitude : `float`
+            Object altitude in degrees.
+
+        azimuth : `float`
+            Object azimuth in degrees.
         """
         time = test_attr(time, Time, 'time')
         if type(coord) == str:

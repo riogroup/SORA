@@ -4,22 +4,34 @@ __all__ = ['ChiSquare']
 
 
 class ChiSquare:
+    """Stores the arrays for all inputs and given chi-square.
+
+    Parameters
+    ----------
+    chi2 : `array`
+        Array with all the chi-square values.
+
+    npts : `int`
+        Number of points used in the fit.
+
+    **kwargs
+        Any other given input must be an array with the same size as chi2. The
+        keyword `name` will be associated as the variable `name` of the given data.
+
+    Example
+    -------
+    >>> chisquare = ChiSquare(chi2, immersion=t1, emersion=t2)
+
+    ``t1`` and ``t2`` must be an array with the same size as chi2.
+
+    The data can be accessed as
+
+    >>> chisquare.data['immersion']
+
+    """
+
     def __init__(self, chi2, npts, **kwargs):
-        """ Stores the arrays for all inputs and given chi-square.
 
-        Parameters:
-            chi2 (array): Array with all the chi-square values
-            npts (int): Number of points used in the fit
-            **kwargs: any other given input must be an array with the same size as chi2.
-                the keyword name will be associated as the variable name of the given data
-
-        Example:
-
-        chisquare = ChiSquare(chi2, immersion=t1, emersion=t2)
-            t1 and t2 must be an array with the same size as chi2.
-        the data can be accessed as:
-            chisquare.data['immersion']
-        """
         self._names = ['chi2']
         self.data = {'chi2': chi2}
         data_size = len(chi2)
@@ -35,18 +47,29 @@ class ChiSquare:
         self.nparam = nparam
 
     def get_nsigma(self, sigma=1, key=None):
-        """ Determines the interval of the chi-square within the n-th sigma
+        """Determines the interval of the chi-square within the nth sigma.
 
-        Parameters:
-            sigma (float, int): Value of sigma to calculate.
-            key (str): keyword the user desire to obtain results. Default=None
+        Parameters
+        ----------
+        sigma : `float`, `int`
+            Value of sigma to calculate.
 
-        Return:
-            - if a key is given, it returns two values: the mean value within the n-sigma
-                and the error bar within the n-sigma.
-            - if no key is given, it returns a dictionary with the minimum chi-square,
-                the sigma required, the number of points where chi2 < chi2_min + sigma^2,
-                and the mean values and errors for all keys.
+        key : `str`, default=None
+            keyword the user desire to obtain results.
+
+        Returns
+        -------
+        dict
+            Dictionary with the average n-sigma value and bondaries.
+
+        Note
+        ----
+        If a key value is given the mean value within the n-sigma and the error
+        bar within the n-sigma are returned.
+
+        If no key is given, a dictionary with: the minimum chi-square, the sigma
+        required, the number of points where :math:`chi2 < (chi2_min + sigma^2)`,
+        and the mean values and errors for all keys is returned.
         """
         values = np.where(self.data['chi2'] < self.data['chi2'].min() + sigma ** 2)[0]
         output = {'chi2_min': self.data['chi2'].min(), 'sigma': sigma, 'n_points': len(values)}
@@ -62,13 +85,17 @@ class ChiSquare:
         return output
 
     def plot_chi2(self, key=None, ax=None):
-        """ Plots an ellipse using the given input parameters
+        """Plots an ellipse using the input parameters.
 
-        Parameters:
-            key (str): Key to plot chi square.
-                if no key  is given, it will plot for all the keywords.
-            ax (maplotlib.Axes): A matplotlib axes to plot,
-                if none is given, it uses the matplotlib pool to identify.
+        Parameters
+        ----------
+        key : `str`
+            Key (parameter) for which to plot the chi squares. If no key  is
+            given, it will plot for all parameters.
+
+        ax : `maplotlib.pyplot.Axes`
+            Matplotlib plot axes. If none is given, it uses the matplotlib pool
+            to identify.
         """
         import matplotlib.pyplot as plt
 
@@ -97,10 +124,12 @@ class ChiSquare:
                 plt.show()
 
     def to_file(self, namefile):
-        """ Saves the data to a file
+        """Saves the data to a file.
 
-        Parameters:
-            namefile (str): Filename to save the data
+        Parameters
+        ----------
+        namefile : `str`
+            Filename to save the data.
         """
         data = np.vstack(([self.data[i] for i in self._names]))
         np.savetxt(namefile, data.T, fmt='%11.5f')
@@ -110,17 +139,32 @@ class ChiSquare:
         f.close()
 
     def get_values(self, sigma=0.0, key=None):
-        """ Returns all values where the chi-square is within the n-th sigma
+        """Returns all values where the chi-square is within the nth sigma.
 
-        Parameters:
-            sigma (float, int): Value of sigma to cut values.
-            key (str): keyword the user desire to obtain results.
+        Parameters
+        ----------
+        sigma : `float`, `int`
+            Value of sigma to cut values.
 
-        Returns:
-            - if a key is given, it returns list with all the values that are within the n-sigma.
-            - if no key is given, it returns a dictionary with the list with all the values
-                that are within the n-sigma for all keys.
-            - if sigma is zero, it returns the parameters for the minimum chi-square instead of a list.
+        key : `str`
+            Keyword (parameter) that the user desires to obtain results of.
+
+        Returns
+        -------
+        list or dict : `list`, `dict`
+            List or dictionary with chi-square values within the nth sigma, the
+            average n-sigma value, and bondaries.
+
+        Note
+        ----
+        If a `key` is given, it returns a `list` with all the values that are within
+        the chosen n-sigma.
+
+        If no `key` is given, it returns a dictionary with the list with all the
+        values that are within the n-sigma for all keys.
+
+        If ``sigma=0``, it returns the parameters for the minimum chi-square
+        instead of a list.
         """
         values = {}
         if sigma == 0.0:

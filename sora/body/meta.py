@@ -10,33 +10,46 @@ __all__ = ['PhysicalData']
 
 
 class PhysicalData(u.Quantity):
-    """ Define PhysicalData with uncertainty, reference and notes.
-    It inherits from astropy.units.quantity.Quantity()
+    """Defines PhysicalData with uncertainty, reference and notes.
 
-    Parameters:
-        name (str): The name representing the corresponding physical parameter.
-        value (number, `~numpy.ndarray`, `Quantity` object (sequence), str):
-            The numerical value of this quantity in the units given by unit.  If a
-            `Quantity`  (or any other valid object with a ``unit`` attribute),
-            creates a new `Quantity` object, converting to `unit` units as needed.
-            If a string, it is converted to a number or `Quantity`, depending on
-            whether a unit is present.
-        uncertainty (number, `~numpy.ndarray`, `Quantity` object (sequence), str):
-            The numerical value of this quantity in the units given by unit.  If a
-            `Quantity` (or any other valid object with a ``unit`` attribute),
-            creates a new `Quantity` object, converting to `unit` units as needed.
-            If a string, it is converted to a number or `Quantity`, depending on
-            whether a unit is present. Default = 0.0
-        reference (str): A string stating the reference for the parameter value.
-            Default = "User"
-        notes (str): Any other important information about the physical parameter.
-            Default = ""
-        unit: `~astropy.units.UnitBase` instance, str
-            An object that represents the unit associated with the input value.
-            Must be an `~astropy.units.UnitBase` object or a string parseable by
-            the :mod:`~astropy.units` package. Default = "dimensionless"
-        raise_error (bool): If value=None, the function raise an error if
-            raise_error=True, else value is redefined to NaN.
+    Note
+    ----
+    It inherits from astropy.units.quantity.Quantity().
+
+    Parameters
+    ----------
+    name :`str`
+        The name representing the corresponding physical parameter.
+
+    value : `int`, `float`, `str`, `~numpy.ndarray`, `astropy.quantity.Quantity`
+        The numerical value of this quantity in the units given by unit.  If
+        a `Quantity`  (or any other valid object with a ``unit`` attribute),
+        creates a new `Quantity` object, converting to `unit` units as needed.
+        If a string, it is converted to a number or `Quantity`, depending on
+        whether a unit is present.
+
+    uncertainty : `int`, `float`, `str`, `~numpy.ndarray`, `astropy.quantity.Quantity`, default=0
+        The numerical value of this quantity in the units given by unit.  If
+        a `Quantity` (or any other valid object with a ``unit`` attribute),
+        creates a new `Quantity` object, converting to `unit` units as needed.
+        If a string, it is converted to a number or `Quantity`, depending on
+        whether a unit is present.
+
+    reference : `str`, default='User'
+        A string stating the reference for the parameter value.
+
+    notes : `str`, default=''
+        Any other important information about the physical parameter.
+
+    unit : `str`, `~astropy.units.UnitBase` instance, default='dimensionless'
+        An object that represents the unit associated with the input value. Must
+        be an `~astropy.units.UnitBase` object or a string parsable by the
+        :mod:`~astropy.units` package.
+
+    raise_error : `bool`, default=False
+        If ``value=None`` or ``raise_error=True`` the function raises an error,
+        else `value` is redefined to ``NaN``.
+
     """
 
     def __new__(cls, name, value, uncertainty=0.0, reference="User", notes="", unit=u.dimensionless_unscaled,

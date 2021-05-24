@@ -14,76 +14,163 @@ __all__ = ['PredictionTable']
 
 
 class PredictRow(Row):
-    """ An Astropy Row object modified for Prediction purposes.
+    """An Astropy Row object modified for Prediction purposes.
     """
+
     def plot_occ_map(self, **kwargs):
         """
-        Parameters:
-            radius (int,float): The radius of the shadow. If not given it uses saved value
+        Parameters
+        ----------
+        radius : `int`, `float`
+            The radius of the shadow. If not given it uses saved value.
 
-            nameimg (str): Change the name of the image saved.
-            path (str): Path to a directory where to save map.
-            resolution (int): Cartopy feature resolution. "1" means a resolution of "10m",
-                "2" a resolution of "50m" and "3" a resolution of "100m". Default = 2
-            states (bool): True to plot the state division of the countries. The states of
-                some countries will only be shown depending on the resolution.
-            zoom (int, float): Zooms in or out of the map.
-            centermap_geo (list): Center the map given coordinates in longitude and latitude.
-                It must be a list with two numbers. Default=None.
-            centermap_delta (list): Displace the center of the map given displacement
-                in X and Y, in km. It must be a list with two numbers. Default=None.
-            centerproj (list): Rotates the Earth to show occultation with the center
-                projected at a given longitude and latitude. It must be a list with two numbers
-            labels (bool): Plots text above and below the map with the occultation parameters.
-                Default=True.
-            meridians (int): Plots lines representing the meridians for given interval. Default=30 deg
-            parallels (int): Plots lines representing the parallels for given interval. Default=30 deg
-            sites (dict): Plots site positions in map. It must be a python dictionary where the key is
-                the name of the site, and the value is a list with longitude, latitude, delta_x,
-                delta_y and color. delta_x and delta_y are displacement, in km, from the point
-                of the site in the map and the name. color is the color of the point.
-            site_name (bool): If True, it prints the name of the sites given, else it plots only the points
-            countries (dict): Plots the names of countries. It must be a python dictionary where the key
-                is the name of the country and the value is a list with longitude and latitude
-                of the lower left part of the text.
-            offset (list): applies an offset to the ephemeris, calculating new CA and instant of CA.
-                It is a pair of delta_RA*cosDEC and delta_DEC.
-            mapstyle (int): Define the color style of the map. 1 is the default black and white scale.
-                2 is a colored map.
-            error (int,float): Ephemeris error in mas. It plots a dashed line representing radius + error.
-            ercolor (str): Changes the color of the lines of the error bar.
-            ring (int,float): It plots a dashed line representing the location of a ring.
-                It is given in km, from the center.
-            rncolor (str): Changes the color of ring lines.
-            atm (int,float): plots a dashed line representing the location of an atmosphere.
-                It is given in km, from the center.
-            atcolor (str): Changes the color of atm lines.
-            chord_delta (list): list with distances from center to plot chords
-            chord_geo (2d-list): list with pairs of coordinates to plot chords
-            chcolor (str): color of the line of the chords. Default: grey
-            heights (list): plots a circular dashed line showing the locations where the observer
-                would observe the occultation at a given height above the horizons.
-                This must be a list.
-            hcolor (str): Changes the color of the height lines.
-            mapsize (list): The size of figure, in cm. It must be a list with two values.
-                Default = [46.0, 38.0].
-            cpoints (int,float): Interval for the small points marking the center of shadow,
-                in seconds. Default=60.
-            ptcolor (str): Change the color of the center points.
-            alpha (float): The transparency of the night shade, where 0.0 is full transparency
-                and 1.0 is full black. Default = 0.2.
-            fmt (str): The format to save the image. It is parsed directly by matplotlib.pyplot.
-                Default = 'png'
-            dpi (int): "Dots per inch". It defines the quality of the image. Default = 100.
-            lncolor (str): Changes the color of the line that represents the limits of the shadow over Earth.
-            outcolor (str): Changes the color of the lines that represents the limits of the shadow outside Earth
-            nscale (int,float): Arbitrary scale for the size of the name of the site.
-            cscale (int,float): Arbitrary scale for the name of the country.
-            sscale (int,float): Arbitrary scale for the size of point of the site.
-            pscale (int,float): Arbitrary scale for the size of the points that represent the center of the shadow
-            arrow (bool): If true, it plots the arrow with the occultation direction.
+        nameimg : `str`
+            Change the name of the image saved.
 
-            Comment: Only one of centermap_geo and centermap_delta can be given
+        path : `str`
+            Path to a directory where to save map.
+
+        resolution : `int`, default=2
+        Cartopy feature resolution.\n
+        - ``1`` means a resolution of "10m";\n
+        - ``2`` a resolution of "50m";\n
+        - ``3`` a resolution of "100m".
+
+        states : `bool`
+            If True, plots the states borders of the countries. The states
+            of some countries will only be shown depending on the resolution.
+
+        zoom : `int`, `float`
+            Zooms in or out of the map.
+
+        centermap_geo : `list`, default=None
+            Center the map given coordinates in longitude and latitude. It must be
+            a list with two numbers.
+
+        centermap_delta : `list`, default=None
+            Displace the center of the map given displacement in X and Y, in km.
+            It must be a list with two numbers.
+
+        centerproj : `list`
+            Rotates the Earth to show occultation with the center projected at a
+            given longitude and latitude. It must be a list with two numbers.
+
+        labels : `bool`, default=True
+            Plots text above and below the map with the occultation parameters.
+
+        meridians : `int`, default=30
+            Plots lines representing the meridians for given interval, in degrees.
+
+        parallels : `int`, default=30
+            Plots lines representing the parallels for given interval, in degrees.
+
+        sites : `dict`
+            Plots site positions in map. It must be a python dictionary where the
+            key is  the `name` of the site, and the value is a list with `longitude`,
+            `latitude`, `delta_x`, `delta_y` and `color`. `delta_x` and `delta_y`
+            are displacement, in km, from the point position of the site in the map
+            and the `name`. `color` is the color of the point.
+
+        site_name : `bool`
+            If True, it prints the name of the sites given, else it plots only the points.
+
+        countries : `dict`
+            Plots the names of countries. It must be a python dictionary where the
+            key is the name of the country and the value is a list with longitude
+            and latitude of the lower left part of the text.
+
+        offset : `list`
+            Applies an offset to the ephemeris, calculating new CA and instant of
+            CA. It is a pair of `delta_RA*cosDEC` and `delta_DEC`.
+
+        mapstyle : `int`, default=1
+            Define the color style of the map. ``'1'`` is the default black
+            and white scale. ``'2'`` is a colored map.
+
+        error : `int`, `float`
+            Ephemeris error in mas. It plots a dashed line representing radius + error.
+
+        ercolor : `str`
+            Changes the color of the lines of the error bar.
+
+        ring : `int`, `float`
+            Plots a dashed line representing the location of a ring. It is given
+            in km, from the center.
+
+        rncolor : `str`
+            Changes the color of ring lines.
+
+        atm : `int`, `float`
+            Plots a dashed line representing the location of an atmosphere. It is
+            given in km, from the center.
+
+        atcolor : `str`
+            Changes the color of atm lines.
+
+        chord_delta : `list`
+            List with distances from center to plot chords.
+
+        chord_geo : `2d-list`
+            List with pairs of coordinates to plot chords.
+
+        chcolor : `str`, default='grey'
+            Color of the line of the chords.
+
+        heights : `list`
+            It plots a circular dashed line showing the locations where the observer
+            would observe the occultation at a given height above the horizons.
+            This must be a list.
+
+        hcolor : `str`
+            Changes the color of the height lines.
+
+        mapsize : `list`, default= [46.0, 38.0]
+            The size of figure, in cm. It must be a list with two values.
+
+        cpoints : `int`, `float`, default=60
+            Interval for the small points marking the center of shadow, in seconds.
+
+        ptcolor : `str`
+            Change the color of the center points.
+
+        alpha : `float`, default=0.2
+            The transparency of the night shade, where 0.0 is full transparency and
+            1.0 is full black.
+
+        fmt : `str`, default:'png'
+            The format to save the image. It is parsed directly by `matplotlib.pyplot`.
+
+        dpi : `int`, default=100
+            Resolution in "dots per inch". It defines the quality of the image.
+
+        lncolor : `str`
+            Changes the color of the line that represents the limits of the shadow
+            over Earth.
+
+        outcolor :`str`
+            Changes the color of the lines that represents the limits of the shadow
+            outside Earth.
+
+        scale : `int`, `float`
+            Arbitrary scale for the size of the name of the site.
+
+        cscale : `int`, `float`
+            Arbitrary scale for the name of the country.
+
+        sscale : `int`, `float`
+            Arbitrary scale for the size of point of the site.
+
+        pscale : `int`, `float`
+            Arbitrary scale for the size of the points that represent the center of
+            the shadow.
+
+        arrow : `bool`
+            If True, it plots the arrow with the occultation direction.
+
+
+        Note
+        ----
+        Only one of centermap_geo and centermap_delta can be given.
         """
         from .occmap import plot_occ_map
 
@@ -170,11 +257,15 @@ class PredictionTable(Table):
     def __itens_by_epoch(self, date):
         """ Gets item list for all occultations that matches the given date
 
-        Parameters:
-            date (str): date to match
+        Parameters
+        ----------
+        date : `str`
+            Date to match
 
-        Returns:
-            item (list): the list of occultations that matches the date
+        Returns
+        -------
+        item : `list`
+            The list of occultations that matches the date.
         """
         col = self['Epoch']
         arr = list([i for i, c in enumerate(col) if c.iso.startswith(date)])
@@ -195,17 +286,25 @@ class PredictionTable(Table):
 
     @classmethod
     def from_praia(cls, filename, name, **kwargs):
-        """ Creates a PredictionTable Table reading from a PRAIA table
+        """Creates a PredictionTable Table reading from a PRAIA table.
 
-        Parameters:
-            filename (str): path to the PRAIA table file.
-            name (str): Name of the Object of the prediction.
-            radius (int,float): Object radius, in km. (not required)
-                If not given it's searched in online database.
-                If not found online, the default is set to zero.
+        Parameters
+        ----------
+        filename : `str`
+            Path to the PRAIA table file.
 
-        Returns:
-            A PredictionTable
+        name : `str`
+            Name of the Object of the prediction.
+
+        radius : `int`, `float`, optional
+            Object radius, in km.
+            If not given it's searched in online database.
+            When not found online, the default is set to zero.
+
+        Returns
+        -------
+         : `sora.prediction.PredictionTable`
+            A PredictionTable object.
         """
         from sora.body.utils import search_satdb, search_sbdb
         if not os.path.isfile(filename):
@@ -271,10 +370,12 @@ class PredictionTable(Table):
                    long=dados['long'], loct=dados['loct'], meta=meta)
 
     def to_praia(self, filename):
-        """ Writes PredictionTable to PRAIA format.
+        """Writes PredictionTable to PRAIA format.
 
-        Parameters:
-            filename(str): name of the file to save table
+        Parameters
+        ----------
+        filename : `str`
+            Name of the file to save table.
         """
         from .values import praia_occ_head
         f = open(filename, 'w')
@@ -290,13 +391,17 @@ class PredictionTable(Table):
         f.close()
 
     def to_ow(self, ow_des, mode='append'):
-        """ Writes PredictionTable to OccultWatcher feeder update file format.
-            Tables will be saved in two files: "tableOccult_update.txt" and "LOG.dat"
+        """Writes PredictionTable to OccultWatcher feeder update file format.
+        Tables will be saved in two files: "tableOccult_update.txt" and "LOG.dat"
 
-        Parameters:
-            ow_des (str): Occult Watcher designation for the object.
-            mode (str): 'append' to append table to already existing file, default
-                'restart' to overwrite existing file.
+        Parameters
+        ----------
+        ow_des : `str`
+            Occult Watcher designation for the object.
+
+        mode : `str`, default='append'
+            Use ``'append'`` to append table to already existing file and
+            ``'restart'`` to overwrite existing file.
         """
         from .values import ow_occ_head
         modes = {'append': 'a+', 'restart': 'w'}
@@ -340,13 +445,16 @@ class PredictionTable(Table):
     plot_occ_map.__doc__ = PredictRow.plot_occ_map.__doc__
 
     def remove_occ(self, date):
-        """ Removes stellar occultations from table
+        """Removes stellar occultations from table.
 
-        Parameters:
-            date (str,list): Date or list of dates of the occultation to be removed.
-                The dates mut be as shown in the 'Epoch' column. If the date is not
-                complete, the function will select all occultations that matches the given string.
-                For instance, date='2020-06' will remove all occultations from the month of June 2020.
+        Parameters
+        ----------
+        date : `str`, `list`
+            Date or list of dates of the occultation to be removed.
+            The dates mut be as shown in the 'Epoch' column. If the date is not
+            complete, the function will select all occultations that matches the
+            given string. For instance, ``date='2020-06'`` will remove all
+            occultations from the month of June 2020.
         """
         if type(date) == str:
             date = [date]
@@ -354,13 +462,15 @@ class PredictionTable(Table):
         self.remove_rows(itens)
 
     def keep_from_selected_images(self, path='.'):
-        """ Keeps predictions which images were not deleted in given path
-            This function uses the name of the images to identify predictions.
-            The name must be the automatic one generated by plot_occ_map().
-            The format of the image is not relevant.
+        """Keeps predictions which images were not deleted in given path.
+        This function uses the name of the images to identify predictions.
+        The name must be the automatic one generated by plot_occ_map().
+        The format of the image is not relevant.
 
-        Parameters:
-            path (str): path where images are located
+        Parameters
+        ----------
+        path : `str`
+            Path where images are located.
         """
         itens = []
         for i, tca in enumerate(self['Epoch']):
