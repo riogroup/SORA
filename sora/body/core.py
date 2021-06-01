@@ -2,7 +2,7 @@ import warnings
 
 import astropy.units as u
 import numpy as np
-from astropy.coordinates import SkyCoord, Longitude, Latitude, get_sun
+from astropy.coordinates import SkyCoord, Longitude, Latitude
 from astropy.time import Time
 
 from sora.config import input_tests
@@ -234,7 +234,7 @@ class Body(BaseBody):
                               "Tholen": {"value": None, "reference": None, "notes": None}}
         self.discovery = ""
 
-    def get_pole_position_angle(self, time):
+    def get_pole_position_angle(self, time, observer='geocenter'):
         """Returns the pole position angle and the aperture angle relative to
         the geocenter.
 
@@ -243,6 +243,10 @@ class Body(BaseBody):
         time : `str`, `astropy.time.Time`
             Time from which to calculate the position.
             It can be a string in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        observer : `str`, `sora.Observer`, `sora.Spacecraft`
+            IAU code of the observer (must be present in given list of kernels),
+            a SORA observer object or a string: ['geocenter', 'barycenter']
 
         Returns
         -------
@@ -253,7 +257,7 @@ class Body(BaseBody):
         pole = self.pole
         if np.isnan(pole.ra):
             raise ValueError("Pole coordinates are not defined")
-        obj = self.ephem.get_position(time)
+        obj = self.ephem.get_position(time, observer=observer)
         position_angle = obj.position_angle(pole).rad*u.rad
         aperture_angle = np.arcsin(
             -(np.sin(pole.dec)*np.sin(obj.dec) +
@@ -261,7 +265,7 @@ class Body(BaseBody):
             )
         return position_angle.to('deg'), aperture_angle.to('deg')
 
-    def apparent_magnitude(self, time):
+    def apparent_magnitude(self, time, observer='geocenter'):
         """Calculates the object's apparent magnitude.
 
         Parameters
@@ -269,6 +273,10 @@ class Body(BaseBody):
         time :  `str`, `astropy.time.Time`
             Reference time to calculate the object's apparent magnitude.
             It can be a string in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        observer : `str`, `sora.Observer`, `sora.Spacecraft`
+            IAU code of the observer (must be present in given list of kernels),
+            a SORA observer object or a string: ['geocenter', 'barycenter']
 
         Returns
         -------
@@ -280,8 +288,17 @@ class Body(BaseBody):
         time = Time(time)
 
         if np.isnan(self.H) or np.isnan(self.G):
+            from sora.observer import Observer, Spacecraft
             warnings.warn('H and/or G is not defined for {}. Searching into JPL Horizons service'.format(self.shortname))
-            obj = Horizons(id=self._search_name, id_type=self._id_type, location='geo', epochs=time.jd)
+            origins = {'geocenter': '@399', 'barycenter': '@0'}
+            location = origins.get(observer)
+            if not location and isinstance(observer, str):
+                location = observer
+            if isinstance(observer, (Observer, Spacecraft)):
+                location = f'{getattr(observer, "code", "")}@{getattr(observer, "spkid", "")}'
+            if not location:
+                raise ValueError("observer must be 'geocenter', 'barycenter' or an observer object.")
+            obj = Horizons(id=self._search_name, id_type=self._id_type, location=location, epochs=time.jd)
             eph = obj.ephemerides(extra_precision=True)
             if 'H' in eph.keys():
                 self.H = eph['H'][0]
@@ -294,10 +311,8 @@ class Body(BaseBody):
                 return eph['V'].tolist()
 
         else:
-            obs_obj = self.ephem.get_position(time)
-            obs_sun = get_sun(time)
-            sun_obj = SkyCoord(obs_obj.cartesian - obs_sun.cartesian)
-            sun_obj.representation_type = 'spherical'
+            obs_obj = self.ephem.get_position(time, observer=observer)
+            sun_obj = self.ephem.get_position(time, observer='10')
 
             # Calculates the phase angle between the 2-vectors
             unit_vector_1 = -obs_obj.cartesian.xyz / np.linalg.norm(obs_obj.cartesian.xyz)

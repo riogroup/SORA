@@ -6,7 +6,7 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
 from sora.config import input_tests
-from sora.config.decorators import deprecated_alias
+from sora.config.decorators import deprecated_alias, deprecated_function
 from .meta import MetaStar
 from .utils import search_star, van_belle, kervella, spatial_motion, choice_star
 
@@ -385,39 +385,20 @@ class Star(MetaStar):
         if len(errors) > 0 and self._verbose:
             print('Magnitudes in {} were not located in NOMAD'.format(errors))
 
+    # remove this block for v1.0
+    @deprecated_function(message="Please use get_position(time=time, observer='geocenter')")
     def geocentric(self, time):
-        """Calculates the position of the star, propagating the position using
-        parallax and proper motion.
+        """ Calculates the position of the star, propagating the position using parallax and proper motion
 
         Parameters
         ----------
-        time : `float, `astropy.time.Time`
+        time : `str`, `astropy.time.Time`
             Reference time to apply proper motion and calculate parallax. It can be a string
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
         """
-        from astropy.coordinates import get_sun, SphericalRepresentation, SkyOffsetFrame, ICRS
+        return self.get_position(time=time, observer='geocenter')
 
-        try:
-            time = Time(time)
-        except:
-            time = Time(time, format='jd', scale='utc')
-        n_coord = self.barycentric(time)
-        if self.coord.distance.unit.is_unity() or np.isnan(self.coord.distance):
-            g_coord = n_coord
-        else:
-            sun = get_sun(time)
-            g_coord = SkyCoord(*(n_coord.cartesian.xyz + sun.cartesian.xyz),
-                               representation_type='cartesian')
-            g_coord = g_coord.represent_as(SphericalRepresentation)
-            g_coord = SkyCoord(g_coord.lon, g_coord.lat, g_coord.distance)
-
-        if hasattr(self, 'offset'):
-            star_frame = SkyOffsetFrame(origin=g_coord)
-            new_pos = SkyCoord(lon=self.offset.d_lon_coslat, lat=self.offset.d_lat, frame=star_frame)
-            return new_pos.transform_to(ICRS)
-
-        return g_coord
-
+    @deprecated_function(message="Please use get_position(time=time, observer='barycenter')")
     def barycentric(self, time):
         """Calculates the position of the star using proper motion.
 
@@ -427,13 +408,66 @@ class Star(MetaStar):
             Reference time to apply proper motion. It can be a string
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
         """
+        return self.get_position(time=time, observer='barycenter')
+    # end of block removal
+
+    def get_position(self, time, observer='geocenter'):
+        """Calculates the position of the star for given observer,
+        propagating the position using parallax and proper motion
+
+        Parameters
+        ----------
+        time : `float`, `astropy.time.Time`
+            Reference time to apply proper motion and calculate parallax. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        observer : `str`, `sora.observer.Observer`, `sora.observer.Spacecraft`
+            Observer of the star t calculate position. It can be 'geocenter' for a geocentric
+            coordinate, 'barycenter' for a barycenter coordinate, or a sora observer object.
+
+        Returns
+        -------
+        coord : `astropy.coordinates.SkyCoord`
+            Astropy SkyCoord object with the star coordinates at the given time.
+        """
+        from astropy.coordinates import SphericalRepresentation, SkyOffsetFrame, ICRS
+        from sora import Observer, Spacecraft
+
         try:
             time = Time(time)
         except:
             time = Time(time, format='jd', scale='utc')
+        if observer not in ['geocenter', 'barycenter'] and not isinstance(observer, (Observer, Spacecraft)):
+            raise ValueError("'observer' must be an Observer object or one of the following"
+                             " strings: ['geocenter', 'barycenter]")
+
+        def apply_offset(coord):
+            if not hasattr(self, 'offset'):
+                return coord
+            star_frame = SkyOffsetFrame(origin=coord)
+            new_pos = SkyCoord(lon=self.offset.d_lon_coslat, lat=self.offset.d_lat, frame=star_frame)
+            p = new_pos.transform_to(ICRS)
+            return SkyCoord(ra=p.ra, dec=p.dec, distance=p.distance)
+
         dt = time - self.epoch
-        n_coord = spatial_motion(self.ra, self.dec, self.pmra, self.pmdec, self.parallax, self.rad_vel, dt=dt.jd)
-        return n_coord
+        if not time.isscalar:
+            if time.max() - time.min() > 1*u.day:
+                raise ValueError('list of times must be in a interval of 1 day to process.')
+            dt = dt[0]
+        bar_star = spatial_motion(self.ra, self.dec, self.pmra, self.pmdec, self.parallax, self.rad_vel, dt=dt.jd)
+
+        if observer == "barycenter" or self.coord.distance.unit.is_unity() or np.isnan(self.coord.distance):
+            return apply_offset(bar_star)
+
+        if observer == "geocenter":
+            observer = Observer(code='500', ephem='horizons')
+
+        bar_obs = observer.get_vector(time=time, origin='barycenter')
+
+        topo = bar_star.cartesian - bar_obs.cartesian
+        topo = topo.represent_as(SphericalRepresentation)
+        topo = SkyCoord(topo.lon, topo.lat, topo.distance)
+        return apply_offset(topo)
 
     def error_at(self, time):
         """Estimates the star position error at a given time.
