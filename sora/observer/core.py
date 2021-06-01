@@ -5,7 +5,7 @@ from astropy.time import Time
 from sora.config import input_tests
 from .utils import search_code_mpc
 
-__all__ = ['Observer']
+__all__ = ['Observer', 'Spacecraft']
 
 
 class Observer:
@@ -36,6 +36,10 @@ class Observer:
     height : `int`, `float`
         The height of the site in meters above see level.
 
+    ephem : `str`, `list`
+        The ephemeris used to locate the observer on space.
+        It can be "horizons" to use horizons or a list of kernels
+
 
     Examples
     --------
@@ -63,7 +67,7 @@ class Observer:
 
     def __init__(self, **kwargs):
 
-        input_tests.check_kwargs(kwargs, allowed_kwargs=['code', 'height', 'lat', 'lon', 'name', 'site'])
+        input_tests.check_kwargs(kwargs, allowed_kwargs=['code', 'height', 'lat', 'lon', 'name', 'site', 'ephem'])
         self.__name = kwargs.get('name', '')
         if 'code' in kwargs and any(i in kwargs for i in ['lon', 'lat', 'height']):
             raise ValueError("The Observer object is instantiated with IAU code or coordinates, not both.")
@@ -80,6 +84,7 @@ class Observer:
             self.site = EarthLocation(kwargs['lon'], kwargs['lat'], kwargs.get('height', 0.0))
         else:
             raise ValueError('Input parameters could not be determined')
+        self.ephem = kwargs.get('ephem', 'horizons')
 
     def get_ksi_eta(self, time, star):
         """Calculates relative position to star in the orthographic projection.
@@ -178,6 +183,38 @@ class Observer:
         ephem_altaz = coord.transform_to(AltAz(obstime=time, location=self.site))
         return ephem_altaz.alt.deg, ephem_altaz.az.deg
 
+    def get_vector(self, time, origin='barycenter'):
+        """Return the vector Origin -> Observer in the ICRS
+
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to calculate the object position. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        origin : `str`
+            Origin of vector. It can be 'barycenter' or 'geocenter'.
+
+        Returns
+        -------
+        coord : `astropy.coordinates.SkyCoord`
+            Astropy SkyCoord object with the vector origin -> observer at the given time.
+        """
+        from sora.ephem.utils import ephem_horizons, ephem_kernel
+
+        itrs = self.site.get_itrs(obstime=time)
+        gcrs = itrs.transform_to(GCRS(obstime=time))
+
+        if self.ephem == 'horizons':
+            vector = ephem_horizons(time=time, target=self.spkid, observer=origin, id_type='majorbody', output='vector')
+        else:
+            vector = ephem_kernel(time=time, target=self.spkid, observer=origin, kernels=self.ephem, output='vector')
+
+        topo = SkyCoord(vector.cartesian + gcrs.cartesian, representation_type='cartesian')
+        if not topo.isscalar and len(topo) == 1:
+            topo = topo[0]
+        return topo
+
     @property
     def name(self):
         return self.__name
@@ -215,6 +252,15 @@ class Observer:
         site = EarthLocation(lon, lat, height)
         self.site = site
 
+    @property
+    def spkid(self):
+        return '399'
+
+    def __repr__(self):
+        """String representation of the Observer Class
+        """
+        return '<{}: {}>'.format(self.__class__.__name__, self.name)
+
     def __str__(self):
         """ String representation of the Observer class
         """
@@ -224,3 +270,77 @@ class Observer:
                    self.site.height.to(u.km))
                )
         return out
+
+
+class Spacecraft:
+    """Defines a spacecraft observer object.
+
+    Attributes
+    ----------
+    name : `str`
+        Name for the Observer. Observer is uniquely defined (name must be
+        different for each observer).
+
+    spkid : `str`, required
+        `spkid` of the targeting object.
+
+    ephem : `str`, `list`
+        The ephemeris used to locate the observer on space.
+        It can be "horizons" to use horizons or a list of kernels
+
+    """
+
+    def __init__(self, name, spkid, ephem='horizons'):
+        self._name = name
+        self._spkid = spkid
+        self._ephem = ephem
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def spkid(self):
+        return self._spkid
+
+    @property
+    def ephem(self):
+        return self._ephem
+
+    def get_vector(self, time, origin='barycenter'):
+        """Return the vector Origin -> Observer in the ICRS
+
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to calculate the object position. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        origin : `str`
+            Origin of vector. It can be 'barycenter' or 'geocenter'.
+
+        Returns
+        -------
+        coord : `astropy.coordinates.SkyCoord`
+            Astropy SkyCoord object with the vector origin -> observer at the given time.
+        """
+        from sora.ephem.utils import ephem_horizons, ephem_kernel
+        time = Time(time)
+
+        if self.ephem == 'horizons':
+            vector = ephem_horizons(time=time, target=self.spkid, observer=origin, id_type='majorbody', output='vector')
+        else:
+            vector = ephem_kernel(time=time, target=self.spkid, observer=origin, kernels=self.ephem, output='vector')
+        return vector
+
+    def __repr__(self):
+        """String representation of the Spacecraft Class
+        """
+        return '<{}: {}>'.format(self.__class__.__name__, self.name)
+
+    def __str__(self):
+        """ String representation of the Spacecraft class
+        """
+        out = ['Spacecraft: {} (spkid={})'.format(self.name, self.spkid),
+               'Positions from {}'.format(str(self.ephem))]
+        return '\n'.join(out)

@@ -1,4 +1,4 @@
 from .utils import *
 from .core import *
 
-__all__ = ['Observer']
+__all__ = ['Observer', 'Spacecraft']
