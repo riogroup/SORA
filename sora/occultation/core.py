@@ -35,6 +35,12 @@ class Occultation:
         needs to be within approximately 50 minutes of the occultation closest
         approach to calculate occultation parameters.
 
+    reference_center : `str`, `sora.Observer`, `sora.Spacecraft`
+        A SORA observer object or a string 'geocenter'.
+        The occultation parameters will be calculated in respect
+        to this reference as center of projection.
+
+
     Important
     ---------
     When instantiating with "body" and "ephem", the user may define the
@@ -50,8 +56,7 @@ class Occultation:
     body in the Small Body Database.
 
     """
-
-    def __init__(self, star, body=None, ephem=None, time=None):
+    def __init__(self, star, body=None, ephem=None, time=None, reference_center='geocenter'):
 
         from sora.body import Body
         from sora.star import Star
@@ -84,8 +89,9 @@ class Occultation:
             ephem = self.body.ephem
         except AttributeError:
             raise ValueError('An Ephem object must be defined in Body object.')
+        self._reference_center = reference_center
 
-        tca, ca, pa, vel, dist = occ_params(self.star, ephem, time)
+        tca, ca, pa, vel, dist = occ_params(self.star, ephem, time, reference_center=reference_center)
         self.ca = ca   # Closest Approach distance
         self.pa = pa   # Position Angle at CA
         self.vel = vel  # Shadow velocity at CA
@@ -97,9 +103,10 @@ class Occultation:
             'name': self.body.name, 'radius': self.body.radius.to(u.km).value,
             'error_ra': self.body.ephem.error_ra.to(u.mas).value, 'error_dec': self.body.ephem.error_dec.to(u.mas).value}
         self.predict = PredictionTable(
-            time=[tca], coord_star=[self.star.geocentric(tca)],
-            coord_obj=[self.body.ephem.get_position(tca)], ca=[ca.value], pa=[pa.value], vel=[vel.value],
-            dist=[dist.value], mag=[self.star.mag['G']], source=[self.star.code], meta=meta)
+            time=[tca], coord_star=[self.star.get_position(tca, observer=reference_center)],
+            coord_obj=[self.body.ephem.get_position(tca, observer=reference_center)],
+            ca=[ca.value], pa=[pa.value], vel=[vel.value], dist=[dist.value],
+            mag=[self.star.mag['G']], source=[self.star.code], meta=meta)
 
         self.__observations = []
         self._chords = ChordList(star=self.star, body=self._body, time=self.tca)
@@ -351,7 +358,7 @@ class Occultation:
                       format(np.abs(np.dot(np.array(vals[2:]), delta)/np.linalg.norm(delta))))
 
     @deprecated_alias(log='verbose')  # remove this line in v1.0
-    def new_astrometric_position(self, time=None, offset=None, error=None, verbose=True):
+    def new_astrometric_position(self, time=None, offset=None, error=None, verbose=True, observer=None):
         """Calculates the new astrometric position for the object given fitted parameters.
 
         Parameters
@@ -387,6 +394,10 @@ class Occultation:
 
         verbose : `bool`
             If true, it Prints text, else it Returns text.
+
+        observer : `str`, `sora.Observer`, `sora.Spacecraft`
+            IAU code of the observer (must be present in given list of kernels),
+            a SORA observer object or a string: ['geocenter', 'barycenter']
         """
         from astropy.coordinates import SkyCoord, SkyOffsetFrame
 
@@ -438,9 +449,12 @@ class Occultation:
             e_off_dec = 0.0*u.mas
             e_dist = False
 
-        coord_geo = self.body.ephem.get_position(time)
-        distance = coord_geo.distance.to(u.km)
-        coord_frame = SkyOffsetFrame(origin=coord_geo)
+        if observer is None:
+            observer = self._reference_center
+
+        coord = self.body.ephem.get_position(time, observer=observer)
+        distance = coord.distance.to(u.km)
+        coord_frame = SkyOffsetFrame(origin=coord)
         if dist:
             off_ra = np.arctan2(off_ra, distance)
             off_dec = np.arctan2(off_dec, distance)
@@ -459,7 +473,7 @@ class Occultation:
             distance*np.sin(off_dec.to(u.mas)).value, distance*np.sin(e_off_dec.to(u.mas)).value)
         out += 'Ephemeris offset (mas): da_cos_dec = {:.3f} +/- {:.3f}; d_dec = {:.3f} +/- {:.3f}\n'.format(
             off_ra.to(u.mas).value, e_off_ra.to(u.mas).value, off_dec.to(u.mas).value, e_off_dec.to(u.mas).value)
-        out += '\nAstrometric object position at time {}\n'.format(time.iso)
+        out += '\nAstrometric object position at time {} for reference {}\n'.format(time.iso, observer.__repr__())
         out += 'RA = {} +/- {:.3f} mas; DEC = {} +/- {:.3f} mas'.format(
             new_pos.ra.to_string(u.hourangle, precision=7, sep=' '), error_ra.to(u.mas).value,
             new_pos.dec.to_string(u.deg, precision=6, sep=' '), error_dec.to(u.mas).value)
@@ -470,7 +484,7 @@ class Occultation:
             return out
 
     # remove this block for v1.0
-    @deprecated_function(message="Please use chords.plot_chord to have a better control of the plots")
+    @deprecated_function(message="Please use chords.plot_chords to have a better control of the plots")
     def plot_chords(self, all_chords=True, positive_color='blue', negative_color='green', error_color='red',
                     ax=None, lw=2):
         """Plots the chords of the occultation.
@@ -736,17 +750,16 @@ class Occultation:
     def __str__(self):
         """ String representation of the Occultation class
         """
-        out = ('Stellar occultation of star Gaia-DR2 {} by {}.\n\n'
+        out = ('Stellar occultation of star {} {} by {}.\n\n'
                'Geocentric Closest Approach: {:.3f}\n'
                'Instant of CA: {}\n'
                'Position Angle: {:.2f}\n'
                'Geocentric shadow velocity: {:.2f}\n'
                'Sun-Geocenter-Target angle:  {:.2f} deg\n'
                'Moon-Geocenter-Target angle: {:.2f} deg\n\n\n'.format(
-                   self.star.code, self.body.name, self.ca, self.tca.iso,
-                   self.pa, self.vel, self.predict['S-G-T'].data[0],
-                   self.predict['M-G-T'].data[0])
-               )
+            self.star._catalogue, self.star.code, self.body.name, self.ca, self.tca.iso,
+            self.pa, self.vel, self.predict['S-G-T'].data[0], self.predict['M-G-T'].data[0])
+        )
 
         count = {'positive': 0, 'negative': 0, 'visual': 0}
         string = {'positive': '', 'negative': '', 'visual': ''}
@@ -766,7 +779,7 @@ class Occultation:
         out += '#'*79 + '\n{:^79s}\n'.format('STAR') + '#'*79 + '\n'
         out += self.star.__str__() + '\n\n'
 
-        coord = self.star.geocentric(self.tca)
+        coord = self.star.get_position(self.tca, observer=self._reference_center)
         try:
             error_star = self.star.error_at(self.tca)
         except:

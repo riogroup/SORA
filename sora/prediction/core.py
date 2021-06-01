@@ -7,14 +7,14 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
 from sora.body import Body
-from sora.ephem import EphemKernel, EphemJPL, EphemPlanete, EphemHorizons
+from sora.ephem.meta import BaseEphem
 from sora.star import Star
 from sora.config.decorators import deprecated_alias
 
 __all__ = ['occ_params', 'prediction']
 
 
-def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
+def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None, reference_center='geocenter'):
     """Calculates the parameters of the occultation, as instant, CA, PA.
 
     Parameters
@@ -37,6 +37,11 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
         Maximum difference from given time it will attempt to identify the
         occultation, in minutes. If given, 'n_recursions' is ignored.
 
+    reference_center : `str`, `sora.Observer`, `sora.Spacecraft`
+            A SORA observer object or a string 'geocenter'.
+            The occultation parameters will be calculated in respect
+            to this reference as center of projection.
+
     Returns
     -------
      Oredered list : `list`
@@ -46,19 +51,24 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
         - vel (km/s): Velocity of the occultation.\n
         - dist (AU): the object geocentric distance.\n
     """
+    from sora.ephem import EphemPlanete
+    from sora.observer import Observer, Spacecraft
+    from astropy.coordinates import SkyOffsetFrame
 
     n_recursions = int(n_recursions)
     n_iter = n_recursions
     if type(star) != Star:
         raise ValueError('star must be a Star object')
-    if type(ephem) not in [EphemKernel, EphemJPL, EphemPlanete, EphemHorizons]:
+    if not isinstance(ephem, BaseEphem):
         raise ValueError('ephem must be an Ephemeris object')
+    if reference_center != 'geocenter' and not isinstance(reference_center, (Observer, Spacecraft)):
+        raise ValueError('reference_center must be "geocenter" or an observer object.')
 
     time = Time(time)
-    coord = star.geocentric(time)
+    pos_star = star.get_position(time=time, observer=reference_center)
 
-    if type(ephem) == EphemPlanete:
-        ephem.fit_d2_ksi_eta(coord, verbose=False)
+    if isinstance(ephem, EphemPlanete):
+        ephem.fit_d2_ksi_eta(star=pos_star, verbose=False)
 
     def calc_min(time0, time_interval, delta_t, n_recursions=5, max_tdiff=None):
         if max_tdiff is not None:
@@ -68,8 +78,9 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
         if n_recursions == 0:
             raise ValueError('Occultation is farther than {} min from given time'.format(n_iter*time_interval/60))
         tt = time0 + np.arange(-time_interval, time_interval, delta_t)*u.s
-        ksi, eta = ephem.get_ksi_eta(tt, coord)
-        dd = np.sqrt(ksi*ksi+eta*eta)
+        pos_ephem = ephem.get_position(time=tt, observer=reference_center)
+        _, f, g, = - pos_ephem.transform_to(SkyOffsetFrame(origin=pos_star)).cartesian.xyz.to(u.km).value
+        dd = np.sqrt(f*f+g*g)
         min = np.argmin(dd)
         if min < 2:
             return calc_min(time0=tt[0], time_interval=time_interval, delta_t=delta_t,
@@ -78,32 +89,34 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None):
             return calc_min(time0=tt[-1], time_interval=time_interval, delta_t=delta_t,
                             n_recursions=n_recursions-1, max_tdiff=max_tdiff)
 
-        ksi, eta = ephem.get_ksi_eta(tt[min], coord)
-        dd = np.sqrt(ksi*ksi+eta*eta)
-        dist = ephem.get_position(tt[min]).distance
-        ca = np.arcsin(dd*u.km/dist).to(u.arcsec)
-        pa = (np.arctan2(ksi, eta)*u.rad).to(u.deg)
-        if pa < 0*u.deg:
-            pa = pa + 360*u.deg
+        return tt[min]
 
-        ksi2, eta2 = ephem.get_ksi_eta(tt[min]+1*u.s, coord)
-        dksi = ksi2-ksi
-        deta = eta2-eta
-        vel = np.sqrt(dksi**2 + deta**2)/1
-        vel = vel*np.sign(dksi)*(u.km/u.s)
+    tmin = calc_min(time0=time, time_interval=900, delta_t=20, n_recursions=4, max_tdiff=max_tdiff)
+    tmin = calc_min(time0=tmin, time_interval=20, delta_t=0.5, n_recursions=4, max_tdiff=max_tdiff)
+    tmin = calc_min(time0=tmin, time_interval=1, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
 
-        return tt[min], ca, pa, vel, dist.to(u.AU)
+    pos_ephem = ephem.get_position(time=tmin, observer=reference_center)
+    _, f, g, = - pos_ephem.transform_to(SkyOffsetFrame(origin=pos_star)).cartesian.xyz.to(u.km).value
+    dd = np.sqrt(f * f + g * g)
+    dist = pos_ephem.distance
+    ca = np.arcsin(dd * u.km / dist).to(u.arcsec)
+    pa = (np.arctan2(-f, -g) * u.rad).to(u.deg)
+    if pa < 0 * u.deg:
+        pa = pa + 360 * u.deg
 
-    if isinstance(ephem, (EphemJPL, EphemHorizons)):
-        tmin = calc_min(time0=time, time_interval=600, delta_t=4, n_recursions=5, max_tdiff=max_tdiff)[0]
-        return calc_min(time0=tmin, time_interval=8, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
-    else:
-        return calc_min(time0=time, time_interval=600, delta_t=0.02, n_recursions=5, max_tdiff=max_tdiff)
+    pos_ephem = ephem.get_position(time=tmin + 1 * u.s, observer=reference_center)
+    _, f2, g2, = - pos_ephem.transform_to(SkyOffsetFrame(origin=pos_star)).cartesian.xyz.to(u.km).value
+    df = f2 - f
+    dg = g2 - g
+    vel = np.sqrt(df ** 2 + dg ** 2) / 1
+    vel = vel * np.sign(dg) * (u.km / u.s)
+
+    return tmin, ca, pa, vel, dist.to(u.AU)
 
 
 @deprecated_alias(log='verbose')  # remove this line in v1.0
 def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='gaiaedr3', step=60, divs=1, sigma=1,
-               radius=None, verbose=True):
+               radius=None, verbose=True, reference_center='geocenter'):
     """Predicts stellar occultations.
 
     Parameters
@@ -120,6 +133,8 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
 
     ephem : `sora.Ephem`, default=None
         object ephemeris. It must be an Ephemeris object.
+        If using a EphemHorizons object, please use 'divs' to make division
+        at most a month, or a timeout error may be raised by the Horizon query.
 
     mag_lim : `int`, `float`, default=None
         Faintest Gmag allowed in the search.
@@ -143,6 +158,14 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
     verbose : `bool`, default=True
         To show what is being done at the moment.
 
+    reference_center : `str`, `sora.Observer`, `sora.Spacecraft`
+        A SORA observer object or a string 'geocenter'.
+        The occultation parameters will be calculated in respect
+        to this reference as center of projection. If a Spacecraft
+        is used, please use smaller step since the search will be based
+        on the target size and ephemeris error only.
+
+
     Important
     ---------
     When instantiating with "body" and "ephem", the user may call the function
@@ -163,7 +186,11 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         PredictionTable with the occultation params for each event.
     """
     from astroquery.vizier import Vizier
+    from sora.observer import Observer, Spacecraft
     from .table import PredictionTable
+
+    if reference_center != 'geocenter' and not isinstance(reference_center, (Observer, Spacecraft)):
+        raise ValueError('reference_center must be "geocenter" or an observer object.')
 
     # generate ephemeris
     if body is None and ephem is None:
@@ -172,15 +199,13 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         if not isinstance(body, (str, Body)):
             raise ValueError('"body" must be a string with the name of the object or a Body object')
         if isinstance(body, str):
-            body = Body(name=body, mode='sbdb')
+            body = Body(name=body)
     if ephem is not None:
         if body is not None:
             body.ephem = ephem
             ephem = body.ephem
     else:
         ephem = body.ephem
-    if not isinstance(ephem, EphemKernel):
-        raise TypeError('At the moment prediction only works with EphemKernel')
     time_beg = Time(time_beg)
     time_end = Time(time_end)
     intervals = np.round(np.linspace(0, (time_end-time_beg).sec, divs+1))
@@ -209,7 +234,9 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
             radius = 0
     radius = u.Quantity(radius, unit=u.km)
 
-    radius_search = radius + const.R_earth
+    radius_search = radius
+    if reference_center == 'geocenter':
+        radius_search = radius_search + const.R_earth
 
     if verbose:
         print('Ephemeris was split in {} parts for better search of stars'.format(divs))
@@ -222,7 +249,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         if verbose:
             print('\nSearching occultations in part {}/{}'.format(i+1, divs))
             print("Generating Ephemeris between {} and {} ...".format(nt.min(), nt.max()))
-        ncoord = ephem.get_position(nt)
+        ncoord = ephem.get_position(time=nt, observer=reference_center)
         ra = np.mean([ncoord.ra.min().deg, ncoord.ra.max().deg])
         dec = np.mean([ncoord.dec.min().deg, ncoord.dec.max().deg])
         mindist = (np.arcsin(radius_search/ncoord.distance).max() +
@@ -260,10 +287,10 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
                         pmra=catalogue['pmRA'][ev]*u.mas/u.year, pmdec=catalogue['pmDE'][ev]*u.mas/u.year,
                         parallax=catalogue['Plx'][ev]*u.mas, rad_vel=catalogue[columns[6]][ev]*u.km/u.s,
                         epoch=Time(catalogue['Epoch'][ev], format='jyear'), local=True, nomad=False, verbose=False)
-            c = star.geocentric(nt[idx][ev])
+            c = star.get_position(time=nt[idx][ev], observer=reference_center)
             pars = [star.code, SkyCoord(c.ra, c.dec), catalogue['Gmag'][ev]]
             try:
-                pars = np.hstack((pars, occ_params(star, ephem, nt[idx][ev])))
+                pars = np.hstack((pars, occ_params(star, ephem, nt[idx][ev], reference_center=reference_center)))
                 occs.append(pars)
             except:
                 pass
@@ -278,10 +305,10 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
     # create astropy table with the params
     occs2 = np.transpose(occs)
     time = Time(occs2[3])
-    geocentric = SkyCoord([ephem.get_position(time)])
+    obj_pos = SkyCoord([ephem.get_position(time=time, observer=reference_center)])
     k = np.argsort(time)
     t = PredictionTable(
-        time=time[k], coord_star=occs2[1][k], coord_obj=geocentric[k], ca=[i.value for i in occs2[4][k]],
+        time=time[k], coord_star=occs2[1][k], coord_obj=obj_pos[k], ca=[i.value for i in occs2[4][k]],
         pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
         dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
     if verbose:
