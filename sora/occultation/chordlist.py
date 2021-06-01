@@ -35,8 +35,9 @@ class ChordList(List):
         self._star = star
         self._body = body
         self._time = time
-        self._shared_with = {"chord": {"star": self._star.geocentric(time), "ephem": self._body.ephem, "time": self._time},
+        self._shared_with = {"chord": {"star": self._star, "ephem": self._body.ephem, "time": self._time},
                              'occultation': {}}
+        self._method_value = 'geocenter'
 
     def add_chord(self, *, name=None, chord=None, observer=None, lightcurve=None):
         """Add a chord to the occultation chord list
@@ -96,7 +97,21 @@ class ChordList(List):
         except:
             chord.lightcurve.bottom_flux = 0.0
             warnings.warn('Magnitude drop was not calculated. Using bottom flux as 0.0.')
+        chord._method = self._method
         return chord
+
+    # This attribute is to modify the way to calculate f and g on chord.
+    @property
+    def _method(self):
+        return self._method_value
+
+    @_method.setter
+    def _method(self, value):
+        if value not in ['geocenter', 'observer']:
+            raise ValueError('method must be "geocenter" or "observer"')
+        self._method_value = value
+        for name, chord in self.items():
+            chord._method = value
 
     def remove_chord(self, *, name):
         """Remove a chord from the chord list and disassociate it from the Occultation.
