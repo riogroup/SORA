@@ -39,6 +39,15 @@ sora.lightcurve
 sora.observer
 ^^^^^^^^^^^^^
 
+- New Spacecraft class developed to handle the geometry of a spacecraft observation.
+  To use it,it is necessary a spkid and ephemeris. Ex:
+  `spacecraft = Spacecraft(name='New Horizons', spkid='-98', ephem='horizons')`. [#63]
+
+- The Observer class was updated to have an ephemeris as well. [#63]
+
+- Now the observer can be passed as parameter to `Ephem*.get_position(observer=observer)`,
+  `Star.get_position()`, `Body.get_pole_position_angle()` and `Body.apparent_magnitude()`. [#63]
+
 sora.occultation
 ^^^^^^^^^^^^^^^^
 
@@ -64,6 +73,8 @@ sora.occultation
 - New function fiter_negative_chord() that compares the ChiSquare from an Ellipse fitting with the chords
   and remove the solutions that would cross a negative chord [#60]
 
+- New method to calculate the "f" and "g" positions for observers without referring to the geocenter. [#63]
+
 sora.prediction
 ^^^^^^^^^^^^^^^
 
@@ -74,12 +85,17 @@ sora.prediction
 
 - Fixed bug when plotting the heights in the map in a rotated projection. [#54]
 
+- prediction() can now predict for any observer. Ex: `prediction(..., reference_center=observer)`. [#63]
+
 sora.star
 ^^^^^^^^^^^^^^^
 
 - Star() is now able to fully receive astrometric parameters from the user. [#48]
 
 - Star() is able to download and use the distance from Bailer-Jones et al (2018). [#27]
+
+- A new method get_position() was implemented in Star() that will replace geocentric()
+  and barycentric() methods [#63]
 
 API Changes
 -----------
