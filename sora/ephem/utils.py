@@ -1,8 +1,6 @@
 import warnings
 
-warnings.simplefilter('always', UserWarning)
-
-__all__ = ['getBSPfromJPL', 'ephem_kernel']
+__all__ = ['getBSPfromJPL', 'ephem_kernel', 'ephem_horizons']
 
 
 def getBSPfromJPL(identifier, initial_date, final_date, email, directory='./'):
@@ -122,7 +120,7 @@ def getBSPfromJPL(identifier, initial_date, final_date, email, directory='./'):
                     'It was not able to download the bsp files for next objects: {}'.format(sorted(failed)))
 
 
-def ephem_kernel(time, target, observer, kernels):
+def ephem_kernel(time, target, observer, kernels, output='ephemeris'):
     """Calculates the ephemeris from kernel files.
 
     Parameters
@@ -140,6 +138,11 @@ def ephem_kernel(time, target, observer, kernels):
     kernels : `list`, `str`
         List of paths for all the kernels.
 
+    output : `str`
+        The output of data. ``ephemeris`` will output the observed position,
+        while ``vector`` will output the Cartesian state vector, without
+        light time correction.
+
     Returns
     -------
     coord : `astropy.coordinates.SkyCoord`
@@ -152,6 +155,18 @@ def ephem_kernel(time, target, observer, kernels):
 
     from astropy.coordinates import SkyCoord
     from astropy.time import Time
+    from sora.observer import Observer, Spacecraft
+
+    origins = {'geocenter': '399', 'barycenter': '0'}
+    location = origins.get(observer)
+    if not location and isinstance(observer, str):
+        location = observer
+    if isinstance(observer, (Observer, Spacecraft)):
+        location = str(getattr(observer, "spkid", None))
+    if not location:
+        raise ValueError("observer must be 'geocenter', 'barycenter' or an observer object.")
+    if output not in ['ephemeris', 'vector']:
+        raise ValueError("output must be 'ephemeris' or 'vector'")
 
     if type(kernels) == str:
         kernels = [kernels]
@@ -159,30 +174,135 @@ def ephem_kernel(time, target, observer, kernels):
         spice.furnsh(kern)
     time = Time(time)
     t0 = Time('J2000', scale='tdb')
-    if time.isscalar:
-        time = Time([time])
     dt = (time - t0)
     delt = 0 * u.s
-    # calculates vector Observer -> Solar System Barycenter
-    position1 = np.array(spice.spkpos('0', dt.sec, 'J2000', 'NONE', observer)[0])
+
+    # calculates vector Solar System Barycenter -> Observer
+    if isinstance(observer, (Observer, Spacecraft)):
+        spice.kclear()  # necessary because observer.get_vector() may load different kernels
+        position1 = observer.get_vector(time=time, origin='barycenter')
+        for kern in kernels:
+            spice.furnsh(kern)
+    else:
+        position1 = spice.spkpos(location, dt.sec, 'J2000', 'NONE', '0')[0]
+        position1 = SkyCoord(*position1.T * u.km, representation_type='cartesian')
+
     while True:
         # calculates new time
         tempo = dt - delt
         # calculates vector Solar System Barycenter -> Object
         position2 = spice.spkpos(target, tempo.sec, 'J2000', 'NONE', '0')[0]
-        position = (position1 + position2).T
-        # calculates linear distance Earth Topocenter -> Object
-        dist = np.linalg.norm(position, axis=0) * u.km
+        position2 = SkyCoord(*position2.T * u.km, representation_type='cartesian')
+        position = position2.cartesian - position1.cartesian
         # calculates new light time
-        delt = (dist / const.c).decompose()
-        # if difference between new and previous light time is smaller than 0.001 sec, than continue.
-        if all(np.absolute(((dt - tempo) - delt).sec) < 0.001):
+        delt = (position.norm() / const.c).decompose()
+        # if difference between new and previous light time is smaller than 0.001 sec, then continue.
+        if output == 'vector' or np.all(np.absolute(((dt - tempo) - delt).sec) < 0.001):
             break
-    coord = SkyCoord(position[0], position[1], position[2], frame='icrs', unit=u.km,
-                     representation_type='cartesian', obstime=time)
+    coord = SkyCoord(position, representation_type='cartesian')
     spice.kclear()
-    coord_rd = SkyCoord(ra=coord.spherical.lon, dec=coord.spherical.lat,
-                        distance=coord.spherical.distance, obstime=time)
-    if len(coord) == 1:
-        return coord_rd[0]
-    return coord_rd
+    if output == 'ephemeris':
+        coord = SkyCoord(ra=coord.spherical.lon, dec=coord.spherical.lat,
+                         distance=coord.spherical.distance, obstime=time)
+    if not coord.isscalar and len(coord) == 1:
+        coord = coord[0]
+    return coord
+
+
+def ephem_horizons(time, target, observer, id_type='smallbody', output='ephemeris'):
+    """Calculates the ephemeris from Horizons.
+
+    Parameters
+    ----------
+    time : `str`, `astropy.time.Time`
+        Reference instant to calculate ephemeris. It can be a string
+        in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+    target : `str`
+        IAU (kernel) code of the target.
+
+    observer : `str`
+        IAU (kernel) code of the observer.
+
+    id_type : `str`
+        Type of target object options: ``smallbody``, ``majorbody`` (planets but
+        also anything that is not a small body), ``designation``, ``name``,
+        ``asteroid_name``, ``comet_name``, ``id`` (Horizons id number), or
+        ``smallbody`` (find the closest match under any id_type).
+
+    output : `str`
+        The output of data. ``ephemeris`` will output the observed position,
+        while ``vector`` will output the Cartesian state vector, without
+        light time correction.
+
+    Returns
+    -------
+    coord : `astropy.coordinates.SkyCoord`
+        ICRS coordinate of the target.
+
+    Notes
+    -----
+    If the interval of time is larger than 30 days or so, a timeout error may be raised.
+    The maximum interval will depend on the user connection.
+    """
+    import astropy.units as u
+
+    from astroquery.jplhorizons import Horizons
+    from astropy.time import Time
+    from astropy.coordinates import SkyCoord
+    from sora.observer import Observer, Spacecraft
+    from scipy import interpolate
+
+    origins = {'geocenter': '@399', 'barycenter': '@0'}
+    location = origins.get(observer)
+    if not location and isinstance(observer, str):
+        location = observer
+    if isinstance(observer, (Observer, Spacecraft)):
+        location = f'{getattr(observer, "code", "")}@{getattr(observer, "spkid", "")}'
+    if not location:
+        raise ValueError("observer must be 'geocenter', 'barycenter' or an observer object.")
+    if output not in ['ephemeris', 'vector']:
+        raise ValueError("output must be 'ephemeris' or 'vector'")
+
+    time = Time(time)
+    time1 = getattr(time, {'ephemeris': 'utc', 'vector': 'tdb'}[output]).jd
+    if not time.isscalar and len(time) > 50:
+        step = '10m'
+        if time.max() - time.min() > 30 * u.day:
+            warnings.warn('Time interval may be too long. A timeout error may be raised.')
+        if time.max() - time.min() <= 1 * u.day:
+            step = '1m'
+        time2 = {'start': (time.min() - 10 * u.min).iso.split('.')[0],
+                 'stop': (time.max() + 10 * u.min).iso.split('.')[0],
+                 'step': step,
+                 }
+    else:
+        time2 = time1
+
+    if getattr(observer, 'ephem', None) not in ['horizons', None]:
+        warnings.warn('Ephemeris using kernel for the observer and Horizons for the target is under construction. '
+                      'We will use only Horizons.')
+    ob = Horizons(id=target, id_type=id_type, location=location, epochs=time2)
+
+    if output == 'ephemeris':
+        eph = ob.ephemerides(extra_precision=True)
+        obstime = Time(eph['datetime_jd'], format='jd', scale='utc')
+        pos = SkyCoord(eph['RA'], eph['DEC'], eph['delta'], frame='icrs', obstime=obstime)
+    else:
+        vec = ob.vectors(refplane='earth')
+        obstime = Time(vec['datetime_jd'], format='jd', scale='tdb')
+        pos = SkyCoord(*[vec[i] for i in ['x', 'y', 'z']] * u.AU, representation_type='cartesian', obstime=obstime)
+
+    if isinstance(time2, dict):
+        spl_x = interpolate.CubicSpline(obstime.jd, pos.cartesian.x.to(u.km))
+        spl_y = interpolate.CubicSpline(obstime.jd, pos.cartesian.y.to(u.km))
+        spl_z = interpolate.CubicSpline(obstime.jd, pos.cartesian.z.to(u.km))
+        pos = SkyCoord(x=spl_x(time1), y=spl_y(time1), z=spl_z(time1), unit=u.km, representation_type='cartesian')
+
+    if output == 'ephemeris':
+        pos = SkyCoord(ra=pos.spherical.lon, dec=pos.spherical.lat, distance=pos.spherical.distance)
+
+    if not pos.isscalar and len(pos) == 1:
+        pos = pos[0]
+
+    return pos

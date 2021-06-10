@@ -2,6 +2,7 @@ import warnings
 
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import SkyOffsetFrame
 from astropy.time import Time
 
 __all__ = ['Chord']
@@ -26,9 +27,9 @@ class Chord:
     def __init__(self, *, name, observer, lightcurve):
 
         from sora.lightcurve import LightCurve
-        from sora.observer import Observer
+        from sora.observer import Observer, Spacecraft
 
-        if not isinstance(observer, Observer):
+        if not isinstance(observer, (Observer, Spacecraft)):
             raise ValueError('obs must be an Observer object')
         if not isinstance(lightcurve, LightCurve):
             raise ValueError('lightcurve must be a LightCurve object')
@@ -37,6 +38,7 @@ class Chord:
         self._observer = observer
         self._lightcurve = lightcurve
         self._isable = {}
+        self._method = 'geocenter'
 
     @property
     def name(self):
@@ -135,9 +137,13 @@ class Chord:
             pointing to the celestial North and `g` pointing to the celestial
             East. The respective velocities (vf, vg) are returned if ``vel=True``.
         """
+        from sora.observer import Spacecraft
+
         if 'chordlist' not in self._shared_with:
             raise ValueError('{} must be associated to an Occultation to use this function'.format(self.__class__.__name__))
-        coord = self._shared_with['chordlist']['star']
+        occtime = self._shared_with['chordlist']['time']
+        star = self._shared_with['chordlist']['star']
+        coord = star.get_position(time=occtime, observer='geocenter')
         ephem = self._shared_with['chordlist']['ephem']
 
         ref_times = {'immersion': 'immersion', 'emersion': 'emersion', 'start': 'initial_time', 'end': 'end_time'}
@@ -155,23 +161,33 @@ class Chord:
         else:
             time = Time(time)
 
-        tca_diff = np.array(np.absolute((time - self._shared_with['chordlist']['time']).jd), ndmin=1)
+        tca_diff = np.array(np.absolute((time - occtime).jd), ndmin=1)
         if any(tca_diff > 0.5):
             warnings.warn('The difference between a given time and the closest approach instant is {:.2f} days. '
                           'This position could not have a physical meaning.'.format(tca_diff.max()))
 
-        ksio1, etao1 = self.observer.get_ksi_eta(time=time, star=coord)
-        ksie1, etae1 = ephem.get_ksi_eta(time=time, star=coord)
-        f = ksio1-ksie1
-        g = etao1-etae1
+        if self._method == 'geocenter' and not isinstance(self.observer, Spacecraft):
+            ksio1, etao1 = self.observer.get_ksi_eta(time=time, star=coord)
+            ksie1, etae1 = ephem.get_ksi_eta(time=time, star=coord)
+            f = ksio1 - ksie1
+            g = etao1 - etae1
+        else:
+            pos_star = star.get_position(time=time, observer=self.observer)
+            pos_ephem = ephem.get_position(time=time, observer=self.observer)
+            _, f, g, = - pos_ephem.transform_to(SkyOffsetFrame(origin=pos_star)).cartesian.xyz.to(u.km).value
 
         if not vel:
             return f, g
 
-        ksio2, etao2 = self.observer.get_ksi_eta(time=time+0.1*u.s, star=coord)
-        ksie2, etae2 = ephem.get_ksi_eta(time=time+0.1*u.s, star=coord)
-        nf = ksio2-ksie2
-        ng = etao2-etae2
+        if self._method == 'geocenter' and not isinstance(self.observer, Spacecraft):
+            ksio2, etao2 = self.observer.get_ksi_eta(time=time + 0.1 * u.s, star=coord)
+            ksie2, etae2 = ephem.get_ksi_eta(time=time + 0.1 * u.s, star=coord)
+            nf = ksio2 - ksie2
+            ng = etao2 - etae2
+        else:
+            pos_star = star.get_position(time=time + 0.1 * u.s, observer=self.observer)
+            pos_ephem = ephem.get_position(time=time + 0.1 * u.s, observer=self.observer)
+            _, nf, ng, = - pos_ephem.transform_to(SkyOffsetFrame(origin=pos_star)).cartesian.xyz.to(u.km).value
 
         return f, g, (nf-f)/0.1, (ng-g)/0.1
 
@@ -519,9 +535,14 @@ class Chord:
     def __str__(self):
         """String of the Chord Class used in str(obj) or print(obj)
         """
+        from sora.observer import Observer
+
         string = ['-' * 79, self.observer.__str__()]
-        if 'chordlist' in self._shared_with:
-            ephem_altaz = self.observer.altaz(self.lightcurve.time_mean, self._shared_with['chordlist']['star'])
+        if 'chordlist' in self._shared_with and isinstance(self.observer, Observer):
+            star = self._shared_with['chordlist']['star']
+            occtime = self._shared_with['chordlist']['time']
+            coord = star.get_position(time=occtime, observer=self.observer)
+            ephem_altaz = self.observer.altaz(self.lightcurve.time_mean, coord)
             string.append('Target altitude: {:.1f} deg'.format(ephem_altaz[0]))
             string.append('Target azimuth:  {:.1f} deg'.format(ephem_altaz[1]))
         string.append('')

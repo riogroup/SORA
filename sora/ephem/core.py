@@ -54,19 +54,24 @@ class EphemPlanete(BaseEphem):
         self.min_time = Time(data[0].min(), format='jd')
         self.max_time = Time(data[0].max(), format='jd')
 
-    def get_position(self, time):
+    def get_position(self, time, observer='geocenter'):
         """Returns the object's geocentric position.
 
         Parameters
         ----------
         time : `str`, `astropy.time.Time`
-            Time from which to calculate the position. It can be a string
+            Reference time to calculate the object position. It can be a string
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        observer : `any`
+            This parameter is present in EphemPlanete for compatibility with the
+            remaining ephem classes. The returned positions are based on the given
+            ephemeris despite the observer.
 
         Returns
         -------
         coord : `astropy.coordinates.SkyCoord`
-            Astropy SkyCoord object with the coordinate at given time.
+            Astropy SkyCoord object with the object coordinates at the given time.
         """
         ksi, eta = self.get_ksi_eta(time=time) * u.km
         distance = self.ephem.distance.mean()
@@ -249,50 +254,34 @@ class EphemHorizons(BaseEphem):
         self.id_type = id_type
         _ = self.get_position(Time.now())  # test if Horizons can proceed for this object
 
-    def get_position(self, time):
-        """Returns the geocentric position of the object.
+    def get_position(self, time, observer='geocenter'):
+        """Returns the ICRS position of the object for observer.
 
         Parameters
         ----------
         time : `str`, `astropy.time.Time`
-            Reference time to calculate the position. It can be a string
+            Reference time to calculate the object position. It can be a string
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        observer : `str`, `sora.Observer`, `sora.Spacecraft`
+            IAU code of the observer (must be present in given list of kernels),
+            a SORA observer object or a string: ['geocenter', 'barycenter']
 
         Returns
         -------
         coord : `astropy.coordinates.SkyCoord`
             Astropy SkyCoord object with the object coordinates at the given time.
         """
-        from astroquery.jplhorizons import Horizons
-        from astropy.table import vstack
+        from .utils import ephem_horizons
 
-        time = Time(time)
-        if not time.isscalar:
-            s = len(time)
-
-            def calc_ephem(i):
-                n = 50 * i
-                k = n + 50
-                if k > s:
-                    k = s
-                ob = Horizons(id=self.name, id_type=self.id_type, location='geo', epochs=time[n:k].jd)
-                return ob.ephemerides(extra_precision=True)
-
-            plus = 0
-            if s % 50 > 0:
-                plus = 1
-            eph = vstack([calc_ephem(j) for j in range(s // 50 + 1 * plus)])
-        else:
-            obj = Horizons(id=self.name, id_type=self.id_type, location='geo', epochs=time.jd)
-            eph = obj.ephemerides(extra_precision=True)
-        coord = SkyCoord(eph['RA'], eph['DEC'], eph['delta'], frame='icrs', obstime=time)
+        coord = ephem_horizons(time=time, target=self.name, observer=observer, id_type=self.id_type, output='ephemeris')
         if hasattr(self, 'offset'):
             pos_frame = SkyOffsetFrame(origin=coord)
             new_pos = SkyCoord(lon=self.offset.d_lon_coslat, lat=self.offset.d_lat,
                                distance=coord.distance, frame=pos_frame)
             coord = new_pos.transform_to(ICRS)
-        if len(coord) == 1:
-            return coord[0]
+        if not coord.isscalar and len(coord) == 1:
+            coord = coord[0]
         return coord
 
     def __str__(self):
@@ -360,7 +349,7 @@ class EphemKernel(BaseEphem):
         self.meta['kernels'] = '/'.join(kerns)
         self.__kernels = kernels
 
-    def get_position(self, time):
+    def get_position(self, time, observer='geocenter'):
         """Returns the object geocentric position.
 
         Parameters
@@ -369,18 +358,25 @@ class EphemKernel(BaseEphem):
             Reference time to calculate the object position. It can be a string
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
+        observer : `str`, `sora.Observer`, `sora.Spacecraft`
+            IAU code of the observer (must be present in given list of kernels),
+            a SORA observer object or a string: ['geocenter', 'barycenter']
+
         Returns
         -------
         coord : `astropy.coordinates.SkyCoord`
             Astropy SkyCoord object with the object coordinates at the given time.
         """
         from .utils import ephem_kernel
-        pos = ephem_kernel(time, self.spkid, '399', self.__kernels)
+        pos = ephem_kernel(time=time, target=self.spkid, observer=observer, kernels=self.__kernels)
         if hasattr(self, 'offset'):
             pos_frame = SkyOffsetFrame(origin=pos)
             new_pos = SkyCoord(lon=self.offset.d_lon_coslat, lat=self.offset.d_lat,
                                distance=pos.distance, frame=pos_frame)
             pos = new_pos.transform_to(ICRS)
+        pos = SkyCoord(ra=pos.ra, dec=pos.dec, distance=pos.distance)
+        if not pos.isscalar and len(pos) == 1:
+            pos = pos[0]
         return pos
 
     def __str__(self):
