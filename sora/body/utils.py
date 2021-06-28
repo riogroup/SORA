@@ -154,7 +154,7 @@ satellites = {
     },
     'himalia': {
         'spkid': 506,
-        'albedo': [5.7, 0.1, grav],
+        'albedo': [0.057, 0.008, grav],
         'H': [8.0, 0.01, rettig],
         'G': [0.10, 0.15, ''],
         'diameter': [139.6, 1.7, grav],
@@ -163,74 +163,74 @@ satellites = {
     },
     'elara': {
         'spkid': 507,
-        'albedo': [5.7, 0.8, grav],
+        'albedo': [0.046, 0.007, grav],
         'H': [9.45, 0.01, rettig],
         'G': [0.10, 0.15, ''],
         'diameter': [79.9, 1.7, grav]
     },
     'pasiphae': {
         'spkid': 508,
-        'albedo': [4.4, 0.6, grav],
+        'albedo': [0.044, 0.006, grav],
         'H': [10.21, 0.01, rettig],
         'G': [0.10, 0.15, ''],
         'diameter': [57.8, 0.8, grav]
     },
     'sinope': {
         'spkid': 509,
-        'albedo': [4.2, 0.6, grav],
+        'albedo': [0.042, 0.006, grav],
         'H': [11.29, 0.01, rettig],
         'G': [0.10, 0.15, ''],
         'diameter': [35.0, 0.6, grav]
     },
     'lysithea': {
         'spkid': 510,
-        'albedo': [3.6, 0.6, grav],
+        'albedo': [0.036, 0.006, grav],
         'H': [11.09, 0.02, rettig],
         'G': [0.10, 0.15, ''],
         'diameter': [42.2, 0.7, grav]
     },
     'carme': {
         'spkid': 511,
-        'albedo': [3.5, 0.6, grav],
+        'albedo': [0.035, 0.006, grav],
         'H': [10.91, 0.01, rettig],
         'G': [0.10, 0.15, ''],
         'diameter': [46.7, 0.9, grav]
     },
     'ananke': {
         'spkid': 512,
-        'albedo': [3.8, 0.6, grav],
+        'albedo': [0.038, 0.006, grav],
         'H': [11.84, 0.03, rettig],
         'G': [0.10, 0.15, ''],
         'diameter': [29.1, 0.6, grav]
     },
     'leda': {
         'spkid': 513,
-        'albedo': [3.4, 0.6, grav],
+        'albedo': [0.034, 0.006, grav],
         'H': [12.63, 0.03, rettig],
         'G': [0.10, 0.15, ''],
         'diameter': [21.5, 1.7, grav]
     },
     'phoebe': {
         'spkid': 609,
-        'albedo': [10.0, 0.5, grav],
+        'albedo': [0.10, 0.005, grav],
         'H': [6.59, 0.02, bauer],
         'G': [0.02, 0.03, bauer],
         'diameter': [202.2, 4.5, grav],
         'density': [1.630, 0.045, 'Porco et al. (2005). Science 307(5713):1237-1242'],
         'GM': [0.5534, 0.0006, 'Jacobson et al. (2006). AJ 132(6):2520-2526'],
         'rotation': [9.27365, 0.00002, 'Gomes-Júnior et al. (2020). MNRAS 492(1):770-781'],
-        'pole': [['356.6/77.9'], ['0/0'], 'Porco et al. (2005). Science 307(5713):1237-1242']
+        'pole': ['356.6/77.9', '0/0', 'Porco et al. (2005). Science 307(5713):1237-1242']
     },
     'albiorix': {
         'spkid': 626,
-        'albedo': [6.2, 2.8, grav],
+        'albedo': [0.062, 0.028, grav],
         'H': [11.35, 0.05, bauer],
         'G': [0.39, 0.06, bauer],
         'diameter': [28.6, 5.4, grav]
     },
     'siarnaq': {
         'spkid': 629,
-        'albedo': [5.0, 1.7, grav],
+        'albedo': [0.05, 0.017, grav],
         'H': [10.90, 0.05, bauer],
         'G': [0.45, 0.17, bauer],
         'diameter': [39.3, 5.9, grav]
