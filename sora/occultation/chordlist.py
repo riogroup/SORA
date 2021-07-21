@@ -89,9 +89,12 @@ class ChordList(List):
         self._add_item(name=name, item=chord)
         chord._name = name
         chord._shared_with["chordlist"] = self._shared_with["chord"]
-        chord.lightcurve.set_vel(self._shared_with['occultation']["vel"])
-        chord.lightcurve.set_dist(self._shared_with['occultation']["dist"])
-        chord.lightcurve.set_star_diam(self._shared_with['occultation']["star_diam"])
+        if not hasattr(chord.lightcurve, 'vel'):
+            chord.lightcurve.set_vel(self._shared_with['occultation']["vel"])
+        if not hasattr(chord.lightcurve, 'dist'):
+            chord.lightcurve.set_dist(self._shared_with['occultation']["dist"])
+        if not hasattr(chord.lightcurve, 'd_star'):
+            chord.lightcurve.set_star_diam(self._shared_with['occultation']["star_diam"])
         try:
             chord.lightcurve.calc_magnitude_drop(mag_star=self._star.mag['G'], mag_obj=self._body.apparent_magnitude(self._time))
         except:

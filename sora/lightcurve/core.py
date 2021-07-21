@@ -124,6 +124,16 @@ class LightCurve:
         self._name = name
         self.flux = None
         self.time_model = None
+        if 'exptime' in kwargs:
+            if kwargs['exptime'] <= 0:
+                raise ValueError('Exposure time can not be zero or negative')
+            self.exptime = kwargs['exptime']
+        if 'vel' in kwargs:
+            self.set_vel(vel=kwargs['vel'])
+        if 'dist' in kwargs:
+            self.set_dist(dist=kwargs['dist'])
+        if 'd_star' in kwargs:
+            self.set_star_diam(d_star=kwargs['d_star'])
         if 'tref' in kwargs:
             self.tref = kwargs['tref']
         if 'immersion' in kwargs:
@@ -151,11 +161,11 @@ class LightCurve:
             if self.end_time <= self.initial_time:
                 raise ValueError('end_time must be greater than initial_time')
             input_done = True
+        if 'flux' in kwargs or 'file' in kwargs:
+            self.set_flux(**kwargs)
+            input_done = True
         if not input_done:
-            try:
-                self.set_flux(**kwargs)
-            except:
-                raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')
+            raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')
         self.set_filter(central_bandpass=kwargs.get('central_bandpass', 0.70),
                         delta_bandpass=kwargs.get('delta_bandpass', 0.30))
         self.dt = 0.0
@@ -382,6 +392,8 @@ class LightCurve:
                 if len(self.flux) != len(self.dflux):
                     raise ValueError('dflux must have the same length as flux and time')
             input_done = True
+        if not input_done:
+            raise ValueError('Input parameters not satisfied')
         if 'exptime' not in kwargs:
             raise ValueError('exptime not defined')
         if kwargs['exptime'] <= 0:
