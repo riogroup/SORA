@@ -367,6 +367,19 @@ class BaseBody():
                 self.__class__.__name__, spknewval, value.__class__.__name__, spkval))
 
     @property
+    def frame(self):
+        if hasattr(self, "_frame"):
+            return self._frame
+        raise ValueError('Body object does not have a frame defined.')
+
+    @frame.setter
+    def frame(self, value):
+        from .frame import PlanetocentricFrame
+        if not isinstance(value, PlanetocentricFrame):
+            raise ValueError('frame attrribute must be a PlanetocentricFrame object.')
+        self._frame = value
+
+    @property
     def _search_name(self):
         if self.orbit_class in ['Natural Satellite', 'Planet']:
             return str(self.spkid or self.shortname)

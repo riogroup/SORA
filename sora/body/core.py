@@ -6,6 +6,7 @@ from astropy.coordinates import SkyCoord, Longitude, Latitude
 from astropy.time import Time
 
 from sora.config import input_tests
+from .frame import get_archinal_frame
 from .meta import BaseBody, PhysicalData
 from .utils import search_sbdb, search_satdb, apparent_magnitude
 
@@ -101,7 +102,7 @@ class Body(BaseBody):
     def __init__(self, name, database='auto', **kwargs):
 
         allowed_kwargs = ["albedo", "H", "G", "diameter", "density", "GM", "rotation", "pole", "BV", "UB", "smass",
-                          "orbit_class", "spkid", "tholen", "ephem"]
+                          "orbit_class", "spkid", "tholen", "ephem", "frame"]
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         self._shared_with = {'ephem': {}, 'occultation': {}}
         if database not in ['auto', 'satdb', 'sbdb', None]:
@@ -133,6 +134,15 @@ class Body(BaseBody):
             setattr(self, key, kwargs[key])
         self._shared_with['ephem']['search_name'] = self._search_name
         self._shared_with['ephem']['id_type'] = self._id_type
+        if getattr(self, "frame", None) is None:
+            try:
+                self.frame = get_archinal_frame(self.spkid)
+            except ValueError:
+                if not np.isnan(self.pole.ra) and not np.isnan(self.rotation):
+                    from .frame import PlanetocentricFrame
+                    self.frame = PlanetocentricFrame(epoch='J2000', pole=self.pole, alphap=0, deltap=0, prime_angle=0,
+                                                     rotation_velocity=360*u.deg / self.rotation, right_hand=True,
+                                                     reference="")
 
     def __from_sbdb(self, name):
         """Searches the object in the SBDB and defines its physical parameters.
