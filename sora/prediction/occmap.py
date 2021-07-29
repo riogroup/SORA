@@ -201,6 +201,10 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     site_name : `bool`
         If True, it prints the name of the sites given, else it plots only the points.
 
+    site_box_alpha : `int`, `float`, default=0
+        Sets the transparency of a box surrounding each station name. 0 equals to
+        transparent, and 1 equals to opaque.
+
     countries : `dict`
         Plots the names of countries. It must be a python dictionary where the
         key is the name of the country and the value is a list with longitude
@@ -318,7 +322,8 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
                       'chcolor', 'chord_delta', 'chord_geo', 'countries', 'cpoints', 'cscale', 'dpi', 'ercolor',
                       'error', 'fmt', 'hcolor', 'heights', 'labels', 'lncolor', 'mapsize', 'mapstyle', 'meridians',
                       'nameimg', 'nscale', 'offset', 'outcolor', 'parallels', 'path', 'pscale', 'ptcolor',
-                      'resolution', 'ring', 'rncolor', 'site_name', 'sites', 'sscale', 'states', 'zoom']
+                      'resolution', 'ring', 'rncolor', 'site_name', 'sites', 'sscale', 'states', 'zoom',
+                      'site_box_alpha']
     input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
     if not type(name) == str:
@@ -353,7 +358,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     res = ['10m', '50m', '110m']
     resolution = res[resolution-1]
 
-    nameimg = kwargs.get('nameimg', '{}_{}'.format(name, occs['datas'].isot))
+    nameimg = kwargs.get('nameimg', '{}_{}'.format(name, occs['datas'].isot.replace(':', '_')))
     fmt = kwargs.get('fmt', 'png')
     dpi = kwargs.get('dpi', 100)
     step = kwargs.get('step', 1)
@@ -372,6 +377,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     pscale = kwargs.get('pscale', 1)
     heights = np.array(kwargs.get('heights'), None)
     alpha = kwargs.get('alpha', 0.2)
+    site_box_alpha = kwargs.get('site_box_alpha', 0.0)
     centermap_geo = kwargs.get('centermap_geo', None)
     centermap_delta = kwargs.get('centermap_delta', None)
     if 'centermap_geo' in kwargs and 'centermap_delta' in kwargs:
@@ -647,7 +653,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         j = np.where(lon2 < 1e+30)
         axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(), color=atcolor)
 
-# plots center points
+    # plots center points
     vec = np.arange(0, int(8000/(np.absolute(occs['vel'].value))), cpoints)
     deltatime = np.sort(np.concatenate((vec, -vec[1:]), axis=0))*u.s
     axc = dista*np.sin(pa) + (deltatime*occs['vel'])*np.cos(paplus)
@@ -709,7 +715,8 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         if site_name:
             xt, yt = latlon2xy(s.lon.deg, s.lat.deg, center_map.lon.value, center_map.lat.value)
             axf.text(xt + sites[site][2]*1000, yt+sites[site][3]*1000, site, weight='bold',
-                     fontsize=25*nscale, family='monospace')
+                     fontsize=25*nscale, family='monospace', 
+                     bbox={'facecolor': 'white', 'alpha': site_box_alpha, 'pad': 2, 'edgecolor':'none'})
 
     # Define the title and label of the output
     title = ('Object        Diam   Tmax   dots <> ra_offset_dec\n'
