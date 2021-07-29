@@ -440,7 +440,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         else:
             raise TypeError('centerproj must be an Astropy EarthLocation Object or an array with Longitude and Latitude only')
         centert = False
-    fig = plt.figure(figsize=(mapsize.to(u.imperial.inch).value))
+    fig = plt.figure(figsize=(mapsize.to(u.imperial.inch).value),facecolor='w')
     projection = ccrs.Orthographic(central_longitude=center_map.lon.value, central_latitude=center_map.lat.value)
     if labels:
         axf = plt.axes(projection=projection)
