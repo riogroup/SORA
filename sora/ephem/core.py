@@ -253,6 +253,7 @@ class EphemHorizons(BaseEphem):
         super().__init__(name=name, spkid=spkid, **kwargs)
         self.id_type = id_type
         _ = self.get_position(Time.now())  # test if Horizons can proceed for this object
+        self.meta = {'kernels':'horizons'}
 
     def get_position(self, time, observer='geocenter'):
         """Returns the ICRS position of the object for observer.
