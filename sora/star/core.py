@@ -317,10 +317,14 @@ class Star(MetaStar):
         self.errors['pmDE'] = self.meta_gaia['e_pmDE']*(u.mas/u.yr)
         erv_name = {'gaiadr2': 'e_RV', 'gaiaedr3': 'e_RVDR2'}
         self.errors['rad_vel'] = self.meta_gaia[erv_name[catalog]]*(u.km/u.s)
-        if self.meta_gaia['RUWE'] > 1.4:
-            warnings.warn('This star has a RUWE of {:.2f}. '.format(self.meta_gaia['RUWE']) +
-            'Please be aware that its positions must be handled with care.')
-
+        if catalog == 'gaiaedr3':
+            if self.meta_gaia['RUWE'] > 1.4:
+                warnings.warn('This star has a RUWE of {:.2f}. '.format(self.meta_gaia['RUWE']) +
+                'Please be aware that its positions must be handled with care.')
+        if catalog == 'gaiadr2':
+            if self.meta_gaia['Dup'] == 1:
+                warnings.warn('This star was indicated as an source with duplicate sources '+
+                'Please be aware that its positions must be handled with care.')
         A = (1*u.AU).to(u.km).value
         cov = np.zeros((6, 6))
         a = ['RA', 'DE', 'Plx', 'pmRA', 'pmDE']
