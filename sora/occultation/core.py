@@ -689,6 +689,40 @@ class Occultation:
                 self.chords[j].lightcurve.dt = previous_dt[i]
         return out_dic
 
+    def plot_radial_dispersion(self, ax=None, **kwargs):
+        """ Plots the radial dispersion
+
+        A shape must have been fitted to the chords
+
+        ax : `matplotlib.pyplot.Axes`
+            The axes where to make the plot. If None, it will use the default axes.
+
+        **kwargs
+            Any other kwarg will be parsed directly by `maplotlip.pyplot.plot`.
+            The only difference is that the default linewidth ``lw=1`` and marker 
+            is ``marker='o'``.
+
+        """
+        import matplotlib.pyplot as plt
+
+        if hasattr(self, 'fitted_params'):
+            ax = ax or plt.gca()
+            marker = kwargs.pop('marker', 'o')
+            lw = kwargs.pop('lw', 1)
+            linewidth = kwargs.pop('linewidth', lw)
+            for i in range(self.chi2_params['npts']):
+                plt.errorbar(x=self.chi2_params['position_angle'][i],
+                             y=self.chi2_params['radial_dispersion'][i],
+                             yerr=self.chi2_params['radial_error'][i],
+                             label=self.chi2_params['chord_name'][i].replace('_',' '),
+                             marker=marker, linewidth=linewidth, **kwargs)
+            plt.xlim(0,360)
+            plt.axhline(0, linestyle='--',color='gray')
+            ax.set_xlabel('Position angle [degree]')
+            ax.set_ylabel('Radial dispersion [km]')
+        else:
+            raise ValueError('A shape must have been fitted to the chords')
+
     def to_file(self):
         """Saves the occultation data to a file.
 
