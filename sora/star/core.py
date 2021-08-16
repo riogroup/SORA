@@ -517,6 +517,18 @@ class Star(MetaStar):
         dd = input_tests.test_attr(ddec, float, 'ddec')
         self.offset = SphericalCosLatDifferential(dadc * u.mas, dd * u.mas, 0.0 * u.km)
 
+    def to_log(self, namefile):
+        """Saves the star log to a file.
+
+        Parameters
+        ----------
+        namefile : `str`
+            Filename to save the log.
+        """
+        f = open(namefile, 'w')
+        f.write(self.__str__())
+        f.close()
+
     def __str__(self):
         """String representation of the Star class.
         """

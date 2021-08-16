@@ -176,6 +176,18 @@ class ChiSquare:
         values = values.get(key, values)
         return values
 
+    def to_log(self, namefile):
+        """Saves the chi-squared log to a file.
+
+        Parameters
+        ----------
+        namefile : `str`
+            Filename to save the log.
+        """
+        f = open(namefile, 'w')
+        f.write(self.__str__())
+        f.close()
+
     def __len__(self):
         return len(self.data['chi2'])
 

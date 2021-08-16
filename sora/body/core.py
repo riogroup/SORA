@@ -322,6 +322,18 @@ class Body(BaseBody):
             return apparent_magnitude(self.H.value, self.G.value, obs_obj.distance.to(u.AU).value,
                                       sun_obj.distance.to(u.AU).value, phase)
 
+    def to_log(self, namefile):
+        """Saves the body log to a file.
+
+        Parameters
+        ----------
+        namefile : `str`
+            Filename to save the log.
+        """
+        f = open(namefile, 'w')
+        f.write(self.__str__())
+        f.close()
+
     def __str__(self):
         from .values import smass, tholen
         out = ['#' * 79 + '\n{:^79s}\n'.format(self.name) + '#' * 79 + '\n',

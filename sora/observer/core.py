@@ -256,6 +256,18 @@ class Observer:
     def spkid(self):
         return '399'
 
+    def to_log(self, namefile):
+        """Saves the observer log to a file.
+
+        Parameters
+        ----------
+        namefile : `str`
+            Filename to save the log.
+        """
+        f = open(namefile, 'w')
+        f.write(self.__str__())
+        f.close()
+
     def __repr__(self):
         """String representation of the Observer Class
         """
@@ -332,6 +344,18 @@ class Spacecraft:
         else:
             vector = ephem_kernel(time=time, target=self.spkid, observer=origin, kernels=self.ephem, output='vector')
         return vector
+
+    def to_log(self, namefile):
+        """Saves the spacecraft log to a file.
+
+        Parameters
+        ----------
+        namefile : `str`
+            Filename to save the log.
+        """
+        f = open(namefile, 'w')
+        f.write(self.__str__())
+        f.close()
 
     def __repr__(self):
         """String representation of the Spacecraft Class
