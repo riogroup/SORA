@@ -132,3 +132,43 @@ def filter_negative_chord(chord, chisquare, step=1, sigma=0):
                                    oblateness=chisquare.data['oblateness'][keep],
                                    position_angle=chisquare.data['position_angle'][keep])
     return filtered_chisquare
+
+import numpy as np
+import astropy.units as u
+
+def check_geometric_albedo(equivalent_radius, H_obj, equivalent_radius_error=0, H_obj_error=0, H_sun=-26.74, verbose=True):
+    """ Calculate the geometric albedo.
+
+        Parameters
+        ----------
+        equivalent_radius : `float`, `int`
+            Equivalent radius of the occulting body, in km.
+
+        H_obj : `float`, `int`
+            Occulting body's absolute magnitude.
+        
+        equivalent_radius_error : `float`, `int`, default=0
+            Equivalent radius uncertainty of the occulting body, in km.
+
+        H_obj_error : `float`, `int`, default=0
+            Occulting body's absolute magnitude uncertainty.
+
+        H_sun : `float`, `int`, default=-26.74
+            Sun absolute magnitude.
+
+        verbose : `bool`, default is True
+            If True, it prints text.
+     """
+    H_sun = -26.74
+    geometric_albedo = (10**(0.4*(H_sun - H_obj))) * ((u.au.to('km')/equivalent_radius)**2)
+    H_obj_error = np.absolute(H_obj_error)
+    H_obj_erequivalent_radius_errorror = np.absolute(equivalent_radius_error)
+    albedo_error_p = (10**(0.4*(H_sun - H_obj+H_obj_error))) * ((u.au.to('km')/(equivalent_radius+equivalent_radius_error))**2)    
+    albedo_error_m = (10**(0.4*(H_sun - H_obj-H_obj_error))) * ((u.au.to('km')/(equivalent_radius-equivalent_radius_error))**2)
+    delta_albedo = np.absolute(albedo_error_p - albedo_error_m)
+    if verbose:
+        if (H_obj_error != 0) or (equivalent_radius_error != 0):
+            print('geometric albedo: {:.3f} +/- {:.3f} \n'.format(geometric_albedo, delta_albedo))
+        else:
+            print('geometric albedo: {:.3f} \n'.format(geometric_albedo))
+    return geometric_albedo, delta_albedo
