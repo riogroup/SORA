@@ -227,10 +227,11 @@ class ChordList(List):
         for i in range(len(self)):
             if ignore_chords is not None and keys[i] in ignore_chords:
                 continue
+            label = None
             if segment != 'error':
-                kwargs['label'] = keys[i]
+                label = kwargs.get('label', keys[i])
             try:
-                _ = self[i].plot_chord(segment=segment, only_able=only_able, ax=ax, linestyle=linestyle, **kwargs)
+                self[i].plot_chord(segment=segment, only_able=only_able, ax=ax, linestyle=linestyle, label=label, **kwargs)
             except ValueError:
                 n += 1
         if n == len(self):
