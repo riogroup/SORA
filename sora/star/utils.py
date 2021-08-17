@@ -357,3 +357,63 @@ def choice_star(catalogue, coord, columns, source):
             print('It was not possible to define a star')
             return
     return catalogue[[k[choice-1]]]
+
+
+def edr3ToICRF(pmra, pmdec, ra, dec, G):
+    """ Function that corrects proper motion of Gaia-EDR3 stars brighter than G=13
+    Adapted from Cantat-Gaudin & Brandt, A&A, 2021
+
+    Parameters:
+    ----------
+        pmra : `float`, `int`
+            Proper Motion in Right Ascencion, in mas/yr.
+
+        pmdec : `float`, `int`
+            Proper Motion in Declination, in mas/yr.
+
+        ra : `float`, `int`
+            Right Ascencion, in deg.
+
+        dec : `float`, `int`
+            Declination, in deg.
+
+        G: `float`, `int`
+            Gaia G magnitude.
+
+    Returns
+        -------
+        pmra_icrf, pmdec_icrf : `float`
+            pair of corrected proper motions.
+    """
+    if G >= 13:
+        return pmra, pmdec
+
+    ra = u.Quantity(ra, unit=u.deg)
+    dec = u.Quantity(dec, unit=u.deg)
+    pmra = u.Quantity(pmra, unit=u.mas / u.year)
+    pmdec = u.Quantity(pmdec, unit=u.mas / u.year)
+
+    table1 = np.array([[0.0, 9.0, 18.4, 33.8, -11.3],
+                       [9.0, 9.5, 14.0, 30.7, -19.4],
+                       [9.5, 10.0, 12.8, 31.4, -11.8],
+                       [10.0, 10.5, 13.6, 35.7, -10.5],
+                       [10.5, 11.0, 16.2, 50.0, 2.1],
+                       [11.0, 11.5, 19.4, 59.9, 0.2],
+                       [11.5, 11.75, 21.8, 64.2, 1.0],
+                       [11.75, 12.0, 17.7, 65.6, -1.9],
+                       [12.0, 12.25, 21.3, 74.8, 2.1],
+                       [12.25, 12.5, 25.7, 73.6, 1.0],
+                       [12.5, 12.75, 27.3, 76.6, 0.5],
+                       [12.75, 13.0, 34.9, 68.9, -2.9]]).T
+
+    g_min = table1[0]
+    g_max = table1[1]
+    # pick the appropriate omegaXYZ for the source ’s magnitude :
+    omega_x = table1[2][(g_min <= G) & (g_max > G)][0]*(u.mas/u.year)/1000.0
+    omega_y = table1[3][(g_min <= G) & (g_max > G)][0]*(u.mas/u.year)/1000.0
+    omega_z = table1[4][(g_min <= G) & (g_max > G)][0]*(u.mas/u.year)/1000.0
+    pmra_corr = -1 * np.sin(dec) * np.cos(ra) * omega_x - np.sin(dec) * np.sin(ra) * omega_y + np.cos(dec) * omega_z
+    pmdec_corr = np.sin(ra) * omega_x - np.cos(ra) * omega_y
+    pmra_icrf  = pmra  - pmra_corr
+    pmdec_icrf = pmdec - pmdec_corr
+    return pmra_icrf, pmdec_icrf

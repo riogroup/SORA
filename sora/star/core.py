@@ -57,6 +57,10 @@ class Star(MetaStar):
     bjones : `bool`, default=True
         If True, it uses de star distance from Bailer-Jones et al. (2018).
 
+    cgaudin : `bool`, default=True
+        If True, it uses de proper motion correction from Cantat-Gaudin & Brandt (2021).
+        this option is only available for Gaia-EDR3.
+
     verbose : `bool`, default=True
         If True, it prints the downloaded information
 
@@ -81,7 +85,7 @@ class Star(MetaStar):
         self.mag = {}
         self.errors = {'RA': 0*u.mas, 'DEC': 0*u.mas, 'Plx': 0*u.mas, 'pmRA': 0*u.mas/u.year,
                        'pmDE': 0*u.mas/u.year, 'rad_vel': 0*u.km/u.year}
-        allowed_kwargs = ['bjones', 'code', 'coord', 'dec', 'epoch', 'local', 'verbose', 'nomad', 'parallax', 'pmdec', 'pmra',
+        allowed_kwargs = ['bjones', 'cgaudin', 'code', 'coord', 'dec', 'epoch', 'local', 'verbose', 'nomad', 'parallax', 'pmdec', 'pmra',
                           'ra', 'rad_vel']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         allowed_catalogues = ['gaiadr2', 'gaiaedr3']
@@ -91,6 +95,8 @@ class Star(MetaStar):
         self._verbose = kwargs.get('verbose', True)
         local = kwargs.get('local', False)
         self.bjones = False
+        self.__cgaudin = kwargs.get('cgaudin', True)
+
         if 'code' in kwargs:
             self.code = kwargs['code']
         if 'coord' in kwargs:
@@ -307,7 +313,15 @@ class Star(MetaStar):
         rv_name = {'gaiadr2': 'RV', 'gaiaedr3': 'RVDR2'}
         self.rad_vel = catalogue[rv_name[catalog]][0]*u.km/u.s
         self.set_magnitude(G=catalogue['Gmag'][0])
-
+        if (catalog == 'gaiadr2') or (self.mag['G'] >= 13): 
+            self.__cgaudin = False
+        if self.__cgaudin:
+            from sora.star.utils import edr3ToICRF
+            pmra_icrf, pmdec_icrf = edr3ToICRF(pmra = self.pmra, pmdec = self.pmdec, 
+                                               ra = self.ra.deg, dec = self.dec.deg, 
+                                               G = self.mag['G'])
+            self.pmra  = pmra_icrf
+            self.pmdec = pmdec_icrf
         self.meta_gaia = {c: catalogue[c][0] for c in catalogue.columns}
 
         self.errors['RA'] = self.meta_gaia['e_RA_ICRS']*u.mas
@@ -537,13 +551,16 @@ class Star(MetaStar):
             out += '{} star Source ID: {}\n'.format(self._catalogue, self.code)
         else:
             out += 'User coordinates\n'
+        text_cgaudin = ''
+        if self.__cgaudin:
+            text_cgaudin = 'Gaia-EDR3 Proper motion corrected as suggested by Cantat-Gaudin & Brandt (2021) \n'
         out += ('ICRS star coordinate at J{}:\n'
                 'RA={} +/- {:.4f}, DEC={} +/- {:.4f}\n'
-                'pmRA={:.3f} +/- {:.3f} mas/yr, pmDEC={:.3f} +/- {:.3f} mas/yr\n'
+                'pmRA={:.3f} +/- {:.3f} mas/yr, pmDEC={:.3f} +/- {:.3f} mas/yr\n{}'
                 'Plx={:.4f} +/- {:.4f} mas, Rad. Vel.={:.2f} +/- {:.2f} km/s \n\n'.format(
                     self.epoch.jyear, self.ra.to_string(u.hourangle, sep='hms', precision=5),
                     self.errors['RA'], self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'],
-                    self.pmra.value, self.errors['pmRA'].value, self.pmdec.value, self.errors['pmDE'].value,
+                    self.pmra.value, self.errors['pmRA'].value, self.pmdec.value, self.errors['pmDE'].value, text_cgaudin,
                     self.parallax.value, self.errors['Plx'].value, self.rad_vel.value, self.errors['rad_vel'].value))
         if hasattr(self, 'offset'):
             out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}\n'.format(
