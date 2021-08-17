@@ -338,8 +338,12 @@ class Occultation:
         """
         if hasattr(self, 'fitted_params'):
             center = np.array([self.fitted_params['center_f'][0], self.fitted_params['center_g'][0]])
+            major_axis = self.fitted_params["equatorial_radius"][0]
+            minor_axis = major_axis * (1 - self.fitted_params["oblateness"][0])
         else:
             center = np.array([0, 0])
+            major_axis = self.body.radius.value
+            minor_axis = major_axis
         for name, chord in self.chords.items():
             im = getattr(chord.lightcurve, 'immersion', None)
             em = getattr(chord.lightcurve, 'emersion', None)
@@ -348,14 +352,20 @@ class Occultation:
             print('{} - Velocity used: {:.3f}'.format(name, chord.lightcurve.vel))
             if im is not None:
                 vals = chord.get_fg(time=im, vel=True)
-                delta = np.array(vals[0:2]) - center
+                x, y = vals[:2] - center
+                ang = np.arctan((-x / y) * np.power(minor_axis / major_axis, 2)) + np.pi / 2
+                observer_vec = np.array([np.cos(ang), np.sin(ang)])
+                normal_vel = np.abs(np.dot(observer_vec, np.array(vals[2:])) / np.linalg.norm(observer_vec))
                 print('    Immersion Radial Velocity: {:.3f}'.
-                      format(np.abs(np.dot(np.array(vals[2:]), delta)/np.linalg.norm(delta))))
+                      format(normal_vel))
             if em is not None:
                 vals = chord.get_fg(time=em, vel=True)
-                delta = np.array(vals[0:2]) - center
+                x, y = vals[:2] - center
+                ang = np.arctan((-x / y) * np.power(minor_axis / major_axis, 2)) + np.pi / 2
+                observer_vec = np.array([np.cos(ang), np.sin(ang)])
+                normal_vel = np.abs(np.dot(observer_vec, np.array(vals[2:])) / np.linalg.norm(observer_vec))
                 print('    Emersion Radial Velocity: {:.3f}'.
-                      format(np.abs(np.dot(np.array(vals[2:]), delta)/np.linalg.norm(delta))))
+                      format(normal_vel))
 
     @deprecated_alias(log='verbose')  # remove this line in v1.0
     def new_astrometric_position(self, time=None, offset=None, error=None, verbose=True, observer=None):
