@@ -891,7 +891,7 @@ class LightCurve:
         """
         import matplotlib.pyplot as plt
 
-        if not all(self.time_model):
+        if hasattr(self, 'model_geometric') == False:
             raise ValueError('Plotting the model light curve is only possible after the model '
                              '[LightCurve.occ_model()] or the fit [LightCurve.occ_lcfit()]')
         ax = ax or plt.gca()
@@ -940,7 +940,7 @@ class LightCurve:
             f.write('Column {}: {}\n'.format(i+1, name))
         f.close()
         # Complete Model
-        if all(self.time_model):
+        if hasattr(self, 'model_geometric'):
             data_model = np.array([(self.time_model*u.s + self.tref).jd, self.time_model, self.model_geometric,
                                    self.model_fresnel, self.model_star])
             colunm_names_model = ['Model time JD', 'Model time relative to {} UTC in seconds'.format(self.tref.iso),
