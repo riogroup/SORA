@@ -136,7 +136,7 @@ def filter_negative_chord(chord, chisquare, step=1, sigma=0):
 import numpy as np
 import astropy.units as u
 
-def check_geometric_albedo(equivalent_radius, H_obj, equivalent_radius_error=0, H_obj_error=0, H_sun=-26.74, verbose=True):
+def calc_geometric_albedo(equivalent_radius, H_obj, equivalent_radius_error=0, H_obj_error=0, H_sun=-26.74, verbose=True):
     """ Calculate the geometric albedo.
 
         Parameters
@@ -158,11 +158,18 @@ def check_geometric_albedo(equivalent_radius, H_obj, equivalent_radius_error=0, 
 
         verbose : `bool`, default is True
             If True, it prints text.
-     """
+     Returns
+    -------
+        geometric_albedo : `float`
+            Geometric albedo
+
+        delta_albedo : `float`
+            Geometric albedo uncertainty
+    """
     H_sun = -26.74
     geometric_albedo = (10**(0.4*(H_sun - H_obj))) * ((u.au.to('km')/equivalent_radius)**2)
     H_obj_error = np.absolute(H_obj_error)
-    H_obj_erequivalent_radius_errorror = np.absolute(equivalent_radius_error)
+    equivalent_radius_error = np.absolute(equivalent_radius_error)
     albedo_error_p = (10**(0.4*(H_sun - H_obj+H_obj_error))) * ((u.au.to('km')/(equivalent_radius+equivalent_radius_error))**2)    
     albedo_error_m = (10**(0.4*(H_sun - H_obj-H_obj_error))) * ((u.au.to('km')/(equivalent_radius-equivalent_radius_error))**2)
     delta_albedo = np.absolute(albedo_error_p - albedo_error_m)
