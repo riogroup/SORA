@@ -133,9 +133,6 @@ def filter_negative_chord(chord, chisquare, step=1, sigma=0):
                                    position_angle=chisquare.data['position_angle'][keep])
     return filtered_chisquare
 
-import numpy as np
-import astropy.units as u
-
 def calc_geometric_albedo(equivalent_radius, H_obj, equivalent_radius_error=0, H_obj_error=0, H_sun=-26.74, verbose=True):
     """ Calculate the geometric albedo.
 
@@ -166,7 +163,6 @@ def calc_geometric_albedo(equivalent_radius, H_obj, equivalent_radius_error=0, H
         delta_albedo : `float`
             Geometric albedo uncertainty
     """
-    H_sun = -26.74
     geometric_albedo = (10**(0.4*(H_sun - H_obj))) * ((u.au.to('km')/equivalent_radius)**2)
     H_obj_error = np.absolute(H_obj_error)
     equivalent_radius_error = np.absolute(equivalent_radius_error)
