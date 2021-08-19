@@ -47,6 +47,10 @@ class Body(BaseBody):
         If ``database=None``, the user must give a `spkid` or an `ephem`
         which has the `spkid` parameter.
 
+    shape : `str`, `sora.body.shape.Shape3D`
+        It defines the input shape of the body. It can be a body.shape object
+        or the path to OBJ file.
+
     albedo : `float`, `int`
         The albedo of the object.
 
@@ -102,7 +106,7 @@ class Body(BaseBody):
     def __init__(self, name, database='auto', **kwargs):
 
         allowed_kwargs = ["albedo", "H", "G", "diameter", "density", "GM", "rotation", "pole", "BV", "UB", "smass",
-                          "orbit_class", "spkid", "tholen", "ephem", "frame"]
+                          "orbit_class", "spkid", "tholen", "ephem", "frame", "shape"]
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         self._shared_with = {'ephem': {}, 'occultation': {}}
         if database not in ['auto', 'satdb', 'sbdb', None]:

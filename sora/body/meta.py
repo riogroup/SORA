@@ -370,7 +370,7 @@ class BaseBody():
     def frame(self):
         if hasattr(self, "_frame"):
             return self._frame
-        raise ValueError('Body object does not have a frame defined.')
+        raise AttributeError('Body object does not have a frame defined.')
 
     @frame.setter
     def frame(self, value):
@@ -378,6 +378,24 @@ class BaseBody():
         if not isinstance(value, PlanetocentricFrame):
             raise ValueError('frame attrribute must be a PlanetocentricFrame object.')
         self._frame = value
+
+    @property
+    def shape(self):
+        if not hasattr(self, '_shape'):
+            raise AttributeError(f'{self.__class__.__name__} does not have attribute `shape`')
+        return self._shape
+
+    @shape.setter
+    def shape(self, value):
+        from .shape.meta import BaseShape
+        if isinstance(value, BaseShape):
+            self._shape = value
+        elif isinstance(value, str):
+            from .shape import Shape3D
+            self._shape = Shape3D(value)
+        else:
+            raise ValueError('shape must be a sora.body.shape object or a string'
+                             ' with the path to the OBJ file.')
 
     @property
     def _search_name(self):
