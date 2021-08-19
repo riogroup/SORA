@@ -9,7 +9,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 setup(
     name='sora-astro',
     packages=find_packages(),
-    version='0.2',
+    version='0.2.1dev',
     license='MIT',
     description='Stellar Occultation Library',
     long_description=long_description,

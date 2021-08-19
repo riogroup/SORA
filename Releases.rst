@@ -1,3 +1,129 @@
+SORA v0.2.1 (unreleased)
+========================
+
+New Features
+------------
+
+sora.body
+^^^^^^^^^^^
+
+- Added function "Body.to_log()". [:issue:`65`]
+
+sora.config
+^^^^^^^^^^^
+
+sora.ephem
+^^^^^^^^^^
+
+sora.extra
+^^^^^^^^^^
+
+- Added function "ChiSquare.to_log()". [:issue:`65`]
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+sora.observer
+^^^^^^^^^^^^^
+
+- Added function "Observer.to_log()". [:issue:`65`]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Added plot function "Occultation.plot_radial_dispersion()". [:issue:`65`]
+- Added functions that calculates the geometric albedo [:issue:`65`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Added new parameter "site_box_alpha" to plot map. [:issue:`65`]
+
+sora.star
+^^^^^^^^^^^^^^^
+
+- Added function "Star.to_log()". [:issue:`65`]
+- Added function that corrects the Gaia-EDR3 proper motion as suggested by
+  Cantat-Gaudin and Brandt (2021) [:issue:`65`]
+
+documentation
+^^^^^^^^^^^^^
+
+API Changes
+-----------
+
+sora.body
+^^^^^^^^^^^
+
+sora.config
+^^^^^^^^^^^
+
+sora.ephem
+^^^^^^^^^^
+
+sora.extra
+^^^^^^^^^^
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+sora.observer
+^^^^^^^^^^^^^
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+ 
+sora.prediction
+^^^^^^^^^^^^^^^
+
+sora.star
+^^^^^^^^^^^^^^^
+
+- Added warning for Gaia stars with an high RUWE or Duplicity flag, indicating an possible issue
+  with this star's astrometry. [:issue:`65`]
+
+documentation
+^^^^^^^^^^^^^
+
+Bug Fixes
+---------
+
+sora.body
+^^^^^^^^^^^
+
+sora.config
+^^^^^^^^^^^
+
+sora.ephem
+^^^^^^^^^^
+
+- Added argument "meta" in "EphemHorizons". [:issue:`65`]
+
+sora.extra
+^^^^^^^^^^
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Debuging "LightCurve.to_file()" and "LightCurve.plot_model()". [:issue:`65`]
+
+sora.observer
+^^^^^^^^^^^^^
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Added white "facecolor" to occultation maps. [:issue:`65`]
+
+sora.star
+^^^^^^^^^^^^^^^
+
+documentation
+^^^^^^^^^^^^^
+
 SORA v0.2 (2021/Jun/14)
 =======================
 
