@@ -341,6 +341,7 @@ class Occultation:
             major_axis = self.fitted_params["equatorial_radius"][0]
             minor_axis = major_axis * (1 - self.fitted_params["oblateness"][0])
         else:
+            warnings.warn("A shape was not fitted. Using a circular shape provided in body centred at the origin.")
             center = np.array([0, 0])
             major_axis = self.body.radius.value
             minor_axis = major_axis
