@@ -109,7 +109,7 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None, reference_cent
     df = f2 - f
     dg = g2 - g
     vel = np.sqrt(df ** 2 + dg ** 2) / 1
-    vel = vel * np.sign(dg) * (u.km / u.s)
+    vel = vel * np.sign(-df) * (u.km / u.s)
 
     return tmin, ca, pa, vel, dist.to(u.AU)
 

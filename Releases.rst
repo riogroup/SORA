@@ -72,7 +72,10 @@ sora.observer
 
 sora.occultation
 ^^^^^^^^^^^^^^^^
- 
+
+- Occultation.check_velocities() now calculates the normal velocity considering the ellipse
+  fitted in fit_ellipse replacing the radial velocity. [:issue:`66`]
+
 sora.prediction
 ^^^^^^^^^^^^^^^
 
@@ -91,6 +94,8 @@ Bug Fixes
 sora.body
 ^^^^^^^^^^^
 
+- Fixed wrong albedos in satdb. [:issue:`66`]
+
 sora.config
 ^^^^^^^^^^^
 
@@ -107,16 +112,27 @@ sora.lightcurve
 
 - Debuging "LightCurve.to_file()" and "LightCurve.plot_model()". [:issue:`65`]
 
+- Fixed bug where LightCurve did not read occultation parameters if a flux or file
+  was not provided. [:issue:`66`]
+
 sora.observer
 ^^^^^^^^^^^^^
 
 sora.occultation
 ^^^^^^^^^^^^^^^^
 
+- Fixed bug that overwrote occultation parameters in the LightCurve when added to
+  the ChordList. [:issue:`66`]
+
+- Fixed bug that prevented the user to ignore the chord name as labels when
+  plotting the chords. [:issue:`66`]
+
 sora.prediction
 ^^^^^^^^^^^^^^^
 
 - Added white "facecolor" to occultation maps. [:issue:`65`]
+
+- Fixed MAJOR bug that inverted the shadow velocity in some cases. [:issue:`66`]
 
 sora.star
 ^^^^^^^^^^^^^^^
