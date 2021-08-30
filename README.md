@@ -57,21 +57,21 @@ SYSTEM REQUIREMENTS AND INSTALLATION
 
 SORA was developed in Python 3.7 and requires the following packages:
 
--  Astropy (4.0): For astronomical related functions, mainly coordinates and time.
+-  Astropy (4.3): For astronomical related functions, mainly coordinates and time.
 
--  Astroquery (0.4.1): To query astronomical database as JPL and Vizier.
+-  Astroquery (0.4.3): To query astronomical database as JPL and Vizier.
 
--  Matplotlib (3.1.1): For easy and beautiful plots.
+-  Matplotlib (3.4.3): For easy and beautiful plots.
 
--  NumPy (1.18.1): Otimized mathematical functions.
+-  NumPy (1.21): Otimized mathematical functions.
 
--  SciPy (1.4.1): Otimized functions for mathematics, science, and engineering.
+-  SciPy (1.7.1): Otimized functions for mathematics, science, and engineering.
 
--  SpiceyPy (3.0.2): SPICE/NAIF functions in python.
+-  SpiceyPy (4.0.2): SPICE/NAIF functions in python.
 
 -  PyERFA (2.0): Python wrapper for the ERFA library based on the SOFA library.
 
--  Cartopy (0.17): Geospatial data processing to produce maps.
+-  Cartopy (0.19): Geospatial data processing to produce maps.
 
 The user can install SORA and most of its requirements using **pip**, only
 Cartopy should be installed from conda afterwards.

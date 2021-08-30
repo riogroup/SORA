@@ -1,4 +1,4 @@
-SORA v0.2.1 (unreleased)
+SORA v0.2.1 (2021/Aug/30)
 ========================
 
 New Features
@@ -9,19 +9,10 @@ sora.body
 
 - Added function "Body.to_log()". [:issue:`65`]
 
-sora.config
-^^^^^^^^^^^
-
-sora.ephem
-^^^^^^^^^^
-
 sora.extra
 ^^^^^^^^^^
 
 - Added function "ChiSquare.to_log()". [:issue:`65`]
-
-sora.lightcurve
-^^^^^^^^^^^^^^^
 
 sora.observer
 ^^^^^^^^^^^^^
@@ -46,29 +37,8 @@ sora.star
 - Added function that corrects the Gaia-EDR3 proper motion as suggested by
   Cantat-Gaudin and Brandt (2021) [:issue:`65`]
 
-documentation
-^^^^^^^^^^^^^
-
 API Changes
 -----------
-
-sora.body
-^^^^^^^^^^^
-
-sora.config
-^^^^^^^^^^^
-
-sora.ephem
-^^^^^^^^^^
-
-sora.extra
-^^^^^^^^^^
-
-sora.lightcurve
-^^^^^^^^^^^^^^^
-
-sora.observer
-^^^^^^^^^^^^^
 
 sora.occultation
 ^^^^^^^^^^^^^^^^
@@ -76,17 +46,11 @@ sora.occultation
 - Occultation.check_velocities() now calculates the normal velocity considering the ellipse
   fitted in fit_ellipse replacing the radial velocity. [:issue:`66`]
 
-sora.prediction
-^^^^^^^^^^^^^^^
-
 sora.star
 ^^^^^^^^^^^^^^^
 
-- Added warning for Gaia stars with an high RUWE or Duplicity flag, indicating an possible issue
+- Added warning for Gaia stars with a high RUWE or Duplicity flag, indicating a possible issue
   with this star's astrometry. [:issue:`65`]
-
-documentation
-^^^^^^^^^^^^^
 
 Bug Fixes
 ---------
@@ -98,18 +62,13 @@ sora.body
 
 - Fixed wrong albedos in satdb. [:issue:`66`]
 
-sora.config
-^^^^^^^^^^^
-
 sora.ephem
 ^^^^^^^^^^
 
-- Added argument "meta" in "EphemHorizons". [:issue:`65`]
+- Added argument "meta" in "EphemHorizons", thus fixing a bug when predicting with
+  this class. [:issue:`65`]
 
 - Fixed bug when radius is inputted in the ephem classes. [:issue:`67`]
-
-sora.extra
-^^^^^^^^^^
 
 sora.lightcurve
 ^^^^^^^^^^^^^^^
@@ -118,9 +77,6 @@ sora.lightcurve
 
 - Fixed bug where LightCurve did not read occultation parameters if a flux or file
   was not provided. [:issue:`66`]
-
-sora.observer
-^^^^^^^^^^^^^
 
 sora.occultation
 ^^^^^^^^^^^^^^^^
@@ -144,11 +100,6 @@ sora.prediction
 - Fixed bug in the occultation map that did not plot the direction arrow in some
   cases when cartopy>=0.18. [:issue:`67`]
 
-sora.star
-^^^^^^^^^^^^^^^
-
-documentation
-^^^^^^^^^^^^^
 
 SORA v0.2 (2021/Jun/14)
 =======================
