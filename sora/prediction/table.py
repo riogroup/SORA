@@ -478,7 +478,7 @@ class PredictionTable(Table):
         """
         itens = []
         for i, tca in enumerate(self['Epoch']):
-            name = '{}_{}'.format(self.meta['name'], tca.isot)
+            name = '{}_{}'.format(self.meta['name'], tca.isot.replace(':', '_'))
             if not glob.glob(os.path.join(path, name)+'*'):
                 itens.append(i)
         self.remove_rows(itens)

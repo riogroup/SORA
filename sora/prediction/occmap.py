@@ -696,11 +696,21 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     # plots the the direction arrow
     if arrow:
         if limits is None:
-            plt.quiver(5500000, -5500000, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
-                       (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005)
+            dx = 1000000*(np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value
+            dy = 1000000*(np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value
+            plt.annotate('', xy=(5500000+dx, -5500000+dy), xycoords='data',
+                         xytext=(5500000, -5500000), textcoords='data',
+                         arrowprops=dict(facecolor='black', shrink=0.05),
+                         horizontalalignment='right', verticalalignment='top', annotation_clip=False
+                         )
         else:
-            plt.quiver(lx + (ux-lx)*0.9, ly + (uy-ly)*0.1, (np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value,
-                       (np.cos(paplus+90*u.deg)*np.sign(occs['vel'])).value, width=0.005, zorder=1.3)
+            dx = (1000000/zoom) * (np.sin(paplus + 90 * u.deg) * np.sign(occs['vel'])).value
+            dy = (1000000/zoom) * (np.cos(paplus + 90 * u.deg) * np.sign(occs['vel'])).value
+            plt.annotate('', xy=(lx + (ux-lx)*0.9 + dx, ly + (uy-ly)*0.1 + dy), xycoords='data',
+                         xytext=(lx + (ux-lx)*0.9, ly + (uy-ly)*0.1), textcoords='data',
+                         arrowprops=dict(facecolor='black', shrink=0.05),
+                         horizontalalignment='right', verticalalignment='top', annotation_clip=False
+                         )
 
     # plots the countries names
     for country in countries.keys():
