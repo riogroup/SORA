@@ -69,7 +69,7 @@ class BaseEphem:
         if 'radius' in self._shared_with['body']:
             raise AttributeError('When {} is associated to a Body object, radius must be given to the Body'
                                  ' object.'.format(self.__class__.__name__))
-        self._radius = float(value)
+        self._radius = u.Quantity(value, unit=u.km)
 
     @property
     def H(self):
