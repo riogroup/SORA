@@ -91,6 +91,8 @@ documentation
 Bug Fixes
 ---------
 
+- Updated versions of dependencies to avoid bug caused by conflict between them [:issue:`67`]
+
 sora.body
 ^^^^^^^^^^^
 
@@ -103,6 +105,8 @@ sora.ephem
 ^^^^^^^^^^
 
 - Added argument "meta" in "EphemHorizons". [:issue:`65`]
+
+- Fixed bug when radius is inputted in the ephem classes. [:issue:`67`]
 
 sora.extra
 ^^^^^^^^^^
@@ -127,12 +131,18 @@ sora.occultation
 - Fixed bug that prevented the user to ignore the chord name as labels when
   plotting the chords. [:issue:`66`]
 
+- Fixed bug that prevented Occultation instantiation if the size of the star
+  can not be determined [:issue:`67`]
+
 sora.prediction
 ^^^^^^^^^^^^^^^
 
 - Added white "facecolor" to occultation maps. [:issue:`65`]
 
 - Fixed MAJOR bug that inverted the shadow velocity in some cases. [:issue:`66`]
+
+- Fixed bug in the occultation map that did not plot the direction arrow in some
+  cases when cartopy>=0.18. [:issue:`67`]
 
 sora.star
 ^^^^^^^^^^^^^^^
