@@ -97,7 +97,10 @@ class Occultation:
         self.vel = vel  # Shadow velocity at CA
         self.dist = dist  # object distance at CA
         self.tca = tca   # Instant of CA
-        self.star_diam = self.star.apparent_diameter(self.dist, verbose=False)
+        try:
+            self.star_diam = self.star.apparent_diameter(self.dist, verbose=False)
+        except ValueError:
+            self.star_diam = 0*u.km
 
         meta = {
             'name': self.body.name, 'radius': self.body.radius.to(u.km).value,
@@ -111,7 +114,7 @@ class Occultation:
         self.__observations = []
         self._chords = ChordList(star=self.star, body=self._body, time=self.tca)
         self._chords._shared_with['occultation'] = {"vel": np.absolute(self.vel), "dist": float(self.dist.AU),
-                                                    "star_diam": float(self.star_diam.km)}
+                                                    "star_diam": float(self.star_diam.to(u.km).value)}
 
     @property
     def star(self):
