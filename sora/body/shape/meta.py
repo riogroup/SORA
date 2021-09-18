@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 
 
 class BaseShape(ABC):
@@ -10,3 +10,7 @@ class BaseShape(ABC):
 
     def __str__(self) -> str:
         return super(BaseShape, self).__str__()
+
+    @abstractmethod
+    def get_limb(self):
+        pass

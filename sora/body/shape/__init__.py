@@ -1,4 +1,5 @@
 from .utils import *
 from .core import *
+from .limb import *
 
-__all__ = ['Shape3D']
+__all__ = ['Shape3D', 'Limb']

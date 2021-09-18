@@ -1,7 +1,12 @@
+from functools import lru_cache
+
 import numpy as np
 import astropy.units as u
+import shapely.geometry as geometry
 from astropy.coordinates import SkyCoord, CartesianRepresentation
+from shapely.ops import unary_union
 
+from .limb import Limb
 from .meta import BaseShape
 from .utils import read_obj_file
 
@@ -77,6 +82,7 @@ class Shape3D(BaseShape):
     @scale.setter
     def scale(self, value):
         self._scale = float(value)
+        self.get_limb.cache_clear()
 
     def rotated_vertices(self, sub_observer="00 00 00 +00 00 00", pole_position_angle=0):
         """Returns the vertices rotated as viewed by a given observer,
@@ -113,6 +119,50 @@ class Shape3D(BaseShape):
         rx = rotation_matrix(-pa, axis='x')
         rotated_vertices = self.vertices.transform(rz).transform(ry).transform(rx)
         return rotated_vertices
+
+    @lru_cache(maxsize=128)
+    def get_limb(self, sub_observer="00 00 00 +00 00 00", pole_position_angle=0, center_f=0, center_g=0):
+        """Returns the limb rotated as viewed by a given observer,
+        with 'x' in the direction of the observer.
+
+        Parameters
+        ----------
+        sub_observer : `astropy.coordinates.SkyCoord`, `str`
+            Planetocentric coordinates of the center of the object as seen by the observer.
+            It can be an astropy SkyCoord object or a string with the bodycentric longitude
+            latitude in degrees. Ex: "30.0 -20.0", or "30 00 00 -20 00 00".
+
+        pole_position_angle : `float`, `int`
+            Body's North Pole position angle with respect to direction of the ICRS
+            North Pole, i.e. N-E-S-W.
+
+        center_f : `int`, `float`
+            Offset of the center of the body in the East direction, in km
+
+        center_g  : `int`, `float`
+            Offset of the center of the body in the North direction, in km
+
+        Returns
+        -------
+        limb : `sora.body.shape.Limb`
+            The Limb corresponding to the 3D shape projected view
+        """
+        vertices = self.rotated_vertices(sub_observer=sub_observer, pole_position_angle=pole_position_angle)
+        faced_vertices = vertices[self.faces.T]
+
+        ab = faced_vertices[0] - faced_vertices[1]
+        ac = faced_vertices[0] - faced_vertices[-1]
+        normal_obs = ab.cross(ac)
+        observable = normal_obs.x >= 0
+
+        x = - faced_vertices.T[observable].y.value + center_f
+        y = faced_vertices.T[observable].z.value + center_g
+        triangles = [geometry.Polygon(np.transpose(triangle)) for triangle in zip(x, y)]
+        pol = unary_union(triangles)
+        limb = pol.boundary
+        if isinstance(limb, geometry.multilinestring.MultiLineString):
+            limb = limb.geoms[0]
+        return Limb(limb)
 
     def plot(self, sub_observer="00 00 00 +00 00 00", sub_solar=None, pole_position_angle=0, center_f=0, center_g=0,
              scale=1, radial_offset=0, ax=None):
