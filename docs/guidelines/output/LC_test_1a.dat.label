@@ -1,0 +1,5 @@
+Column 1: Time JD
+Column 2: Time relative to 2017-06-22 00:00:00.000 UTC in seconds
+Column 3: Observational Flux
+Column 4: Modelled Flux
+Column 5: Residual O-C

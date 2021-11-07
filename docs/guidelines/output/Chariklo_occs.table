@@ -1,0 +1,49 @@
+ Notes:
+ C/A: geocentric closest approach, in arcsec
+ P/A: Planet position angle wrt to star at C/A, in deg
+ vel: velocity in plane of sky, in km/sec, positive= prograde, negative= retrograde
+ R: instrumental magnitude in UCAC2 system
+ J, H, K: 2MASS magnitudes (50.0 = not in 2MASS)
+ G*, J*, H*, K* are normalized magnitudes to a common
+ shadow velocity of 20 km/sec by the relationship:
+ Mag* = Mag_actual + 2.5*log10[velocity/20 (km/sec)]
+ Delta: Planet range to Earth, AU
+ long: East longitude of sub-planet point, deg, positive towards East
+ loc. t.= UT + long: local solar time at sub-planet point, hh:mm
+ --------------------------------------------------------------------------------------------------------------------
+ Selection criteria:
+ Maximum geocentric closest approach considered:   0.624 arcsec
+ Day light exclusion (range loc. t.): 12.0hs to 12.0 hs (t1 = t2 -> no exclusions)
+ List below has:           8  entries
+ Reference ephemeris: CHARIKLO/DE438_SMALL
+ Offset applied to ephemeris off_ra(mas) = A * (t-t0) + B 
+ Offset applied to ephemeris off_de(mas) = C * (t-t0) + D 
+ t0 =    2005.0000000000000       yrs
+ A =    0.0000000000000000       (mas/yr)
+ B =    0.0000000000000000       (mas)
+ C =    0.0000000000000000       (mas/yr)
+ D =    0.0000000000000000       (mas)
+ pm = proper motion applied? (ok, no)
+ ct = uc (UCAC2); 2m (2MASS); fs (field star); g2 (Gaia-DR2)
+ f = multiplicity flag
+ 0 - no multiple entries per star in astrometry
+ 1 - single position from 2 or more uc/2m entries
+ 2 - single position from 1 uc/2m entry only
+ 3 - fs position from entry with more N contributions
+ 4 - fs position from entry with best (x,y) error
+ 5 - fs position from entry with brightest R mag.
+ 6 - fs position from average over all entries
+ (see details in Assafin et al. 2009)
+ E_ra, E_de: error of star position (mas); (9999 = no estimation)
+ pmra, pmde: star proper motion (mas); (9999 = no proper motion)
+ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  d  m year  h:m:s UT     ra___dec___J2000_candidate     ra_dec_J2000_target_geocen     C/A    P/A     vel  Delta  G*   J*   H*   K*   long  loc. t.  off_ra   off_de pm ct f E_ra E_de pmra pmde
+ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 21 06 2017  09 57 43.4  18 55 36.1745 -31 31 19.0326   18 55 36.1750 -31 31 19.6052   0.573  179.41  21.84 14.66 15.3  0.1  0.1  0.1   225. 00:56       0.0      0.0 ok g2 0    0    0    0    0
+ 22 06 2017  02 58 37.4  18 55 26.3165 -31 31 20.3844   18 55 26.3167 -31 31 20.7421   0.358  179.55  21.92 14.66 18.0  0.1  0.1  0.1   329. 00:53       0.0      0.0 ok g2 0    0    0    0    0
+ 22 06 2017  21 18 48.2  18 55 15.6525 -31 31 21.6706   18 55 15.6525 -31 31 21.6219   0.049  359.72  22.00 14.66 14.3  0.1  0.1  0.1    53. 00:50       0.0      0.0 ok g2 0    0    0    0    0
+ 23 06 2017  21 34 37.6  18 55 01.4812 -31 31 22.4426   18 55 01.4812 -31 31 22.2270   0.216  359.91  22.10 14.66 17.9  0.1  0.1  0.1    48. 00:46       0.0      0.0 ok g2 0    0    0    0    0
+ 24 06 2017  10 13 39.9  18 54 54.0675 -31 31 22.3673   18 54 54.0675 -31 31 22.2867   0.081    0.01 -22.15 14.66 18.0  0.1  0.1  0.1   218. 00:43       0.0      0.0 ok g2 0    0    0    0    0
+ 25 06 2017  10 55 09.3  18 54 39.5530 -31 31 21.6999   18 54 39.5529 -31 31 21.8915   0.192  180.23 -22.23 14.65 17.1  0.1  0.1  0.1   206. 00:39       0.0      0.0 ok g2 0    0    0    0    0
+ 26 06 2017  08 14 35.5  18 54 26.9750 -31 31 20.5126   18 54 26.9748 -31 31 20.9994   0.487  180.41 -22.30 14.65 17.7  0.1  0.1  0.1   245. 00:35       0.0      0.0 ok g2 0    0    0    0    0
+ 26 06 2017  20 46 07.1  18 54 19.5697 -31 31 20.4338   18 54 19.5698 -31 31 20.2348   0.199    0.51 -22.33 14.65 17.8  0.1  0.1  0.1    57. 00:33       0.0      0.0 ok g2 0    0    0    0    0
