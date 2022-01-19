@@ -6,7 +6,7 @@ class Parameter:
        The structure of this class heavely borrows its structure from parameters.py (lmfit)
     '''
 
-    def __init__(self, name, value=None, std=inf, initial_value=None, minval=-inf, maxval=inf, free=True):
+    def __init__(self, name, value=None, minval=-np.inf, maxval=np.inf, free=True, std=np.inf, initial_value=None):
         '''
         Constructor method for the Parameter object.
 
@@ -46,7 +46,7 @@ class Parameter:
         if self.minval > self.maxval:
             self.minval, self.maxval = maxval, minval
 
-        if isclose( self.minval, self.maxval, atol=1e-15, rtol=1e-15):
+        if np.isclose( self.minval, self.maxval, atol=1e-15, rtol=1e-15):
             raise ValueError(f'Parameter {self.name} has `minval` equal to maxval')
         
         if self.minval <= value <= self.maxval:
@@ -111,7 +111,7 @@ class Parameters(dict):
         dict.__setitem__(self, name, parameter)
 
 
-    def add(self, name, value=None, std=None, initial_value=None, minval=-inf, maxval=inf, free=True):
+    def add(self, name, value=None, minval=-np.inf, maxval=np.inf, free=True, std=None, initial_value=None):
         '''
         Include a Parameter values collection into the Parameters dictionary.
 
@@ -283,4 +283,4 @@ class Parameters(dict):
             print('+{}+{}+{}+{}+{}+'.format(dash,dash,dash,dash,dash))
             for key in keys:
                 print('|{:13}|{:13f}|{:13f}|{:13f}|    {:9}|'.format(self[key].name, self[key].value, self[key].minval, self[key].maxval, true_false(self[key].free)))
-            print('+{}+{}+{}+{}+{}+'.format(dash,dash,dash,dash,dash))              
+            print('+{}+{}+{}+{}+{}+'.format(dash,dash,dash,dash,dash))
