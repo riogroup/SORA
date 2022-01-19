@@ -35,5 +35,28 @@ def ellipse(parameters, x_values, y_values):
 
 
 def ellipseError(parameters, f, g, uncertainty, ellipse_error=0):
+    '''
+    ellipseError [summary]S
+
+    [extended_summary]
+
+    Parameters
+    ----------
+    parameters : [type]
+        [description]
+    f : [type]
+        [description]
+    g : [type]
+        [description]
+    uncertainty : [type]
+        [description]
+    ellipse_error : int, optional
+        [description], by default 0
+
+    Returns
+    -------
+    [type]
+        [description]
+    '''
     f_model, g_model = ellipse(parameters, f, g)
     return (( (f - f_model)**2 + (g - g_model)**2 )/(uncertainty**2 + ellipse_error**2) )

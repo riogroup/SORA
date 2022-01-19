@@ -1,8 +1,6 @@
 from scipy import optimize
 from scipy.integrate import quad
 import numpy as np
-from numpy import inf, dot, linalg, sqrt, array, diag, ones, std, arange, isfinite, isinf, shape,sum
-from numpy.random import choice
 from warnings import warn
 from copy import deepcopy
 from tqdm import tqdm
