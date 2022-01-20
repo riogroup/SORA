@@ -6,7 +6,7 @@ class Parameter:
        The structure of this class heavely borrows its structure from parameters.py (lmfit)
     '''
 
-    def __init__(self, name, value=None, minval=-np.inf, maxval=np.inf, free=True, std=np.inf, initial_value=None):
+    def __init__(self, name, value=1, minval=-np.inf, maxval=np.inf, free=True, std=np.inf, initial_value=None):
         '''
         Constructor method for the Parameter object.
 
@@ -14,9 +14,9 @@ class Parameter:
         ----------
         name : `str`
             A name or label to describe the parameter
-        value : `float`, optional
+        value : `float` 
             When first created it contains the initial estimate of the parameter. 
-            In a result object it contains the best fit value, by default None.
+            In a result object it contains the best fit value, by default 0.
         minval : `float`, optional
             The lower bound used in the parameter variation, by default -inf
         maxval : `float`, optional
@@ -203,6 +203,22 @@ class Parameters(dict):
         return values
     
     
+    def get_varys(self):
+        '''
+        Method to get the FREE values stored in the Parameters object.
+
+        Returns
+        -------
+        list : `tuple`
+            List of FREE parameters values.
+        '''
+        values = []
+        for key in self.valuesdict().keys():
+            if self[key].free:
+                values.append(self[key].value)
+        return tuple(values)
+    
+    
     def get_uncertainties(self):       
         '''
         Method to get the uncertainties stored in the Parameters object.
@@ -274,7 +290,7 @@ class Parameters(dict):
             print('+{}+{}+{}+{}+{}+'.format(dashmask,dash,dash,dash,dash))
             textmask = '|{:'+str(max(keylenghts)+2)+'}|{:13f}|{:13f}|{:13f}|    {:9}|'
             for key in keys:
-                print(textmask.format(self[key].name, self[key].value, self[key].minval, self[key].maxval, true_false(self[key].free)))
+                print(textmask.format(self[key].name, self[key].value, self[key].minval, self[key].maxval, 'True' if self[key].free else 'False'))
             print('+{}+{}+{}+{}+{}+'.format(dashmask,dash,dash,dash,dash))
         else:
             dash = '-'*13
@@ -282,5 +298,7 @@ class Parameters(dict):
             print('|{:13}|{:13}|{:13}|{:13}|{:13}|'.format(labels[0], labels[1], labels[2], labels[3], labels[4]))
             print('+{}+{}+{}+{}+{}+'.format(dash,dash,dash,dash,dash))
             for key in keys:
-                print('|{:13}|{:13f}|{:13f}|{:13f}|    {:9}|'.format(self[key].name, self[key].value, self[key].minval, self[key].maxval, true_false(self[key].free)))
+                print('|{:13}|{:13f}|{:13f}|{:13f}|    {:9}|'.format(self[key].name, self[key].value, self[key].minval, self[key].maxval, 'True' if self[key].free else 'False'))
             print('+{}+{}+{}+{}+{}+'.format(dash,dash,dash,dash,dash))
+
+            

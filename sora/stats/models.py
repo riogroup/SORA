@@ -1,5 +1,4 @@
-from numpy import pi, arctan2, sin, cos, sqrt
-
+import numpy as np
 
 
 def ellipse(parameters, x_values, y_values):
@@ -26,6 +25,7 @@ def ellipse(parameters, x_values, y_values):
     
     b = p['equatorial_radius'] - p['equatorial_radius']*p['oblateness']
     phi = p['position_angle'] * np.pi/180.0
+    theta = np.arctan2( y_values - p['center_g'], x_values - p['center_f'])
     angle = theta + phi
     radial_model = ( p['equatorial_radius'] * b )/np.sqrt( ( p['equatorial_radius'] * np.sin( angle ) )**2 + ( b * np.cos( angle ) )**2 )
     x_model = p['center_f'] + radial_model*np.cos( theta )
