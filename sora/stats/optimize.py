@@ -109,6 +109,7 @@ class OptimizeResult(dict):
                 if (len(col) == 0):
                     ss += 'value: {:<6g} (+/-{:>.3g}) '.format(self.params[key].value, self.params[key].std)
 
+                if (self.params[key])
                 ss += ' (bounds [{:>g}, {:>g}]) '.format(self.params[key].minval, self.params[key].maxval)
             print(ss)
 
@@ -528,3 +529,108 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
         return _fit_results(solution, parameters, residual, bootstrap=bootstrap_array, method='differential_evolution', lib='scipy', sigma=sigma)
     except:
         raise ValueError(f'The optimization procedure failed.')       
+
+
+
+def _marching_grid(func, bounds, args=(), sigma=3, samples=1000, force_bounds=False, run_size=None, confidence_limits=False, ci_divisions=10):
+    '''
+    Multidimensional marching grid algorithm to optimize brute force minimum regions finding.
+
+
+    Parameters
+    ----------
+    func : `userfunc`
+        Objective function used to return the resiudals.
+    bounds : `tuple`, `list`
+        An array containing the bounding limits for each parameter. It should
+        have the shape (Npar,2). Example: `bounds = ((-10,10), (0,1), (3,5))`.
+    args : `tuple`, optional
+        Aditional arguments passed to the user function, by default ().
+    sigma : `int`, optional
+        Confidence limits within with the samples should lie, by default 3.
+    samples : `int`, optional
+        Number of simulations to be returned within the provided sigma, by default 1000.
+    force_bounds : `bool`, optional
+        If `True` it will ignore marching towards the best solution and will only
+        uniformly sample parameters candidates within the provided bounds. Moreover, `sigma`
+        parameter is meaningless in this mode, by default False.
+    run_size : `int`, optional
+        It is the number of simulations performed within a testing grid (or run) to march towards
+        the region of minimum residual in that run. If not provided it scales the `run_size` as being 
+        5% of `samples` which has schown to be a good proportion to prevent over and undersampling. 
+        By default None.
+    confidence_limits : `bool`, optional
+        If `True` it will optimize the function for faster runtime. It works by dividing the 
+        load in smaller data chunks controled by `ci_divisions`, and therefore focuses on 
+        getting a better sampled space than a best residual solution, by default False.
+    ci_divisions : `int`, optional
+        Number of divisions (data splits) used to accelerate computations of confidence limits.
+        It is meaningless if `confidence_limits` is `False`, by default 10.
+
+    Returns
+    -------
+    [parameters, residual] : `np.ndarray`
+        A `numpy.ndarray` containing the sampled parameters and residuals.
+    '''
+    
+    params, residual = [], []
+
+    # define the total iteration counter 
+    # define the counter display and can be settet to be used with dependency check
+    pbar = tqdm(total=samples)
+    counter = 0
+    counter_previous = 0
+    
+    # if confidence limits is true the algorithm will focus on
+    # getting more samples then continuously finding the best fit
+    if confidence_limits:
+        div_samples =  int(1) if (samples/ci_divisions) < 1 else int(samples/ci_divisions)
+    else:
+        ci_divisions = 1
+        div_samples = samples
+    
+    # run the divisions
+    for run in range(ci_divisions):
+        #get fresh copy of original bounds
+        new_bounds = list(bounds)
+        
+        # adjust trial size
+        if run_size is None:
+            run_size = int(div_samples*0.05)
+        
+        # set counter instant value
+        counter_instant_value = 0
+        while (counter_instant_value < div_samples) and (counter < samples): 
+            # generate random samples
+            p = []
+            for i, b in enumerate(new_bounds):
+                if (b[0] < bounds[i][0]):
+                    b[0] = bounds[i][0] 
+                if (b[1] > bounds[i][1]):
+                    b[1] = bounds[i][1] 
+                p.append(np.random.uniform(low=b[0], high=b[1], size=trial_size))
+
+            p = np.array(p).T
+            # compute residuals for candidates
+            for i in range(run_size):
+                res = func(p[i],*args)
+                params.append(p[i])
+                residual.append(res.sum())
+
+            params_check = np.array(params).T
+            sigma_threshold = np.min(residual) + sigma**2
+            min_res_index = np.where(residual <= sigma_threshold)
+            counter_instant_value = len(min_res_index[0])
+            #if there are at least two data points redefine bounds
+            if (counter_instant_value > 1) or not force_bounds:
+                for i, _ in enumerate(bounds):
+                    leftlim =  min(params_check[i, min_res_index[0]])
+                    rightlim = max(params_check[i, min_res_index[0]])
+                    new_bounds[i] = [leftlim, rightlim]
+
+            #tqdm only
+            counter += counter_instant_value
+            pbar.update(counter-counter_previous if counter < samples else samples-counter_previous)
+            counter_previous = counter
+    pbar.close()
+    return np.array(params), np.array(residual)        
