@@ -4,7 +4,7 @@ from .lightcurve import LightCurve
 from .observer import Observer, Spacecraft
 from .star import Star
 from .occultation import Occultation
-from .stats import Parameters, OptimizeResult, least_squares, differential_evolution
+from .stats import Parameters, OptimizeResult, least_squares, differential_evolution, fast_chi
 
 __version__ = '1.0dev'
 

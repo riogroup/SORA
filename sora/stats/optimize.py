@@ -109,7 +109,7 @@ class OptimizeResult(dict):
                 if (len(col) == 0):
                     ss += 'value: {:<6g} (+/-{:>.3g}) '.format(self.params[key].value, self.params[key].std)
 
-                if (self.params[key])
+            if (self.params[key]):
                 ss += ' (bounds [{:>g}, {:>g}]) '.format(self.params[key].minval, self.params[key].maxval)
             print(ss)
 
@@ -329,7 +329,7 @@ def _prepare_fit(parameters, method, bounds):
         When `method`, `parameters` or `bounds` are incorrectly provided.
     '''
     
-    accepted_methods = ['lm', 'trf', 'dogbox', 'differential_evolution']
+    accepted_methods = ['lm', 'trf', 'dogbox', 'differential_evolution', 'fast_chi']
     
     # chec if the method is available in the routines
     if not any((method == a) for a in accepted_methods):
@@ -357,7 +357,7 @@ def _prepare_fit(parameters, method, bounds):
         bounds = (-np.inf, np.inf)
 
     # case for DIFFERENTIAL EVOLUTION
-    if (method == 'differential_evolution'):
+    if (method == 'differential_evolution') or (method == 'fast_chi'):
         if (bounds is None):
             bounds = parameters.get_bounds(transposed=False)
         else:
@@ -531,7 +531,6 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
         raise ValueError(f'The optimization procedure failed.')       
 
 
-
 def _marching_grid(func, bounds, args=(), sigma=3, samples=1000, force_bounds=False, run_size=None, confidence_limits=False, ci_divisions=10):
     '''
     Multidimensional marching grid algorithm to optimize brute force minimum regions finding.
@@ -594,7 +593,7 @@ def _marching_grid(func, bounds, args=(), sigma=3, samples=1000, force_bounds=Fa
         #get fresh copy of original bounds
         new_bounds = list(bounds)
         
-        # adjust trial size
+        # adjust run size, default is 5% of the samples size
         if run_size is None:
             run_size = int(div_samples*0.05)
         
@@ -608,7 +607,7 @@ def _marching_grid(func, bounds, args=(), sigma=3, samples=1000, force_bounds=Fa
                     b[0] = bounds[i][0] 
                 if (b[1] > bounds[i][1]):
                     b[1] = bounds[i][1] 
-                p.append(np.random.uniform(low=b[0], high=b[1], size=trial_size))
+                p.append(np.random.uniform(low=b[0], high=b[1], size=run_size))
 
             p = np.array(p).T
             # compute residuals for candidates
@@ -633,4 +632,74 @@ def _marching_grid(func, bounds, args=(), sigma=3, samples=1000, force_bounds=Fa
             pbar.update(counter-counter_previous if counter < samples else samples-counter_previous)
             counter_previous = counter
     pbar.close()
-    return np.array(params), np.array(residual)        
+    return np.array(params), np.array(residual)
+
+
+def fast_chi(func, parameters, bounds=None, args=(), **kwargs):
+    '''
+    Performs the optimization of function parameters using `differential_evolution` method from
+    scipy optimization module.
+
+    Parameters
+    ----------
+    func : `userfun`
+        Objective function provided by the user. The objective function returns the 
+        squared (or weighed squared) residual array, e.g., (model - data )^2, and must
+        take the arguments as follows: `userfunc(parameters, *args, *kwargs)`
+    parameters : `Parameters` object dict
+        Object containing the parameters to be fitted.
+    bounds : `None`, `tuple`
+        Option to provide an array containing bounds external to the Parameters
+        object. For more information on how to create bounds arrays 
+        see :scipydoc:`optimize.Bounds` and `optimize.differential_evolution`
+    args : `tuple`, optional
+        Arguments passed to the `userfun`, by default ()
+    
+    **kwargs :         
+        Aditional options to pass during the fitting.
+    
+    sigma : `int`, optional
+        Confidence limits within with the samples should lie, by default 3.
+    samples : `int`, optional
+        Number of simulations to be returned within the provided sigma, by default 1000.
+    force_bounds : `bool`, optional
+        If `True` it will ignore marching towards the best solution and will only
+        uniformly sample parameters candidates within the provided bounds. Moreover, `sigma`
+        parameter is meaningless in this mode, by default False.
+    run_size : `int`, optional
+        It is the number of simulations performed within a testing grid (or run) to march towards
+        the region of minimum residual in that run. If not provided it scales the `run_size` as being 
+        5% of `samples` which has schown to be a good proportion to prevent over and undersampling. 
+        By default None.
+    confidence_limits : `bool`, optional
+        If `True` it will optimize the function for faster runtime. It works by dividing the 
+        load in smaller data chunks controled by `ci_divisions`, and therefore focuses on 
+        getting a better sampled space than a best residual solution, by default False.
+    ci_divisions : `int`, optional
+        Number of divisions (data splits) used to accelerate computations of confidence limits.
+        It is meaningless if `confidence_limits` is `False`, by default 10.
+
+    
+    Returns
+    -------
+    object : `OptimizeResult`
+        OptimizeResult object with the results obtained by the fitting.
+    '''
+        
+     
+    # get initial values and check external bonds provided
+    vary, bounds = _prepare_fit(parameters, 'fast_chi', bounds) 
+   
+    # check if initial parameters results are finite
+    if np.isfinite(_bypass_fixed_variables(vary, func, parameters, *args)).sum() == 0:
+        raise ValueError(f'Residuals are not finite at initial point. Check your initial parameters and/or objective function.')
+    
+    refact_args = _refactor_func_args(func, parameters, *args)
+    # try execute the fit
+    try:
+        solution = _marching_grid(_bypass_fixed_variables, bounds, args=refact_args, **kwargs)   
+        return solution
+                
+        # return _fit_results(solution, parameters, residual, bootstrap=bootstrap_array, method='differential_evolution', lib='scipy', sigma=sigma)
+    except:
+        raise ValueError(f'The optimization procedure failed.')       
