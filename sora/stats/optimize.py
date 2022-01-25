@@ -194,7 +194,6 @@ def _scipy_results(result, parameters, residual, bootstrap=None, lib='scipy', si
         # try compute cov matrix
         try:
             # get approx Hessian by 2*Jac^T x Jac
-            print('ok')
             hessian = np.dot(result.jac.T, result.jac)
             # invert approx Hessian matrix
             inv_hessian = np.linalg.inv(hessian)
