@@ -6,7 +6,7 @@ class Parameter:
        The structure of this class heavely borrows its structure from parameters.py (lmfit)
     '''
 
-    def __init__(self, name, value=None, minval=-np.inf, maxval=np.inf, free=True, std=np.inf, initial_value=None):
+    def __init__(self, name, value=None, minval=-np.inf, maxval=np.inf, free=True, std=None, initial_value=None):
         '''
         Constructor method for the Parameter object.
 
@@ -60,6 +60,17 @@ class Parameter:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+
+    def __repr__(self):
+        """Return printable representation of a Parameter object."""
+        s = []
+        sval = f"value:{repr(self.value)}"
+        if self.std is not None:
+            sval += f" +/- {self.std:.3g}"
+        s.append(sval)
+        s.append(f"bounds:[{repr(self.minval)}:{repr(self.maxval)}]")
+        s.append(f"free:{repr(self.free)}")
+        return f"Parameter '{self.name}', {', '.join(s)}"
 
 
 
