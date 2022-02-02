@@ -6,7 +6,7 @@ class Parameter:
        The structure of this class heavely borrows its structure from parameters.py (lmfit)
     '''
 
-    def __init__(self, name, value=1, minval=-np.inf, maxval=np.inf, free=True, std=np.inf, initial_value=None):
+    def __init__(self, name, value=None, minval=-np.inf, maxval=np.inf, free=True, std=np.inf, initial_value=None):
         '''
         Constructor method for the Parameter object.
 
@@ -140,7 +140,37 @@ class Parameters(dict):
             A Parameters object containing the collection of parameters.
 
         '''
-        self._addpar(name, Parameter(name, value=value, std=std, initial_value=initial_value, minval=minval, maxval=maxval, free=free) )
+
+        self._addpar(name, Parameter(name, value=value, minval=minval, maxval=maxval, free=free, std=std, initial_value=value) )
+
+
+    def add_many(self, *parlist):
+        '''
+        Add many parameters using a list of tuples.
+
+        Parameters
+        ----------
+        *parlist : :obj:`list` of :obj:`tuple`
+            A list of tuples containing the parameters in a sequence.
+            The order in each tuple must follow the sequence:
+            ``(name, value, minval, maxval, free)``
+        
+        
+        Returns
+        -------
+        object : `Parameters`
+            A Parameters object containing the collection of parameters.
+
+        '''
+
+        for par in parlist:
+            if not isinstance(par, Parameter):
+                parobj = Parameter(*par)
+                print(parobj)
+                print(parobj.name)
+            
+            self._addpar(parobj.name, parobj )
+
 
 
     def remove(self, name):
