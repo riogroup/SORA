@@ -3,19 +3,7 @@ from scipy.integrate import quad
 import numpy as np
 from warnings import warn
 from copy import deepcopy
-from .core import Parameters
-
-
-def _in_ipynb():
-    '''Check if the code is running on an ipython notebook'''
-    try:
-        cfg = get_ipython().config 
-        if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
-            return True
-        else:
-            return False
-    except NameError:
-        return False
+from .core import Parameters, _in_ipynb
 
 
 # check for emcee
@@ -31,8 +19,8 @@ except ImportError:
 try:
     import tqdm
     HAS_TQDM = int(tqdm.__version__[0]) >= 4
-    
-    if _in_ipynb:
+
+    if _in_ipynb():
         from tqdm.notebook import tqdm
     else:
         from tqdm import tqdm

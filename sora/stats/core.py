@@ -1,5 +1,25 @@
 import numpy as np
 
+# try import ipython display for table display in notebooks
+try:
+    from IPython.display import HTML, display
+    from IPython import __version__
+    HAS_IPYTHON = int(__version__[0]) >= 7
+except ImportError:
+    HAS_IPYTHON = False
+
+
+def _in_ipynb():
+    '''Check if the code is running on an ipython notebook'''
+    try:
+        cfg = get_ipython().config 
+        if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
+            return True
+        else:
+            return False
+    except NameError:
+        return False
+
 
 class Parameter:
     '''A collection of values in an object to be used in a fitting procedure.
@@ -58,20 +78,28 @@ class Parameter:
     def __repr__(self):
         """Return printable representation of a Parameter object."""
         s = []
-        sval = f"value={repr(self.value)}"
-        if self.std is not None:
-            sval += f" +/- {self.std:.3g}"
-        s.append(sval)
-        s.append(f"bounds=[{repr(self.minval)}:{repr(self.maxval)}]")
-        s.append(f"free={repr(self.free)}")
-        return f"Parameter '{self.name}', {', '.join(s)}"
+        if not self.free:
+            sval = f"value={self.value:.5g} (fixed)"
+            s.append(sval)
+        else:
+            sval = f"value={self.value:.5g}"
+            if self.std is not None:
+                if np.size(self.std) == 2:
+                    sval += f" -{self.std[0]:.3g}/+{self.std[1]:.3g}"
+                if np.size(self.std) == 1:    
+                    if np.isinf(self.std):
+                        sval += f"-"
+                    else:
+                        sval += f" +/- {self.std:.3g}"
+            s.append(sval)
+            s.append(f", bounds=[{repr(self.minval)}:{repr(self.maxval)}]")
+            s.append(f", free={repr(self.free)}")
+        return f"{''.join(s)}"
 
 
     def update(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
-
-
 
 
 
@@ -177,7 +205,8 @@ class Parameters(dict):
 
         for par in parlist:
             if not isinstance(par, Parameter):
-                parobj = Parameter(*par)            
+                parobj = Parameter(*par)
+                parobj.initial_value = parobj.value            
             self._addpar(parobj.name, parobj )
 
 
@@ -288,7 +317,6 @@ class Parameters(dict):
                 values.append(self[key].name)
         return values
     
-
     
     def valuesdict(self):
         '''
@@ -302,42 +330,79 @@ class Parameters(dict):
         return {p.name: p.value for p in self.values()}
 
 
-    # THIS METHOD IS TEMPORARY AND NEEDS A BETTER SOLUTION
-    def summary(self):
-        '''
-        Prints a summary of Parameters object.
-
-        Returns
-        -------
-        None
-
-        '''
+    def __repr__(self):
+        """__repr__ from OrderedDict."""
         
-        keys = []
-        for key in self.valuesdict().keys():
-            keys.append(key)
+        # __repr__ if in a jupyter notebook
+        if HAS_IPYTHON and _in_ipynb():
 
-        labels = [' Name     ', ' Value       ', ' Lower Bound ', ' Upper Bound ', '    Free    ']
-        keylenghts = [ len(k) for k in keys ]
-        if max(keylenghts) > len(labels[0]):
+            for name in self.valuesdict():
+                if self[name].std is None:
+                    header = ['Parameter','Value','Bounds','Initial Value', 'Free']
+                else:
+                    header = ['Parameter','Value','Standard Error', 'Bounds','Initial Value', 'Free']
 
-            textmasklabels = '|{:'+str(max(keylenghts)+2)+'}|{:13}|{:13}|{:13}|{:13}|'
-            dash = '-'*13
-            dashmask = '-'*(max(keylenghts)+2)
-            print('+{}+{}+{}+{}+{}+'.format(dashmask,dash,dash,dash,dash))
-            print(textmasklabels.format(labels[0], labels[1], labels[2], labels[3], labels[4]))
-            print('+{}+{}+{}+{}+{}+'.format(dashmask,dash,dash,dash,dash))
-            textmask = '|{:'+str(max(keylenghts)+2)+'}|{:13f}|{:13f}|{:13f}|    {:9}|'
-            for key in keys:
-                print(textmask.format(self[key].name, self[key].value, self[key].minval, self[key].maxval, 'True' if self[key].free else 'False'))
-            print('+{}+{}+{}+{}+{}+'.format(dashmask,dash,dash,dash,dash))
-        else:
-            dash = '-'*13
-            print('+{}+{}+{}+{}+{}+'.format(dash,dash,dash,dash,dash))
-            print('|{:13}|{:13}|{:13}|{:13}|{:13}|'.format(labels[0], labels[1], labels[2], labels[3], labels[4]))
-            print('+{}+{}+{}+{}+{}+'.format(dash,dash,dash,dash,dash))
-            for key in keys:
-                print('|{:13}|{:13f}|{:13f}|{:13f}|    {:9}|'.format(self[key].name, self[key].value, self[key].minval, self[key].maxval, 'True' if self[key].free else 'False'))
-            print('+{}+{}+{}+{}+{}+'.format(dash,dash,dash,dash,dash))
+            s = []
+            s.append('<table>')
+            s.append('<tbody>')
+            # header
+            s.append('<tr>')
+            for i, h in enumerate(header):
+                if i == 0:
+                    s.append('<td style="text-align: left;"><strong>'+str(h)+'</strong></td>')
+                else:
+                    s.append('<td><strong>'+str(h)+'</strong></td>')
+            s.append('</tr>')
+            # values
+            for name in self.valuesdict():
+                
+                if not self[name].free:
+                    s.append('<tr>')
+                    s.append('<td style="text-align: left;">{} (fixed)</td>'.format(name))
+                    s.append('<td>{:.5g}</td>'.format(self[name].value))
+                    if self[name].std is not None:
+                        s.append('<td>-</td><td>-</td><td>-</td><td>False</td>')
+                    else:
+                        s.append('<td>-</td><td>-</td><td>False</td>')
+                else:
+                    s.append('<tr>')
+                    s.append('<td style="text-align: left;">{}</td>'.format(name))
+                    s.append('<td>{:.5g}</td>'.format(self[name].value))
+                    if self[name].std is not None:
+                        if np.size(self[name].std) == 2:
+                            s.append('<td>-{:.3g}/+{:.3g}</td>'.format(self[name].std[0], self[name].std[1]))
+                        if np.size(self[name].std) == 1:
+                            if np.isinf(self[name].std):
+                                s.append('<td>-</td>')
+                            else:
+                                s.append('<td>+/-{:.3g}</td>'.format(self[name].std))
+                    s.append('<td>{:.3g} : {:.3g}</td>'.format(self[name].minval, self[name].maxval))
+                    s.append('<td>{}</td>'.format(self[name].initial_value))
+                    s.append('<td>{}</td>'.format(self[name].free))
+                    s.append('</tr>')
+            s.append('</tbody>')
+            s.append('</table>')
 
-            
+            s = ''.join(str(_) for _ in s)
+            display(HTML(s))
+            return ''
+
+        # __repr__ if not in a jupyter notebook
+        if not _in_ipynb():
+            s = []
+            for item in self.items():
+                s.append(item)
+                s.append('\n')
+            s = ''.join(str(_) for _ in s)
+            return f'{s}'        
+
+
+    def __str__(self):
+        """Return printable representation of a Parameters."""
+        s = ['[ Parameters:\n']
+        for item in self.items():
+            s.append(item)
+            s.append('\n')
+        s.append(']')
+        s = ''.join(str(_) for _ in s)
+        return f'{s}'        
