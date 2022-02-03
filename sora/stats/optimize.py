@@ -6,6 +6,18 @@ from copy import deepcopy
 from .core import Parameters
 
 
+def _in_ipynb():
+    '''Check if the code is running on an ipython notebook'''
+    try:
+        cfg = get_ipython().config 
+        if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
+            return True
+        else:
+            return False
+    except NameError:
+        return False
+
+
 # check for emcee
 try:
     import emcee
@@ -17,8 +29,14 @@ except ImportError:
 
 # check for tqdm    
 try:
-    import  tqdm
+    import tqdm
     HAS_TQDM = int(tqdm.__version__[0]) >= 4
+    
+    if _in_ipynb:
+        from tqdm.notebook import tqdm
+    else:
+        from tqdm import tqdm
+    
 except ImportError:
     HAS_TQDM = False
 
@@ -562,7 +580,7 @@ def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootst
             
             # progress bar settings
             if show_progress and HAS_TQDM:
-                pbar = tqdm.tqdm(total=bootstrap, desc='Bootstraping')
+                pbar = tqdm(total=bootstrap, desc='Bootstraping')
             else:
                 pbar = NoTqdm()
                 if show_progress:
@@ -656,7 +674,7 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
             
             # progress bar settings
             if show_progress and HAS_TQDM:
-                pbar = tqdm.tqdm(total=bootstrap, desc='Bootstraping')
+                pbar = tqdm(total=bootstrap, desc='Bootstraping')
             else:
                 pbar = NoTqdm()
                 if show_progress:
@@ -726,7 +744,7 @@ def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, march
     # define the total iteration counter 
     # define the counter display and can be settet to be used with dependency check
     if show_progress and HAS_TQDM:
-        pbar = tqdm.tqdm(total=samples)
+        pbar = tqdm(total=samples)
     else:
         pbar = NoTqdm()
         if show_progress:
