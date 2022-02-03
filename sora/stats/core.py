@@ -55,22 +55,23 @@ class Parameter:
             raise ValueError(f'Value `{value}` at parameter `{self.name}` is outside the provided bounds `({self.minval}, {self.maxval})`')
             
             
-        
+    def __repr__(self):
+        """Return printable representation of a Parameter object."""
+        s = []
+        sval = f"value={repr(self.value)}"
+        if self.std is not None:
+            sval += f" +/- {self.std:.3g}"
+        s.append(sval)
+        s.append(f"bounds=[{repr(self.minval)}:{repr(self.maxval)}]")
+        s.append(f"free={repr(self.free)}")
+        return f"Parameter '{self.name}', {', '.join(s)}"
+
+
     def update(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
 
-    def __repr__(self):
-        """Return printable representation of a Parameter object."""
-        s = []
-        sval = f"value:{repr(self.value)}"
-        if self.std is not None:
-            sval += f" +/- {self.std:.3g}"
-        s.append(sval)
-        s.append(f"bounds:[{repr(self.minval)}:{repr(self.maxval)}]")
-        s.append(f"free:{repr(self.free)}")
-        return f"Parameter '{self.name}', {', '.join(s)}"
 
 
 
@@ -176,10 +177,7 @@ class Parameters(dict):
 
         for par in parlist:
             if not isinstance(par, Parameter):
-                parobj = Parameter(*par)
-                print(parobj)
-                print(parobj.name)
-            
+                parobj = Parameter(*par)            
             self._addpar(parobj.name, parobj )
 
 

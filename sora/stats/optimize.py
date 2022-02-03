@@ -3,8 +3,39 @@ from scipy.integrate import quad
 import numpy as np
 from warnings import warn
 from copy import deepcopy
-from tqdm import tqdm
 from .core import Parameters
+
+
+# check for emcee
+try:
+    import emcee
+    from emcee.autocorr import AutocorrError
+    HAS_EMCEE = int(emcee.__version__[0]) >= 3
+except ImportError:
+    HAS_EMCEE = False
+
+
+# check for tqdm    
+try:
+    import  tqdm
+    HAS_TQDM = int(tqdm.__version__[0]) >= 4
+except ImportError:
+    HAS_TQDM = False
+
+
+# check for multiprocessing
+try:
+    from multiprocessing import Pool
+    if not "starmap" in dir(Pool()):
+        HAS_MULTIPROCESSING = False
+        print('warn: Install module multiprocessing >= 3.3') 
+    else:
+        HAS_MULTIPROCESSING = True   
+except ImportError:
+    print('Install module multiprocessing >= 3.3')    
+    HAS_MULTIPROCESSING = False
+
+
 
 class OptimizeResult(dict):
     '''An object that contains the results obtained by the fitting procedure
@@ -451,7 +482,7 @@ def _prepare_fit(parameters, method, bounds):
             
 
 
-def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootstrap=None, sigma=1, **kwargs):
+def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootstrap=None, sigma=1, show_progress=True, **kwargs):
     '''
     Performs the optimization of function parameters using convervenge algorithms and the scipy module.
 
@@ -481,6 +512,9 @@ def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootst
     sigma : float, int
         The number of sigmas correponding to the error bars obtained from the
         covariance matrix or with bootstraping.
+    show_progress : `bool`
+        If `True` shows a progress bar relative to the boostraping calculations.
+        By default, True. 
     **kwargs : dict, optional
         Aditional options to pass see :scipydoc:`optimize.least_squares`
 
@@ -515,8 +549,16 @@ def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootst
         if isinstance(bootstrap, (float, int)):
             bootstrap_array = np.zeros((int(bootstrap), len(vary)))
             index = np.arange(len(args[0]))
-            # USING TQDM REMOVE LATER
-            for boot_index in tqdm(range(int(bootstrap)), desc='Bootstraping'):
+            
+            # progress bar settings
+            if not HAS_TQDM:
+                warn(f'`tqdm` module is required to show progress bars.')
+
+            if show_progress and HAS_TQDM:
+                pbar = tqdm.tqdm(total=bootstrap, desc='Bootstraping')
+
+            # single thread processing
+            for boot_index in range(int(bootstrap)):
                 new_index = np.random.choice(index, size=len(args[0]), replace=True, p=None)
                 refact_args = _refactor_func_args(func, parameters, *args, index=new_index)
                 # try to perform the fit
@@ -525,6 +567,12 @@ def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootst
                     bootstrap_array[boot_index,:] = solution_bootstrap.x
                 except:
                     raise ValueError(f'An error occured during boostraping solutions.')
+        
+                if show_progress and HAS_TQDM:
+                    pbar.update()
+            
+            if show_progress and HAS_TQDM:
+                pbar.close()
                 
         return _scipy_results(solution, parameters, residual, bootstrap=bootstrap_array, lib='scipy', method='least_squares', sigma=sigma)
     except:
@@ -537,7 +585,7 @@ def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootst
         
 
         
-def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=None, sigma=1, **kwargs):
+def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=None, sigma=1, show_progress=True, **kwargs):
     '''
     Performs the optimization of function parameters using `differential_evolution` method from
     scipy optimization module.
@@ -562,6 +610,9 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
     sigma : float, int
         The number of sigmas correponding to the error bars obtained from the
         covariance matrix or with bootstraping.
+    show_progress : `bool`
+        If `True` shows a progress bar relative to the boostraping calculations.
+        By default, True.
     **kwargs : dict, optional
         Aditional options to pass during the fitting see :scipydoc:`optimize.differential_evolution`
 
@@ -592,13 +643,19 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
         
         # if set compute bootstrap statistics
         bootstrap_array = None
-        # if set compute bootstrap statistics
-        bootstrap_array = None
         if isinstance(bootstrap, (float, int)):
             bootstrap_array = np.zeros((int(bootstrap), len(vary)))
             index = np.arange(len(args[0]))
-            # USING TQDM REMOVE LATER
-            for boot_index in tqdm(range(int(bootstrap)), desc='Bootstraping'):
+            
+            # progress bar settings
+            if not HAS_TQDM:
+                warn(f'`tqdm` module is required to show progress bars.')
+
+            if show_progress and HAS_TQDM:
+                pbar = tqdm.tqdm(total=bootstrap, desc='Bootstraping')
+
+            # single thread processing
+            for boot_index in range(int(bootstrap)):
                 new_index = np.random.choice(index, size=len(args[0]), replace=True, p=None)
                 refact_args = _refactor_func_args(func, parameters, *args, index=new_index)
                 # try to perform the fit
@@ -608,12 +665,18 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
                 except:
                     raise ValueError(f'An error occured during boostraping solutions.')
                 
+                if show_progress and HAS_TQDM:
+                    pbar.update()
+            
+            if show_progress and HAS_TQDM:
+                pbar.close()
+                
         return _scipy_results(solution, parameters, residual, bootstrap=bootstrap_array, method='differential_evolution', lib='scipy', sigma=sigma)
     except:
         raise ValueError(f'The optimization procedure failed.')       
 
 
-def _marching_grid(func, bounds, args=(), sigma=3, samples=1000, marching_grid=True, run_size=10000, divs=1):
+def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, marching_grid=True, run_size=10000, threads=None, show_progress=True):
     '''
     Multidimensional marching grid algorithm to optimize brute force minimum regions finding.
 
@@ -636,8 +699,10 @@ def _marching_grid(func, bounds, args=(), sigma=3, samples=1000, marching_grid=T
         When `False` sampling is done uniformly within the boundings provided, by default True.
     run_size : `int`, optional
         Number of simulations performed within each sampling run. By default 10000.
-    divs : `int`, optional
-        Number of divisions (data splits) to better handle large samples, by default 1.
+    threads : `int`
+        If multithreading is desired it sets the number of parallel processes, by default None.
+    show_progress : `bool`
+        If `True` shows a progress bar relative to the calculations. By default, True.
 
     Returns
     -------
@@ -647,9 +712,19 @@ def _marching_grid(func, bounds, args=(), sigma=3, samples=1000, marching_grid=T
     
     params, residual = [], []
     
+    res = func(initpars,*args)
+    params.append(list(initpars))
+    residual.append(res.sum())
+  
     # define the total iteration counter 
     # define the counter display and can be settet to be used with dependency check
-    pbar = tqdm(total=samples)
+    if not HAS_TQDM:
+        warn(f'`tqdm` module is required to show progress bars.')
+
+    if show_progress and HAS_TQDM:
+        pbar = tqdm.tqdm(total=samples)
+        
+
     counter = 0
     counter_previous = 0    
 
@@ -658,51 +733,72 @@ def _marching_grid(func, bounds, args=(), sigma=3, samples=1000, marching_grid=T
     
     new_bounds = list(bounds)
     
-    div_samples = np.ceil(samples/divs)
-    for div in range(divs):
-        new_bounds = list(bounds)
-        params_local = []
-        residual_local = []
-        while (counter < div_samples*(div+1)):
+
+    new_bounds = list(bounds)
+    while (counter < samples):       
+        # generate random samples
+        p = []
+        for i, b in enumerate(new_bounds):
+            if (b[0] < bounds[i][0]):
+                b[0] = bounds[i][0] 
+            if (b[1] > bounds[i][1]):
+                b[1] = bounds[i][1]
+
+            p.append(np.random.uniform(low=b[0], high=b[1], size=run_size))
+
+        p = np.array(list(p)).T
+
+
+        # raise warning if multiprocessing is not installed or version incompatible
+        if not (HAS_MULTIPROCESSING) and (threads is not None):
+            warn(f'`multiprocessing` >=3.3 is required to run the processes in parallel.')
+        
+        # compute residuals for candidates multithreading
+        if (HAS_MULTIPROCESSING) and (threads is not None) and isinstance(threads, (float, int)):
+            # create arguments pack
+            pool_args = [ (pars, *args) for pars in p ]
+            with Pool(processes=int(threads)) as pool:
+                pool_res = pool.starmap(func, pool_args)
             
-            # generate random samples
-            p = []
-            for i, b in enumerate(new_bounds):
-                if (b[0] < bounds[i][0]):
-                    b[0] = bounds[i][0] 
-                if (b[1] > bounds[i][1]):
-                    b[1] = bounds[i][1]
-
-                p.append(np.random.uniform(low=b[0], high=b[1], size=run_size))
-
-            p = np.array(list(p)).T
-
-            # compute residuals for candidates
+            for i in range(int(run_size)):
+                params.append(list(p[i]))
+                residual.append(pool_res[i].sum())
+                
+        
+        # or instead compute residuals for candidates linearly
+        else:
+            if not isinstance(threads, (float, int)) and (threads is not None):
+                warn(f'Provide the number of workers/threads to run in parallel in the keyword `threads`.')
+            
             for i in range(int(run_size)):
                 res = func(p[i],*args)
                 params.append(list(p[i]))
                 residual.append(res.sum())
-                params_local.append(list(p[i]))
-                residual_local.append(res.sum())
 
-            sigma_threshold = min(residual_local) + sigma**2
-            min_res_index = ( residual_local <= sigma_threshold ) 
-            #if there are at least two data points redefine bounds
-            if marching_grid:
-                idx_min = ( residual_local == min(residual_local) )
-                params_check = np.array(params_local)
-                for i, _ in enumerate(bounds):
-                    leftlim =  min(params_check[min_res_index,i])
-                    rightlim = max(params_check[min_res_index,i])
-                    value = params_check[idx_min,i]
-                    dv = max(value[0]-leftlim, rightlim-value[0])
-                    new_bounds[i] = [leftlim-dv, rightlim+dv]
-            #tqdm only
-            count_index = ( residual <= sigma_threshold )
-            counter = np.sum(count_index)
+
+        sigma_threshold = min(residual) + sigma**2
+        min_res_index = ( residual <= sigma_threshold ) 
+        #if there are at least two data points redefine bounds
+        if marching_grid:
+            idx_min = ( residual == min(residual) )
+            params_check = np.array(params)
+            for i, _ in enumerate(bounds):
+                leftlim =  min(params_check[min_res_index,i])
+                rightlim = max(params_check[min_res_index,i])
+                value = params_check[idx_min,i]
+                dv = max(value[0]-leftlim, rightlim-value[0])
+                new_bounds[i] = [leftlim-dv, rightlim+dv]
+        
+        count_index = ( residual <= sigma_threshold )
+        counter = np.sum(count_index)
+        
+        if show_progress and HAS_TQDM:
             pbar.update(counter-counter_previous if counter < samples else samples-counter_previous)
-            counter_previous = counter
-    pbar.close()
+        
+        counter_previous = counter
+
+    if show_progress and HAS_TQDM:
+        pbar.close()
     return np.array(params), np.array(residual)
 
 
@@ -738,10 +834,11 @@ def fastchi(func, parameters, bounds=None, args=(), **kwargs):
         When `False` sampling is done uniformly within the boundings provided, by default True.
     run_size : `int`, optional
         Number of simulations performed within each sampling run. By default 10000.
-    divs : `int`, optional
-        Number of divisions (data splits) to better handle large samples, by default 1.
+    threads : `int`
+        If multithreading is desired it sets the number of parallel processes, by default None.
+    show_progress : `bool`
+        If `True` shows a progress bar relative to the calculations. By default, True.
 
-    
     Returns
     -------
     object : `OptimizeResult`
@@ -759,7 +856,7 @@ def fastchi(func, parameters, bounds=None, args=(), **kwargs):
     refact_args = _refactor_func_args(func, parameters, *args)
     # try execute the fit
     try:
-        solution = _marching_grid(_bypass_fixed_variables, bounds, args=refact_args, **kwargs)   
+        solution = _marching_grid(_bypass_fixed_variables, vary, bounds, args=refact_args, **kwargs)   
         return solution
                 
         # return _fit_fastchi_results(solution, parameters, residual, bootstrap=bootstrap_array, method='differential_evolution', lib='scipy', sigma=sigma)
