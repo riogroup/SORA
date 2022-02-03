@@ -23,18 +23,28 @@ except ImportError:
     HAS_TQDM = False
 
 
-# check for multiprocessing
+# check for multiprocessing and method starmap
 try:
     from multiprocessing import Pool
     if not "starmap" in dir(Pool()):
         HAS_MULTIPROCESSING = False
-        print('warn: Install module multiprocessing >= 3.3') 
     else:
         HAS_MULTIPROCESSING = True   
 except ImportError:
-    print('Install module multiprocessing >= 3.3')    
     HAS_MULTIPROCESSING = False
 
+
+
+class NoTqdm():
+    '''A dummy class to handle pbar when tqdm is not availabe.'''
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def update(self, *args, **kwargs):
+        pass
+
+    def close(self, *args, **kwargs):
+        pass
 
 
 class OptimizeResult(dict):
@@ -482,7 +492,7 @@ def _prepare_fit(parameters, method, bounds):
             
 
 
-def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootstrap=None, sigma=1, show_progress=True, **kwargs):
+def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootstrap=None, sigma=1, show_progress=False, **kwargs):
     '''
     Performs the optimization of function parameters using convervenge algorithms and the scipy module.
 
@@ -514,7 +524,7 @@ def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootst
         covariance matrix or with bootstraping.
     show_progress : `bool`
         If `True` shows a progress bar relative to the boostraping calculations.
-        By default, True. 
+        Depends on `tqdm` module to function. By default, False. 
     **kwargs : dict, optional
         Aditional options to pass see :scipydoc:`optimize.least_squares`
 
@@ -551,11 +561,12 @@ def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootst
             index = np.arange(len(args[0]))
             
             # progress bar settings
-            if not HAS_TQDM:
-                warn(f'`tqdm` module is required to show progress bars.')
-
             if show_progress and HAS_TQDM:
                 pbar = tqdm.tqdm(total=bootstrap, desc='Bootstraping')
+            else:
+                pbar = NoTqdm()
+                if show_progress:
+                    warn(f'`tqdm` module is required to show progress bars.')
 
             # single thread processing
             for boot_index in range(int(bootstrap)):
@@ -568,24 +579,20 @@ def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootst
                 except:
                     raise ValueError(f'An error occured during boostraping solutions.')
         
-                if show_progress and HAS_TQDM:
-                    pbar.update()
-            
-            if show_progress and HAS_TQDM:
-                pbar.close()
+                pbar.update()
+
+            pbar.close()
                 
         return _scipy_results(solution, parameters, residual, bootstrap=bootstrap_array, lib='scipy', method='least_squares', sigma=sigma)
     except:
         raise ValueError(f'The optimization procedure failed.')
         
-
-
         
         
         
 
         
-def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=None, sigma=1, show_progress=True, **kwargs):
+def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=None, sigma=1, show_progress=False, **kwargs):
     '''
     Performs the optimization of function parameters using `differential_evolution` method from
     scipy optimization module.
@@ -612,7 +619,7 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
         covariance matrix or with bootstraping.
     show_progress : `bool`
         If `True` shows a progress bar relative to the boostraping calculations.
-        By default, True.
+        Depends on `tqdm` module to function. By default, False. 
     **kwargs : dict, optional
         Aditional options to pass during the fitting see :scipydoc:`optimize.differential_evolution`
 
@@ -648,11 +655,12 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
             index = np.arange(len(args[0]))
             
             # progress bar settings
-            if not HAS_TQDM:
-                warn(f'`tqdm` module is required to show progress bars.')
-
             if show_progress and HAS_TQDM:
                 pbar = tqdm.tqdm(total=bootstrap, desc='Bootstraping')
+            else:
+                pbar = NoTqdm()
+                if show_progress:
+                    warn(f'`tqdm` module is required to show progress bars.')
 
             # single thread processing
             for boot_index in range(int(bootstrap)):
@@ -665,18 +673,16 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
                 except:
                     raise ValueError(f'An error occured during boostraping solutions.')
                 
-                if show_progress and HAS_TQDM:
-                    pbar.update()
+                pbar.update()
             
-            if show_progress and HAS_TQDM:
-                pbar.close()
+            pbar.close()
                 
         return _scipy_results(solution, parameters, residual, bootstrap=bootstrap_array, method='differential_evolution', lib='scipy', sigma=sigma)
     except:
         raise ValueError(f'The optimization procedure failed.')       
 
 
-def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, marching_grid=True, run_size=10000, threads=None, show_progress=True):
+def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, marching_grid=True, run_size=10000, threads=None, show_progress=False):
     '''
     Multidimensional marching grid algorithm to optimize brute force minimum regions finding.
 
@@ -702,7 +708,8 @@ def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, march
     threads : `int`
         If multithreading is desired it sets the number of parallel processes, by default None.
     show_progress : `bool`
-        If `True` shows a progress bar relative to the calculations. By default, True.
+        If `True` shows a progress bar relative to the calculations. 
+        Depends on `tqdm` module to function. By default, False. 
 
     Returns
     -------
@@ -718,11 +725,12 @@ def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, march
   
     # define the total iteration counter 
     # define the counter display and can be settet to be used with dependency check
-    if not HAS_TQDM:
-        warn(f'`tqdm` module is required to show progress bars.')
-
     if show_progress and HAS_TQDM:
         pbar = tqdm.tqdm(total=samples)
+    else:
+        pbar = NoTqdm()
+        if show_progress:
+            warn(f'`tqdm` module is required to show progress bars.')
         
 
     counter = 0
@@ -791,14 +799,12 @@ def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, march
         
         count_index = ( residual <= sigma_threshold )
         counter = np.sum(count_index)
-        
-        if show_progress and HAS_TQDM:
-            pbar.update(counter-counter_previous if counter < samples else samples-counter_previous)
-        
+
+        pbar.update(counter-counter_previous if counter < samples else samples-counter_previous)
+       
         counter_previous = counter
 
-    if show_progress and HAS_TQDM:
-        pbar.close()
+    pbar.close()
     return np.array(params), np.array(residual)
 
 
@@ -837,7 +843,8 @@ def fastchi(func, parameters, bounds=None, args=(), **kwargs):
     threads : `int`
         If multithreading is desired it sets the number of parallel processes, by default None.
     show_progress : `bool`
-        If `True` shows a progress bar relative to the calculations. By default, True.
+        If `True` shows a progress bar relative to the calculations. 
+        Depends on `tqdm` module to function. By default, False. 
 
     Returns
     -------
