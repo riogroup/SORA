@@ -200,14 +200,20 @@ def read_lc_file(lc_file, usecols=None, skiprows=0):
                 time_col_index, flux_col_index = usecols
                 time_col_name = lc_data.colnames[time_col_index]
                 flux_col_name = lc_data.colnames[flux_col_index]
-                time, flux = Time(lc_data[time_col_name].data).jd, lc_data[flux_col_name].data
+                if ":" in str(lc_data[time_col_name].data[0]):
+                    time, flux = Time(lc_data[time_col_name].data).jd, lc_data[flux_col_name].data
+                else:
+                    time, flux = Time(lc_data[time_col_name].data, format="jd").jd, lc_data[flux_col_name].data
                 return time, flux
             elif len(usecols) == 3:
                 time_col_index, flux_col_index, dflux_col_index = usecols
                 time_col_name = lc_data.colnames[time_col_index]
                 flux_col_name = lc_data.colnames[flux_col_index]
                 dflux_col_name = lc_data.colnames[dflux_col_index]
-                time, flux = Time(lc_data[time_col_name].data).jd, lc_data[flux_col_name].data
+                if ":" in str(lc_data[time_col_name].data[0]):
+                    time, flux = Time(lc_data[time_col_name].data).jd, lc_data[flux_col_name].data
+                else:
+                    time, flux = Time(lc_data[time_col_name].data, format="jd").jd, lc_data[flux_col_name].data
                 dflux = lc_data[dflux_col_name].data
                 return time, flux, dflux
             else:

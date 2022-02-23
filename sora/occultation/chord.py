@@ -4,6 +4,7 @@ import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyOffsetFrame
 from astropy.time import Time
+from .utils import add_arrow
 
 __all__ = ['Chord']
 
@@ -310,7 +311,8 @@ class Chord:
 
         return vals
 
-    def plot_chord(self, *, segment='standard', only_able=False, ax=None, linestyle='-', **kwargs):
+    def plot_chord(self, *, segment='standard', only_able=False, ax=None, linestyle='-',
+                       time_direction=False, **kwargs):
         """Plots the on-sky path of this chord.
 
         This Chord object must be associated to an Occultation to work, since
@@ -353,6 +355,9 @@ class Chord:
             The difference is that now it accepts ``linestyle='exposure'``, where
             the plot will be a dashed line corresponding to each exposure.
             The blank space between the lines can be interpreted as 'dead time'.
+
+        time_direction : `bool`
+            If enabled, it draws the direction of time flow on the chord line.
 
         **kwargs
             Any other kwarg will be parsed directly by `maplotlip.pyplot.plot`.
@@ -398,6 +403,16 @@ class Chord:
             var += ax.plot(*vals, **kwargs)
         if len(var) > 0:
             var[0].set_label(label)
+            if time_direction is True:
+                if segment != 'error':
+                    in_fg = self.get_fg(time=[self.lightcurve.initial_time])[0]
+                    out_fg = self.get_fg(time=[self.lightcurve.end_time])[0]
+                    if out_fg[0] > in_fg[0]:
+                        add_arrow(var[0], direction='right')
+                    elif out_fg[0] < in_fg[0]:
+                        add_arrow(var[0], direction='left')
+                    else:
+                        pass
 
     def get_impact_param(self, center_f=0, center_g=0, verbose=True):
         """Gets the impact parameter, minimal distance between the chord and the

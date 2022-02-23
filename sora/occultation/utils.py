@@ -1,7 +1,7 @@
 import astropy.units as u
 import numpy as np
 
-__all__ = ['filter_negative_chord', 'positionv']
+__all__ = ['filter_negative_chord', 'positionv', 'add_arrow']
 
 
 def positionv(star, ephem, observer, time):
@@ -175,3 +175,51 @@ def calc_geometric_albedo(equivalent_radius, H_obj, equivalent_radius_error=0, H
         else:
             print('geometric albedo: {:.3f} \n'.format(geometric_albedo))
     return geometric_albedo, delta_albedo
+
+
+def add_arrow(line, position=None, direction='right', size=15, color=None):
+    """ Add an arrow to a chord.
+
+        Parameters
+        ----------
+        line : `Line2D object`
+            Line2D object
+
+        position : `float`, `int`
+            x-position of the arrow. If None, mean of xdata is taken.
+
+        direction : `string`, default='right'
+            'left' or 'right'
+
+        size : `float`, `int`, default=15
+            Size of the arrow in fontsize points.
+
+        color : `string`, default=None
+            If None, line color is taken.
+
+        See Also
+        --------
+        https://stackoverflow.com/a/34018322/3137585
+    """
+
+    if color is None:
+        color = line.get_color()
+
+    xdata = line.get_xdata()
+    ydata = line.get_ydata()
+
+    if position is None:
+        position = xdata.mean()
+    # find closest index
+    start_ind = np.argmin(np.absolute(xdata - position))
+    if direction == 'right':
+        end_ind = start_ind + 1
+    else:
+        end_ind = start_ind - 1
+
+    line.axes.annotate('',
+                       xytext=(xdata[start_ind], ydata[start_ind]),
+                       xy=(xdata[end_ind], ydata[end_ind]),
+                       arrowprops=dict(arrowstyle="->", color=color),
+                       size=size
+                       )
