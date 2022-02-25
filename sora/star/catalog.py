@@ -6,6 +6,8 @@ import numpy as np
 from astropy.time import Time
 from astroquery.vizier import Vizier
 
+from sora.config.input_tests import SelectDefault
+
 
 @dataclass
 class Catalogue(metaclass=ABCMeta):
@@ -95,4 +97,4 @@ gaiaedr3 = VizierCatalogue(name='GaiaEDR3', cat_path='I/350/gaiaedr3', code='Sou
                            pmra='pmRA', pmdec='pmDE', epoch='Epoch', parallax='Plx', rad_vel='RVDR2', band={'G': 'Gmag'})
 
 
-catalogs = {'gaiadr2': gaiadr2, 'gaiaedr3': gaiaedr3}
+allowed_catalogues = SelectDefault(instance=VizierCatalogue, defaults={'gaiadr2': gaiadr2, 'gaiaedr3': gaiaedr3})

@@ -186,7 +186,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         PredictionTable with the occultation params for each event.
     """
     from sora.observer import Observer, Spacecraft
-    from sora.star.catalog import catalogs, Catalogue
+    from sora.star.catalog import allowed_catalogues
     from .table import PredictionTable
 
     if reference_center != 'geocenter' and not isinstance(reference_center, (Observer, Spacecraft)):
@@ -211,12 +211,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
     intervals = np.round(np.linspace(0, (time_end-time_beg).sec, divs+1))
 
     # define catalogue parameters
-    allowed_catalogues = ['gaiadr2', 'gaiaedr3']
-    catalog = catalogue
-    if isinstance(catalogue, str):
-        catalog = catalogs.get(catalogue)
-    if not isinstance(catalog, Catalogue):
-        raise TypeError('Catalogue {} is not one of the allowed catalogues {}'.format(catalogue, allowed_catalogues))
+    catalog = allowed_catalogues.get_default(catalogue)
     kwds = {'columns': 'simple', 'row_limit': 10000000, 'timeout': 600}
     if mag_lim is not None:
         if isinstance(mag_lim, (int, float)):
