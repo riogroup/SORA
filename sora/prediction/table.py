@@ -214,19 +214,9 @@ class PredictionTable(Table):
             if 'mag' not in kwargs.keys() and 'mag_20' not in kwargs.keys():
                 raise ValueError('User must provide "mag" or "mag_20" parameters')
             if 'mag' in kwargs.keys():
-                values['G'] = Column(kwargs['mag'] * u.mag, format='6.3f', unit='mag')
+                for band, vals in kwargs['mag'].items():
+                    values[band] = Column(np.array(vals, ndmin=1), format='6.3f', unit='mag')
                 del kwargs['mag']
-            else:
-                values['G'] = kwargs['mag_20'] - 2.5*np.log10(np.absolute(values['Vel'])/20.0)
-                values['G'].unit = 'mag'
-                values['G'].format = '6.3f'
-            if 'mag_20' in kwargs.keys():
-                values['G*'] = Column(kwargs['mag_20'] * u.mag, format='6.3f', unit='mag')
-                del kwargs['mag_20']
-            else:
-                values['G*'] = values['G'] + 2.5*np.log10(np.absolute(values['Vel'])/20.0)
-                values['G*'].unit = 'mag'
-                values['G*'].format = '6.3f'
             if 'long' in kwargs.keys():
                 values['long'] = Column(kwargs['long'], unit='deg', format='3.0f')
                 del kwargs['long']
@@ -246,7 +236,7 @@ class PredictionTable(Table):
             values['S-G-T'] = Column(sun_pos.separation(coord), unit='deg', format='3.0f')
             catalogue = kwargs.get('meta', {}).get('catalogue', '')
             if 'source' in kwargs.keys():
-                values[f'{catalogue} Source ID'] = Column(kwargs['source'], dtype=np.int64)
+                values[f'{catalogue} Source ID'] = Column(kwargs['source'], dtype='str')
                 del kwargs['source']
             else:
                 values[f'{catalogue} Source ID'] = Column(np.repeat('', len(time)))
@@ -365,8 +355,9 @@ class PredictionTable(Table):
         radius = kwargs.get('radius', radius)*u.km
         meta = {'name': name, 'radius': radius, 'max_ca': max_ca, 'ephem': lines[17].split()[-1],
                 'error_ra': error_ra*1000, 'error_dec': error_dec*1000}
+        mag = dados['mR'] - 2.5 * np.log10(np.absolute(dados['vel']) / 20.0)
         return cls(time=time, coord_star=coord_star, coord_obj=coord_obj, ca=dados['ca'], pa=dados['pa'],
-                   vel=dados['vel'], mag_20=dados['mR'], dist=dados['delta'],
+                   vel=dados['vel'], mag=mag, dist=dados['delta'],
                    long=dados['long'], loct=dados['loct'], meta=meta)
 
     def to_praia(self, filename):
@@ -381,8 +372,9 @@ class PredictionTable(Table):
         f = open(filename, 'w')
         f.write(praia_occ_head.format(max_ca=self.meta['max_ca'].to(u.arcsec), size=len(self),
                                       ephem=self.meta.get('ephem', 'ephem')))
-        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, md, sd, source in self.iterrows():
-            dmag = mag_20-mag
+        for time, coord, coord_geo, ca, pa, vel, dist, *mag, longi, loct, md, sd, source in self.iterrows():
+            dmag = 2.5 * np.log10(np.absolute(vel) / 20.0)
+            mag_20 = mag[0] + dmag
             f.write("\n {} {} {}  {}  {}   {}   {:5.3f}  {:6.2f} {:-6.2f} {:5.2f} {:4.1f} "
                     "{:-4.1f} {:-4.1f} {:-4.1f}   {:3.0f}. {}       0.0      0.0 ok g2 0    0    0    0    0".
                     format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:21].replace(':', ' '),
@@ -418,8 +410,9 @@ class PredictionTable(Table):
         f.write(ow_occ_head.format(name=self.meta['name'], ephem=self.meta.get('ephem', 'ephem'),
                                    max_ca=self.meta['max_ca'].to(u.arcsec), size=len(self),
                                    radius=self.meta['radius'], ow_des=ow_des))
-        for time, coord, coord_geo, ca, pa, vel, dist, mag, mag_20, longi, loct, md, sd, source in self.iterrows():
-            dmag = mag_20-mag
+        for time, coord, coord_geo, ca, pa, vel, dist, *mag, longi, loct, md, sd, source in self.iterrows():
+            dmag = 2.5 * np.log10(np.absolute(vel) / 20.0)
+            mag_20 = mag[0] + dmag
             f.write('{} {} {}  {}   {}   {}   {:5.3f}  {:6.2f} {:-7.3f} {:7.3f} '
                     '{:4.1f} {:-4.1f}   {:3.0f}. {}  {:4.0f}  {:4.0f}\n'.
                     format(time.iso[8:10], time.iso[5:7], time.iso[:4], time.iso[11:20].replace(':', ' '),
