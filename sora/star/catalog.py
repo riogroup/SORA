@@ -22,6 +22,7 @@ class Catalogue(metaclass=ABCMeta):
     parallax: str = None
     rad_vel: str = None
     band: dict = None
+    errors: list = None
 
     @abstractmethod
     def search_star(self):
@@ -46,13 +47,21 @@ class Catalogue(metaclass=ABCMeta):
         output: dict = {'code': table[self.code].tolist()}
         params = ['ra', 'dec', 'pmra', 'pmdec', 'parallax', 'rad_vel']
         units = [u.deg, u.deg, u.mas / u.year, u.mas / u.year, u.mas, u.km / u.s]
-        for p, unit in zip(params, units):
+        errors = {}
+        if self.errors is None:
+            self.errors = [None]*6
+        for p, unit, err in zip(params, units, self.errors):
             if not getattr(self, p, None):
                 vals = np.zeros(len(table)) * unit
             else:
                 vals = table[getattr(self, p).replace('(', '_').replace(')', '_')].quantity
             vals[np.where(np.isnan(vals))] = 0 * unit
             output[p] = vals
+            if err is not None and err in table.colnames:
+                vals = table[err].quantity
+                vals[np.where(np.isnan(vals))] = 0 * unit
+                errors[p] = vals
+        output['errors'] = errors
         if isinstance(self.epoch, Time):
             output['epoch'] = Time(np.repeat(self.epoch, len(table)))
         else:
@@ -91,10 +100,12 @@ class VizierCatalogue(Catalogue):
 
 
 gaiadr2 = VizierCatalogue(name='GaiaDR2', cat_path='I/345/gaia2', code='Source', ra='RA_ICRS', dec='DE_ICRS',
-                          pmra='pmRA', pmdec='pmDE', epoch='Epoch', parallax='Plx', rad_vel='RV', band={'G': 'Gmag'})
+                          pmra='pmRA', pmdec='pmDE', epoch='Epoch', parallax='Plx', rad_vel='RV', band={'G': 'Gmag'},
+                          errors=['e_RA_ICRS', 'e_DE_ICRS', 'e_pmRA', 'e_pmDE', 'e_Plx', 'e_RV'])
 
 gaiaedr3 = VizierCatalogue(name='GaiaEDR3', cat_path='I/350/gaiaedr3', code='Source', ra='RA_ICRS', dec='DE_ICRS',
-                           pmra='pmRA', pmdec='pmDE', epoch='Epoch', parallax='Plx', rad_vel='RVDR2', band={'G': 'Gmag'})
+                           pmra='pmRA', pmdec='pmDE', epoch='Epoch', parallax='Plx', rad_vel='RVDR2', band={'G': 'Gmag'},
+                           errors=['e_RA_ICRS', 'e_DE_ICRS', 'e_pmRA', 'e_pmDE', 'e_Plx', 'e_RVDR2'])
 
 
 allowed_catalogues = SelectDefault(instance=VizierCatalogue, defaults={'gaiadr2': gaiadr2, 'gaiaedr3': gaiaedr3})
