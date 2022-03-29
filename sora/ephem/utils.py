@@ -282,6 +282,7 @@ def ephem_horizons(time, target, observer, id_type='smallbody', output='ephemeri
     if getattr(observer, 'ephem', None) not in ['horizons', None]:
         warnings.warn('Ephemeris using kernel for the observer and Horizons for the target is under construction. '
                       'We will use only Horizons.')
+    id_type = None if id_type == 'majorbody' else id_type
     ob = Horizons(id=target, id_type=id_type, location=location, epochs=time2)
 
     if output == 'ephemeris':
