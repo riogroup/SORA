@@ -9,6 +9,7 @@ from sora.config import input_tests
 from sora.config.decorators import deprecated_alias, deprecated_function
 from .meta import MetaStar
 from .utils import search_star, van_belle, kervella, spatial_motion, choice_star
+from .catalog import allowed_catalogues
 
 warnings.simplefilter('always', UserWarning)
 
@@ -20,7 +21,7 @@ class Star(MetaStar):
 
     Parameters
     ----------
-    catalogue : `str`
+    catalogue : `str`, `VizierCatalogue`
         The catalogue to download data. It can be ``'gaiadr2'`` or ``'gaiaedr3'``.
 
     code : `str`
@@ -83,15 +84,13 @@ class Star(MetaStar):
 
         self._attributes = {}
         self.mag = {}
-        self.errors = {'RA': 0*u.mas, 'DEC': 0*u.mas, 'Plx': 0*u.mas, 'pmRA': 0*u.mas/u.year,
-                       'pmDE': 0*u.mas/u.year, 'rad_vel': 0*u.km/u.year}
+        self.errors = {'ra': 0*u.mas, 'dec': 0*u.mas, 'parallax': 0*u.mas, 'pmra': 0*u.mas/u.year,
+                       'pmdec': 0*u.mas/u.year, 'rad_vel': 0*u.km/u.year}
         allowed_kwargs = ['bjones', 'cgaudin', 'code', 'coord', 'dec', 'epoch', 'local', 'verbose', 'nomad', 'parallax', 'pmdec', 'pmra',
                           'ra', 'rad_vel']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
-        allowed_catalogues = ['gaiadr2', 'gaiaedr3']
-        if catalogue not in allowed_catalogues:
-            raise ValueError('Catalogue {} is not one of the allowed catalogues {}'.format(catalogue, allowed_catalogues))
-        self._catalogue = {'gaiadr2': 'Gaia-DR2', 'gaiaedr3': 'Gaia-EDR3'}[catalogue]
+        catalogue = allowed_catalogues.get_default(catalogue)
+        self._catalogue = catalogue.name
         self._verbose = kwargs.get('verbose', True)
         local = kwargs.get('local', False)
         self.bjones = False
@@ -285,16 +284,13 @@ class Star(MetaStar):
 
         Parameters
         ----------
-        catalog : `str`
+        catalog : `VizierCatalogue`
             The catalogue to download data. It can be ``'gaiadr2'`` or ``'gaiaedr3'``.
         """
-        catalogues = {'gaiadr2': 'I/345/gaia2', 'gaiaedr3': 'I/350/gaiaedr3'}
-        cat = catalogues[catalog]
         if hasattr(self, 'code'):
-            catalogue = search_star(code=self.code, columns=['**'], catalog=cat, verbose=self._verbose)
+            catalogue = catalog.search_star(code=self.code, verbose=self._verbose)
         else:
-            catalogue = search_star(coord=self.coord, columns=['**'], radius=2*u.arcsec,
-                                    catalog=cat, verbose=self._verbose)
+            catalogue = catalog.search_star(coord=self.coord, radius=2 * u.arcsec, verbose=self._verbose)
         if len(catalogue) == 0:
             raise ValueError('No star was found. It does not exist or VizieR is out.')
         catalogue = catalogue[0]
@@ -303,76 +299,69 @@ class Star(MetaStar):
                 print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
                 print('The list below is sorted by distance. Please select the correct star')
             catalogue = choice_star(catalogue, self.coord, ['RA_ICRS', 'DE_ICRS', 'Gmag'], source='gaia')
-        self.code = catalogue['Source'][0]
-        self.ra = catalogue['RA_ICRS'][0]*u.deg
-        self.dec = catalogue['DE_ICRS'][0]*u.deg
-        self.pmra = catalogue['pmRA'][0]*u.mas/u.year
-        self.pmdec = catalogue['pmDE'][0]*u.mas/u.year
-        self.epoch = Time(catalogue['Epoch'][0], format='jyear')
-        self.parallax = catalogue['Plx'][0]*u.mas
-        rv_name = {'gaiadr2': 'RV', 'gaiaedr3': 'RVDR2'}
-        self.rad_vel = catalogue[rv_name[catalog]][0]*u.km/u.s
-        self.set_magnitude(G=catalogue['Gmag'][0])
-        if (catalog == 'gaiadr2') or (self.mag['G'] >= 13): 
-            self.__cgaudin = False
-        if self.__cgaudin:
+        cat_data = catalog.parse_catalogue(catalogue)
+        keys = ['ra', 'dec', 'pmra', 'pmdec', 'parallax', 'rad_vel']
+        for key in keys:
+            setattr(self, key, cat_data[key][0])
+        self.code = str(cat_data['code'][0])
+        self.epoch = cat_data['epoch'][0]
+        self.set_magnitude(**{band: value[0].value for band, value in cat_data['band'].items()})
+        if self.__cgaudin and catalog.name == 'GaiaEDR3':
             from sora.star.utils import edr3ToICRF
-            pmra_icrf, pmdec_icrf = edr3ToICRF(pmra = self.pmra, pmdec = self.pmdec, 
+            self.pmra, self.pmdec = edr3ToICRF(pmra = self.pmra, pmdec = self.pmdec,
                                                ra = self.ra.deg, dec = self.dec.deg, 
                                                G = self.mag['G'])
-            self.pmra  = pmra_icrf
-            self.pmdec = pmdec_icrf
-        self.meta_gaia = {c: catalogue[c][0] for c in catalogue.columns}
+        else:
+            self.__cgaudin = False
+        self.meta_catalogue = {c: catalogue[c][0] for c in catalogue.columns}
 
-        self.errors['RA'] = self.meta_gaia['e_RA_ICRS']*u.mas
-        self.errors['DEC'] = self.meta_gaia['e_DE_ICRS']*u.mas
-        self.errors['Plx'] = self.meta_gaia['e_Plx']*u.mas
-        self.errors['pmRA'] = self.meta_gaia['e_pmRA']*(u.mas/u.yr)
-        self.errors['pmDE'] = self.meta_gaia['e_pmDE']*(u.mas/u.yr)
-        erv_name = {'gaiadr2': 'e_RV', 'gaiaedr3': 'e_RVDR2'}
-        self.errors['rad_vel'] = self.meta_gaia[erv_name[catalog]]*(u.km/u.s)
-        if (catalog == 'gaiaedr3') and (self.meta_gaia['RUWE'] > 1.4):
-            warnings.warn('This star has a RUWE of {:.2f}. '.format(self.meta_gaia['RUWE']) +
+        units = [u.mas, u.mas, u.mas / u.year, u.mas / u.year, u.mas, u.km / u.s]
+        for key, unit in zip(keys, units):
+            if cat_data['errors'] is not None and cat_data['errors'].get(key) is not None:
+                self.errors[key] = cat_data['errors'][key][0]
+            else:
+                self.errors[key] = 0 * unit
+
+        if getattr(self.meta_catalogue, 'RUWE', 0) > 1.4:
+            warnings.warn('This star has a RUWE of {:.2f}. '.format(self.meta_catalogue['RUWE']) +
                           'Please be aware that its positions must be handled with care.')
-        if self.meta_gaia['Dup'] == 1:
-            warnings.warn('This star was indicated as an source with duplicate sources '+
+        if getattr(self.meta_catalogue, 'Dup', 0) == 1:
+            warnings.warn('This star was indicated as an source with duplicate sources ' +
                           'Please be aware that its positions must be handled with care.')
         A = (1*u.AU).to(u.km).value
         cov = np.zeros((6, 6))
-        a = ['RA', 'DE', 'Plx', 'pmRA', 'pmDE']
-        for i in np.arange(5):
-            v1 = 'e_' + a[i]
-            if i in [0, 1]:
-                v1 += '_ICRS'
-            for j in np.arange(i, 5):
-                v2 = 'e_' + a[j]
-                if j in [0, 1]:
-                    v2 += '_ICRS'
-                if i == j:
-                    x = self.meta_gaia[v1]**2
-                    if not np.ma.core.is_masked(x):
-                        cov[i, i] = x
-                else:
-                    x = self.meta_gaia[a[i]+a[j]+'cor']*self.meta_gaia[v1]*self.meta_gaia[v2]
-                    if not np.ma.core.is_masked(x):
-                        cov[i, j] = x
-                        cov[j, i] = cov[i, j]
-            x = cov[i, 2]*(self.meta_gaia[rv_name[catalog]]/A)
-            if not np.ma.core.is_masked(x):
-                cov[i, 5] = x
-                cov[5, i] = cov[i, 5]
-        x = cov[2, 2]*(self.meta_gaia[rv_name[catalog]]**2 + self.meta_gaia[erv_name[catalog]]**2)/(A**2) \
-            + (self.meta_gaia['Plx']*self.meta_gaia[erv_name[catalog]]/A)**2
-        if not np.ma.core.is_masked(x):
-            cov[5, 5] = x
-        cov[np.where(np.isnan(cov))] = 0.0
+        for i, v in enumerate(keys):
+            cov[i, i] = self.errors[v].value**2
+        x = cov[2, 2] * (self.rad_vel.value ** 2 + self.errors['rad_vel'].value ** 2) / (
+            A ** 2) + (self.parallax.to(u.rad).value * self.errors['rad_vel'].value / A) ** 2
+        cov[5, 5] = x
+        if catalog.name in ['GaiaDR2', 'GaiaEDR3']:
+            a = ['RA', 'DE', 'Plx', 'pmRA', 'pmDE']
+            for i in np.arange(5):
+                v1 = 'e_' + a[i]
+                if i in [0, 1]:
+                    v1 += '_ICRS'
+                for j in np.arange(i, 5):
+                    v2 = 'e_' + a[j]
+                    if j in [0, 1]:
+                        v2 += '_ICRS'
+                    if i != j:
+                        x = self.meta_catalogue[a[i]+a[j]+'cor']*self.meta_catalogue[v1]*self.meta_catalogue[v2]
+                        if not np.ma.core.is_masked(x):
+                            cov[i, j] = x
+                            cov[j, i] = cov[i, j]
+                x = cov[i, 2]*(self.rad_vel.value/A)
+                if not np.ma.core.is_masked(x):
+                    cov[i, 5] = x
+                    cov[5, i] = cov[i, 5]
+            cov[np.where(np.isnan(cov))] = 0.0
         self.cov = cov
 
         if self._verbose:
-            print('1 {} star found G={}'.format(self._catalogue, catalogue['Gmag'][0]))
+            print('1 {} star found band={}'.format(catalog.name, self.mag))
             print('star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}'.format(self.epoch.jyear,
-                  self.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['RA'],
-                  self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC']))
+                  self.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['ra'],
+                  self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['dec']))
 
     def __getcolors(self):
         """ Searches for the B,V,K magnitudes of the star in the NOMAD catalogue on VizieR.
@@ -557,9 +546,9 @@ class Star(MetaStar):
                 'pmRA={:.3f} +/- {:.3f} mas/yr, pmDEC={:.3f} +/- {:.3f} mas/yr\n{}'
                 'Plx={:.4f} +/- {:.4f} mas, Rad. Vel.={:.2f} +/- {:.2f} km/s \n\n'.format(
                     self.epoch.jyear, self.ra.to_string(u.hourangle, sep='hms', precision=5),
-                    self.errors['RA'], self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['DEC'],
-                    self.pmra.value, self.errors['pmRA'].value, self.pmdec.value, self.errors['pmDE'].value, text_cgaudin,
-                    self.parallax.value, self.errors['Plx'].value, self.rad_vel.value, self.errors['rad_vel'].value))
+                    self.errors['ra'], self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['dec'],
+                    self.pmra.value, self.errors['pmra'].value, self.pmdec.value, self.errors['pmdec'].value, text_cgaudin,
+                    self.parallax.value, self.errors['parallax'].value, self.rad_vel.value, self.errors['rad_vel'].value))
         if hasattr(self, 'offset'):
             out += 'Offset Apllied: d_alpha_cos_dec = {}, d_dec = {}\n'.format(
                 self.offset.d_lon_coslat, self.offset.d_lat)
