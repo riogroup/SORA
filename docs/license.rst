@@ -13,19 +13,37 @@
 Using and Citing SORA
 =====================
 
-Terms of Use
-------------
+Citing
+------
 
 
 SORA is free software and we kindly ask users that make use of it (or part of it), especially in 
-projects, if that results in scientific publications, to include the following acknowledgment 
-statement:
+projects, if that results in scientific publications, to include the following citation:
 
 ::
 
-    “This research made use of SORA, a python package for stellar occultations reduction and 
-    analysis, developed with the support of ERC Lucky Star and LIneA/Brazil.”
+    Gomes-Júnior et al. (2022). SORA: Stellar occultation reduction and analysis.
+    MNRAS, Volume 511, Issue 1, March 2022, Pages 1167–1181
+    DOI: 10.1093/mnras/stac032
 
+
+The scientific documentation of SORA is described in the paper available on Monthly Notices
+of the Royal Astronomical Society, which can be accessed on the following links:
+   * |link_mnras|;
+   * |link_arxiv|;
+   * |link_ads|;
+
+.. |link_mnras| raw:: html
+
+ <a href="https://academic.oup.com/mnras/article-abstract/511/1/1167/6501222" target="_blank">MNRAS</a>
+
+.. |link_arxiv| raw:: html
+
+  <a href="https://arxiv.org/abs/2201.01799" target="_blank">Arxiv</a>
+
+.. |link_ads| raw:: html
+
+  <a href="https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.1167G%2F/abstract" target="_blank">ADS</a>
 
 Also, for a scientific publication, please be attentive the following terms of use for 
 co-authorship:
@@ -42,12 +60,12 @@ co-authorship:
 
 2. If you *participate in the collaboration Rio/Granada/Paris* and use SORA for the analysis of 
    *objects outside the collaboration* (e.g. Main-Belt Asteroids, NEAs, among others), the SORA 
-   team will not demand the possibility to become a co-author, but it should be included in the 
-   acknowledgement sentence (see below) in the publication. 
+   team will not demand the possibility to become a co-author, but the code should be properly
+   cited as stated above.
 
 3. If you are *NOT from the Rio/Granada/Paris collaboration* and use SORA for the analysis of *any 
-   object* the SORA team will not demand the possibility to become a co-author, but it should be 
-   included in the acknowledgement sentence (see below) in the publication.
+   object*, the SORA team will not demand the possibility to become a co-author, but the code should
+   be properly cited as stated above.
 
 
 As a drawback for itens 2 and 3, the SORA team will NOT commit to:
