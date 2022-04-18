@@ -1,0 +1,146 @@
+SORA v0.1.1 (2020/Jul/30)
+=========================
+
+New Features
+------------
+
+sora.config
+^^^^^^^^^^^
+
+- Module to verify if kwargs are allowed was created. This was included throughout the code. [:issue:`8`]
+
+sora.extra
+^^^^^^^^^^
+
+- Added a parameter that allows the used to plot a dot corresponding
+  the center of the ellipse [:issue:`35`]
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Property LightCurve.time_mean that returns the mean time of the chord (positive) or
+  the mean time of the observation (negative). [:issue:`34`]
+
+sora.observer
+^^^^^^^^^^^^^
+
+- Function Observer.altaz() that calculates the altitude and azimuth for a given target
+  and instant. [:issue:`34`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Four new parameters were added to `plot_occ_map()`: `path`: for the user to select
+  a directory where to save the plots; `site_name`: If True, the name of the sites
+  will be plotted; `chord_delta` and `chord_geo`: for the user to plot the path of
+  a chord from distance of the center or passing by some coordinate, respectively. [:issue:`35`]
+
+- Two methods were added to `PredictionTable()` to help the user to remove bad events
+  from table: `keep_from_selected_images()` and `remove_occ()`. [:issue:`35`]
+
+
+API Changes
+-----------
+
+sora.config
+^^^^^^^^^^^
+
+- config module is now a directory. It now includes a module with decorators
+  and another for variables. [:issue:`31, 35`]
+
+sora.ephem
+^^^^^^^^^^
+
+- In EphemKernel, `code` argument was replaced by `spkid`. When using 'code',
+  a FutureWarning is raised stating `code` as deprecated and will be removed from v1.0. [:issue:`26`]
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- In LightCurve.immersion and LightCurve.emersion, an error will rise when these values were not
+  instanciated or fitted. [:issue:`34`]
+
+- Now the user has the possibility to redefine `tref`, `immersion`, `emersion`,
+  `initial_time` and `end_time` after instantiated. [:issue:`35`]
+
+- `lambda_0` argument was replaced by `central_bandpass` and `delta_lambda` by `delta_bandpass`.
+  When using 'lambda_0' or `delta_lambda`, a FutureWarning is raised stating `lambda_0` or `delta_lambda`
+  as deprecated and will be removed from v1.0. [:issue:`36`]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Occultation.new_astrometric_positions() now shows a warning when time is far
+  by more than 1 day from the occultation closest approach. [:issue:`21`]
+
+- Occultation.to_log() and print(Occultation) added the polar radius, equivalent radius,
+  the Sun-Geocenter-Target angle and the Moon-Geocenter-Target angle, geocentric albedo,
+  the altitude and azimuth of the target for each Observer. [:issue:`17`]
+
+- In `fit_ellipse()`, `pos_angle` and `dpos_angle` were deprecated in favor of
+  `position_angle` and `dposition_angle`. [:issue:`35`]
+
+- Changed "GCRS" to "Geocentric" in the string representation to avoid confusion
+  about the reference frame. [:issue:`35`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- prediction() now calculates the ephemeris inside each division to avoid memory overflow. [:issue:`31`]
+
+- PredictionTable.to_ow() will now raise a warning if the radius or the error of
+  the ephemeris is not present. [:issue:`35`]
+
+sora.star
+^^^^^^^^^
+
+- Now Star downloads all parameters from Gaia and saves them in the `meta_gaia` attribute [:issue:`35`]
+
+
+Bug Fixes
+---------
+
+sora.ephem
+^^^^^^^^^^
+
+- Added function get_position() to EphemPlanete. This corrects a bug that prevented
+  Occultation to run with EphemPlanete. [:issue:`41`]
+
+- Fixed bug in EphemJPL where `id_type` was redefined inside __init__(). [:issue:`41`]
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Fixed error that appears when the fit was done separately (immersion and emersion times).
+  Now the final model agrees with the fitted values.   [:issue:`9`]
+
+- Fixed error when the file with the light curve has three columns. [:issue:`19`]
+
+- Fixed error when the exptime within the LightCurve was set as zero or negative. [:issue:`23`]
+
+- Fixed error in the automatic mode of LightCurve.normalize(). [:issue:`34`]
+
+- Fixed bug that was raised in LightCurve.log() when there were no initial or end times
+  for lightcurves instantiated with immersion and emersion. [:issue:`35`]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Corrected error calculation using err = sqrt(star_err^2 + fit_err^2) [:issue:`18`]
+
+- Occultation.plot_occ_map() now uses the fitted ellipse to calculate the projected shadow radius [:issue:`22`]
+
+- Corrected bug that raised an error when calling Occultation.get_map_sites()
+  and there were no observation added to Occultation. [:issue:`31`]
+
+- Corrected bug that did not save the fitted params in all occultations when
+  more than one occultation was used in fit_ellipse(). [:issue:`35`]
+
+- Added `axis_labels` and `lw` (linewidth) to Occultation.plot_chords(). [:issue:`35`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Fixed error that was generated when only one prediction was found. [:issue:`16`]
+
+- Fixed error in the output format of PredictionTable.to_ow() when coordinate was positive [:issue:`35`]
