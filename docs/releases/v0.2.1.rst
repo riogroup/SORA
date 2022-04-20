@@ -1,0 +1,101 @@
+SORA v0.2.1 (2021/Aug/30)
+=========================
+
+New Features
+------------
+
+sora.body
+^^^^^^^^^
+
+- Added function "Body.to_log()". [:issue:`65`]
+
+sora.extra
+^^^^^^^^^^
+
+- Added function "ChiSquare.to_log()". [:issue:`65`]
+
+sora.observer
+^^^^^^^^^^^^^
+
+- Added function "Observer.to_log()". [:issue:`65`]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Added plot function "Occultation.plot_radial_dispersion()". [:issue:`65`]
+- Added functions that calculates the geometric albedo [:issue:`65`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Added new parameter "site_box_alpha" to plot map. [:issue:`65`]
+
+sora.star
+^^^^^^^^^
+
+- Added function "Star.to_log()". [:issue:`65`]
+- Added function that corrects the Gaia-EDR3 proper motion as suggested by
+  Cantat-Gaudin and Brandt (2021) [:issue:`65`]
+
+API Changes
+-----------
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Occultation.check_velocities() now calculates the normal velocity considering the ellipse
+  fitted in fit_ellipse replacing the radial velocity. [:issue:`66`]
+
+sora.star
+^^^^^^^^^
+
+- Added warning for Gaia stars with a high RUWE or Duplicity flag, indicating a possible issue
+  with this star's astrometry. [:issue:`65`]
+
+Bug Fixes
+---------
+
+- Updated versions of dependencies to avoid bug caused by conflict between them [:issue:`67`]
+
+sora.body
+^^^^^^^^^
+
+- Fixed wrong albedos in satdb. [:issue:`66`]
+
+sora.ephem
+^^^^^^^^^^
+
+- Added argument "meta" in "EphemHorizons", thus fixing a bug when predicting with
+  this class. [:issue:`65`]
+
+- Fixed bug when radius is inputted in the ephem classes. [:issue:`67`]
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Debuging "LightCurve.to_file()" and "LightCurve.plot_model()". [:issue:`65`]
+
+- Fixed bug where LightCurve did not read occultation parameters if a flux or file
+  was not provided. [:issue:`66`]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Fixed bug that overwrote occultation parameters in the LightCurve when added to
+  the ChordList. [:issue:`66`]
+
+- Fixed bug that prevented the user to ignore the chord name as labels when
+  plotting the chords. [:issue:`66`]
+
+- Fixed bug that prevented Occultation instantiation if the size of the star
+  can not be determined [:issue:`67`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Added white "facecolor" to occultation maps. [:issue:`65`]
+
+- Fixed MAJOR bug that inverted the shadow velocity in some cases. [:issue:`66`]
+
+- Fixed bug in the occultation map that did not plot the direction arrow in some
+  cases when cartopy>=0.18. [:issue:`67`]

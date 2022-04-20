@@ -1,5 +1,5 @@
 sora.star
-----
+---------
 
 The Star Class
 ==============
