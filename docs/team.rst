@@ -46,8 +46,8 @@ SORA Team
    |        | | UNESP-Campus Guaratinguetá and LIneA/Brazil     |
    +--------+---------------------------------------------------+
    |        | | **Dr. Bruno Eduardo Morgado**                   |
-   | |pic2| | | Postdoctoral Researcher                         |
-   |        | | Observatório Nacional and LIneA/Brazil          |
+   | |pic2| | | Adjunct Professor                               |
+   |        | | UFRJ-Observatório do Valongo and LIneA/Brazil   |
    +--------+------------+--------------------------------------+
    |        | | **Dr. Gustavo Benedetti Rossi**                 |
    | |pic3| | | Postdoctoral Researcher                         |
@@ -55,7 +55,7 @@ SORA Team
    +--------+------------+--------------------------------------+
    |        | | **Dr. Rodrigo Carlos Boufleur**                 |
    | |pic4| | | Postdoctoral Researcher                         |
-   |        | | LIneA and INCT do e-Universo/Brazil             |
+   |        | | Observatório Nacional and LIneA/Brazil          |
    +--------+------------+--------------------------------------+
    |        | | **Msc. Flavia Luane Rommel**                    |
    | |pic5| | | PhD Student                                     |
@@ -90,11 +90,15 @@ Contact us
 
 Any question or suggestion can be added to our |GitHub| Issue webpage 
 or addressed to our mailbox **rio.occteam@gmail.com**. The SORA team
-thanks for your suggestions and we are looking forward to improve our
-code with yours insights. 
+can also be contacted through Slack. In this case, you can join our
+Slack workspace |slack|. The SORA team thanks for your suggestions
+and we are looking forward to improve our code with yours insights.
 
 
 .. |GitHub| raw:: html
 
    <a href="https://github.com/riogroup/SORA" target="_blank"> GitHub</a>
 
+.. |slack| raw:: html
+
+   <a href="https://join.slack.com/t/sora-grupo/shared_invite/zt-16cuhoa81-oX29_r78RQX1WefKaeeTwg" target="_blank"> here</a>

@@ -1,5 +1,5 @@
 sora.prediction
-----------
+---------------
 
 Prediction Functions
 ====================

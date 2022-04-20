@@ -1,0 +1,157 @@
+SORA v0.2 (2021/Jun/14)
+=======================
+
+New Features
+------------
+
+sora.body
+^^^^^^^^^
+
+- Created new Body Class which downloads the occulting body information from online source.
+  At the moment, it downloads only from the Small-Body DataBase. The Body class will be the manager
+  for all the Body information, such as Ephem, Shape, Ring, etc. [:issue:`51`]
+
+- New Class PhysicalData, which inherits from astropy.units.quantity.Quantity, is created to handle
+  physical data with uncertainty, reference and notes. [:issue:`51`]
+
+- "pole_position_angle" and "apparent_magnitude" functions are now present in Body
+  instead of Ephem.[:issue:`51`]
+
+- Created a hardcoded satellite database to complement missing data of SBDB. It must be
+  replaced in the future. [:issue:`61`]
+
+sora.ephem
+^^^^^^^^^^
+
+- A new EphemHorizons was created which is strictly equal to EphemJPL (EphemJPL may be removed in v1.0). [:issue:`51`]
+
+- A new function that downloads the kernel from JPL was added. [:issue:`33`]
+
+sora.extra
+^^^^^^^^^^
+
+- Allow two ChiSquare objects to be combined into one: `chi3 = chi1 + chi2` [:issue:`61`]
+
+- New function get_ellipse_points() that calculates the positions on the perimeter of an ellipse [:issue:`60`]
+
+sora.observer
+^^^^^^^^^^^^^
+
+- New Spacecraft class developed to handle the geometry of a spacecraft observation.
+  To use it,it is necessary a spkid and ephemeris. Ex:
+  `spacecraft = Spacecraft(name='New Horizons', spkid='-98', ephem='horizons')`. [:issue:`63`]
+
+- The Observer class was updated to have an ephemeris as well. [:issue:`63`]
+
+- Now the observer can be passed as parameter to `Ephem*.get_position(observer=observer)`,
+  `Star.get_position()`, `Body.get_pole_position_angle()` and `Body.apparent_magnitude()`. [:issue:`63`]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- A shortcut was created in Occultation where the user can pass the coordinate of the star directly to Occultation,
+  the Star object will be created automatically. [:issue:`46`]
+
+- New Chord Class introduced to handle a chord with an Observer and a LightCurve. [:issue:`53`]
+
+- New ChordList Class introduced to handle the list of Chords in an Occultation. [:issue:`53`]
+
+- New function .get_impact_param() that calculates the impact parameter, minimal distance
+  between the chord and the centre position, in Chord and ChordList.[:issue:`60`]
+
+- New function .get_theoretical_times(), that calculates the theoretical times and chord size
+  for a given ellipse in Chord and ChordList. [:issue:`60`]
+
+- New function .check_time_shift() that calculates the offset in time to align the center of the chords
+  in Occultation. [:issue:`60`]
+
+- New parameters sigma_result, that saves the result with an extended error bar, and ellipse_error, that
+  adds a further systematic error to be considered, in Occultation.fit_ellipse(). [:issue:`60`]
+
+- New function filter_negative_chord() that compares the ChiSquare from an Ellipse fitting with the chords
+  and remove the solutions that would cross a negative chord [:issue:`60`]
+
+- New method to calculate the "f" and "g" positions for observers without referring to the geocenter. [:issue:`63`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- prediction() now makes use of the user input of the star to calculate faster the occultation parameters. [:issue:`48`]
+
+- prediction() now can make predictions using Gaia-EDR3. A new parameter "catalogue" was created
+  for choosing between Gaia-DR2 and Gaia-EDR3.[:issue:`61`]
+
+- Fixed bug when plotting the heights in the map in a rotated projection. [:issue:`54`]
+
+- prediction() can now predict for any observer. Ex: `prediction(..., reference_center=observer)`. [:issue:`63`]
+
+sora.star
+^^^^^^^^^
+
+- A new method get_position() was implemented in Star() that will replace geocentric()
+  and barycentric() methods [:issue:`63`]
+
+API Changes
+-----------
+
+- Update the argument "log" to "verbose" on all modules. [:issue:`61`]
+
+sora.ephem
+^^^^^^^^^^
+
+- "pole_position_angle" and "apparent_magnitude" is passed to Body Class. In Ephem, it will raise
+  a FutureWarning. [:issue:`51`]
+
+- The Ephem classes are now passed through the Body Class which will have priority over Ephem
+  attributes. Parameters such as "spkid", "radius", "H" and "G". [:issue:`51`]
+
+- All Ephem Classes now inherits from BaseEphem, which holds core functionality for all of them. [:issue:`51`]
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Removed the necessity for LightCurve to have a unique name associated. [:issue:`53`]
+
+- Cycle time is now determined via mode instead of median. [:issue:`56`]
+
+sora.observer
+^^^^^^^^^^^^^
+
+- Removed the necessity for Observer to have a unique name associated. [:issue:`53`]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- The new Body Class was implemented in Occultation. For backward compatibility, the previous
+  usage is still possible if the Ephem object have a name. The Body Class is only required
+  if the object is a planet or a planetary satellite. [:issue:`51`]
+
+- Deprecated some functions that were passed to ChordList. [:issue:`53`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- prediction() now creates the time array inside each division to avoid memory overflow. [:issue:`48`]
+
+- prediction() now propagates the positions of the stars using only the proper motions
+  before comparing the stars with the ephemeris. [:issue:`48`]
+
+- The new Body Class was implemented in prediction. For backward compatibility, the previous
+  usage is still possible. [:issue:`51`]
+
+
+Bug Fixes
+---------
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Corrected bug in LightCurve model where the size of the star was being interpreted
+  as radius instead of diameter [:issue:`60`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Fixes issue that happened in occ_params() when the instant of the occultation was outside the given range.
+  The function now gives appropriate error messages. The automatic range search was increased to 50 min
+  from central instant in a recursive search. [:issue:`45, 48`]
