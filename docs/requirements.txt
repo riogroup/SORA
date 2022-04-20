@@ -1,9 +1,9 @@
-astropy==4.0
-matplotlib
+astropy==4.*
+matplotlib==3.*
 numpy
 scipy
-spiceypy==3.0.2
-astroquery==0.4.1
+spiceypy==3.*
+astroquery==0.4.*
 nbsphinx
 sphinx_issues
 IPython
