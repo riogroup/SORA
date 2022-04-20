@@ -17,8 +17,8 @@ Citing
 ------
 
 
-SORA is free software and we kindly ask users that make use of it (or part of it), especially in 
-projects, if that results in scientific publications, to include the following citation:
+SORA is a free software, and we kindly ask users that make use of it (or of part of it), especially in
+projects that results in scientific publications, to include the following citation:
 
 ::
 
@@ -29,9 +29,10 @@ projects, if that results in scientific publications, to include the following c
 
 The scientific documentation of SORA is described in the paper available on Monthly Notices
 of the Royal Astronomical Society, which can be accessed on the following links:
-   * |link_mnras|;
-   * |link_arxiv|;
-   * |link_ads|;
+
+* |link_mnras|;
+* |link_arxiv|;
+* |link_ads|;
 
 .. |link_mnras| raw:: html
 

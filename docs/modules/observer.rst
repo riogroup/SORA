@@ -1,5 +1,5 @@
 sora.observer
---------
+-------------
 
 The Observer Class
 ==================
@@ -7,7 +7,7 @@ The Observer Class
    :members:
 
 The Spacecraft Class
-==================
+====================
 .. autoclass:: sora.Spacecraft
    :members:
 

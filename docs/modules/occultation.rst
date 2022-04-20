@@ -1,5 +1,5 @@
 sora.occultation
------------
+----------------
 
 The Occultation Class
 =====================

@@ -17,7 +17,7 @@ sora.extra
 ^^^^^^^^^^
 
 sora.lightcurve
-^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
 
 sora.observer
 ^^^^^^^^^^^^^
@@ -41,7 +41,7 @@ sora.config
 ^^^^^^^^^^^
 
 sora.ephem
-^^^^^^^^^^^
+^^^^^^^^^^
 
 sora.extra
 ^^^^^^^^^^
