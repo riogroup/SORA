@@ -8,3 +8,4 @@ nbsphinx
 sphinx_issues
 IPython
 Sphinx==4.0.3
+sora-astro==0.2.1
