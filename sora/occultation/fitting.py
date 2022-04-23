@@ -1,9 +1,12 @@
 import astropy.units as u
 import numpy as np
 from astropy.time import Time
+from tqdm import tqdm
 
+from sora.body.shape.limb import limb_radial_residual
 from sora.config.decorators import deprecated_alias
 from sora.config.visuals import progressbar_show
+from sora.extra import ChiSquare
 
 __all__ = ['fit_ellipse']
 
@@ -70,7 +73,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
 
     sigma_result : `int`, `float`
         Sigma value to be considered as result.
-    
+
     method : `str`, default=`least_squares`
         Method used to perform the fit. Available methods are:
         `chisqr` : monte carlo computation method used in versions of SORA <= 0.2.1.
@@ -78,9 +81,9 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         `least_squares` or `ls`: best fit done used levenberg marquardt convergence algorithm.
         `differential_evolution` or ``de`: best fit done using genetic algorithms.
         All methods return a Chisquare object.
-        
+
     threads : `int`
-        Number of threads/workers used to perform parallel computations of the chi square 
+        Number of threads/workers used to perform parallel computations of the chi square
         object. It works with all methods except `chisqr`, by default 1.
 
     Returns
@@ -123,7 +126,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     for key, item in v.items():
         if item is not None and item < 0:
             raise ValueError("{} must be a positive number.".format(key))
-    
+
     values = []
     chord_name = []
     if len(args) == 0:
@@ -152,7 +155,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     if method not in ['chisqr', 'least_squares', 'ls', 'fastchi', 'differential_evolution', 'de']:
         warn(f'Invalid method `{method}` provided. Setting to default.')
         method = 'chisqr'
-    
+
     set_bestchi = False # variable used with convergence algorithms and fastchi
 
     if (method == 'chisqr'):
@@ -202,25 +205,25 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         progressbar_show(number_chi, number_chi, prefix='Ellipse fit:')
         chisquare = ChiSquare(chi2_best, len(values), center_f=f0_chi, center_g=g0_chi, equatorial_radius=a_chi,
                             oblateness=obla_chi, position_angle=posang_chi)
-        
-    
+
+
     else:
         # generate parameters object
         initial = Parameters()
         eqradius_vary = False if dequatorial_radius == 0 else True
-        initial.add(name='equatorial_radius', value=equatorial_radius, 
-                    minval=-np.inf if not eqradius_vary else (equatorial_radius - dequatorial_radius), 
-                    maxval=np.inf if not eqradius_vary else (equatorial_radius + dequatorial_radius), 
+        initial.add(name='equatorial_radius', value=equatorial_radius,
+                    minval=-np.inf if not eqradius_vary else (equatorial_radius - dequatorial_radius),
+                    maxval=np.inf if not eqradius_vary else (equatorial_radius + dequatorial_radius),
                     free=eqradius_vary)
-        
+
         center_f_vary = False if dcenter_f == 0 else True
-        initial.add(name='center_f', value=center_f, 
-                    minval=-np.inf if not center_f_vary else (center_f-dcenter_f), 
+        initial.add(name='center_f', value=center_f,
+                    minval=-np.inf if not center_f_vary else (center_f-dcenter_f),
                     maxval=np.inf if not center_f_vary else (center_f+dcenter_f), free=center_f_vary)
 
         center_g_vary = False if dcenter_g == 0 else True
-        initial.add(name='center_g', value=center_g, 
-                    minval=-np.inf if not center_g_vary else (center_g-dcenter_g), 
+        initial.add(name='center_g', value=center_g,
+                    minval=-np.inf if not center_g_vary else (center_g-dcenter_g),
                     maxval=np.inf if not center_g_vary else (center_g+dcenter_g), free=center_g_vary)
 
         oblateness_vary = False if doblateness == 0 else True
@@ -228,16 +231,16 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         ob_maxval = 1 if ((oblateness + doblateness) >1) else (oblateness + doblateness)
         if doblateness >= 0.5:
             ob_minval, ob_maxval = 0, 1
-        initial.add(name='oblateness', value=oblateness, 
-                    minval=-np.inf if not oblateness_vary else ob_minval, 
+        initial.add(name='oblateness', value=oblateness,
+                    minval=-np.inf if not oblateness_vary else ob_minval,
                     maxval=np.inf if not oblateness_vary else ob_maxval, free=oblateness_vary)
 
         pangle_vary = False if dposition_angle == 0 else True
-        initial.add(name='position_angle', value=position_angle, 
-                    minval=-np.inf if not pangle_vary else (position_angle - dposition_angle), 
-                    maxval=np.inf if not pangle_vary else (position_angle + dposition_angle), 
+        initial.add(name='position_angle', value=position_angle,
+                    minval=-np.inf if not pangle_vary else (position_angle - dposition_angle),
+                    maxval=np.inf if not pangle_vary else (position_angle + dposition_angle),
                     free=pangle_vary)
-        
+
         fi, gi, si = np.array(values).T
 
 
@@ -252,8 +255,8 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
             position_angle = result.params['position_angle'].value
             bestchi, set_bestchi = result.chisqr, True
             method = 'fastchi'
-        
-        # run differential_evolution  
+
+        # run differential_evolution
         if (method == 'differential_evolution') or (method == 'de'):
             result = differential_evolution(ellipseError, initial, args=(fi, gi, si, ellipse_error), sigma=sigma_result)
             # pass the best solution as input to the fastchi method
@@ -264,7 +267,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
             position_angle = result.params['position_angle'].value
             bestchi, set_bestchi = result.chisqr, True
             method = 'fastchi'
-        
+
         # run fastchi
         if (method == 'fastchi'):
 
@@ -273,15 +276,15 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
 
             if threads is None:
                 threads = 1
-            
-            argsloop = [values, bestchi, equatorial_radius, dequatorial_radius, center_f, dcenter_f, 
+
+            argsloop = [values, bestchi, equatorial_radius, dequatorial_radius, center_f, dcenter_f,
                     center_g, dcenter_g, oblateness, doblateness, position_angle, dposition_angle,
                     loop, np.ceil(number_chi/threads), dchi_min, ellipse_error, False]
-            
-            argsloop_verbose = [values, bestchi, equatorial_radius, dequatorial_radius, center_f, dcenter_f, 
+
+            argsloop_verbose = [values, bestchi, equatorial_radius, dequatorial_radius, center_f, dcenter_f,
                             center_g, dcenter_g, oblateness, doblateness, position_angle, dposition_angle,
                             loop, np.ceil(number_chi/threads), dchi_min, ellipse_error, True]
-            
+
             pool_args = []
             if verbose:
                 pool_args.append(argsloop_verbose)
@@ -301,7 +304,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
                     for k in pool_result[i][j]:
                         result[j].append(k)
 
-        chisquare = ChiSquare(np.array(result[0]), len(values), center_f=np.array(result[1]), center_g=np.array(result[2]), 
+        chisquare = ChiSquare(np.array(result[0]), len(values), center_f=np.array(result[1]), center_g=np.array(result[2]),
                               equatorial_radius=np.array(result[3]), oblateness=np.array(result[4]), position_angle=np.array(result[5]))
 
     controle_f4 = Time.now()
@@ -361,7 +364,7 @@ def ellipse(parameters, x_values, y_values):
         Array containing the ellipse data points.
     '''
     p = parameters.valuesdict()
-    
+
     b = p['equatorial_radius'] - p['equatorial_radius']*p['oblateness']
     phi = p['position_angle'] * np.pi/180.0
     theta = np.arctan2( y_values - p['center_g'], x_values - p['center_f'])
@@ -369,7 +372,7 @@ def ellipse(parameters, x_values, y_values):
     radial_model = ( p['equatorial_radius'] * b )/np.sqrt( ( p['equatorial_radius'] * np.sin( angle ) )**2 + ( b * np.cos( angle ) )**2 )
     x_model = p['center_f'] + radial_model*np.cos( theta )
     y_model = p['center_g'] + radial_model*np.sin( theta )
-    
+
     return [x_model, y_model]
 
 
@@ -397,13 +400,13 @@ def ellipseError(parameters, f, g, uncertainty, ellipse_error=0):
         Array containing the residuals
     '''
     f_model, g_model = ellipse(parameters, f, g)
-    return (( (f - f_model)**2 + (g - g_model)**2 )/(uncertainty**2 + ellipse_error**2) )    
+    return (( (f - f_model)**2 + (g - g_model)**2 )/(uncertainty**2 + ellipse_error**2) )
 
 
-def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radius, center_f, dcenter_f, 
+def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radius, center_f, dcenter_f,
                  center_g, dcenter_g, oblateness, doblateness, position_angle, dposition_angle,
                 loop, number, dchi_min, ellipse_error, verbose):
-                
+
     """Private function that fits an ellipse to given occultation using given parameters.
 
     Parameters
@@ -413,7 +416,7 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
 
     bestchi : `bool` or None
         Variable used to allow passing bestfit restults found with
-        convergence methods to the chisqr maps. 
+        convergence methods to the chisqr maps.
 
     center_f : `int`, `float`, default=0
         The coordinate in f of the ellipse center.
@@ -455,9 +458,9 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
         `3` for other methods.
 
     number_chi : `int`, default=10000
-        In the `chisqr` method if `dchi_min` is given, the procedure is repeated until 
-        `number_chi` is reached. 
-        In other methods it is the number of values (simulations) that should lie within 
+        In the `chisqr` method if `dchi_min` is given, the procedure is repeated until
+        `number_chi` is reached.
+        In other methods it is the number of values (simulations) that should lie within
         the provided `sigma_result`.
 
     verbose : `bool`, default=False
@@ -469,7 +472,7 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
     sigma_result : `int`, `float`
         Sigma value to be considered as result.
     """
-    
+
     f0_chi = np.array([]) if bestchi is None else np.array([center_f])
     g0_chi = np.array([]) if bestchi is None else np.array([center_g])
     a_chi = np.array([]) if bestchi is None else np.array([equatorial_radius])
@@ -480,7 +483,7 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
     while len(f0_chi) < number:
         if verbose:
             progressbar_show(len(f0_chi), number, prefix='Ellipse fit:')
-            
+
         chi2 = np.zeros(loop)
         f0 = center_f + dcenter_f*(2*np.random.RandomState().random(loop) - 1)
         g0 = center_g + dcenter_g*(2*np.random.RandomState().random(loop) - 1)
@@ -521,3 +524,86 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
         progressbar_show(number, number, prefix='Ellipse fit:')
 
     return [chi2_best, f0_chi, g0_chi, a_chi,  obla_chi, posang_chi]
+
+
+def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, dscale=0, position_angle=0,
+                dposition_angle=0, loop=150000):
+    """
+
+    Parameters
+    ----------
+    limb : `sora.body.shape.Limb`
+        Generic limb to fit.
+
+    fg : `numpy.array`
+        Matrix nx2 with the `xy` coordinates of each of the `n` points
+        to fit the limb. See example below.
+
+    error : `numpy.array`
+        Array with n values corresponding to the error of each point.
+        See `fg` parameter. It may be the same format as `fg`, thus
+        being a vector error.
+
+    center_f : `int`, `float`, default=0
+        The coordinate in f of the ellipse center.
+
+    center_g : `int`, `float`, default=0
+        The coordinate in g of the ellipse center.
+
+    dcenter_f : `int`, `float`
+        Interval for coordinate f of the ellipse center.
+
+    dcenter_g : `int`, `float`
+        Interval for coordinate g of the ellipse center.
+
+    scale : `number`
+        Scale factor of the limb
+
+    dscale : `number`
+        Interval for scale
+
+    position_angle : `number`, default=0
+        The pole position angle of the ellipse in degrees.
+        Zero is in the North direction ('g-positive'). Positive clockwise.
+
+    dposition_angle : `number`
+        Interval for the pole position angle of the ellipse in degrees.
+
+    loop : `int`, default=150000
+        The number of centers to attempt fitting.
+
+    Returns
+    -------
+
+    chisquare : `sora.ChiSquare`
+        A ChiSquare object with all parameters.
+
+    Examples
+    ________
+
+    fg = np.array([[-107.3,   57.8],
+                   [ 103.7,   53.2],
+                   [ -20.9,  172.4],
+                   [   1.9,  171.9]])
+    """
+    if scale - np.absolute(dscale) <= 0:
+        raise ValueError('Scale can not be 0 or negative. Please provide proper scale and dscale')
+    if fg.ndim != 2 and fg.shape[1] != 2:
+        raise ValueError("'fg' parameter must be a nx2 matrix")
+    if len(error) != len(fg):
+        raise ValueError("'error' and 'fg' must have the same number of points")
+    if error.ndim != 1:
+        error = np.linalg.norm(error, axis=-1)
+    x0 = center_f + dcenter_f * (2 * np.random.random(loop) - 1)
+    y0 = center_g + dcenter_g * (2 * np.random.random(loop) - 1)
+    s0 = scale + dscale * (2 * np.random.random(loop) - 1)
+    pa0 = position_angle + dposition_angle * (2 * np.random.random(loop) - 1)
+    err2 = np.square(error)
+
+    def calc_dist(item):
+        residual = limb_radial_residual(limb, fg, center_f=x0[item], center_g=y0[item], scale=s0[item], position_angle=pa0[item])
+        return np.sum(residual ** 2 / err2)
+
+    chi2 = np.array(list(map(calc_dist, tqdm(range(loop)))))
+
+    return ChiSquare(chi2, center_f=x0, center_g=y0, scale=s0, position_angle=pa0, npts=len(fg))
