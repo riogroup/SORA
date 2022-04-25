@@ -542,6 +542,40 @@ class Chord:
             theory_emersion_time = None
         return theory_immersion_time, theory_emersion_time, theory_chord_size
 
+    def get_limb_points(self, only_able=True):
+        """Computes the projected points and errors on the tangent plane
+
+        Parameters
+        ----------
+        only_able : `bool`
+            Get only the contact points that are able to be used in the fit.
+
+        Returns
+        -------
+        fg : `numpy.array`
+            The projected points of occultation instants.
+            Each line is a point on the projection with x and y respectively.
+
+        error : `numpy.array`
+            Error vector of the projected occultation instants.
+            Each line is the error of a point in x and y, respectively.
+        """
+        if self.status() == 'negative':
+            raise ValueError('{} {} is negative. There is no limb_points'.format(self.__class__.__name__, self.name))
+        time = ['immersion', 'emersion']
+        val = []
+        err = []
+        for t in time:
+            if only_able and not self.is_able[t]:
+                continue
+            val.append(self.get_fg(time=t))
+            tt = getattr(self.lightcurve, t)
+            tt_err = getattr(self.lightcurve, t + '_err') * u.s
+            err.append(self.get_fg(time=tt+tt_err))
+        xy = np.array(val)
+        xy_err = np.array(err) - xy
+        return xy, xy_err
+
     def __repr__(self):
         """String representation of the Chord Class
         """

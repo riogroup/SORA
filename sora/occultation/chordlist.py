@@ -376,3 +376,31 @@ class ChordList(List):
             theory_chord_size = np.append(theory_chord_size, tcs)
             names = np.append(names, chord.name)
         return theory_immersion_time, theory_emersion_time, theory_chord_size, names
+
+    def get_limb_points(self, only_able=True):
+        """Computes the projected points and errors on the tangent plane for every chord
+
+        Parameters
+        ----------
+        only_able : `bool`
+            Get only the contact points that are able to be used in the fit.
+
+        Returns
+        -------
+        fg : `numpy.array`
+            The projected points of occultation instants.
+            Each line is a point on the projection with x and y respectively.
+
+        error : `numpy.array`
+            Error vector of the projected occultation instants.
+            Each line is the error of a point in x and y, respectively.
+        """
+        xy = []
+        err = []
+        for chord in self.values():
+            if chord.status() == 'negative':
+                continue
+            xy_chord, err_chord = chord.get_limb_points(only_able=only_able)
+            xy.append(xy_chord)
+            err.append(err_chord)
+        return np.vstack(xy), np.vstack(err)
