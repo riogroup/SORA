@@ -1,4 +1,5 @@
 from functools import lru_cache
+import pkg_resources
 
 import numpy as np
 import astropy.units as u
@@ -10,7 +11,7 @@ from .limb import Limb
 from .meta import BaseShape
 from .utils import read_obj_file
 
-__all__ = ['Shape3D']
+__all__ = ['Shape3D', 'Ellipsoid']
 
 
 class Shape3D(BaseShape):
@@ -230,3 +231,25 @@ class Shape3D(BaseShape):
             if not observable[i]:
                 continue
             ax.fill(-pol.y.value + center_f, pol.z.value + center_g, color=color[i])
+
+
+class Ellipsoid(Shape3D):
+
+    def __init__(self, a, b=None, c=None, texture=None):
+        obj_file = pkg_resources.resource_filename('sora', 'data/sphere.obj')
+        super().__init__(obj_file=obj_file, texture=texture)
+        self.a = a
+        self.b = b or self.a
+        self.c = c or self.b
+        self.name = f'{self.a} x {self.b} x {self.c}'
+        v = self.vertices
+        norm = v/np.sqrt(v.dot(v))
+        self._vertices = CartesianRepresentation(norm.x*self.a, norm.y*self.b, norm.z*self.c)
+
+    @lru_cache(maxsize=128)
+    def get_limb(self, sub_observer="00 00 00 +00 00 00", pole_position_angle=0, center_f=0, center_g=0):
+        # TODO(Compute the limb from equation to avoid unnecessary use of the 3D shape)
+        return super(Ellipsoid, self).get_limb(sub_observer=sub_observer, pole_position_angle=pole_position_angle,
+                                               center_f=center_f, center_g=center_g)
+
+    get_limb.__doc__ = Shape3D.get_limb.__doc__
