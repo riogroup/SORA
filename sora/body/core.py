@@ -1,5 +1,6 @@
 import warnings
 
+import astropy.constants as const
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord, Longitude, Latitude
@@ -370,6 +371,84 @@ class Body(BaseBody):
         f = open(namefile, 'w')
         f.write(self.__str__())
         f.close()
+
+    def get_orientation(self, time, observer='geocenter'):
+        time = Time(time)
+        pos = self.ephem.get_position(time=time, observer=observer)
+        orientation = {}
+        try:
+            epoch = time - pos.spherical.distance / const.c
+            frame = self.frame.frame_at(epoch=epoch)
+            pole = frame.pole
+            subobs = SkyCoord(-pos.cartesian).transform_to(frame=frame)
+            orientation['sub_observer'] = subobs.to_string('decimal')
+            # TODO(subsun is technically wrong. We must correct to an observer on the body.)
+            pos_sun = self.ephem.get_position(time=time, observer='10')
+            subsun = SkyCoord(-pos_sun.cartesian).transform_to(frame=frame)
+            orientation['sub_solar'] = subsun.to_string('decimal')
+        except AttributeError:
+            warnings.warn('Frame attribute is not defined')
+            pole = self.pole
+        if not np.isnan(pole.ra):
+            position_angle = pos.position_angle(pole).rad * u.rad
+            aperture_angle = np.arcsin(
+                -(np.sin(pole.dec) * np.sin(pos.dec) +
+                  np.cos(pole.dec) * np.cos(pos.dec) * np.cos(pole.ra - pos.ra))
+            )
+            orientation['pole_position_angle'] = position_angle.to('deg')
+            orientation['pole_aperture_angle'] = aperture_angle.to('deg')
+        else:
+            warnings.warn("Pole coordinates are not defined")
+        return orientation
+
+    def plot(self, time=None, observer='geocenter', center_f=0, center_g=0, radial_offset=0, contour=False, ax=None, **kwargs):
+        """Plots the body shape as viewed by observer at some time given the body orientation.
+        If the user wants to dictate the orientation, please use `shape.plot()` instead.
+
+        Parameters
+        ----------
+        time :  `str`, `astropy.time.Time`
+            Reference time to calculate the object's apparent magnitude.
+            It can be a string in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+            It must be only one value.
+
+        observer : `str`, `sora.Observer`, `sora.Spacecraft`
+            IAU code of the observer (must be present in given list of kernels),
+            a SORA observer object or a string: ['geocenter', 'barycenter']
+
+        center_f : `int`, `float`
+            Offset of the center of the body in the East direction, in km
+
+        center_g  : `int`, `float`
+            Offset of the center of the body in the North direction, in km
+
+        radial_offset : `int`, `float`
+            Offset of the center of the body in the direction of observation, in km
+
+        ax : `matplotlib.pyplot.Axes`
+            The axes where to make the plot. If None, it will use the default axes.
+
+        contour : `bool`
+            If True, it plots the limb of the projected shape.
+            If False, it plots the 3D shape. Default: False.
+        """
+        if not hasattr(self, 'shape'):
+            raise ValueError('{} does not have a shape or size to be plotted'.format(self.__class__.__name__))
+        if time is None or getattr(self, 'frame', None) is None:
+            warnings.warn('No time is giving or frame is not defined. Plotting without computing orientation. '
+                          'To provide orientation, please plot from shape directly.')
+            orientation = {}
+        else:
+            time = Time(time)
+            if not time.isscalar and len(time) > 1:
+                raise ValueError('time keyword must refer to only one instant')
+            orientation = self.get_orientation(time=time, observer=observer)
+            orientation.pop('pole_aperture_angle')
+        if contour:
+            orientation.pop('sub_solar')
+            self.shape.get_limb(**orientation).plot(center_f=center_f, center_g=center_g, ax=ax, **kwargs)
+        else:
+            self.shape.plot(**orientation, center_f=center_f, center_g=center_g, radial_offset=radial_offset, ax=ax, **kwargs)
 
     def __str__(self):
         from .values import smass, tholen
