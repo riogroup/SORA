@@ -204,6 +204,8 @@ class BaseBody():
         if diameter < 0:
             raise ValueError("diameter cannot be a negative value")
         self._diameter = diameter
+        if not getattr(self, '_shape', None) and not np.isnan(self._diameter):
+            self.shape = self._diameter.value/2
         self._shared_with['ephem']['radius'] = self.radius
 
     @property
@@ -388,14 +390,18 @@ class BaseBody():
     @shape.setter
     def shape(self, value):
         from .shape.meta import BaseShape
+        from .shape import Shape3D, Ellipsoid
         if isinstance(value, BaseShape):
             self._shape = value
         elif isinstance(value, str):
-            from .shape import Shape3D
             self._shape = Shape3D(value)
         else:
-            raise ValueError('shape must be a sora.body.shape object or a string'
-                             ' with the path to the OBJ file.')
+            value = np.array(value, ndmin=1, dtype=np.float)
+            if len(value) <= 3:
+                self._shape = Ellipsoid(*value)
+            else:
+                raise ValueError('shape must be a sora.body.shape object or a string'
+                                 ' with the path to the OBJ file.')
 
     @property
     def _search_name(self):
