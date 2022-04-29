@@ -234,6 +234,26 @@ class Body(BaseBody):
                               "Tholen": {"value": None, "reference": None, "notes": None}}
         self.discovery = ""
 
+    def get_position(self, time, observer='geocenter'):
+        """Returns the object geocentric position.
+
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Reference time to calculate the object position. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        observer : `str`, `sora.Observer`, `sora.Spacecraft`
+            IAU code of the observer (must be present in given list of kernels),
+            a SORA observer object or a string: ['geocenter', 'barycenter']
+
+        Returns
+        -------
+        coord : `astropy.coordinates.SkyCoord`
+            Astropy SkyCoord object with the object coordinates at the given time.
+        """
+        return self.ephem.get_position(time=time, observer=observer)
+
     def get_pole_position_angle(self, time, observer='geocenter'):
         """Returns the pole position angle and the aperture angle relative to
         the geocenter.
