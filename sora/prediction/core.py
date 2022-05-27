@@ -136,11 +136,12 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         If using a EphemHorizons object, please use 'divs' to make division
         at most a month, or a timeout error may be raised by the Horizon query.
 
-    mag_lim : `int`, `float`, default=None
+    mag_lim : `int`, `float`, `dict`, default=None
         Faintest Gmag allowed in the search.
 
-    catalogue : `str`, default='gaiaedr3'
-        The catalogue to download data. It can be ``'gaiadr2'`` or ``'gaiaedr3'``.
+    catalogue : `str`, `VizierCatalogue`
+        The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
+        or a VizierCatalogue object. default='gaiaedr3'
 
     step : `int`, `float`, default=60
         Step, in seconds, of ephem times for search

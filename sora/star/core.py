@@ -22,7 +22,8 @@ class Star(MetaStar):
     Parameters
     ----------
     catalogue : `str`, `VizierCatalogue`
-        The catalogue to download data. It can be ``'gaiadr2'`` or ``'gaiaedr3'``.
+        The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
+        or a VizierCatalogue object.. default='gaiaedr3'
 
     code : `str`
         Gaia Source code for searching in VizieR.
@@ -288,9 +289,9 @@ class Star(MetaStar):
             The catalogue to download data. It can be ``'gaiadr2'`` or ``'gaiaedr3'``.
         """
         if hasattr(self, 'code'):
-            catalogue = catalog.search_star(code=self.code, verbose=self._verbose)
+            catalogue = catalog.search_star(code=self.code)
         else:
-            catalogue = catalog.search_star(coord=self.coord, radius=2 * u.arcsec, verbose=self._verbose)
+            catalogue = catalog.search_star(coord=self.coord, radius=2 * u.arcsec)
         if len(catalogue) == 0:
             raise ValueError('No star was found. It does not exist or VizieR is out.')
         catalogue = catalogue[0]
