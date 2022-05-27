@@ -28,8 +28,15 @@ sora.occultation
 sora.prediction
 ^^^^^^^^^^^^^^^
 
+- Included the ``VizierCatalogue`` in the prediction function. [:issue:`71`]
+
 sora.star
 ^^^^^^^^^
+
+- Added a new class called ``VizierCatalogue`` to allow the definition
+  and usage of any catalogue available on Vizier. [:issue:`71`]
+
+- Included the ``VizierCatalogue`` in the Star class. [:issue:`71`]
 
 API Changes
 -----------
