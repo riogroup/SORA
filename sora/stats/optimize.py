@@ -5,14 +5,13 @@ from warnings import warn
 from copy import deepcopy
 from .core import Parameters, _in_ipynb
 
-
-# check for emcee
-try:
-    import emcee
-    from emcee.autocorr import AutocorrError
-    HAS_EMCEE = int(emcee.__version__[0]) >= 3
-except ImportError:
-    HAS_EMCEE = False
+# # check for emcee
+# try:
+#     import emcee
+#     from emcee.autocorr import AutocorrError
+#     HAS_EMCEE = int(emcee.__version__[0]) >= 3
+# except ImportError:
+#     HAS_EMCEE = False
 
 
 # check for tqdm    
@@ -167,7 +166,7 @@ class OptimizeResult(dict):
         print(f'Deg. of freedom:  {self.dof}')
         print(f'Chi squared:      {self.chisqr:6g}')
         print(f'Red. Chi squared: {self.redchi:6g}')
-        print(f'Success:          {self.success}')
+        # print(f'Success:          {self.success}')
         # print(f'Cov Matrix:       {"True" if hasattr(self,'covar') and self.covar is not None else "False"}')
         print(f'Bootstrap CI:     {"True" if self.bootstrap is not None else "False"}')
         return None
@@ -291,7 +290,7 @@ def _scipy_results(result, parameters, residual, bootstrap=None, lib='scipy', si
     return output
 
 
-def _fastchi_results(result, parameters):
+def _fastchi_results(result, parameters, residual, n_samples, sigma_range, sigma, ndata):
     '''
     Retuns an OptimizeResult object with the results obtained by the scipy module fitting.
 
@@ -316,48 +315,61 @@ def _fastchi_results(result, parameters):
     # add initial_values attribute
     output.initial_values = np.array(parameters.get_varys())
     
-    samples, residual = result
-    tsamples = np.array(samples).T    
+    samples_full, chisqr_full = result
+    tsamples_full = samples_full.T
 
-
+    best_fit_index = np.argmin(chisqr_full)
+    samples_index = np.argwhere(chisqr_full <= (chisqr_full.min() + sigma**2)).T[0]
+    samples_output_index = np.argwhere(chisqr_full <= (chisqr_full.min() + sigma_range**2)).T[0]
+    # discard exceding samples
+    tmp_i = 0
+    while (len(samples_index) > n_samples):
+        if (tmp_i == best_fit_index):
+            tmp_i += 1
+        else:
+            samples_index = np.delete(samples_index, tmp_i)
+    
+    samples, chisqr = samples_full[samples_index].T, chisqr_full[samples_index]
+    samples_output, chisqr_output = samples_full[samples_output_index].T, chisqr_full[samples_output_index]
+    best_fit_index = np.argmin(chisqr)
+    
     # add best_fit parameters value attribute
-    output.best_fit = result.x
+    output.best_fit = samples[:,best_fit_index]
     # add number of free variables attribute
-    output.nvars = len(result.x)
+    output.nvars = len(samples[:,best_fit_index])
     # add number of data points attribute
-    output.ndata = len(residual)
+    output.ndata = ndata
     # add degrees of freedom attribute
-    output.dof = len(residual) - len(result.x)
+    output.dof = output.ndata - output.nvars
     #  add residual array attribute
     output.residual = np.array(residual)
     # add chisqr attribute
-    output.chisqr = np.array(residual).sum()
+    output.chisqr = chisqr[best_fit_index]
     # add redchi attribute
-    output.redchi = np.array(residual).sum()/float(output.dof)
-    # set uncertainties as inf by default
+    output.redchi = output.chisqr/output.dof
+    # add bootstrap attribute
+    output.bootstrap = None
+    # add sample values attribute
+    output.samples = samples_output
+    # add chi values attribute
+    output.chi = chisqr_output
     # if other uncertainties are computed they will be replaced
-    stderr = np.ones(len(result.x))*np.inf
+    stderr = []
+    for n in range(output.nvars):
+        tmp_idx = (chisqr < output.chisqr + sigma**2)
+        left = min(samples[n][tmp_idx])
+        tmp_idx = (chisqr < output.chisqr + sigma**2)
+        right = max(samples[n][tmp_idx])
+        stderr.append([abs(output.best_fit[n]-left), abs(right-output.best_fit[n])])
+
     # add method attribute
     output.method = 'Chisqr'
-    # if exists, compute the covariance matrix
-
-    # add bootstrap attribute
-    output.bootstrap = bootstrap
-    # compute uncertainties from bootstrap
-    if bootstrap is not None:
-        one_tailed, _ = quad(lambda x : (1.0 / np.sqrt(2*np.pi))*np.exp((-x**2) / 2.0), np.NINF, sigma)
-        quantile = one_tailed-0.5
-        low = np.quantile(bootstrap, 0.5-quantile, axis=0)
-        high = np.quantile(bootstrap, 0.5+quantile, axis=0)
-        stderr = []
-        for i in range(len(low)):
-            stderr.append([result.x[i]-low[i], high[i]-result.x[i]])
-        stderr = np.array(stderr)
-    
+    # add sigma std level
+    output.sigma = sigma
+    # add sigma_range interval
+    output.sigma_range = sigma_range
     # add std attribute
     output.std = stderr
-
-
     # add params attribute and update results
     var_index = 0
     params = deepcopy(parameters)
@@ -688,7 +700,7 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
         raise ValueError(f'The optimization procedure failed.')       
 
 
-def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, marching_grid=True, run_size=10000, threads=None, show_progress=False):
+def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigma_samples=1, samples=500, marching_grid=True, run_size=10000, threads=None, show_progress=False):
     '''
     Multidimensional marching grid algorithm to optimize brute force minimum regions finding.
 
@@ -702,15 +714,21 @@ def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, march
         have the shape (Npar,2). Example: `bounds = ((-10,10), (0,1), (3,5))`.
     args : `tuple`, optional
         Aditional arguments passed to the user function, by default ().
+    sigma_range: `int`, optional
+        Confidence interval range for sampling. All returned samples will lie
+        within 0 and sigma_range standard deviations, by default 3.
     sigma : `int`, optional
-        Confidence limits within with the samples should lie, by default 3.
+        Confidence limits within with the samples should lie, by default 1.
+    sigma_samples : `int`
+        The minimum number of samples that lie within the defined `sigma` interval,
+        by default 1.
     samples : `int`, optional
-        Number of simulations to be returned within the provided sigma, by default 1000.
+        Number of simulations to be returned within the provided sigma, by default 2000.
     marching_grid : `bool`, optional
         If `True` it will use the marching grid approach to march faster towards the best solution.
         When `False` sampling is done uniformly within the boundings provided, by default True.
     run_size : `int`, optional
-        Number of simulations performed within each sampling run. By default 10000.
+        Number of simulations performed within each sampling run. By default 100000.
     threads : `int`
         If multithreading is desired it sets the number of parallel processes, by default None.
     show_progress : `bool`
@@ -732,24 +750,22 @@ def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, march
     # define the total iteration counter 
     # define the counter display and can be settet to be used with dependency check
     if show_progress and HAS_TQDM:
-        pbar = tqdm(total=samples)
+        pbar = tqdm(total=samples, position=0)
     else:
         pbar = NoTqdm()
         if show_progress:
             warn(f'`tqdm` module is required to show progress bars.')
         
-
+    if (sigma > sigma_range):
+        sigma_range = sigma
+        warn(f'`sigma_range` provided is below `sigma` requested, therefore set to the value of `sigma`.')
+    
     counter = 0
     counter_previous = 0    
-
-    # set counter instant value
-    counter_instant_value = 0
+    sigma_counter = 0
     
     new_bounds = list(bounds)
-    
-
-    new_bounds = list(bounds)
-    while (counter < samples):       
+    while ((counter < samples) or (sigma_counter < sigma_samples)):     
         # generate random samples
         p = []
         for i, b in enumerate(new_bounds):
@@ -757,9 +773,8 @@ def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, march
                 b[0] = bounds[i][0] 
             if (b[1] > bounds[i][1]):
                 b[1] = bounds[i][1]
-
+            
             p.append(np.random.uniform(low=b[0], high=b[1], size=run_size))
-
         p = np.array(list(p)).T
 
 
@@ -771,13 +786,13 @@ def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, march
         if (HAS_MULTIPROCESSING) and (threads is not None) and isinstance(threads, (float, int)):
             # create arguments pack
             pool_args = [ (pars, *args) for pars in p ]
+
             with Pool(processes=int(threads)) as pool:
                 pool_res = pool.starmap(func, pool_args)
-            
+
             for i in range(int(run_size)):
                 params.append(list(p[i]))
                 residual.append(pool_res[i].sum())
-                
         
         # or instead compute residuals for candidates linearly
         else:
@@ -789,25 +804,32 @@ def _marching_grid(func, initpars, bounds, args=(), sigma=3, samples=1000, march
                 params.append(list(p[i]))
                 residual.append(res.sum())
 
-
-        sigma_threshold = min(residual) + sigma**2
+        sigma_threshold = min(residual) + sigma_range**2
         min_res_index = ( residual <= sigma_threshold ) 
+
         #if there are at least two data points redefine bounds
         if marching_grid:
             idx_min = ( residual == min(residual) )
             params_check = np.array(params)
-            for i, _ in enumerate(bounds):
+            for i, boundval in enumerate(bounds):
                 leftlim =  min(params_check[min_res_index,i])
                 rightlim = max(params_check[min_res_index,i])
-                value = params_check[idx_min,i]
+                value = params_check[idx_min,i]              
                 dv = max(value[0]-leftlim, rightlim-value[0])
-                new_bounds[i] = [leftlim-dv, rightlim+dv]
-        
-        count_index = ( residual <= sigma_threshold )
-        counter = np.sum(count_index)
+                if (dv == 0):
+                    new_bounds[i] = [boundval[0], boundval[1]]
+                else:
+                    new_bounds[i] = [leftlim-dv, rightlim+dv]
+
+
+        sigma_counter = np.sum( residual <= (min(residual) + sigma**2))
+        counter = np.sum( residual <= sigma_threshold )
+
+        if (sigma_samples > 1) or (sigma_counter < sigma_samples):
+            counter = np.round(samples*(sigma_counter/sigma_samples))
 
         pbar.update(counter-counter_previous if counter < samples else samples-counter_previous)
-       
+
         counter_previous = counter
 
     pbar.close()
@@ -833,14 +855,19 @@ def fastchi(func, parameters, bounds=None, args=(), **kwargs):
         see :scipydoc:`optimize.Bounds` and `optimize.differential_evolution`
     args : `tuple`, optional
         Arguments passed to the `userfun`, by default ()
-    
+
     **kwargs :         
         Aditional options to pass during the fitting.
-    
     sigma : `int`, optional
-        Confidence limits within with the samples should lie, by default 3.
+        Confidence limits within with the samples should lie, by default 1.    
+    sigma_range: `int`, optional
+        Confidence interval range for sampling. All returned samples will lie
+        within 0 and sigma_range standard deviations, by default 3.
     samples : `int`, optional
-        Number of simulations to be returned within the provided sigma, by default 1000.
+        Number of simulations to be returned within the provided sigma, by default 2000.
+    sigma_samples : `int`
+        The minimum number of samples that lie within the defined `sigma` interval,
+        by default 1.
     marching_grid : `bool`, optional
         If `True` it will use the marching grid approach to march faster towards the best solution.
         When `False` sampling is done uniformly within the boundings provided, by default True.
@@ -869,9 +896,14 @@ def fastchi(func, parameters, bounds=None, args=(), **kwargs):
     refact_args = _refactor_func_args(func, parameters, *args)
     # try execute the fit
     try:
-        solution = _marching_grid(_bypass_fixed_variables, vary, bounds, args=refact_args, **kwargs)   
-        return solution
-                
-        # return _fit_fastchi_results(solution, parameters, residual, bootstrap=bootstrap_array, method='differential_evolution', lib='scipy', sigma=sigma)
+        solution = _marching_grid(_bypass_fixed_variables, vary, bounds, args=refact_args, **kwargs)
+        tmp_samples, tmp_chisqr = solution   
+        residual = _bypass_fixed_variables(tmp_samples[np.argmin(tmp_chisqr)], func, parameters, *args)
+        #return solution
+        return _fastchi_results(solution, parameters, residual, 
+                                kwargs['samples'] if 'samples' in kwargs else 2000, 
+                                kwargs['sigma_range'] if 'sigma_range' in kwargs else 3,
+                                kwargs['sigma'] if 'sigma' in kwargs else 1, len(residual))
+
     except:
         raise ValueError(f'The optimization procedure failed.')       
