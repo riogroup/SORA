@@ -11,7 +11,7 @@ __all__ = ['fit_ellipse']
 def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
                 dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
                 loop=10000000, number_chi=10000, dchi_min=None, verbose=False, ellipse_error=0, sigma_result=1,
-                sigma_samples=1, method='chisqr', threads=1, marching_grid=False):
+                sigma_samples=None, method='chisqr', threads=1, marching_grid=False):
     """Fits an ellipse to given occultation using given parameters.
 
     Parameters
@@ -72,7 +72,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     
     sigma_samples : `int`
         The minimum number of samples that lie within the defined `sigma` interval,
-        by default 1.
+        by default None.
     
     method : `str`, default=`chisqr`
         Method used to perform the fit. Available methods are:
@@ -255,21 +255,21 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
 
         # run fastchi
         if (method == 'fastchi'):
-            chi_result = fastchi(ellipseError, initial, args=(fi, gi, si, ellipse_error), samples=number_chi, sigma_range=dchi_min+1, sigma=sigma_result, 
+            chi_result = fastchi(ellipseError, initial, args=(fi, gi, si, ellipse_error), samples=number_chi, sigma_range=dchi_min+sigma_result, sigma=sigma_result, 
                                  sigma_samples=sigma_samples, marching_grid=marching_grid, threads=threads, show_progress=(True if verbose else False),
                                  run_size = 10000)
 
         #run least_squares
         if (method == 'least_squares') or (method == 'ls'):
             result = least_squares(ellipseError, initial, args=(fi, gi, si, ellipse_error), algorithm='trf', sigma=sigma_result)
-            chi_result = fastchi(ellipseError, result.params, args=(fi, gi, si, ellipse_error), samples=number_chi, sigma_range=dchi_min+1, sigma=sigma_result, 
+            chi_result = fastchi(ellipseError, result.params, args=(fi, gi, si, ellipse_error), samples=number_chi, sigma_range=dchi_min+sigma_result, sigma=sigma_result, 
                              sigma_samples=sigma_samples, threads=threads, show_progress=(True if verbose else False), marching_grid=marching_grid,
                              run_size = 10000)
         
         # run differential_evolution  
         if (method == 'differential_evolution'):
             result = differential_evolution(ellipseError, initial, args=(fi, gi, si, ellipse_error), sigma=sigma_result)
-            chi_result = fastchi(ellipseError, result.params, args=(fi, gi, si, ellipse_error), samples=number_chi, sigma_range=dchi_min+1, sigma=sigma_result, 
+            chi_result = fastchi(ellipseError, result.params, args=(fi, gi, si, ellipse_error), samples=number_chi, sigma_range=dchi_min+sigma_result, sigma=sigma_result, 
                              sigma_samples=sigma_samples, threads=threads, show_progress=(True if verbose else False), marching_grid=marching_grid,
                              run_size = 10000)
 

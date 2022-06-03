@@ -290,7 +290,7 @@ def _scipy_results(result, parameters, residual, bootstrap=None, lib='scipy', si
     return output
 
 
-def _fastchi_results(result, parameters, residual, n_samples, sigma_range, sigma, ndata):
+def _fastchi_results(result, parameters, residual, n_samples, sigma_range, sigma, sigma_samples, ndata):
     '''
     Retuns an OptimizeResult object with the results obtained by the scipy module fitting.
 
@@ -321,13 +321,15 @@ def _fastchi_results(result, parameters, residual, n_samples, sigma_range, sigma
     best_fit_index = np.argmin(chisqr_full)
     samples_index = np.argwhere(chisqr_full <= (chisqr_full.min() + sigma**2)).T[0]
     samples_output_index = np.argwhere(chisqr_full <= (chisqr_full.min() + sigma_range**2)).T[0]
-    # discard exceding samples
-    tmp_i = 0
-    while (len(samples_index) > n_samples):
-        if (tmp_i == best_fit_index):
-            tmp_i += 1
-        else:
-            samples_index = np.delete(samples_index, tmp_i)
+    
+    # discard exceding samples when s
+    if sigma_samples is None:            
+        tmp_i = 0
+        while (len(samples_index) > n_samples):
+            if (tmp_i == best_fit_index):
+                tmp_i += 1
+            else:
+                samples_index = np.delete(samples_index, tmp_i)
     
     samples, chisqr = samples_full[samples_index].T, chisqr_full[samples_index]
     samples_output, chisqr_output = samples_full[samples_output_index].T, chisqr_full[samples_output_index]
@@ -700,10 +702,9 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
         raise ValueError(f'The optimization procedure failed.')       
 
 
-def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigma_samples=1, samples=500, marching_grid=True, run_size=10000, threads=None, show_progress=False):
+def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigma_samples=None, samples=500, marching_grid=True, run_size=10000, threads=None, show_progress=False):
     '''
     Multidimensional marching grid algorithm to optimize brute force minimum regions finding.
-
 
     Parameters
     ----------
@@ -715,20 +716,22 @@ def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigm
     args : `tuple`, optional
         Aditional arguments passed to the user function, by default ().
     sigma_range: `int`, optional
-        Confidence interval range for sampling. All returned samples will lie
+        Interval range for sampling. All returned samples will lie
         within 0 and sigma_range standard deviations, by default 3.
     sigma : `int`, optional
-        Confidence limits within with the samples should lie, by default 1.
-    sigma_samples : `int`
-        The minimum number of samples that lie within the defined `sigma` interval,
-        by default 1.
+        Number of standard deviations of the returned uncertaties, by default 1.
+    sigma_samples : `int`, optional
+        The minimum number of samples used to estimate the returned uncertainties
+        defined by `sigma`, by default None.
+        When defined it superseeds the `samples` variable since it will return
+        most likely a higher number of samples.
     samples : `int`, optional
-        Number of simulations to be returned within the provided sigma, by default 2000.
+        Number of samples within the provided `sigma_range`, by default 2000.
     marching_grid : `bool`, optional
         If `True` it will use the marching grid approach to march faster towards the best solution.
         When `False` sampling is done uniformly within the boundings provided, by default True.
     run_size : `int`, optional
-        Number of simulations performed within each sampling run. By default 100000.
+        Number of simulations performed within each sampling run. By default 10000.
     threads : `int`
         If multithreading is desired it sets the number of parallel processes, by default None.
     show_progress : `bool`
@@ -765,6 +768,7 @@ def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigm
     sigma_counter = 0
     
     new_bounds = list(bounds)
+    sigma_samples = 1 if sigma_samples is None else sigma_samples
     while ((counter < samples) or (sigma_counter < sigma_samples)):     
         # generate random samples
         p = []
@@ -903,7 +907,8 @@ def fastchi(func, parameters, bounds=None, args=(), **kwargs):
         return _fastchi_results(solution, parameters, residual, 
                                 kwargs['samples'] if 'samples' in kwargs else 2000, 
                                 kwargs['sigma_range'] if 'sigma_range' in kwargs else 3,
-                                kwargs['sigma'] if 'sigma' in kwargs else 1, len(residual))
+                                kwargs['sigma'] if 'sigma' in kwargs else 1, 
+                                kwargs['sigma_samples'] if 'sigma_samples' in kwargs else None, len(residual))
 
     except:
         raise ValueError(f'The optimization procedure failed.')       
