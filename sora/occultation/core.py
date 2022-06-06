@@ -109,7 +109,7 @@ class Occultation:
             time=[tca], coord_star=[self.star.get_position(tca, observer=reference_center)],
             coord_obj=[self.body.ephem.get_position(tca, observer=reference_center)],
             ca=[ca.value], pa=[pa.value], vel=[vel.value], dist=[dist.value],
-            mag=[self.star.mag['G']], source=[self.star.code], meta=meta)
+            mag=self.star.mag, source=[self.star.code], meta=meta)
 
         self.__observations = []
         self._chords = ChordList(star=self.star, body=self._body, time=self.tca)

@@ -26,4 +26,5 @@ on how SORA can be used.
 
    examples/prediction/maps
    examples/prediction/spacecraft
+   examples/catalog
 

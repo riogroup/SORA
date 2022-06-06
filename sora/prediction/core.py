@@ -136,11 +136,12 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         If using a EphemHorizons object, please use 'divs' to make division
         at most a month, or a timeout error may be raised by the Horizon query.
 
-    mag_lim : `int`, `float`, default=None
+    mag_lim : `int`, `float`, `dict`, default=None
         Faintest Gmag allowed in the search.
 
-    catalogue : `str`, default='gaiaedr3'
-        The catalogue to download data. It can be ``'gaiadr2'`` or ``'gaiaedr3'``.
+    catalogue : `str`, `VizierCatalogue`
+        The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
+        or a VizierCatalogue object. default='gaiaedr3'
 
     step : `int`, `float`, default=60
         Step, in seconds, of ephem times for search
@@ -185,8 +186,8 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
      : `sora.prediction.PredictionTable`
         PredictionTable with the occultation params for each event.
     """
-    from astroquery.vizier import Vizier
     from sora.observer import Observer, Spacecraft
+    from sora.star.catalog import allowed_catalogues
     from .table import PredictionTable
 
     if reference_center != 'geocenter' and not isinstance(reference_center, (Observer, Spacecraft)):
@@ -211,17 +212,17 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
     intervals = np.round(np.linspace(0, (time_end-time_beg).sec, divs+1))
 
     # define catalogue parameters
-    allowed_catalogues = ['gaiadr2', 'gaiaedr3']
-    if catalogue not in allowed_catalogues:
-        raise ValueError('Catalogue {} is not one of the allowed catalogues {}'.format(catalogue, allowed_catalogues))
-    vizpath = {'gaiadr2': 'I/345/gaia2', 'gaiaedr3': 'I/350/gaiaedr3'}[catalogue]
-    cat_name = {'gaiadr2': 'Gaia-DR2', 'gaiaedr3': 'Gaia-EDR3'}[catalogue]
-    columns = {'gaiadr2': ['Source', 'RA_ICRS', 'DE_ICRS', 'pmRA', 'pmDE', 'Plx', 'RV', 'Epoch', 'Gmag'],
-               'gaiaedr3': ['Source', 'RA_ICRS', 'DE_ICRS', 'pmRA', 'pmDE', 'Plx', 'RVDR2', 'Epoch', 'Gmag']}[catalogue]
-    kwds = {'columns': columns, 'row_limit': 10000000, 'timeout': 600}
-    if mag_lim:
-        kwds['column_filters'] = {"Gmag": "<{}".format(mag_lim)}
-    vquery = Vizier(**kwds)
+    catalog = allowed_catalogues.get_default(catalogue)
+    kwds = {'columns': 'simple', 'row_limit': 10000000, 'timeout': 600}
+    if mag_lim is not None:
+        if isinstance(mag_lim, (int, float)):
+            if len(catalog.band) == 0:
+                warnings.warn(f"Catalogue '{catalog.name}' does not have any band defined.")
+            else:
+                mag_lim = {next(iter(catalog.band)): mag_lim}
+        if isinstance(mag_lim, dict):
+            kwds['column_filters'] = {catalog.band[band]: f"<{value}" for band, value in mag_lim.items()
+                                      if band in catalog.band}
 
     # determine suitable divisions for star search
     if radius is None:
@@ -260,21 +261,18 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
 
         if verbose:
             print('Downloading stars ...')
-        catalogue = vquery.query_region(pos_search, width=width, height=height, catalog=vizpath, cache=False)
+        catalogue = catalog.search_region(pos_search, width=width, height=height, **kwds)
         if len(catalogue) == 0:
             print('    No star found. The region is too small or VizieR is out.')
             continue
         catalogue = catalogue[0]
         if verbose:
-            print('    {} {} stars downloaded'.format(len(catalogue), cat_name))
+            print('    {} {} stars downloaded'.format(len(catalogue), catalog.name))
             print('Identifying occultations ...')
-        pm_ra_cosdec = catalogue['pmRA'].quantity
-        pm_ra_cosdec[np.where(np.isnan(pm_ra_cosdec))] = 0*u.mas/u.year
-        pm_dec = catalogue['pmDE'].quantity
-        pm_dec[np.where(np.isnan(pm_dec))] = 0*u.mas/u.year
-        stars = SkyCoord(catalogue['RA_ICRS'].quantity, catalogue['DE_ICRS'].quantity, distance=np.ones(len(catalogue))*u.pc,
-                         pm_ra_cosdec=pm_ra_cosdec, pm_dec=pm_dec,
-                         obstime=Time(catalogue['Epoch'].quantity.value, format='jyear'))
+        cat_data = catalog.parse_catalogue(catalogue)
+        stars = SkyCoord(ra=cat_data['ra'], dec=cat_data['dec'], distance=np.ones(len(catalogue))*u.pc,
+                         pm_ra_cosdec=cat_data['pmra'], pm_dec=cat_data['pmdec'],
+                         obstime=cat_data['epoch'])
         prec_stars = stars.apply_space_motion(new_obstime=((nt[-1]-nt[0])/2+nt[0]))
         idx, d2d, d3d = prec_stars.match_to_catalog_sky(ncoord)
 
@@ -283,12 +281,11 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
             + np.sqrt(stars.pm_ra_cosdec**2+stars.pm_dec**2)*(nt[-1]-nt[0])/2
         k = np.where(d2d < dist)[0]
         for ev in k:
-            star = Star(code=catalogue['Source'][ev], ra=catalogue['RA_ICRS'][ev]*u.deg, dec=catalogue['DE_ICRS'][ev]*u.deg,
-                        pmra=catalogue['pmRA'][ev]*u.mas/u.year, pmdec=catalogue['pmDE'][ev]*u.mas/u.year,
-                        parallax=catalogue['Plx'][ev]*u.mas, rad_vel=catalogue[columns[6]][ev]*u.km/u.s,
-                        epoch=Time(catalogue['Epoch'][ev], format='jyear'), local=True, nomad=False, verbose=False)
+            star = Star(code=cat_data['code'][ev], ra=cat_data['ra'][ev], dec=cat_data['dec'][ev], pmra=cat_data['pmra'][ev],
+                        pmdec=cat_data['pmdec'][ev], parallax=cat_data['parallax'][ev], rad_vel=cat_data['rad_vel'][ev],
+                        epoch=cat_data['epoch'][ev], local=True, nomad=False, verbose=False)
             c = star.get_position(time=nt[idx][ev], observer=reference_center)
-            pars = [star.code, SkyCoord(c.ra, c.dec), catalogue['Gmag'][ev]]
+            pars = [star.code, SkyCoord(c.ra, c.dec), {band: values[ev].value for band, values in cat_data['band'].items()}]
             try:
                 pars = np.hstack((pars, occ_params(star, ephem, nt[idx][ev], reference_center=reference_center)))
                 occs.append(pars)
@@ -298,19 +295,20 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
     meta = {'name': ephem.name or getattr(body, 'shortname', ''), 'time_beg': time_beg, 'time_end': time_end,
             'maglim': mag_lim, 'max_ca': mindist, 'radius': radius.to(u.km).value,
             'error_ra': ephem.error_ra.to(u.mas).value, 'error_dec': ephem.error_dec.to(u.mas).value,
-            'ephem': ephem.meta['kernels'], 'catalogue': cat_name}
+            'ephem': ephem.meta['kernels'], 'catalogue': catalog.name}
     if not occs:
         print('\nNo stellar occultation was found.')
         return PredictionTable(meta=meta)
     # create astropy table with the params
     occs2 = np.transpose(occs)
+    mags = {band: [dic[band] for dic in occs2[2]] for band in occs2[2][0]}
     time = Time(occs2[3])
     obj_pos = SkyCoord([ephem.get_position(time=time, observer=reference_center)])
-    k = np.argsort(time)
     t = PredictionTable(
-        time=time[k], coord_star=occs2[1][k], coord_obj=obj_pos[k], ca=[i.value for i in occs2[4][k]],
-        pa=[i.value for i in occs2[5][k]], vel=[i.value for i in occs2[6][k]], mag=occs2[2][k],
-        dist=[i.value for i in occs2[7][k]], source=occs2[0][k], meta=meta)
+        time=time, coord_star=occs2[1], coord_obj=obj_pos, ca=[i.value for i in occs2[4]],
+        pa=[i.value for i in occs2[5]], vel=[i.value for i in occs2[6]], mag=mags,
+        dist=[i.value for i in occs2[7]], source=occs2[0], meta=meta)
     if verbose:
         print('\n{} occultations found.'.format(len(t)))
+    t.sort('Epoch')
     return t
