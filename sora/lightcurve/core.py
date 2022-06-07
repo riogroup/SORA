@@ -543,7 +543,7 @@ class LightCurve:
         self.bottom_flux = bottom_flux
 
     def normalize(self, poly_deg=None, mask=None, flux_min=0.0, flux_max=1.0, plot=False):
-        """Returns the fresnel scale.
+        """Returns the normalized flux within the flux min and flux max defined scale.
 
         Parameters
         ----------
@@ -762,6 +762,19 @@ class LightCurve:
 
         sigma_result : `int`, `float`
             Sigma value to be considered as result.
+        
+        method : `str`, default=`chisqr`
+            Method used to perform the fit. Available methods are:
+            `chisqr` : monte carlo computation method used in versions of SORA <= 0.2.1.
+            `fastchi` : monte carlo computation method, allows multithreading and can be
+            enhanced by marching grid algorithm.
+            `least_squares` or `ls`: best fit done used levenberg marquardt convergence algorithm.
+            `differential_evolution` : best fit done using genetic algorithms.
+            All methods return a Chisquare object.
+        
+        threads : `int`
+            Number of threads/workers used to perform parallel computations of the chi square 
+            object. It works with all methods except `chisqr`, by default 1.
 
         Returns
         -------
@@ -770,9 +783,14 @@ class LightCurve:
         """
         from sora.config.visuals import progressbar
         from sora.extra import ChiSquare
+        from sora.stats import Parameters, least_squares, differential_evolution, fastchi
+        from .models import occ_model_fit, occ_model_fitError
+        from os import sysconf, cpu_count
+        from sys import exit
+
 
         allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max', 'immersion_time', 'emersion_time', 'opacity',
-                          'delta_t', 'dopacity', 'sigma', 'loop', 'sigma_result']
+                          'delta_t', 'dopacity', 'sigma', 'loop', 'sigma_result', 'method', 'threads']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if not hasattr(self, 'flux'):
@@ -840,18 +858,114 @@ class LightCurve:
         tflag[t_i > t_e] = t_i[t_i > t_e]
         t_i[t_i > t_e] = t_e[t_i > t_e]
         t_e[t_i > t_e] = tflag[t_i > t_e]
-        chi2 = 999999*np.ones(loop)
-        for i in progressbar(range(loop), 'LightCurve fit:'):
-            model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
-            chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2))
+        
+        # define different fitting methods
+        if 'method' not in kwargs:
+            method = 'chisqr'
+        if kwargs.get('method') is None:
+            method = 'chisqr'
+        else:
+            method = str(kwargs.get('method')).lower()
+
+        if method not in ['chisqr', 'least_squares', 'ls', 'fastchi', 'differential_evolution']:
+            warn(f'Invalid method `{method}` provided. Setting to default.')
+            method = 'chisqr'
+        
+
+        if (method == 'chisqr'):
+            chi2 = 999999*np.ones(loop)
+
+            for i in progressbar(range(loop), 'LightCurve fit:'):
+                model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
+                chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2))
+
+        else:
+            # get the number of threads
+            threads = kwargs.get('threads', 1)
+            # this is a contigency to avoid running out of memory          
+            mem_bytes = sysconf('SC_PAGE_SIZE') * sysconf('SC_PHYS_PAGES')  # e.g. 4015976448
+            run_bytes = len(mask)*8*3.*500
+            memory_allowance = 0.7/cpu_count()
+            free_mem = mem_bytes*memory_allowance
+            mem_per_thread = free_mem*threads
+            run_size = int(mem_per_thread/run_bytes)
+            
+            # define the parameters
+            # generate parameters object
+            initial = Parameters()
+
+            im_vary = False if ((do_immersion is False) or (delta_t == 0)) else True
+            initial.add(name='immersion_time', value=(immersion_time if do_immersion is True else self.time[mask].min()), 
+                        minval=-np.inf if not im_vary else (immersion_time - delta_t), 
+                        maxval=np.inf if not im_vary else (immersion_time + delta_t), 
+                        free=im_vary)
+            
+            em_vary = False if ((do_emersion is False) or (delta_t == 0)) else True
+            initial.add(name='emersion_time', value=(emersion_time if do_emersion is True else self.time[mask].max()), 
+                        minval=-np.inf if not em_vary else (emersion_time - delta_t), 
+                        maxval=np.inf if not em_vary else (emersion_time + delta_t), 
+                        free=em_vary)
+
+            opacity_vary = False if (delta_opacity == 0) else True
+            minvalop = 0 if (opacity - delta_opacity/2) < 0 else (opacity - delta_opacity/2)
+            maxvalop = 1 if (opacity + delta_opacity/2) > 1 else (opacity + delta_opacity/2)
+            initial.add(name='opacity', value=(opacity if do_opacity is True else 1), 
+                        minval=-np.inf if not opacity_vary else minvalop, 
+                        maxval=np.inf if not opacity_vary else maxvalop, 
+                        free=opacity_vary)            
+
+            if (not im_vary) and (not em_vary) and (not opacity_vary):
+                exit('No parameters are allowed to vary, please check your `LightCurve.occ_lcfit` input.')
+
+            if (method == 'fastchi'):
+                chi_result = fastchi(occ_model_fitError, initial,
+                                     args = (self.time[mask], self.flux[mask], sigma[mask], flux_min, flux_max,
+                                             self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime, self.d_star, 10, 12),
+                                     samples=loop, sigma_range=(4 if (sigma_result == 1) else sigma_result+3), sigma=sigma_result, 
+                                     sigma_samples=None, threads=threads, show_progress=True, run_size = run_size)
+                chi2 = chi_result.chi
+
+            if (method == 'least_squares') or (method == 'ls'):
+                result = least_squares(occ_model_fitError, initial,
+                                       args = (self.time[mask], self.flux[mask], sigma[mask], flux_min, flux_max,
+                                               self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime, self.d_star, 10, 12),
+                                       algorithm='trf', sigma=sigma_result)
+                chi_result = fastchi(occ_model_fitError, result.params,
+                                     args = (self.time[mask], self.flux[mask], sigma[mask], flux_min, flux_max,
+                                             self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime, self.d_star, 10, 12),
+                                     samples=loop, sigma_range=(4 if (sigma_result == 1) else sigma_result+3), sigma=sigma_result, 
+                                     sigma_samples=None, threads=threads, show_progress=True, run_size = run_size)
+                chi2 = chi_result.chi
+            
+            if (method == 'differential_evolution'):
+                result = differential_evolution(occ_model_fitError, initial,
+                                                args = (self.time[mask], self.flux[mask], sigma[mask], flux_min, flux_max,
+                                                        self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime, self.d_star, 10, 12),
+                                                sigma=sigma_result)
+                chi_result = fastchi(occ_model_fitError, result.params,
+                                     args = (self.time[mask], self.flux[mask], sigma[mask], flux_min, flux_max,
+                                             self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime, self.d_star, 10, 12),
+                                     samples=loop, sigma_range=(4 if (sigma_result == 1) else sigma_result+3), sigma=sigma_result, 
+                                     sigma_samples=None, threads=threads, show_progress=True, run_size = run_size)
+                chi2 = chi_result.chi
+            
+            if (do_immersion) and not (delta_t == 0):
+                t_i = chi_result.samples[:][chi_result.var_names.index('immersion_time')]
+            if (do_emersion) and not (delta_t == 0):                
+                t_e = chi_result.samples[:][chi_result.var_names.index('emersion_time')]
+            if (do_opacity) and not (delta_opacity == 0):
+                opas = chi_result.samples[:][chi_result.var_names.index('opacity')]
+    
         kkwargs = {}
-        if do_immersion:
+        if (do_immersion) and not (delta_t == 0):
             kkwargs['immersion'] = t_i
-        if do_emersion:
+        if (do_emersion) and not (delta_t == 0):                
             kkwargs['emersion'] = t_e
-        if do_opacity:
+        if (do_opacity) and not (delta_opacity == 0):
             kkwargs['opacity'] = opas
+    
         chisquare = ChiSquare(chi2, len(self.flux[mask]), **kkwargs)
+        
         result_sigma = chisquare.get_nsigma(sigma=sigma_result)
         if 'immersion' in result_sigma:
             self._immersion = self.tref + result_sigma['immersion'][0]*u.s
@@ -873,6 +987,7 @@ class LightCurve:
                 pass
         if 'opacity' in result_sigma:
             opacity = result_sigma['opacity'][0]
+
         # Run occ_model() to save best parameters in the Object.
         self.occ_model(immersion_time, emersion_time, opacity, np.repeat(True, len(self.flux)),
                        flux_min=flux_min, flux_max=flux_max)
@@ -1104,6 +1219,7 @@ class LightCurve:
             event_model = (time_model > time_obs[i]-self.exptime/2.) & (time_model < time_obs[i]+self.exptime/2.)
             flux_inst[i] = (flux_star[event_model]).mean()
         return flux_inst*(flux_max - flux_min) + flux_min
+
 
     def __str__(self):
         """ String representation of the LightCurve Object

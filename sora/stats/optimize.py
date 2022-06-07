@@ -749,7 +749,7 @@ def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigm
     res = func(initpars,*args)
     params.append(list(initpars))
     residual.append(res.sum())
-  
+
     # define the total iteration counter 
     # define the counter display and can be settet to be used with dependency check
     if show_progress and HAS_TQDM:
@@ -766,7 +766,6 @@ def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigm
     counter = 0
     counter_previous = 0    
     sigma_counter = 0
-    
     new_bounds = list(bounds)
     sigma_samples = 1 if sigma_samples is None else sigma_samples
     while ((counter < samples) or (sigma_counter < sigma_samples)):     
@@ -781,7 +780,7 @@ def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigm
             p.append(np.random.uniform(low=b[0], high=b[1], size=run_size))
         p = np.array(list(p)).T
 
-
+    
         # raise warning if multiprocessing is not installed or version incompatible
         if not (HAS_MULTIPROCESSING) and (threads is not None):
             warn(f'`multiprocessing` >=3.3 is required to run the processes in parallel.')
@@ -790,6 +789,7 @@ def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigm
         if (HAS_MULTIPROCESSING) and (threads is not None) and isinstance(threads, (float, int)):
             # create arguments pack
             pool_args = [ (pars, *args) for pars in p ]
+
 
             with Pool(processes=int(threads)) as pool:
                 pool_res = pool.starmap(func, pool_args)
@@ -889,10 +889,11 @@ def fastchi(func, parameters, bounds=None, args=(), **kwargs):
         OptimizeResult object with the results obtained by the fitting.
     '''
         
-     
+    
     # get initial values and check external bonds provided
     vary, bounds = _prepare_fit(parameters, 'fastchi', bounds) 
-   
+    
+
     # check if initial parameters results are finite
     if np.isfinite(_bypass_fixed_variables(vary, func, parameters, *args)).sum() == 0:
         raise ValueError(f'Residuals are not finite at initial point. Check your initial parameters and/or objective function.')
