@@ -185,7 +185,7 @@ class MetaStar:
     @property
     def diameter_gaia(self):
         try:
-            rad = self.meta_gaia.get('Rad')
+            rad = self.meta_catalogue.get('Rad')
             if rad is not None and not np.ma.core.is_masked(rad):
                 return 2*np.arctan((rad*u.solRad)/self.distance).to(u.mas)
         except:
