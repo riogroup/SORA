@@ -3,45 +3,11 @@ from scipy.integrate import quad
 import numpy as np
 from warnings import warn
 from copy import deepcopy
-from .core import Parameters, _in_ipynb
-
-# # check for emcee
-# try:
-#     import emcee
-#     from emcee.autocorr import AutocorrError
-#     HAS_EMCEE = int(emcee.__version__[0]) >= 3
-# except ImportError:
-#     HAS_EMCEE = False
-
-
-# check for tqdm    
-try:
-    import tqdm
-    HAS_TQDM = int(tqdm.__version__[0]) >= 4
-
-    if _in_ipynb():
-        from tqdm.notebook import tqdm
-    else:
-        from tqdm import tqdm
-    
-except ImportError:
-    HAS_TQDM = False
-
-
-# check for multiprocessing and method starmap
-try:
-    from multiprocessing import Pool
-    if not "starmap" in dir(Pool()):
-        HAS_MULTIPROCESSING = False
-    else:
-        HAS_MULTIPROCESSING = True   
-except ImportError:
-    HAS_MULTIPROCESSING = False
-
+from .core import Parameters
 
 
 class NoTqdm():
-    '''A dummy class to handle pbar when tqdm is not availabe.'''
+    '''A dummy class to handle pbar when not showing progress bar.'''
     def __init__(self, *args, **kwargs):
         pass
 
@@ -581,7 +547,7 @@ def least_squares(func, parameters, bounds=None, args=(), algorithm='lm', bootst
             index = np.arange(len(args[0]))
             
             # progress bar settings
-            if show_progress and HAS_TQDM:
+            if show_progress:
                 pbar = tqdm(total=bootstrap, desc='Bootstraping')
             else:
                 pbar = NoTqdm()
@@ -675,7 +641,7 @@ def differential_evolution(func, parameters, bounds=None, args=(), bootstrap=Non
             index = np.arange(len(args[0]))
             
             # progress bar settings
-            if show_progress and HAS_TQDM:
+            if show_progress:
                 pbar = tqdm(total=bootstrap, desc='Bootstraping')
             else:
                 pbar = NoTqdm()
@@ -752,7 +718,7 @@ def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigm
 
     # define the total iteration counter 
     # define the counter display and can be settet to be used with dependency check
-    if show_progress and HAS_TQDM:
+    if show_progress:
         pbar = tqdm(total=samples, position=0)
     else:
         pbar = NoTqdm()
@@ -781,12 +747,8 @@ def _marching_grid(func, initpars, bounds, args=(), sigma_range=3, sigma=1, sigm
         p = np.array(list(p)).T
 
     
-        # raise warning if multiprocessing is not installed or version incompatible
-        if not (HAS_MULTIPROCESSING) and (threads is not None):
-            warn(f'`multiprocessing` >=3.3 is required to run the processes in parallel.')
-        
         # compute residuals for candidates multithreading
-        if (HAS_MULTIPROCESSING) and (threads is not None) and isinstance(threads, (float, int)):
+        if (threads is not None) and isinstance(threads, (float, int)):
             # create arguments pack
             pool_args = [ (pars, *args) for pars in p ]
 
