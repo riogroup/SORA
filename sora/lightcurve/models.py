@@ -2,7 +2,7 @@ import numpy as np
 import astropy.units as u
 from .utils import bar_fresnel, calc_fresnel
 
-def occ_model_fit(time, immersion_time, emersion_time, opacity, 
+def __occ_model_fit(time, immersion_time, emersion_time, opacity, 
                   central_bandpass, delta_bandpass, distance, velocity, exptime, star_diameter,
                   npt_star=12, time_resolution_factor=10, flux_min=0, flux_max=1):
     """Returns the model of the light curve.
@@ -103,7 +103,7 @@ def occ_model_fit(time, immersion_time, emersion_time, opacity,
 
 
 
-def occ_model_fitError(parameters, time, flux, dflux, flux_min, flux_max,
+def __occ_model_fitError(parameters, time, flux, dflux, flux_min, flux_max,
                        central_bandpass, delta_bandpass, distance, velocity, exptime, star_diameter, 
                        time_resolution_factor, npt_star):
     '''Returns the residuals when using occ_model_fit 
@@ -161,3 +161,85 @@ def occ_model_fitError(parameters, time, flux, dflux, flux_min, flux_max,
                           central_bandpass, delta_bandpass, distance, velocity, exptime, star_diameter,
                           npt_star=npt_star, time_resolution_factor=time_resolution_factor, flux_min=flux_min, flux_max=flux_max)
     return (flux - model)**2 / dflux**2
+
+
+
+def __occ_model_fit_parallel(time, flux, dflux, bestchi, immersion_time, emersion_time, delta_t, 
+                             opacity, delta_opacity, central_bandpass, delta_bandpass, distance, velocity, exptime, 
+                             star_diameter, npt_star=12, time_resolution_factor=10, flux_min=0, flux_max=1):
+    
+    """Returns Monte Carlo simulations the model of the light curve.
+
+    The modelled light curve takes into account the fresnel diffraction, the
+    star diameter and the instrumental response.
+
+    Parameters
+    ----------
+    time : `float`
+        Array containing the times.
+
+    flux : `float`
+        Array contatining the fluxes.
+
+    dflux : `float`
+        Array containing the flux uncertainties.
+
+    immersion_time : `int`, `float`
+        Immersion time, in seconds.
+
+    emersion_time : `int`, `float`
+        Emersion time, in seconds.
+
+    opacity : `int`, `float`
+        Opacity. Opaque = 1.0, transparent = 0.0,
+
+    central_bandpass : `int`, `float`, otpional, default=0.7
+        The center band pass of the detector used in observation. Value in microns.
+
+    delta_bandpass : `int`, `float`, optional, default=0.3
+        The band pass width of the detector used in observation. Value in microns.
+
+    distance : `int`, `float`:
+        Object distance in AU.
+    
+    velocity : `int`, `float`
+        Velocity in km/s.
+
+    exptime : `int`, `float`
+        The exposure time of the observation, in seconds.
+
+    star_diameter : `float`
+        Star diameter, in km.        
+
+    npt_star : `int`, default=12
+        Number of subdivisions for computing the star size effects.
+
+    time_resolution_factor : `int`, `float`, default: 10*fresnel scale
+        Steps for fresnel scale used for modelling the light curve.
+
+    flux_min : `int`, `float`, default=0
+        Bottom flux (only object).
+
+    flux_max : `int`, `float`, default=1
+        Base flux (object plus star).
+    """                            
+    
+    im_chi = np.array([]) if bestchi is None else np.array([immersion_time])
+    em_chi = np.array([]) if bestchi is None else np.array([emersion_time])
+    opas_chi = np.array([]) if bestchi is None else np.array([opacity])
+    chi2_best = np.array([]) if bestchi is None else np.array([bestchi])
+
+
+    im_chi = np.append(im_chi, immersion_time + delta_t*(np.random.RandomState().random(loop) -0.5))
+    em_chi = np.append(em_chi, emersion_time + delta_t*(np.random.RandomState().random(loop) -0.5))
+    opas_chi = np.append(opas_chi, opacity + delta_opacity*(np.random.RandomState().random(loop) -0.5))
+    opas_chi[opas_chi < 0], opas_chi[opas_chi > 1] = 0, 1
+
+    for i in progressbar(range(loop), 'Lightcurve fit:'):
+        model = __occ_model_fit(time, im_chi[i], em_chi[i], opas_chi[i],  
+                                central_bandpass, delta_bandpass, distance, velocity, exptime, star_diameter,
+                                npt_star=npt_star, time_resolution_factor=time_resolution_factor, flux_min=flux_min, flux_max=flux_max)
+        chisqr = np.sum( (flux - model)**2 / dflux**2 )
+        chi2_best = chi2_best.append(chi2_best, chisqr)
+
+    return [chi2_best, im_chi, em_chi, opas_chi]
