@@ -4,7 +4,6 @@ from astropy.time import Time
 
 from sora.config.decorators import deprecated_alias
 from sora.config.visuals import progressbar_show
-from sora.stats.optimize import fastchi
 
 __all__ = ['fit_ellipse']
 

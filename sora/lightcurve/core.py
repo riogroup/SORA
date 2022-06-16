@@ -887,20 +887,20 @@ class LightCurve:
             initial = Parameters()
 
             im_vary = False if ((do_immersion is False) or (delta_t == 0)) else True
-            initial.add(name='immersion_time', value=(immersion_time if do_immersion is True else self.time[mask].min()), 
+            initial.add(name='immersion_time', value=(immersion_time if do_immersion is True else tmin), 
                         minval=-np.inf if not im_vary else (immersion_time - delta_t), 
                         maxval=np.inf if not im_vary else (immersion_time + delta_t), 
                         free=im_vary)
             
             em_vary = False if ((do_emersion is False) or (delta_t == 0)) else True
-            initial.add(name='emersion_time', value=(emersion_time if do_emersion is True else self.time[mask].max()), 
+            initial.add(name='emersion_time', value=(emersion_time if do_emersion is True else tmax), 
                         minval=-np.inf if not em_vary else (emersion_time - delta_t), 
                         maxval=np.inf if not em_vary else (emersion_time + delta_t), 
                         free=em_vary)
 
             opacity_vary = False if (do_opacity is False) or (delta_opacity == 0) else True
-            minvalop = 0 if (opacity - delta_opacity/2) < 0 else (opacity - delta_opacity/2)
-            maxvalop = 1 if (opacity + delta_opacity/2) > 1 else (opacity + delta_opacity/2)
+            minvalop = 0 if (opacity - delta_opacity) < 0 else (opacity - delta_opacity)
+            maxvalop = 1 if (opacity + delta_opacity) > 1 else (opacity + delta_opacity)
             initial.add(name='opacity', value=(opacity if do_opacity is True else 1), 
                         minval=-np.inf if not opacity_vary else minvalop, 
                         maxval=np.inf if not opacity_vary else maxvalop, 
@@ -914,7 +914,8 @@ class LightCurve:
                 result = least_squares(_occ_model_fitError, initial,
                                        args = (self.time[mask], self.flux[mask], sigma[mask], flux_min, flux_max,
                                                self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime, self.d_star, 10, 12),
-                                       algorithm='trf', sigma=sigma_result)
+                                               algorithm='trf', sigma=sigma_result)
+
                 immersion_time = result.params['immersion_time'].value
                 emersion_time = result.params['emersion_time'].value
                 opacity = result.params['opacity'].value
@@ -926,7 +927,8 @@ class LightCurve:
                 result = differential_evolution(_occ_model_fitError, initial,
                                                 args = (self.time[mask], self.flux[mask], sigma[mask], flux_min, flux_max,
                                                         self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime, self.d_star, 10, 12),
-                                                sigma=sigma_result)
+                                                        sigma=sigma_result)
+
                 immersion_time = result.params['immersion_time'].value
                 emersion_time = result.params['emersion_time'].value
                 opacity = result.params['opacity'].value
@@ -950,7 +952,8 @@ class LightCurve:
                 args_verbose = [self.time[mask], self.flux[mask], sigma[mask], bestchi, immersion_time, emersion_time, delta_t,
                                 opacity, delta_opacity, self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime,
                                 self.d_star, 12, 10, flux_min, flux_max, int(np.ceil(loop/threads)), True]
-                
+
+               
                 pool_args = []
                 pool_args.append(args_verbose)
 
@@ -969,7 +972,6 @@ class LightCurve:
 
                 chi2, t_i, t_e, opas = np.array(result[0]), np.array(result[1]), np.array(result[2]), np.array(result[3])
     
-        print(do_opacity)
 
         kkwargs = {}
         if (do_immersion) and (delta_t > 0):
@@ -978,8 +980,7 @@ class LightCurve:
             kkwargs['emersion'] = t_e
         if (do_opacity) and (delta_opacity > 0):
             kkwargs['opacity'] = opas
-    
-        print(kkwargs.items())
+
 
         chisquare = ChiSquare(chi2, len(self.flux[mask]), **kkwargs)
         
@@ -1522,12 +1523,13 @@ def _occ_model_fit_parallel(time, flux, dflux, bestchi, immersion_time, emersion
         Base flux (object plus star).
     """                            
     
-    im_chi = immersion_time + delta_t*(np.random.RandomState().random(loop) -0.5)
-    em_chi = emersion_time + delta_t*(np.random.RandomState().random(loop) -0.5)
-    opas_chi = opacity + delta_opacity*(np.random.RandomState().random(loop) -0.5)
+    im_chi = immersion_time + delta_t*(2*np.random.RandomState().random(loop) -1)
+    em_chi = emersion_time + delta_t*(2*np.random.RandomState().random(loop) -1)
+    opas_chi = opacity + delta_opacity*(2*np.random.RandomState().random(loop) -1)
     opas_chi[opas_chi < 0], opas_chi[opas_chi > 1] = 0, 1
     chi2_best = np.ones(loop)
 
+ 
     im_chi[0] = immersion_time if bestchi is not None else im_chi[0]
     em_chi[0] = emersion_time if bestchi is not None else em_chi[0]
     opas_chi[0] = opacity if bestchi is not None else opas_chi[0]
