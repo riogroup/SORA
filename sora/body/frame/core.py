@@ -23,22 +23,22 @@ class PlanetocentricFrame(BaseCoordinateFrame):
         If string, it must be 'hh.hhhh +dd.ddd' or 'hh hh hh.hhh +dd dd dd.ddd',
         in hourangle and deg.
 
-    alphap : `float`
+    alphap : `float`, `astropy.units.Quantity`
         Rate at which the right ascension of the pole changes, in deg/century
 
     extra_alpha: `Precession`
         A Precession object that accounts for the precession of the pole in right ascension
 
-    deltap : `float`
+    deltap : `float`, `astropy.units.Quantity`
         Rate at which the declination of the pole changes, in deg/century
 
     extra_delta : `Precession`
         A Precession object that accounts for the precession of the pole in right ascension
 
-    prime_angle : `float`
+    prime_angle : `float`, `astropy.units.Quantity`
         The angle of the prime meridian at reference epoch, in deg
 
-    rotation_velocity : `float`
+    rotation_velocity : `float`, `astropy.units.Quantity`
         The rotation velocity of the body, in deg/day
 
     extra_w : `Precession`
@@ -67,14 +67,14 @@ class PlanetocentricFrame(BaseCoordinateFrame):
     rotation_velocity = QuantityAttribute(default=0 * u.deg / u.day)
     extra_w = Attribute(default=Precession())
     right_hand = Attribute(default=False)
-    reference = Attribute(default="")
+    reference = Attribute(default="User")
 
     def __init__(self, *args, **kwargs):
         pole = kwargs.get('pole')
         if isinstance(pole, str):
             kwargs['pole'] = SkyCoord(pole, unit=(u.hourangle, u.deg), frame='icrs')
-        kwargs['alphap'] = u.Quantity(kwargs.get('alphap', 0), unit=u.deg / u.year)
-        kwargs['deltap'] = u.Quantity(kwargs.get('deltap', 0), unit=u.deg / u.year)
+        kwargs['alphap'] = u.Quantity(kwargs.get('alphap', 0), unit=u.deg / u.year) / 100
+        kwargs['deltap'] = u.Quantity(kwargs.get('deltap', 0), unit=u.deg / u.year) / 100
         kwargs['prime_angle'] = Angle(u.Quantity(kwargs.get('prime_angle', 0), unit=u.deg)).wrap_at(360 * u.deg)
         kwargs['rotation_velocity'] = u.Quantity(kwargs.get('rotation_velocity', 0), unit=u.deg / u.day)
         kwargs['extra_alpha'] = Precession(kwargs.get('extra_alpha', 0), func='sin', multiplier='T')
@@ -136,6 +136,18 @@ class PlanetocentricFrame(BaseCoordinateFrame):
                                         reference=self.reference, extra_w=extra_w, extra_alpha=extra_alpha,
                                         extra_delta=extra_delta)
         return new_frame
+
+    def __str__(self):
+        string = ["PlanetocentricFrame:",
+                  "    Epoch: {}".format(self.epoch.__str__()),
+                  "    alpha_pole = {} {:+f}*T {}".format(self.pole.ra.value, self.alphap.value*100,
+                                                          ''.join(self.extra_alpha.__str__().split('\n'))),
+                  "    delta_pole = {} {:+f}*T {}".format(self.pole.dec.value, self.deltap.value*100,
+                                                          ''.join(self.extra_delta.__str__().split('\n'))),
+                  "    W = {} {:+f}*d {}".format(self.prime_angle.value, self.rotation_velocity.value,
+                                                 ''.join(self.extra_w.__str__().split('\n'))),
+                  "    Reference: {}".format(self.reference)]
+        return '\n'.join(string)
 
 
 def get_matrix_vectors(planetocentric_frame, inverse=False):

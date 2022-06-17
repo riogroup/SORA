@@ -128,9 +128,10 @@ class Precession:
         string = []
         m = self.multiplier
         for params in self.params:
-            expression = ['{}{}{}'.format(elem, m if i > 0 else "", i if i > 1 else "") for i, elem in enumerate(params[1:])]
-            expression = '{}({})'.format(self.func, ' + '.join(expression)) if len(expression) > 0 else ''
-            string.append('{:+10.8f}{}'.format(params[0], expression))
+            expression = ['{:+f}{}{}'.format(elem, f'*{m}' if i > 0 else "", i if i > 1 else "") for i, elem in
+                          enumerate(params[1:])]
+            expression = '{}({})'.format(self.func, ''.join(expression)) if len(expression) > 0 else ''
+            string.append('{:+f}{}'.format(params[0], expression))
         return '\n'.join(string)
 
     def __str__(self):

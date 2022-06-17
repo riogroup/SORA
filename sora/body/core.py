@@ -480,6 +480,10 @@ class Body(BaseBody):
         out.append(self.albedo.__str__())
         out.append(self.BV.__str__())
         out.append(self.UB.__str__())
+        if hasattr(self, 'frame'):
+            out.append('\n' + self.frame.__str__() + '\n')
+        if hasattr(self, 'shape'):
+            out.append('\n' + self.shape.__str__() + '\n')
         if hasattr(self, 'ephem'):
             out.append('\n' + self.ephem.__str__() + '\n')
         return ''.join(out)
