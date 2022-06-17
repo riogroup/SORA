@@ -29,7 +29,7 @@ setup(
         'scipy>=1.7.1',
         'requests',
         'tqdm>=4.64',
-        'shapely>=1.8.1',
+        'shapely>=1.8.2',
     ],
     python_requires=">=3.7, <4",
     classifiers=[

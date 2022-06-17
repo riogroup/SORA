@@ -71,7 +71,7 @@ class Limb(geometry.LineString):
         points = geometry.MultiPoint(fg)
         endlines = (fg.T * 1.1 * self.maxdist / np.linalg.norm(fg, axis=-1)).T
         vals = [point.distance(self.intersection(geometry.LineString([zero, endline]))) for point, endline in
-                zip(points, endlines)]
+                zip(points.geoms, endlines)]
         return np.array(vals)
 
 
