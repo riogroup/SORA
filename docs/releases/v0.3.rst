@@ -7,6 +7,8 @@ New Features
 sora.body
 ^^^^^^^^^
 
+- Added `get_position()` in Body as a shortcut to `ephem.get_position()`. [:issue:`76`]
+
 sora.config
 ^^^^^^^^^^^
 
@@ -30,6 +32,8 @@ sora.prediction
 
 - Included the ``VizierCatalogue`` in the prediction function. [:issue:`71`]
 
+- Defined Gaia-DR3 as the default in the `prediction()` function. [:issue:`76`]
+
 sora.star
 ^^^^^^^^^
 
@@ -37,6 +41,10 @@ sora.star
   and usage of any catalogue available on Vizier. [:issue:`71`]
 
 - Included the ``VizierCatalogue`` in the Star class. [:issue:`71`]
+
+- Included the Gaia-DR3 catalogue, released on June 13, 2022, in the catalogue list. [:issue:`76`]
+
+- Defined Gaia-DR3 as the default in the Star class. [:issue:`76`]
 
 API Changes
 -----------
@@ -49,6 +57,9 @@ sora.config
 
 sora.ephem
 ^^^^^^^^^^
+
+- `id_type` for planets and satellites are passed as `None` instead of `major_body`,
+  following changes made in Horizons. [:issue:`76`]
 
 sora.extra
 ^^^^^^^^^^
