@@ -23,7 +23,7 @@ class Star(MetaStar):
     ----------
     catalogue : `str`, `VizierCatalogue`
         The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
-        or a VizierCatalogue object.. default='gaiaedr3'
+        ``'gaiadr3'``, or a VizierCatalogue object.. default='gaiadr3'
 
     code : `str`
         Gaia Source code for searching in VizieR.
@@ -81,7 +81,7 @@ class Star(MetaStar):
     """
 
     @deprecated_alias(log='verbose')  # remove this line in v1.0
-    def __init__(self, catalogue='gaiaedr3', **kwargs):
+    def __init__(self, catalogue='gaiadr3', **kwargs):
 
         self._attributes = {}
         self.mag = {}
@@ -286,7 +286,7 @@ class Star(MetaStar):
         Parameters
         ----------
         catalog : `VizierCatalogue`
-            The catalogue to download data. It can be ``'gaiadr2'`` or ``'gaiaedr3'``.
+            The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'`` or ``'gaiadr3'``.
         """
         if hasattr(self, 'code'):
             catalogue = catalog.search_star(code=self.code)
@@ -307,7 +307,7 @@ class Star(MetaStar):
         self.code = str(cat_data['code'][0])
         self.epoch = cat_data['epoch'][0]
         self.set_magnitude(**{band: value[0].value for band, value in cat_data['band'].items()})
-        if self.__cgaudin and catalog.name == 'GaiaEDR3':
+        if self.__cgaudin and catalog.name in ['GaiaEDR3', 'GaiaDR3']:
             from sora.star.utils import edr3ToICRF
             self.pmra, self.pmdec = edr3ToICRF(pmra = self.pmra, pmdec = self.pmdec,
                                                ra = self.ra.deg, dec = self.dec.deg, 
@@ -336,7 +336,7 @@ class Star(MetaStar):
         x = cov[2, 2] * (self.rad_vel.value ** 2 + self.errors['rad_vel'].value ** 2) / (
             A ** 2) + (self.parallax.to(u.rad).value * self.errors['rad_vel'].value / A) ** 2
         cov[5, 5] = x
-        if catalog.name in ['GaiaDR2', 'GaiaEDR3']:
+        if catalog.name in ['GaiaDR2', 'GaiaEDR3', 'GaiaDR3']:
             a = ['RA', 'DE', 'Plx', 'pmRA', 'pmDE']
             for i in np.arange(5):
                 v1 = 'e_' + a[i]
@@ -541,7 +541,7 @@ class Star(MetaStar):
             out += 'User coordinates\n'
         text_cgaudin = ''
         if self.__cgaudin:
-            text_cgaudin = 'Gaia-EDR3 Proper motion corrected as suggested by Cantat-Gaudin & Brandt (2021) \n'
+            text_cgaudin = f'{self._catalogue} Proper motion corrected as suggested by Cantat-Gaudin & Brandt (2021) \n'
         out += ('ICRS star coordinate at J{}:\n'
                 'RA={} +/- {:.4f}, DEC={} +/- {:.4f}\n'
                 'pmRA={:.3f} +/- {:.3f} mas/yr, pmDEC={:.3f} +/- {:.3f} mas/yr\n{}'

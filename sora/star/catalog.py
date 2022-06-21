@@ -238,5 +238,11 @@ gaiaedr3 = VizierCatalogue(name='GaiaEDR3', cat_path='I/350/gaiaedr3', code='Sou
                            pmra='pmRA', pmdec='pmDE', epoch='Epoch', parallax='Plx', rad_vel='RVDR2', band={'G': 'Gmag'},
                            errors=['e_RA_ICRS', 'e_DE_ICRS', 'e_pmRA', 'e_pmDE', 'e_Plx', 'e_RVDR2'])
 
+epoch = Time('J2016.0', scale='tdb')
+gaiadr3 = VizierCatalogue(name='GaiaDR3', cat_path='I/355/gaiadr3', code='Source', ra='RA_ICRS', dec='DE_ICRS',
+                          pmra='pmRA', pmdec='pmDE', epoch=epoch, parallax='Plx', rad_vel='RV', band={'G': 'Gmag'},
+                          errors=['e_RA_ICRS', 'e_DE_ICRS', 'e_pmRA', 'e_pmDE', 'e_Plx', 'e_RV'])
 
-allowed_catalogues = SelectDefault(instance=VizierCatalogue, defaults={'gaiadr2': gaiadr2, 'gaiaedr3': gaiaedr3})
+
+allowed_catalogues = SelectDefault(instance=VizierCatalogue,
+                                   defaults={'gaiadr2': gaiadr2, 'gaiaedr3': gaiaedr3, 'gaiadr3': gaiadr3})
