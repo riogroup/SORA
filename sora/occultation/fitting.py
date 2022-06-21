@@ -1,5 +1,6 @@
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import Angle
 from astropy.time import Time
 from tqdm import tqdm
 
@@ -8,7 +9,7 @@ from sora.config.decorators import deprecated_alias
 from sora.config.visuals import progressbar_show
 from sora.extra import ChiSquare
 
-__all__ = ['fit_ellipse']
+__all__ = ['fit_ellipse', 'fit_to_limb', 'fit_shape']
 
 
 @deprecated_alias(pos_angle='position_angle', dpos_angle='dposition_angle', log='verbose')  # remove this line for v1.0
@@ -526,8 +527,7 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
     return [chi2_best, f0_chi, g0_chi, a_chi,  obla_chi, posang_chi]
 
 
-def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, dscale=0, position_angle=0,
-                dposition_angle=0, loop=150000):
+def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, dscale=0, loop=150000):
     """
 
     Parameters
@@ -562,13 +562,6 @@ def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=
     dscale : `number`
         Interval for scale
 
-    position_angle : `number`, default=0
-        The pole position angle of the ellipse in degrees.
-        Zero is in the North direction ('g-positive'). Positive clockwise.
-
-    dposition_angle : `number`
-        Interval for the pole position angle of the ellipse in degrees.
-
     loop : `int`, default=150000
         The number of centers to attempt fitting.
 
@@ -597,13 +590,61 @@ def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=
     x0 = center_f + dcenter_f * (2 * np.random.random(loop) - 1)
     y0 = center_g + dcenter_g * (2 * np.random.random(loop) - 1)
     s0 = scale + dscale * (2 * np.random.random(loop) - 1)
-    pa0 = position_angle + dposition_angle * (2 * np.random.random(loop) - 1)
     err2 = np.square(error)
 
     def calc_dist(item):
-        residual = limb_radial_residual(limb, fg, center_f=x0[item], center_g=y0[item], scale=s0[item], position_angle=pa0[item])
+        residual = limb_radial_residual(limb, fg, center_f=x0[item], center_g=y0[item], scale=s0[item])
         return np.sum(residual ** 2 / err2)
 
     chi2 = np.array(list(map(calc_dist, tqdm(range(loop)))))
 
-    return ChiSquare(chi2, center_f=x0, center_g=y0, scale=s0, position_angle=pa0, npts=len(fg))
+    return ChiSquare(chi2, center_f=x0, center_g=y0, scale=s0, npts=len(fg))
+
+
+def fit_shape(occ, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, dscale=0, loop=150000, sigma_result=1):
+    """
+    Parameters
+    ----------
+    occ : `sora.Occultation`
+        The Occultation object with information to fit
+    center_f : `int`, `float`, default=0
+        The coordinate in f of the ellipse center.
+    center_g : `int`, `float`, default=0
+        The coordinate in g of the ellipse center.
+    dcenter_f : `int`, `float`
+        Interval for coordinate f of the ellipse center.
+    dcenter_g : `int`, `float`
+        Interval for coordinate g of the ellipse center.
+    scale : `number`
+        Scale factor of the limb
+    dscale : `number`
+        Interval for scale
+    loop : `int`, default=150000
+        The number of centers to attempt fitting.
+    sigma_result : `int`, `float`
+        Sigma value to be considered as result.
+
+    Returns
+    -------
+
+    chisquare : `sora.ChiSquare`
+        A ChiSquare object with all parameters.
+
+    """
+    orientation = occ.body.get_orientation(time=occ.tca)
+    limb = occ.body.shape.get_limb(**orientation)
+    chord_names, fg, error = occ.chords.get_limb_points()
+    chisquare = fit_to_limb(limb, fg, error, center_f=center_f, dcenter_f=dcenter_f, center_g=center_g, dcenter_g=dcenter_g,
+                            scale=scale, dscale=dscale, loop=loop)
+
+    result_sigma = chisquare.get_nsigma(sigma=sigma_result)
+    occ.fitted_params = {i: result_sigma[i] for i in ['center_f', 'center_g', 'scale']}
+    radial_dispersion = limb_radial_residual(limb, fg, **{i: val[0] for i, val in occ.fitted_params.items()})
+    xy = fg - np.array([[occ.fitted_params['center_f'][0]], [occ.fitted_params['center_g'][0]]]).T
+    theta = np.arctan2(xy.T[1], xy.T[0])
+    position_angle_point = Angle(90 * u.deg - theta * u.rad).wrap_at(360 * u.deg).degree
+    occ.chi2_params = {'chord_name': chord_names, 'radial_dispersion': radial_dispersion,
+                       'position_angle': position_angle_point, 'radial_error': np.linalg.norm(error, axis=-1),
+                       'chi2_min': result_sigma['chi2_min'],
+                       'nparam': chisquare.nparam, 'npts': chisquare.npts}
+    return chisquare

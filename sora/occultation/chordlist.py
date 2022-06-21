@@ -395,12 +395,14 @@ class ChordList(List):
             Error vector of the projected occultation instants.
             Each line is the error of a point in x and y, respectively.
         """
+        names = []
         xy = []
         err = []
         for chord in self.values():
             if chord.status() == 'negative':
                 continue
-            xy_chord, err_chord = chord.get_limb_points(only_able=only_able)
+            name_chord, xy_chord, err_chord = chord.get_limb_points(only_able=only_able)
+            names.append(name_chord)
             xy.append(xy_chord)
             err.append(err_chord)
-        return np.vstack(xy), np.vstack(err)
+        return np.hstack(names), np.vstack(xy), np.vstack(err)

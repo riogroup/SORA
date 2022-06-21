@@ -563,18 +563,20 @@ class Chord:
         if self.status() == 'negative':
             raise ValueError('{} {} is negative. There is no limb_points'.format(self.__class__.__name__, self.name))
         time = ['immersion', 'emersion']
+        names = []
         val = []
         err = []
         for t in time:
             if only_able and not self.is_able[t]:
                 continue
+            names.append(f'{self.name}_{t}')
             val.append(self.get_fg(time=t))
             tt = getattr(self.lightcurve, t)
             tt_err = getattr(self.lightcurve, t + '_err') * u.s
             err.append(self.get_fg(time=tt+tt_err))
         xy = np.array(val)
         xy_err = np.array(err) - xy
-        return xy, xy_err
+        return names, xy, xy_err
 
     def __repr__(self):
         """String representation of the Chord Class

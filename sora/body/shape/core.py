@@ -122,7 +122,7 @@ class Shape3D(BaseShape):
         return rotated_vertices
 
     @lru_cache(maxsize=128)
-    def get_limb(self, sub_observer="00 00 00 +00 00 00", pole_position_angle=0, center_f=0, center_g=0):
+    def get_limb(self, sub_observer="00 00 00 +00 00 00", pole_position_angle=0, center_f=0, center_g=0, **kwargs):
         """Returns the limb rotated as viewed by a given observer,
         with 'x' in the direction of the observer.
 
@@ -142,6 +142,9 @@ class Shape3D(BaseShape):
 
         center_g  : `int`, `float`
             Offset of the center of the body in the North direction, in km
+
+        **kwargs
+            Any other keyword argument is discarded
 
         Returns
         -------
@@ -166,7 +169,7 @@ class Shape3D(BaseShape):
         return Limb(limb)
 
     def plot(self, sub_observer="00 00 00 +00 00 00", sub_solar=None, pole_position_angle=0, center_f=0, center_g=0,
-             scale=1, radial_offset=0, ax=None):
+             scale=1, ax=None, **kwargs):
         """
 
         Parameters
@@ -194,11 +197,11 @@ class Shape3D(BaseShape):
         scale : `float`
             Multiply the shape vertices by a value. Default=1
 
-        radial_offset : `int`, `float`
-            Offset of the center of the body in the direction of observation, in km
-
         ax : `matplotlib.pyplot.Axes`
             The axes where to make the plot. If None, it will use the default axes.
+
+        **kwargs
+            Any other keyword argument is discarded
         """
         import matplotlib.pyplot as plt
 

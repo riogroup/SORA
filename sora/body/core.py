@@ -401,7 +401,7 @@ class Body(BaseBody):
             warnings.warn("Pole coordinates are not defined")
         return orientation
 
-    def plot(self, time=None, observer='geocenter', center_f=0, center_g=0, radial_offset=0, contour=False, ax=None, **kwargs):
+    def plot(self, time=None, observer='geocenter', center_f=0, center_g=0, contour=False, ax=None, **kwargs):
         """Plots the body shape as viewed by observer at some time given the body orientation.
         If the user wants to dictate the orientation, please use `shape.plot()` instead.
 
@@ -444,11 +444,13 @@ class Body(BaseBody):
                 raise ValueError('time keyword must refer to only one instant')
             orientation = self.get_orientation(time=time, observer=observer)
             orientation.pop('pole_aperture_angle')
+        if 'pole_aperture_angle' in kwargs:
+            kwargs.pop('pole_aperture_angle')
         if contour:
             orientation.pop('sub_solar')
             self.shape.get_limb(**orientation).plot(center_f=center_f, center_g=center_g, ax=ax, **kwargs)
         else:
-            self.shape.plot(**orientation, center_f=center_f, center_g=center_g, radial_offset=radial_offset, ax=ax, **kwargs)
+            self.shape.plot(**orientation, center_f=center_f, center_g=center_g, ax=ax, **kwargs)
 
     def __str__(self):
         from .values import smass, tholen
