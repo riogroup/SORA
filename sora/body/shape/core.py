@@ -9,7 +9,7 @@ from shapely.ops import unary_union
 
 from .limb import Limb
 from .meta import BaseShape
-from .utils import read_obj_file
+from .utils import read_obj_file, rotated_matrix
 
 __all__ = ['Shape3D', 'Ellipsoid']
 
@@ -74,6 +74,12 @@ class Shape3D(BaseShape):
 
     @property
     def vertices(self):
+        """
+        Returns
+        -------
+        vertices : `astropy.coordinates.CartesianRepresentation`
+            The vertices of the shape.
+        """
         return self._vertices * self.scale
 
     @property
@@ -108,17 +114,8 @@ class Shape3D(BaseShape):
             in the direction of the projected ICRS North Pole, and the 'y' coordinate
             complementing the right-hand rule.
         """
-        from astropy.coordinates.matrix_utilities import rotation_matrix
-
-        if isinstance(sub_observer, str):
-            sub_observer = SkyCoord(sub_observer, unit=(u.deg, u.deg))
-        sub_observer = sub_observer.spherical
-
-        pa = u.Quantity(pole_position_angle, unit=u.deg)
-        rz = rotation_matrix(-sub_observer.lon, axis='z')
-        ry = rotation_matrix(-sub_observer.lat, axis='y')
-        rx = rotation_matrix(-pa, axis='x')
-        rotated_vertices = self.vertices.transform(rz).transform(ry).transform(rx)
+        rotated_vertices = rotated_matrix(coordinate=self.vertices, sub_observer=sub_observer,
+                                          pole_position_angle=pole_position_angle)
         return rotated_vertices
 
     @lru_cache(maxsize=128)
@@ -169,7 +166,7 @@ class Shape3D(BaseShape):
         return Limb(limb)
 
     def plot(self, sub_observer="00 00 00 +00 00 00", sub_solar=None, pole_position_angle=0, center_f=0, center_g=0,
-             scale=1, ax=None, **kwargs):
+             scale=1, ax=None, plot_pole=True, **kwargs):
         """
 
         Parameters
@@ -199,6 +196,9 @@ class Shape3D(BaseShape):
 
         ax : `matplotlib.pyplot.Axes`
             The axes where to make the plot. If None, it will use the default axes.
+
+        plot_pole : `bool`
+            If True, the direction of the pole is plotted.
 
         **kwargs
             Any other keyword argument is discarded
@@ -230,10 +230,33 @@ class Shape3D(BaseShape):
         alpha = np.ones(len(shade))
         color = np.vstack((self.texture.T * shade, alpha)).T.value
 
+        # Define pole for plotting
+        vert = self.vertices
+        maxd = vert.norm().max()
+        maxz = vert.z.argmax()
+        minz = vert.z.argmin()
+        npole = CartesianRepresentation([0, 0] * u.km, [0, 0] * u.km, [vert[maxz].norm(), maxd * 1.2])*scale
+        spole = CartesianRepresentation([0, 0] * u.km, [0, 0] * u.km, [-vert[minz].norm(), -maxd * 1.2])*scale
+        rnpole = rotated_matrix(coordinate=npole, sub_observer=sub_observer, pole_position_angle=pole_position_angle)
+        rspole = rotated_matrix(coordinate=spole, sub_observer=sub_observer, pole_position_angle=pole_position_angle)
+
+        poles = {'north': rnpole, 'south': rspole}
+        pcolor = {'north': 'red', 'south': 'blue'}
+        forepole = 'north' if rnpole[0].x > rspole[0].x else 'south'
+        backpole = 'south' if forepole == 'north' else 'north'
+
+        # Plots the pole that is in the background
+        if plot_pole:
+            ax.plot(-poles[backpole].y.value + center_f, poles[backpole].z.value + center_g, color=pcolor[backpole], zorder=1)
+
         for i, pol in enumerate(scale*cart_obs.T):
             if not observable[i]:
                 continue
-            ax.fill(-pol.y.value + center_f, pol.z.value + center_g, color=color[i])
+            ax.fill(-pol.y.value + center_f, pol.z.value + center_g, color=color[i], zorder=1)
+
+        # Plots the pole that is in the foreground
+        if plot_pole:
+            ax.plot(-poles[forepole].y.value + center_f, poles[forepole].z.value + center_g, color=pcolor[forepole], zorder=1)
 
 
 class Ellipsoid(Shape3D):
@@ -246,7 +269,7 @@ class Ellipsoid(Shape3D):
         self.c = c or self.b
         self.name = f'{self.a} x {self.b} x {self.c}'
         v = self.vertices
-        norm = v/np.sqrt(v.dot(v))
+        norm = v/np.sqrt(v.dot(v)).value
         self._vertices = CartesianRepresentation(norm.x*self.a, norm.y*self.b, norm.z*self.c)
 
     @lru_cache(maxsize=128)

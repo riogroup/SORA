@@ -401,7 +401,7 @@ class Body(BaseBody):
             warnings.warn("Pole coordinates are not defined")
         return orientation
 
-    def plot(self, time=None, observer='geocenter', center_f=0, center_g=0, contour=False, ax=None, **kwargs):
+    def plot(self, time=None, observer='geocenter', center_f=0, center_g=0, contour=False, ax=None, plot_pole=True, **kwargs):
         """Plots the body shape as viewed by observer at some time given the body orientation.
         If the user wants to dictate the orientation, please use `shape.plot()` instead.
 
@@ -431,6 +431,10 @@ class Body(BaseBody):
         contour : `bool`
             If True, it plots the limb of the projected shape.
             If False, it plots the 3D shape. Default: False.
+
+        plot_pole : `bool`
+            If True, the direction of the pole is plotted.
+            Ignored if `contour=True`
         """
         if not hasattr(self, 'shape'):
             raise ValueError('{} does not have a shape or size to be plotted'.format(self.__class__.__name__))
@@ -450,7 +454,7 @@ class Body(BaseBody):
             orientation.pop('sub_solar')
             self.shape.get_limb(**orientation).plot(center_f=center_f, center_g=center_g, ax=ax, **kwargs)
         else:
-            self.shape.plot(**orientation, center_f=center_f, center_g=center_g, ax=ax, **kwargs)
+            self.shape.plot(**orientation, center_f=center_f, center_g=center_g, ax=ax, plot_pole=plot_pole, **kwargs)
 
     def __str__(self):
         from .values import smass, tholen
