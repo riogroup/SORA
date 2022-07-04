@@ -274,21 +274,21 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
             if threads is None:
                 threads = 1
             
-            args = [values, bestchi, equatorial_radius, dequatorial_radius, center_f, dcenter_f, 
+            argsloop = [values, bestchi, equatorial_radius, dequatorial_radius, center_f, dcenter_f, 
                     center_g, dcenter_g, oblateness, doblateness, position_angle, dposition_angle,
                     loop, np.ceil(number_chi/threads), dchi_min, ellipse_error, False]
             
-            args_verbose = [values, bestchi, equatorial_radius, dequatorial_radius, center_f, dcenter_f, 
+            argsloop_verbose = [values, bestchi, equatorial_radius, dequatorial_radius, center_f, dcenter_f, 
                             center_g, dcenter_g, oblateness, doblateness, position_angle, dposition_angle,
                             loop, np.ceil(number_chi/threads), dchi_min, ellipse_error, True]
             
             pool_args = []
             if verbose:
-                pool_args.append(args_verbose)
+                pool_args.append(argsloop_verbose)
                 for i in range(threads-1):
-                    pool_args.append(args)
+                    pool_args.append(argsloop)
             else:
-                pool_args = [args for t in range(threads)]
+                pool_args = [argsloop for t in range(threads)]
 
 
             with Pool(processes=threads) as pool:
