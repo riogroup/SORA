@@ -12,7 +12,7 @@ __all__ = ['fit_ellipse']
 def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
                 dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
                 loop=10000, number_chi=10000, dchi_min=None, verbose=False, ellipse_error=0, sigma_result=1,
-                method='chisqr', threads=1):
+                method='least_squares', threads=1):
     """Fits an ellipse to given occultation using given parameters.
 
     Parameters
@@ -57,9 +57,9 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         `3` for other methods.
 
     number_chi : `int`, default=10000
-        In the `chisqr` method if `dchi_min` is given, the procedure is repeated until 
-        `number_chi` is reached. 
-        In other methods it is the number of values (simulations) that should lie within 
+        In the `chisqr` method if `dchi_min` is given, the procedure is repeated until
+        `number_chi` is reached.
+        In other methods it is the number of values (simulations) that should lie within
         the provided `sigma_result`.
 
     verbose : `bool`, default=False
@@ -71,7 +71,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     sigma_result : `int`, `float`
         Sigma value to be considered as result.
     
-    method : `str`, default=`chisqr`
+    method : `str`, default=`least_squares`
         Method used to perform the fit. Available methods are:
         `chisqr` : monte carlo computation method used in versions of SORA <= 0.2.1.
         `fastchi` : monte carlo computation method, allows multithreading .
@@ -193,9 +193,6 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
             else:
                 region = np.arange(len(chi2))
             chi2_best = np.append(chi2_best, chi2[region])
-            if verbose:
-                print('Elapsed time: {:.3f} seconds.'.format((controle_f2 - controle_f1).sec), end='\r')
-                print(len(chi2[region]), len(chi2_best), end='\r')
             f0_chi = np.append(f0_chi, f0[region])
             g0_chi = np.append(g0_chi, g0[region])
             a_chi = np.append(a_chi, a[region])

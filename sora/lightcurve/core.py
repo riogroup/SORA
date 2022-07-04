@@ -783,7 +783,6 @@ class LightCurve:
         """
         from sora.extra import ChiSquare
         from sora.stats import Parameters, least_squares, differential_evolution
-        from os import sysconf, cpu_count
         from sys import exit
         from multiprocessing import Pool
 
@@ -858,15 +857,10 @@ class LightCurve:
         t_e[t_i > t_e] = tflag[t_i > t_e]
         
         # define different fitting methods
-        if 'method' not in kwargs:
-            method = 'chisqr'
-        if kwargs.get('method') is None:
-            method = 'chisqr'
-        else:
-            method = str(kwargs.get('method')).lower()
+        method = str(kwargs.get('method') or 'chisqr').lower()
 
         if method not in ['chisqr', 'least_squares', 'ls', 'fastchi', 'differential_evolution', 'de']:
-            warn(f'Invalid method `{method}` provided. Setting to default.')
+            warnings.warn(f'Invalid method `{method}` provided. Setting to default.')
             method = 'chisqr'
         
         set_bestchi = False # variable used with convergence algorithms and fastchi
