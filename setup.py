@@ -27,6 +27,7 @@ setup(
         'matplotlib>=3.4.3',
         'scipy>=1.7.1',
         'requests',
+        'tqdm>=4'
     ],
     python_requires=">=3.7, <4",
     classifiers=[

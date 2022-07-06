@@ -7,7 +7,8 @@ from astropy.time import Time
 
 from sora.config import input_tests
 from sora.config.decorators import deprecated_alias
-from .utils import calc_fresnel
+from .utils import bar_fresnel, calc_fresnel
+from sora.config.visuals import progressbar
 
 warnings.simplefilter('always', UserWarning)
 
@@ -543,7 +544,7 @@ class LightCurve:
         self.bottom_flux = bottom_flux
 
     def normalize(self, poly_deg=None, mask=None, flux_min=0.0, flux_max=1.0, plot=False):
-        """Returns the fresnel scale.
+        """Returns the normalized flux within the flux min and flux max defined scale.
 
         Parameters
         ----------
@@ -762,17 +763,31 @@ class LightCurve:
 
         sigma_result : `int`, `float`
             Sigma value to be considered as result.
+        
+        method : `str`, default=`chisqr`
+            Method used to perform the fit. Available methods are:
+            `chisqr` : monte carlo computation method used in versions of SORA <= 0.2.1.
+            `fastchi` : monte carlo computation method, allows multithreading.
+            `least_squares` or `ls`: best fit done used levenberg marquardt convergence algorithm.
+            `differential_evolution` or `de`: best fit done using genetic algorithms.
+            All methods return a Chisquare object.
+        
+        threads : `int`
+            Number of threads/workers used to perform parallel computations of the chi square 
+            object. It works with all methods except `chisqr`, by default 1.
 
         Returns
         -------
         chi2 : `sora.extra.ChiSquare`
             ChiSquare object.
         """
-        from sora.config.visuals import progressbar
         from sora.extra import ChiSquare
+        from sora.stats import Parameters, least_squares, differential_evolution
+        from sys import exit
+        from multiprocessing import Pool
 
         allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max', 'immersion_time', 'emersion_time', 'opacity',
-                          'delta_t', 'dopacity', 'sigma', 'loop', 'sigma_result']
+                          'delta_t', 'dopacity', 'sigma', 'loop', 'sigma_result', 'method', 'threads']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if not hasattr(self, 'flux'):
@@ -840,18 +855,129 @@ class LightCurve:
         tflag[t_i > t_e] = t_i[t_i > t_e]
         t_i[t_i > t_e] = t_e[t_i > t_e]
         t_e[t_i > t_e] = tflag[t_i > t_e]
-        chi2 = 999999*np.ones(loop)
-        for i in progressbar(range(loop), 'LightCurve fit:'):
-            model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
-            chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2))
+        
+        # define different fitting methods
+        method = str(kwargs.get('method') or 'chisqr').lower()
+
+        if method not in ['chisqr', 'least_squares', 'ls', 'fastchi', 'differential_evolution', 'de']:
+            warnings.warn(f'Invalid method `{method}` provided. Setting to default.')
+            method = 'chisqr'
+        
+        set_bestchi = False # variable used with convergence algorithms and fastchi
+
+        if (method == 'chisqr'):
+            chi2 = 999999*np.ones(loop)
+
+            for i in progressbar(range(loop), 'LightCurve fit:'):
+                model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
+                chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2))
+
+        else:
+            # get the number of threads
+            threads = kwargs.get('threads', 1)
+            
+            # define the parameters
+            # generate parameters object
+            initial = Parameters()
+
+            im_vary = False if ((do_immersion is False) or (delta_t == 0)) else True
+            initial.add(name='immersion_time', value=(immersion_time if do_immersion is True else tmin), 
+                        minval=-np.inf if not im_vary else (immersion_time - delta_t), 
+                        maxval=np.inf if not im_vary else (immersion_time + delta_t), 
+                        free=im_vary)
+            
+            em_vary = False if ((do_emersion is False) or (delta_t == 0)) else True
+            initial.add(name='emersion_time', value=(emersion_time if do_emersion is True else tmax), 
+                        minval=-np.inf if not em_vary else (emersion_time - delta_t), 
+                        maxval=np.inf if not em_vary else (emersion_time + delta_t), 
+                        free=em_vary)
+
+            opacity_vary = False if (do_opacity is False) or (delta_opacity == 0) else True
+            minvalop = 0 if (opacity - delta_opacity) < 0 else (opacity - delta_opacity)
+            maxvalop = 1 if (opacity + delta_opacity) > 1 else (opacity + delta_opacity)
+            initial.add(name='opacity', value=(opacity if do_opacity is True else 1), 
+                        minval=-np.inf if not opacity_vary else minvalop, 
+                        maxval=np.inf if not opacity_vary else maxvalop, 
+                        free=opacity_vary)            
+
+            if (not im_vary) and (not em_vary) and (not opacity_vary):
+                exit('No parameters are allowed to vary, please check your `LightCurve.occ_lcfit` input.')
+
+
+            if (method == 'least_squares') or (method == 'ls'):
+                result = least_squares(_occ_model_fitError, initial,
+                                       args = (self.time[mask], self.flux[mask], sigma[mask], flux_min, flux_max,
+                                               self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime, self.d_star, 10, 12),
+                                               algorithm='trf', sigma=sigma_result)
+
+                immersion_time = result.params['immersion_time'].value
+                emersion_time = result.params['emersion_time'].value
+                opacity = result.params['opacity'].value
+                bestchi, set_bestchi = result.chisqr, True
+                method = 'fastchi'
+            
+
+            if (method == 'differential_evolution') or (method == 'de'):
+                result = differential_evolution(_occ_model_fitError, initial,
+                                                args = (self.time[mask], self.flux[mask], sigma[mask], flux_min, flux_max,
+                                                        self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime, self.d_star, 10, 12),
+                                                        sigma=sigma_result)
+
+                immersion_time = result.params['immersion_time'].value
+                emersion_time = result.params['emersion_time'].value
+                opacity = result.params['opacity'].value
+                bestchi, set_bestchi = result.chisqr, True
+                method = 'fastchi'
+
+
+            if (method == 'fastchi'):
+
+                if not set_bestchi:
+                    bestchi = None
+
+                if threads is None:
+                    threads = 1
+
+                args = [self.time[mask], self.flux[mask], sigma[mask], bestchi, immersion_time, emersion_time, delta_t,
+                        opacity, delta_opacity, self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime,
+                        self.d_star, 12, 10, flux_min, flux_max, int(np.ceil(loop/threads)), False]
+                        
+                
+                args_verbose = [self.time[mask], self.flux[mask], sigma[mask], bestchi, immersion_time, emersion_time, delta_t,
+                                opacity, delta_opacity, self.lambda_0, self.delta_lambda, self.dist, self.vel, self.exptime,
+                                self.d_star, 12, 10, flux_min, flux_max, int(np.ceil(loop/threads)), True]
+
+               
+                pool_args = []
+                pool_args.append(args_verbose)
+
+                for i in range(threads-1):
+                    pool_args.append(args)
+
+                with Pool(processes=threads) as pool:
+                    pool_result = pool.starmap(_occ_model_fit_parallel, pool_args)
+
+                result = [[],[],[],[]]
+
+                for j in range(4):
+                    for i in range(threads):
+                        for k in pool_result[i][j]:
+                            result[j].append(k)               
+
+                chi2, t_i, t_e, opas = np.array(result[0]), np.array(result[1]), np.array(result[2]), np.array(result[3])
+    
+
         kkwargs = {}
-        if do_immersion:
+        if (do_immersion) and (delta_t > 0):
             kkwargs['immersion'] = t_i
-        if do_emersion:
+        if (do_emersion) and (delta_t > 0):                
             kkwargs['emersion'] = t_e
-        if do_opacity:
+        if (do_opacity) and (delta_opacity > 0):
             kkwargs['opacity'] = opas
+
+
         chisquare = ChiSquare(chi2, len(self.flux[mask]), **kkwargs)
+        
         result_sigma = chisquare.get_nsigma(sigma=sigma_result)
         if 'immersion' in result_sigma:
             self._immersion = self.tref + result_sigma['immersion'][0]*u.s
@@ -873,6 +999,7 @@ class LightCurve:
                 pass
         if 'opacity' in result_sigma:
             opacity = result_sigma['opacity'][0]
+
         # Run occ_model() to save best parameters in the Object.
         self.occ_model(immersion_time, emersion_time, opacity, np.repeat(True, len(self.flux)),
                        flux_min=flux_min, flux_max=flux_max)
@@ -1105,6 +1232,7 @@ class LightCurve:
             flux_inst[i] = (flux_star[event_model]).mean()
         return flux_inst*(flux_max - flux_min) + flux_min
 
+
     def __str__(self):
         """ String representation of the LightCurve Object
         """
@@ -1165,3 +1293,254 @@ class LightCurve:
         except:
             pass
         return output
+
+
+def _occ_model_fit(time, immersion_time, emersion_time, opacity, 
+                  central_bandpass, delta_bandpass, distance, velocity, exptime, star_diameter,
+                  npt_star=12, time_resolution_factor=10, flux_min=0, flux_max=1):
+    """Returns the model of the light curve.
+
+    The modelled light curve takes into account the fresnel diffraction, the
+    star diameter and the instrumental response.
+
+    Parameters
+    ----------
+    immersion_time : `int`, `float`
+        Immersion time, in seconds.
+
+    emersion_time : `int`, `float`
+        Emersion time, in seconds.
+
+    opacity : `int`, `float`
+        Opacity. Opaque = 1.0, transparent = 0.0,
+
+    mask : `bool` array
+        Mask with True values to be computed.
+
+    central_bandpass : `int`, `float`, otpional, default=0.7
+        The center band pass of the detector used in observation. Value in microns.
+
+    delta_bandpass : `int`, `float`, optional, default=0.3
+        The band pass width of the detector used in observation. Value in microns.
+
+    distance : `int`, `float`:
+        Object distance in AU.
+    
+    velocity : `int`, `float`
+        Velocity in km/s.
+
+    exptime : `int`, `float`
+        The exposure time of the observation, in seconds.
+
+    star_diameter : `float`
+        Star diameter, in km.        
+
+    npt_star : `int`, default=12
+        Number of subdivisions for computing the star size effects.
+
+    time_resolution_factor : `int`, `float`, default: 10*fresnel scale
+        Steps for fresnel scale used for modelling the light curve.
+
+    flux_min : `int`, `float`, default=0
+        Bottom flux (only object).
+
+    flux_max : `int`, `float`, default=1
+        Base flux (object plus star).
+    """
+
+    # Computing the fresnel scale
+    lamb = central_bandpass*u.micrometer.to('km')
+    dlamb = delta_bandpass*u.micrometer.to('km')
+    dist = distance*u.au.to('km')
+    vel = np.absolute(velocity)
+    time_obs = time
+    fresnel_scale_1 = calc_fresnel(dist, lamb-dlamb/2.0)
+    fresnel_scale_2 = calc_fresnel(dist, lamb+dlamb/2.0)
+    fresnel_scale = (fresnel_scale_1 + fresnel_scale_2)/2.0
+    time_resolution = (np.min([fresnel_scale/vel, exptime]))/time_resolution_factor
+
+    # Creating a high resolution curve to compute fresnel diffraction, stellar diameter and instrumental integration
+    time_model = np.arange(time_obs.min()-5*exptime, time_obs.max()+5*exptime, time_resolution)
+
+    # Changing X: time (s) to distances in the sky plane (km), considering the tangential velocity (vel in km/s)
+    x = time_model*vel
+    x01 = immersion_time*vel
+    x02 = emersion_time*vel
+
+    # Computing fresnel diffraction for the case where the star size is negligenciable
+    flux_fresnel_1 = bar_fresnel(x, x01, x02, fresnel_scale_1, opacity)
+    flux_fresnel_2 = bar_fresnel(x, x01, x02, fresnel_scale_2, opacity)
+    flux_fresnel = (flux_fresnel_1 + flux_fresnel_2)/2.
+    flux_star = flux_fresnel.copy()
+    if star_diameter > 0:
+        # Computing fresnel diffraction for the case where the star size is not negligenciable
+        resolucao = (star_diameter/2)/npt_star
+        flux_star_1 = np.zeros(len(time_model))
+        flux_star_2 = np.zeros(len(time_model))
+        # Computing stellar diameter only near the immersion or emersion times
+        star_diam = (np.absolute(x - x01) < 3*star_diameter) + (np.absolute(x - x02) < 3*star_diameter)
+        p = np.arange(-npt_star, npt_star)*resolucao
+        coeff = np.sqrt(np.absolute((star_diameter/2)**2 - p**2))
+        for ii in np.where(star_diam == True)[0]:
+            xx = x[ii] + p
+            flux1 = bar_fresnel(xx, x01, x02, fresnel_scale_1, opacity)
+            flux2 = bar_fresnel(xx, x01, x02, fresnel_scale_2, opacity)
+            flux_star_1[ii] = np.sum(coeff*flux1)/coeff.sum()
+            flux_star_2[ii] = np.sum(coeff*flux2)/coeff.sum()
+            flux_star[ii] = (flux_star_1[ii] + flux_star_2[ii])/2.
+    flux_inst = np.zeros(len(time_obs))
+    for i in range(len(time_obs)):
+        event_model = (time_model > time_obs[i]-exptime/2.) & (time_model < time_obs[i]+exptime/2.)
+        flux_inst[i] = (flux_star[event_model]).mean()
+    return flux_inst*(flux_max - flux_min) + flux_min
+
+
+
+def _occ_model_fitError(parameters, time, flux, dflux, flux_min, flux_max,
+                       central_bandpass, delta_bandpass, distance, velocity, exptime, star_diameter, 
+                       time_resolution_factor, npt_star):
+    '''Returns the residuals when using occ_model_fit 
+    
+    Parameters
+    ----------
+    parameters : `object`
+        `Parameters` object from `Stats` module.
+
+    time: `float` array
+        Time variable.
+
+    flux: `float` array
+        Flux variable
+
+    dflux: `float` array
+        Flux uncertainty variable
+
+    mask : `bool` array
+        Mask with True values to be computed.
+
+    central_bandpass : `int`, `float`, otpional, default=0.7
+        The center band pass of the detector used in observation. Value in microns.
+
+    delta_bandpass : `int`, `float`, optional, default=0.3
+        The band pass width of the detector used in observation. Value in microns.
+
+    distance : `int`, `float`:
+        Object distance in AU.
+    
+    velocity : `int`, `float`
+        Velocity in km/s.
+
+    exptime : `int`, `float`
+        The exposure time of the observation, in seconds.
+
+    star_diameter : `float`
+        Star diameter, in km.        
+
+    npt_star : `int`, default=12
+        Number of subdivisions for computing the star size effects.
+
+    time_resolution_factor : `int`, `float`, default: 10*fresnel scale
+        Steps for fresnel scale used for modelling the light curve.
+
+    flux_min : `int`, `float`, default=0
+        Bottom flux (only object).
+
+    flux_max : `int`, `float`, default=1
+        Base flux (object plus star).
+    """
+    '''
+    v = parameters.valuesdict()
+    model = _occ_model_fit(time, v['immersion_time'], v['emersion_time'], v['opacity'],  
+                          central_bandpass, delta_bandpass, distance, velocity, exptime, star_diameter,
+                          npt_star=npt_star, time_resolution_factor=time_resolution_factor, flux_min=flux_min, flux_max=flux_max)
+    return (flux - model)**2 / dflux**2
+
+
+
+def _occ_model_fit_parallel(time, flux, dflux, bestchi, immersion_time, emersion_time, delta_t, 
+                             opacity, delta_opacity, central_bandpass, delta_bandpass, distance, velocity, exptime, 
+                             star_diameter, npt_star, time_resolution_factor, flux_min, flux_max, loop, verbose):
+    
+    """Returns Monte Carlo simulations the model of the light curve.
+
+    The modelled light curve takes into account the fresnel diffraction, the
+    star diameter and the instrumental response.
+
+    Parameters
+    ----------
+    time : `float`
+        Array containing the times.
+
+    flux : `float`
+        Array contatining the fluxes.
+
+    dflux : `float`
+        Array containing the flux uncertainties.
+
+    immersion_time : `int`, `float`
+        Immersion time, in seconds.
+
+    emersion_time : `int`, `float`
+        Emersion time, in seconds.
+
+    opacity : `int`, `float`
+        Opacity. Opaque = 1.0, transparent = 0.0,
+
+    central_bandpass : `int`, `float`, otpional, default=0.7
+        The center band pass of the detector used in observation. Value in microns.
+
+    delta_bandpass : `int`, `float`, optional, default=0.3
+        The band pass width of the detector used in observation. Value in microns.
+
+    distance : `int`, `float`:
+        Object distance in AU.
+    
+    velocity : `int`, `float`
+        Velocity in km/s.
+
+    exptime : `int`, `float`
+        The exposure time of the observation, in seconds.
+
+    star_diameter : `float`
+        Star diameter, in km.        
+
+    npt_star : `int`, default=12
+        Number of subdivisions for computing the star size effects.
+
+    time_resolution_factor : `int`, `float`, default: 10*fresnel scale
+        Steps for fresnel scale used for modelling the light curve.
+
+    flux_min : `int`, `float`, default=0
+        Bottom flux (only object).
+
+    flux_max : `int`, `float`, default=1
+        Base flux (object plus star).
+    """                            
+    
+    im_chi = immersion_time + delta_t*(2*np.random.RandomState().random(loop) -1)
+    em_chi = emersion_time + delta_t*(2*np.random.RandomState().random(loop) -1)
+    opas_chi = opacity + delta_opacity*(2*np.random.RandomState().random(loop) -1)
+    opas_chi[opas_chi < 0], opas_chi[opas_chi > 1] = 0, 1
+    chi2_best = np.ones(loop)
+
+ 
+    im_chi[0] = immersion_time if bestchi is not None else im_chi[0]
+    em_chi[0] = emersion_time if bestchi is not None else em_chi[0]
+    opas_chi[0] = opacity if bestchi is not None else opas_chi[0]
+
+    if verbose:
+        # printing progress     
+        for i in progressbar(range(loop), 'Lightcurve fit:'):
+            model = _occ_model_fit(time, im_chi[i], em_chi[i], opas_chi[i],  
+                                    central_bandpass, delta_bandpass, distance, velocity, exptime, star_diameter,
+                                    npt_star=npt_star, time_resolution_factor=time_resolution_factor, flux_min=flux_min, flux_max=flux_max)
+            chi2_best[i] = np.sum( (flux - model)**2 / dflux**2 )
+    else:
+        # no printing progress
+        for i in range(loop):
+            model = _occ_model_fit(time, im_chi[i], em_chi[i], opas_chi[i],  
+                                    central_bandpass, delta_bandpass, distance, velocity, exptime, star_diameter,
+                                    npt_star=npt_star, time_resolution_factor=time_resolution_factor, flux_min=flux_min, flux_max=flux_max)
+            chi2_best[i] = np.sum( (flux - model)**2 / dflux**2 )
+
+    return [chi2_best, im_chi, em_chi, opas_chi]
