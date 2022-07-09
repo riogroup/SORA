@@ -130,6 +130,8 @@ class Body(BaseBody):
                 database = 'sbdb'
         if database == 'auto':
             raise ValueError('Object was not located on satdb or sbdb.')
+        if 'ephem' not in kwargs:
+            self.ephem = 'horizons'
         # set the physical parameters based on the kwarg name.
         if 'smass' in kwargs:
             self.spectral_type['SMASS']['value'] = kwargs.pop('smass')
