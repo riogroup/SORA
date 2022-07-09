@@ -202,7 +202,7 @@ class Body(BaseBody):
         satdb = search_satdb(name)
         self.name = name.capitalize()
         self.shortname = name.capitalize()
-        self.orbit_class = 'satellite'
+        self.orbit_class = satdb['class']
 
         self.albedo = PhysicalData('Albedo', *satdb.get('albedo', [None, None, None]))
         self.H = PhysicalData('Absolute Magnitude', *satdb.get('H', [None, None, None]), unit=u.mag)
