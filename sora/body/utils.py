@@ -300,10 +300,81 @@ satellites = {
     }
 }
 
+planets = {
+    'mercury': {
+        'spkid': 199,
+        'albedo': [0.106, 0.0, 'Horizons'],
+        'diameter': [4880, 0.0, 'Horizons'],
+        'density': [5.427, 0.0, 'Horizons'],
+        'GM': [22031.86855, 0.0, 'Horizons'],
+        'rotation': [1407.5112, 0.0, 'Horizons'],
+        'pole': ['281.0103/61.4155', '0/0', 'Archinal et al (2018)']
+    },
+    'venus': {
+        'spkid': 299,
+        'albedo': [0.65, 0.0, 'Horizons'],
+        'diameter': [12103.786, 0.0, 'Horizons'],
+        'density': [5.204, 0.0, 'Horizons'],
+        'GM': [324858.592, 0.0, 'Horizons'],
+        'rotation': [5832.443616, 0.0, 'Horizons'],
+        'pole': ['272.76/67.16', '0/0', 'Archinal et al (2018)']
+    },
+    'mars': {
+        'spkid': 499,
+        'albedo': [0.15, 0.0, 'Horizons'],
+        'diameter': [6792.38, 0.0, 'Horizons'],
+        'density': [3.9335, 0.0004, 'Horizons'],
+        'GM': [42828.375214, 0.0, 'Horizons'],
+        'rotation': [24.622962, 0.0, 'Horizons'],
+        'pole': ['317.269202/54.432516', '0/0', 'Archinal et al (2018)']
+    },
+    'jupiter': {
+        'spkid': 599,
+        'albedo': [0.52, 0.0, 'Horizons'],
+        'diameter': [142984.0, 8.0, 'Horizons'],
+        'density': [1.3262, 0.0003, 'Horizons'],
+        'GM': [126686531.9, 0.0, 'Horizons'],
+        'rotation': [9.924919444, 0.0, 'Horizons'],
+        'pole': ['268.056595/64.495303', '0/0', 'Archinal et al (2018)']
+    },
+    'saturn': {
+        'spkid': 699,
+        'albedo': [0.47, 0.0, 'Horizons'],
+        'diameter': [120536.0, 8.0, 'Horizons'],
+        'density': [0.687, 0.001, 'Horizons'],
+        'GM': [37931206.234, 0.0, 'Horizons'],
+        'rotation': [10.656222222, 0.0, 'Horizons'],
+        'pole': ['40.589/83.537', '0/0', 'Archinal et al (2018)']
+    },
+    'uranus': {
+        'spkid': 799,
+        'albedo': [0.51, 0.0, 'Horizons'],
+        'diameter': [51118.0, 8.0, 'Horizons'],
+        'density': [1.271, 0.0, 'Horizons'],
+        'GM': [5793951.256, 0.0, 'Horizons'],
+        'rotation': [17.24, 0.01, 'Horizons'],
+        'pole': ['257.311/-15.175', '0/0', 'Archinal et al (2018)']
+    },
+    'neptune': {
+        'spkid': 899,
+        'albedo': [0.41, 0.0, 'Horizons'],
+        'diameter': [49532.0, 30.0, 'Horizons'],
+        'density': [1.638, 0.0, 'Horizons'],
+        'GM': [6835099.97, 0.0, 'Horizons'],
+        'rotation': [16.11, 0.01, 'Horizons'],
+        'pole': ['299.36/46.46', '0/0', 'Archinal et al (2018)']
+    },
+}
+
 
 def search_satdb(name):
     sat = satellites.get(name.lower())
-    if sat is None:
-        raise ValueError('specified object was not found')
-    return sat
+    if sat is not None:
+        sat['class'] = 'satellite'
+        return sat
+    planet = planets.get(name.lower())
+    if planet is not None:
+        planet['class'] = 'planet'
+        return planet
+    raise ValueError('specified object was not found')
 # end of hard coded block.

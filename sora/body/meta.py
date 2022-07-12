@@ -204,6 +204,8 @@ class BaseBody():
         if diameter < 0:
             raise ValueError("diameter cannot be a negative value")
         self._diameter = diameter
+        if not getattr(self, '_shape', None) and not np.isnan(self._diameter):
+            self.shape = self._diameter.value/2
         self._shared_with['ephem']['radius'] = self.radius
 
     @property
@@ -365,6 +367,42 @@ class BaseBody():
         if spkval != spknewval:
             warnings.warn('spkid is different in {0} ({1}) and {2} ({3}). {0}\'s spkid will have higher priority'.format(
                 self.__class__.__name__, spknewval, value.__class__.__name__, spkval))
+
+    @property
+    def frame(self):
+        if hasattr(self, "_frame"):
+            return self._frame
+        raise AttributeError('Body object does not have a frame defined.')
+
+    @frame.setter
+    def frame(self, value):
+        from .frame import PlanetocentricFrame
+        if not isinstance(value, PlanetocentricFrame):
+            raise ValueError('frame attribute must be a PlanetocentricFrame object.')
+        self.pole = value.pole
+        self._frame = value
+
+    @property
+    def shape(self):
+        if not hasattr(self, '_shape'):
+            raise AttributeError(f'{self.__class__.__name__} does not have attribute `shape`')
+        return self._shape
+
+    @shape.setter
+    def shape(self, value):
+        from .shape.meta import BaseShape
+        from .shape import Shape3D, Ellipsoid
+        if isinstance(value, BaseShape):
+            self._shape = value
+        elif isinstance(value, str):
+            self._shape = Shape3D(value)
+        else:
+            value = np.array(value, ndmin=1, dtype=np.float)
+            if len(value) <= 3:
+                self._shape = Ellipsoid(*value)
+            else:
+                raise ValueError('shape must be a sora.body.shape object or a string'
+                                 ' with the path to the OBJ file.')
 
     @property
     def _search_name(self):

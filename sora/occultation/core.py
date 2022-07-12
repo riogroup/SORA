@@ -6,7 +6,7 @@ from astropy.time import Time
 
 from sora.config.decorators import deprecated_function, deprecated_alias
 from sora.prediction import occ_params, PredictionTable
-from .fitting import fit_ellipse as ellipse_fitting
+from . import fitting
 
 __all__ = ['Occultation']
 warnings.simplefilter('always', UserWarning)
@@ -183,10 +183,16 @@ class Occultation:
     # end of block removal
 
     def fit_ellipse(self, **kwargs):
-        chisquare = ellipse_fitting(self, **kwargs)
+        chisquare = fitting.fit_ellipse(self, **kwargs)
         return chisquare
 
-    fit_ellipse.__doc__ = ellipse_fitting.__doc__
+    fit_ellipse.__doc__ = fitting.fit_ellipse.__doc__
+
+    def fit_shape(self, **kwargs):
+        chisquare = fitting.fit_shape(self, **kwargs)
+        return chisquare
+
+    fit_shape.__doc__ = fitting.fit_shape.__doc__
 
     # remove this block for v1.0
     @property
