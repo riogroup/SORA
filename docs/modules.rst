@@ -13,9 +13,9 @@ Modules
 ^^^^^^^
 
 SORA is a Python-based, object-oriented library for optimal analysis of
-stellar occultation data. The user can use this library to build pipelines 
+stellar occultation data. The user can use this library to build pipelines
 to analyse their stellar occultation’s data. Here follows the details for
-each module: **body**, **ephem**, **star**, **prediction**, 
+each module: **body**, **ephem**, **star**, **prediction**,
 **observer**, **lightCurve**, **occultation** and **extra**.
 
 .. toctree::
@@ -29,4 +29,5 @@ each module: **body**, **ephem**, **star**, **prediction**,
    modules/occultation
    modules/prediction
    modules/star
+   modules/stats
 
