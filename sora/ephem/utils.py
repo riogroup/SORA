@@ -286,11 +286,11 @@ def ephem_horizons(time, target, observer, id_type='smallbody', output='ephemeri
     ob = Horizons(id=target, id_type=id_type, location=location, epochs=time2)
 
     if output == 'ephemeris':
-        eph = ob.ephemerides(extra_precision=True)
+        eph = ob.ephemerides(extra_precision=True, cache=False)
         obstime = Time(eph['datetime_jd'], format='jd', scale='utc')
         pos = SkyCoord(eph['RA'], eph['DEC'], eph['delta'], frame='icrs', obstime=obstime)
     else:
-        vec = ob.vectors(refplane='earth')
+        vec = ob.vectors(refplane='earth', cache=False)
         obstime = Time(vec['datetime_jd'], format='jd', scale='tdb')
         pos = SkyCoord(*[vec[i] for i in ['x', 'y', 'z']] * u.AU, representation_type='cartesian', obstime=obstime)
 
