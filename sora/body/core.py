@@ -130,8 +130,6 @@ class Body(BaseBody):
                 database = 'sbdb'
         if database == 'auto':
             raise ValueError('Object was not located on satdb or sbdb.')
-        if 'ephem' not in kwargs:
-            self.ephem = 'horizons'
         # set the physical parameters based on the kwarg name.
         if 'smass' in kwargs:
             self.spectral_type['SMASS']['value'] = kwargs.pop('smass')
@@ -150,6 +148,8 @@ class Body(BaseBody):
                     self.frame = PlanetocentricFrame(epoch='J2000', pole=self.pole, alphap=0, deltap=0, prime_angle=0,
                                                      rotation_velocity=360*u.deg / self.rotation, right_hand=True,
                                                      reference="")
+        if 'ephem' not in kwargs:
+            self.ephem = 'horizons'
 
     def __from_sbdb(self, name):
         """Searches the object in the SBDB and defines its physical parameters.
