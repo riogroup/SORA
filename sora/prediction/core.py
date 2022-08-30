@@ -137,7 +137,11 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         at most a month, or a timeout error may be raised by the Horizon query.
 
     mag_lim : `int`, `float`, `dict`, default=None
-        Faintest Gmag allowed in the search.
+        Faintest magnitude allowed in the search. If the catalogue has more
+        than one band defined in the catalogue object, the magnitude limit can
+        be done for a specific band or a set of band. Ex: ``mag_lim={'V': 15}``,
+        which will only download stars with V<=15 or ``mag_lim={'V': 15, 'B': 14}``
+        which will download stars with V<=15 AND B<=14.
 
     catalogue : `str`, `VizierCatalogue`
         The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,

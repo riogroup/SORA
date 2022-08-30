@@ -323,7 +323,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
                       'error', 'fmt', 'hcolor', 'heights', 'labels', 'lncolor', 'mapsize', 'mapstyle', 'meridians',
                       'nameimg', 'nscale', 'offset', 'outcolor', 'parallels', 'path', 'pscale', 'ptcolor',
                       'resolution', 'ring', 'rncolor', 'site_name', 'sites', 'sscale', 'states', 'zoom',
-                      'site_box_alpha']
+                      'site_box_alpha', 'band']
     input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
     if not type(name) == str:
@@ -346,6 +346,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     occs['vel'] = vel*(u.km/u.s)
     occs['dist'] = dist*u.AU
     occs['magG'] = mag
+    band = str(kwargs.get('band', 'G'))
     occs['longi'] = longi
 
     mapstyle = kwargs.get('mapstyle', 1)
@@ -693,7 +694,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
                                    center.lat.value, data)
             axf.plot(lonb, latb, transform=ccrs.Geodetic(), linestyle='dotted', color=hcolor)
 
-    # plots the the direction arrow
+    # plots the direction arrow
     if arrow:
         if limits is None:
             dx = 1000000*(np.sin(paplus+90*u.deg)*np.sign(occs['vel'])).value
@@ -733,9 +734,9 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
              '{:10s} {:4.0f} km  {:5.1f}s  {:02d} s <>{:+6.1f} {:+6.1f} \n'.
              format(name, 2*radius.value, (2*radius/np.absolute(occs['vel'])).value,
                     cpoints, off_ra.value, off_de.value))
-    labelx = ("\n year-m-d    h:m:s UT     ra__dec__J2000__candidate    C/A    P/A    vel   Delta   G*  long\n"
+    labelx = ("\n year-m-d    h:m:s UT     ra__dec__J2000__candidate    C/A    P/A    vel   Delta   {}*  long\n"
               "{}  {:02d} {:02d} {:07.4f} {:+03d} {:02d} {:06.3f} {:6.3f} {:6.2f} {:6.2f}  {:5.2f} {:5.1f}  {:3.0f}".
-              format(data.iso, int(occs['stars'].ra.hms.h), int(occs['stars'].ra.hms.m), occs['stars'].ra.hms.s,
+              format(band, data.iso, int(occs['stars'].ra.hms.h), int(occs['stars'].ra.hms.m), occs['stars'].ra.hms.s,
                      int(occs['stars'].dec.dms.d), np.absolute(int(occs['stars'].dec.dms.m)),
                      np.absolute(occs['stars'].dec.dms.s), ca1.value, occs['posa'].value,
                      occs['vel'].value, occs['dist'].value, occs['magG'], occs['longi']))
