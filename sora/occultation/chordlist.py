@@ -402,6 +402,8 @@ class ChordList(List):
             if chord.status() == 'negative':
                 continue
             name_chord, xy_chord, err_chord = chord.get_limb_points(only_able=only_able)
+            if len(name_chord) == 0:
+                continue
             names.append(name_chord)
             xy.append(xy_chord)
             err.append(err_chord)
