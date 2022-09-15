@@ -735,11 +735,10 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
              format(name, 2*radius.value, (2*radius/np.absolute(occs['vel'])).value,
                     cpoints, off_ra.value, off_de.value))
     labelx = ("\n year-m-d    h:m:s UT     ra__dec__J2000__candidate    C/A    P/A    vel   Delta   {}*  long\n"
-              "{}  {:02d} {:02d} {:07.4f} {:+03d} {:02d} {:06.3f} {:6.3f} {:6.2f} {:6.2f}  {:5.2f} {:5.1f}  {:3.0f}".
-              format(band, data.iso, int(occs['stars'].ra.hms.h), int(occs['stars'].ra.hms.m), occs['stars'].ra.hms.s,
-                     int(occs['stars'].dec.dms.d), np.absolute(int(occs['stars'].dec.dms.m)),
-                     np.absolute(occs['stars'].dec.dms.s), ca1.value, occs['posa'].value,
-                     occs['vel'].value, occs['dist'].value, occs['magG'], occs['longi']))
+              "{}  {} {} {:6.3f} {:6.2f} {:6.2f}  {:5.2f} {:5.1f}  {:3.0f}".
+              format(band, data.iso, occs['stars'].ra.to_string(unit='hour', precision=4, pad=True, sep=' '),
+                     occs['stars'].dec.to_string(unit='deg', precision=3, alwayssign=True, pad=True, sep=' '),
+                     ca1.value, occs['posa'].value, occs['vel'].value, occs['dist'].value, occs['magG'], occs['longi']))
 
     # plots the map
     if labels:
