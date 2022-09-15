@@ -255,13 +255,13 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
             print('\nSearching occultations in part {}/{}'.format(i+1, divs))
             print("Generating Ephemeris between {} and {} ...".format(nt.min(), nt.max()))
         ncoord = ephem.get_position(time=nt, observer=reference_center)
-        ra = np.mean([ncoord.ra.min().deg, ncoord.ra.max().deg])
-        dec = np.mean([ncoord.dec.min().deg, ncoord.dec.max().deg])
+        reg = SkyCoord([ncoord.ra.min(), ncoord.ra.max()], [ncoord.dec.min(), ncoord.dec.max()])
+        center = reg.spherical.mean()
         mindist = (np.arcsin(radius_search/ncoord.distance).max() +
                    sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec)
         width = ncoord.ra.max() - ncoord.ra.min() + 2*mindist
         height = ncoord.dec.max() - ncoord.dec.min() + 2*mindist
-        pos_search = SkyCoord(ra*u.deg, dec*u.deg)
+        pos_search = SkyCoord(center)
 
         if verbose:
             print('Downloading stars ...')
