@@ -567,7 +567,7 @@ class LightCurve:
         import matplotlib.pyplot as plt
 
         # Create a mask where the polynomial fit will be done
-        if not all(self.flux):
+        if type(self.flux) == type(None):
             raise ValueError('Normalization is only possible when a LightCurve is instantiated with time and flux.')
         self.reset_flux()
         lc_flux = (self.flux - flux_min)/(flux_max-flux_min)
