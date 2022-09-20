@@ -429,7 +429,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
 
     # calculates offsets
     dca = off_ra*np.sin(occs['posa']) + off_de*np.cos(occs['posa'])
-    dt = (-(off_ra * np.cos(occs['posa']) - off_de * np.sin(occs['posa'])).to(u.rad) * occs['dist'].to(u.km) / np.absolute(
+    dt = ((off_ra * np.cos(occs['posa']) - off_de * np.sin(occs['posa'])).to(u.rad) * occs['dist'].to(u.km) / np.absolute(
         occs['vel'])).value * u.s
     ca1 = occs['ca'] + dca
     data = occs['datas'] + dt
