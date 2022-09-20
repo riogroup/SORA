@@ -57,7 +57,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
 
     dchi_min : `int`, `float`
         If given, it will only save ellipsis which chi square are smaller than
-        chi_min + dchi_min. By default `None` when used with `method='chisqr`, and
+        chi_min + dchi_min. By default `None` when used with `method='chisqr'`, and
         `3` for other methods.
 
     number_chi : `int`, default=10000
@@ -75,12 +75,12 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
     sigma_result : `int`, `float`
         Sigma value to be considered as result.
 
-    method : `str`, default=`least_squares`
+    method : `str`, `default='least_squares'`
         Method used to perform the fit. Available methods are:
         `chisqr` : monte carlo computation method used in versions of SORA <= 0.2.1.
         `fastchi` : monte carlo computation method, allows multithreading .
         `least_squares` or `ls`: best fit done used levenberg marquardt convergence algorithm.
-        `differential_evolution` or ``de`: best fit done using genetic algorithms.
+        `differential_evolution` or `de`: best fit done using genetic algorithms.
         All methods return a Chisquare object.
 
     threads : `int`
