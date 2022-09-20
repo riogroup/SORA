@@ -57,8 +57,8 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
 
     dchi_min : `int`, `float`
         If given, it will only save ellipsis which chi square are smaller than
-        chi_min + dchi_min. By default `None` when used with `method=chisqr`,
-        and `3` for other methods.
+        chi_min + dchi_min. By default `None` when used with `method='chisqr`, and
+        `3` for other methods.
 
     number_chi : `int`, default=10000
         In the `chisqr` method if `dchi_min` is given, the procedure is repeated until
@@ -80,7 +80,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         `chisqr` : monte carlo computation method used in versions of SORA <= 0.2.1.
         `fastchi` : monte carlo computation method, allows multithreading .
         `least_squares` or `ls`: best fit done used levenberg marquardt convergence algorithm.
-        `differential_evolution` or `de`: best fit done using genetic algorithms.
+        `differential_evolution` or ``de`: best fit done using genetic algorithms.
         All methods return a Chisquare object.
 
     threads : `int`
@@ -155,11 +155,11 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
 
     if method not in ['chisqr', 'least_squares', 'ls', 'fastchi', 'differential_evolution', 'de']:
         warn(f'Invalid method `{method}` provided. Setting to default.')
-        method = 'chisqr'
+        method = 'least_squares'
 
     set_bestchi = False # variable used with convergence algorithms and fastchi
 
-    if method == 'chisqr':
+    if (method == 'chisqr'):
 
         f0_chi = np.array([])
         g0_chi = np.array([])
@@ -204,9 +204,8 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
             posang_chi = np.append(posang_chi, phi_deg[region])
 
         progressbar_show(number_chi, number_chi, prefix='Ellipse fit:')
-        chisquare = ChiSquare(chi2_best, len(values), center_f=f0_chi, center_g=g0_chi,
-                              equatorial_radius=a_chi, oblateness=obla_chi,
-                              position_angle=posang_chi)
+        chisquare = ChiSquare(chi2_best, len(values), center_f=f0_chi, center_g=g0_chi, equatorial_radius=a_chi,
+                            oblateness=obla_chi, position_angle=posang_chi)
 
 
     else:
@@ -379,7 +378,7 @@ def ellipse(parameters, x_values, y_values):
 
 
 def ellipseError(parameters, f, g, uncertainty, ellipse_error=0):
-    """
+    '''
     Returns an array of residuals of an ellipse. Depends on the
     ellipse() fuction.
 
@@ -400,7 +399,7 @@ def ellipseError(parameters, f, g, uncertainty, ellipse_error=0):
     -------
     [array] : float
         Array containing the residuals
-    """
+    '''
     f_model, g_model = ellipse(parameters, f, g)
     return (( (f - f_model)**2 + (g - g_model)**2 )/(uncertainty**2 + ellipse_error**2) )
 
