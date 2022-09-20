@@ -42,11 +42,11 @@ SORA Team
    | Photo  | Details                                           |
    +========+===================================================+
    |        | | **Dr. Altair Ramos Gomes Júnior**               |
-   | |pic1| | | Postdoctoral Researcher                         |
-   |        | | UNESP-Campus Guaratinguetá and LIneA/Brazil     |
+   | |pic1| | | Assistant Professor                             |
+   |        | | Federal University of Uberlândia/Brazil         |
    +--------+---------------------------------------------------+
    |        | | **Dr. Bruno Eduardo Morgado**                   |
-   | |pic2| | | Adjunct Professor                               |
+   | |pic2| | | Assistant Professor                             |
    |        | | UFRJ-Observatório do Valongo and LIneA/Brazil   |
    +--------+------------+--------------------------------------+
    |        | | **Dr. Gustavo Benedetti Rossi**                 |
