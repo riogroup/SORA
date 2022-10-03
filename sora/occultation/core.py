@@ -331,8 +331,8 @@ class Occultation:
         """
         Note
         ----
-        If the users tries to set a value to position, it must be ``'on'`` or
-        ``'off'``, and it will be assigned to all chords.
+        If the users tries to set a value to position, it must be `on` or
+        `off`, and it will be assigned to all chords.
         """
         if value not in ['on', 'off']:
             raise ValueError("Value must be 'on' or 'off' only.")
@@ -714,13 +714,14 @@ class Occultation:
 
         A shape must have been fitted to the chords
 
+        Parameters
+        ----------
         ax : `matplotlib.pyplot.Axes`
             The axes where to make the plot. If None, it will use the default axes.
-
         **kwargs
             Any other kwarg will be parsed directly by `maplotlip.pyplot.plot`.
-            The only difference is that the default linewidth ``lw=1`` and marker 
-            is ``marker='o'``.
+            The only difference is that the default linewidth `lw=1` and marker
+            is `marker=o`.
 
         """
         import matplotlib.pyplot as plt

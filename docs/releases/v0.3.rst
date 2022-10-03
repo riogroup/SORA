@@ -21,11 +21,29 @@ sora.extra
 sora.lightcurve
 ^^^^^^^^^^^^^^^
 
+- Added argument "method" in `LightCurve.occ_lcfit()` method to allow the use
+  of different fitting procedures. [:issue:`75`]
+
+- Added argument "threads" in `LightCurve.occ_lcfit()` method to allow shared
+  memory parallel processing. [:issue:`75`]
+
+- Added argument "verbose" in `LightCurve.occ_lcfit()` method to enable
+  progress bar during fitting procedure. [:issue:`75`]
+
 sora.observer
 ^^^^^^^^^^^^^
 
 sora.occultation
 ^^^^^^^^^^^^^^^^
+
+- Added argument "method" in `Occultation.fit_ellipse()` method to allow the use
+  of different fitting procedures. [:issue:`75`]
+
+- Added argument "threads" in `Occultation.fit_ellipse()` method to allow shared
+  memory parallel processing. [:issue:`75`]
+
+- Added argument "verbose" in `Occultation.fit_ellipse()` method to enable
+  progress bar during fitting procedure. [:issue:`75`]
 
 sora.prediction
 ^^^^^^^^^^^^^^^
@@ -45,6 +63,11 @@ sora.star
 - Included the Gaia-DR3 catalogue, released on June 13, 2022, in the catalogue list. [:issue:`76`]
 
 - Defined Gaia-DR3 as the default in the Star class. [:issue:`76`]
+
+sora.stats
+^^^^^^^^^^
+
+- New module dedicated to design model fitting procedures using different techniques. [:issue:`75`]
 
 API Changes
 -----------

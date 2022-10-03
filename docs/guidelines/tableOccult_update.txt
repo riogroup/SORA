@@ -1,0 +1,205 @@
+ Planete: 10199 Chariklo: Star GAIA-DR2, CHARIKLO/DE438_SMALL
+ Notes:
+ C/A: geocentric closest approach, in arcsec
+ P/A: Planet's position angle wrt to star at C/A, in deg
+ vel: velocity in plane of sky, in km/sec, positive= prograde, negative= retrograde
+ G*, K*: quite rough R and K magnitudes from 1.2m ESO Swiss telescope,
+         **corrected to a standard velocity of 20 km/sec**
+ Delta: Planet's range to Earth, AU
+ long: East longitude of sub-planet point, deg, positive towards East
+ loc. t.= UT + long: **rough** local solar time at sub-planet point, hh:mm
+ ---------------------------------------------------------------------------------------------------------------------------------------
+ Selection criteria:
+ Maximum corrected magnitudes R* and K* considered: 100.0
+ Maximum geocentrique closest approach considered: 0.624 arcsec 
+ List below has:          3  entries
+ Offset applied to ephemeris (mas):     0.0     0.0
+ 151.0                                                Radius (km)
+ 1997CU26          1997CU26          10199 Chariklo             Provisional Designation, Number, Name
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ d  m year  h:m:s UT    ra___dec___J2000_candidate    ra___dec___J2000_ephemeris     C/A    P/A     vel   Delta   G*   K*   long  loc.t.  e_ra  e_dec
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+21 06 2017  09 57 43.   18 55 36.1745 -31 31 19.032   18 55 36.1750 -31 31 19.605   0.573  179.41 -21.844  14.663 15.3  0.1   225. 00:56    10    10
+22 06 2017  02 58 37.   18 55 26.3165 -31 31 20.384   18 55 26.3167 -31 31 20.742   0.358  179.55 -21.924  14.661 18.0  0.1   329. 00:53    10    10
+22 06 2017  21 18 48.   18 55 15.6525 -31 31 21.670   18 55 15.6525 -31 31 21.621   0.049  359.72 -22.004  14.659 14.3  0.1    53. 00:50    10    10
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ Planete: 10199 Chariklo: Star GAIA-DR2, CHARIKLO/DE438_SMALL
+ Notes:
+ C/A: geocentric closest approach, in arcsec
+ P/A: Planet's position angle wrt to star at C/A, in deg
+ vel: velocity in plane of sky, in km/sec, positive= prograde, negative= retrograde
+ G*, K*: quite rough R and K magnitudes from 1.2m ESO Swiss telescope,
+         **corrected to a standard velocity of 20 km/sec**
+ Delta: Planet's range to Earth, AU
+ long: East longitude of sub-planet point, deg, positive towards East
+ loc. t.= UT + long: **rough** local solar time at sub-planet point, hh:mm
+ ---------------------------------------------------------------------------------------------------------------------------------------
+ Selection criteria:
+ Maximum corrected magnitudes R* and K* considered: 100.0
+ Maximum geocentrique closest approach considered: 0.624 arcsec 
+ List below has:          8  entries
+ Offset applied to ephemeris (mas):     0.0     0.0
+ 151.0                                                Radius (km)
+ 1997CU26          1997CU26          10199 Chariklo             Provisional Designation, Number, Name
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ d  m year  h:m:s UT    ra___dec___J2000_candidate    ra___dec___J2000_ephemeris     C/A    P/A     vel   Delta   G*   K*   long  loc.t.  e_ra  e_dec
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+21 06 2017  09 57 43.   18 55 36.1745 -31 31 19.032   18 55 36.1750 -31 31 19.605   0.573  179.41 -21.844  14.663 15.3  0.1   225. 00:56    10    10
+22 06 2017  02 58 37.   18 55 26.3165 -31 31 20.384   18 55 26.3167 -31 31 20.742   0.358  179.55 -21.924  14.661 18.0  0.1   329. 00:53    10    10
+22 06 2017  21 18 48.   18 55 15.6525 -31 31 21.670   18 55 15.6525 -31 31 21.621   0.049  359.72 -22.004  14.659 14.3  0.1    53. 00:50    10    10
+23 06 2017  21 34 37.   18 55 01.4812 -31 31 22.442   18 55 01.4812 -31 31 22.227   0.216  359.91 -22.102  14.657 17.9  0.1    48. 00:46    10    10
+24 06 2017  10 13 39.   18 54 54.0675 -31 31 22.367   18 54 54.0675 -31 31 22.286   0.081    0.01 -22.149  14.656 18.0  0.1   218. 00:43    10    10
+25 06 2017  10 55 09.   18 54 39.5530 -31 31 21.699   18 54 39.5529 -31 31 21.891   0.192  180.23 -22.233  14.654 17.1  0.1   206. 00:39    10    10
+26 06 2017  08 14 35.   18 54 26.9750 -31 31 20.512   18 54 26.9748 -31 31 20.999   0.487  180.41 -22.298  14.653 17.7  0.1   245. 00:35    10    10
+26 06 2017  20 46 07.   18 54 19.5697 -31 31 20.433   18 54 19.5698 -31 31 20.234   0.199    0.51 -22.333  14.652 17.8  0.1    57. 00:33    10    10
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ Planete: 10199 Chariklo: Star GAIA-DR2, CHARIKLO/DE438_SMALL
+ Notes:
+ C/A: geocentric closest approach, in arcsec
+ P/A: Planet's position angle wrt to star at C/A, in deg
+ vel: velocity in plane of sky, in km/sec, positive= prograde, negative= retrograde
+ G*, K*: quite rough R and K magnitudes from 1.2m ESO Swiss telescope,
+         **corrected to a standard velocity of 20 km/sec**
+ Delta: Planet's range to Earth, AU
+ long: East longitude of sub-planet point, deg, positive towards East
+ loc. t.= UT + long: **rough** local solar time at sub-planet point, hh:mm
+ ---------------------------------------------------------------------------------------------------------------------------------------
+ Selection criteria:
+ Maximum corrected magnitudes R* and K* considered: 100.0
+ Maximum geocentrique closest approach considered: 0.624 arcsec 
+ List below has:          8  entries
+ Offset applied to ephemeris (mas):     0.0     0.0
+ 151.0                                                Radius (km)
+ 1997CU26          1997CU26          10199 Chariklo             Provisional Designation, Number, Name
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ d  m year  h:m:s UT    ra___dec___J2000_candidate    ra___dec___J2000_ephemeris     C/A    P/A     vel   Delta   G*   K*   long  loc.t.  e_ra  e_dec
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+21 06 2017  09 57 43.   18 55 36.1745 -31 31 19.032   18 55 36.1750 -31 31 19.605   0.573  179.41 -21.844  14.663 15.3  0.1   225. 00:56    10    10
+22 06 2017  02 58 37.   18 55 26.3165 -31 31 20.384   18 55 26.3167 -31 31 20.742   0.358  179.55 -21.924  14.661 18.0  0.1   329. 00:53    10    10
+22 06 2017  21 18 48.   18 55 15.6525 -31 31 21.670   18 55 15.6525 -31 31 21.621   0.049  359.72 -22.004  14.659 14.3  0.1    53. 00:50    10    10
+23 06 2017  21 34 37.   18 55 01.4812 -31 31 22.442   18 55 01.4812 -31 31 22.227   0.216  359.91 -22.102  14.657 17.9  0.1    48. 00:46    10    10
+24 06 2017  10 13 39.   18 54 54.0675 -31 31 22.367   18 54 54.0675 -31 31 22.286   0.081    0.01 -22.149  14.656 18.0  0.1   218. 00:43    10    10
+25 06 2017  10 55 09.   18 54 39.5530 -31 31 21.699   18 54 39.5529 -31 31 21.891   0.192  180.23 -22.233  14.654 17.1  0.1   206. 00:39    10    10
+26 06 2017  08 14 35.   18 54 26.9750 -31 31 20.512   18 54 26.9748 -31 31 20.999   0.487  180.41 -22.298  14.653 17.7  0.1   245. 00:35    10    10
+26 06 2017  20 46 07.   18 54 19.5697 -31 31 20.433   18 54 19.5698 -31 31 20.234   0.199    0.51 -22.333  14.652 17.8  0.1    57. 00:33    10    10
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ Planete: 10199 Chariklo: Star GAIA-DR2, CHARIKLO/DE438_SMALL
+ Notes:
+ C/A: geocentric closest approach, in arcsec
+ P/A: Planet's position angle wrt to star at C/A, in deg
+ vel: velocity in plane of sky, in km/sec, positive= prograde, negative= retrograde
+ G*, K*: quite rough R and K magnitudes from 1.2m ESO Swiss telescope,
+         **corrected to a standard velocity of 20 km/sec**
+ Delta: Planet's range to Earth, AU
+ long: East longitude of sub-planet point, deg, positive towards East
+ loc. t.= UT + long: **rough** local solar time at sub-planet point, hh:mm
+ ---------------------------------------------------------------------------------------------------------------------------------------
+ Selection criteria:
+ Maximum corrected magnitudes R* and K* considered: 100.0
+ Maximum geocentrique closest approach considered: 0.624 arcsec 
+ List below has:          8  entries
+ Offset applied to ephemeris (mas):     0.0     0.0
+ 151.0                                                Radius (km)
+ 1997CU26          1997CU26          10199 Chariklo             Provisional Designation, Number, Name
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ d  m year  h:m:s UT    ra___dec___J2000_candidate    ra___dec___J2000_ephemeris     C/A    P/A     vel   Delta   G*   K*   long  loc.t.  e_ra  e_dec
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+21 06 2017  09 57 43.   18 55 36.1745 -31 31 19.032   18 55 36.1750 -31 31 19.605   0.573  179.41 -21.844  14.663 15.3  0.1   225. 00:56    10    10
+22 06 2017  02 58 37.   18 55 26.3165 -31 31 20.384   18 55 26.3167 -31 31 20.742   0.358  179.55 -21.924  14.661 18.0  0.1   329. 00:53    10    10
+22 06 2017  21 18 48.   18 55 15.6525 -31 31 21.670   18 55 15.6525 -31 31 21.621   0.049  359.72 -22.004  14.659 14.3  0.1    53. 00:50    10    10
+23 06 2017  21 34 37.   18 55 01.4812 -31 31 22.442   18 55 01.4812 -31 31 22.227   0.216  359.91 -22.102  14.657 17.9  0.1    48. 00:46    10    10
+24 06 2017  10 13 39.   18 54 54.0675 -31 31 22.367   18 54 54.0675 -31 31 22.286   0.081    0.01 -22.149  14.656 18.0  0.1   218. 00:43    10    10
+25 06 2017  10 55 09.   18 54 39.5530 -31 31 21.699   18 54 39.5529 -31 31 21.891   0.192  180.23 -22.233  14.654 17.1  0.1   206. 00:39    10    10
+26 06 2017  08 14 35.   18 54 26.9750 -31 31 20.512   18 54 26.9748 -31 31 20.999   0.487  180.41 -22.298  14.653 17.7  0.1   245. 00:35    10    10
+26 06 2017  20 46 07.   18 54 19.5697 -31 31 20.433   18 54 19.5698 -31 31 20.234   0.199    0.51 -22.333  14.652 17.8  0.1    57. 00:33    10    10
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ Planete: 10199 Chariklo: Star GAIA-DR2, CHARIKLO/DE438_SMALL
+ Notes:
+ C/A: geocentric closest approach, in arcsec
+ P/A: Planet's position angle wrt to star at C/A, in deg
+ vel: velocity in plane of sky, in km/sec, positive= prograde, negative= retrograde
+ G*, K*: quite rough R and K magnitudes from 1.2m ESO Swiss telescope,
+         **corrected to a standard velocity of 20 km/sec**
+ Delta: Planet's range to Earth, AU
+ long: East longitude of sub-planet point, deg, positive towards East
+ loc. t.= UT + long: **rough** local solar time at sub-planet point, hh:mm
+ ---------------------------------------------------------------------------------------------------------------------------------------
+ Selection criteria:
+ Maximum corrected magnitudes R* and K* considered: 100.0
+ Maximum geocentrique closest approach considered: 0.624 arcsec 
+ List below has:          8  entries
+ Offset applied to ephemeris (mas):     0.0     0.0
+ 151.0                                                Radius (km)
+ 1997CU26          1997CU26          10199 Chariklo             Provisional Designation, Number, Name
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ d  m year  h:m:s UT    ra___dec___J2000_candidate    ra___dec___J2000_ephemeris     C/A    P/A     vel   Delta   G*   K*   long  loc.t.  e_ra  e_dec
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+21 06 2017  09 57 43.   18 55 36.1745 -31 31 19.032   18 55 36.1750 -31 31 19.605   0.573  179.41 -21.844  14.663 15.3  0.1   225. 00:56    10    10
+22 06 2017  02 58 37.   18 55 26.3165 -31 31 20.384   18 55 26.3167 -31 31 20.742   0.358  179.55 -21.924  14.661 18.0  0.1   329. 00:53    10    10
+22 06 2017  21 18 48.   18 55 15.6525 -31 31 21.670   18 55 15.6525 -31 31 21.621   0.049  359.72 -22.004  14.659 14.3  0.1    53. 00:50    10    10
+23 06 2017  21 34 37.   18 55 01.4812 -31 31 22.442   18 55 01.4812 -31 31 22.227   0.216  359.91 -22.102  14.657 17.9  0.1    48. 00:46    10    10
+24 06 2017  10 13 39.   18 54 54.0675 -31 31 22.367   18 54 54.0675 -31 31 22.286   0.081    0.01 -22.149  14.656 18.0  0.1   218. 00:43    10    10
+25 06 2017  10 55 09.   18 54 39.5530 -31 31 21.699   18 54 39.5529 -31 31 21.891   0.192  180.23 -22.233  14.654 17.1  0.1   206. 00:39    10    10
+26 06 2017  08 14 35.   18 54 26.9750 -31 31 20.512   18 54 26.9748 -31 31 20.999   0.487  180.41 -22.298  14.653 17.7  0.1   245. 00:35    10    10
+26 06 2017  20 46 07.   18 54 19.5697 -31 31 20.433   18 54 19.5698 -31 31 20.234   0.199    0.51 -22.333  14.652 17.8  0.1    57. 00:33    10    10
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ Planete: 10199 Chariklo: Star GAIA-DR2, CHARIKLO/DE438_SMALL
+ Notes:
+ C/A: geocentric closest approach, in arcsec
+ P/A: Planet's position angle wrt to star at C/A, in deg
+ vel: velocity in plane of sky, in km/sec, positive= prograde, negative= retrograde
+ G*, K*: quite rough R and K magnitudes from 1.2m ESO Swiss telescope,
+         **corrected to a standard velocity of 20 km/sec**
+ Delta: Planet's range to Earth, AU
+ long: East longitude of sub-planet point, deg, positive towards East
+ loc. t.= UT + long: **rough** local solar time at sub-planet point, hh:mm
+ ---------------------------------------------------------------------------------------------------------------------------------------
+ Selection criteria:
+ Maximum corrected magnitudes R* and K* considered: 100.0
+ Maximum geocentrique closest approach considered: 0.624 arcsec 
+ List below has:          8  entries
+ Offset applied to ephemeris (mas):     0.0     0.0
+ 151.0                                                Radius (km)
+ 1997CU26          1997CU26          10199 Chariklo             Provisional Designation, Number, Name
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ d  m year  h:m:s UT    ra___dec___J2000_candidate    ra___dec___J2000_ephemeris     C/A    P/A     vel   Delta   G*   K*   long  loc.t.  e_ra  e_dec
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+21 06 2017  09 57 43.   18 55 36.1745 -31 31 19.032   18 55 36.1750 -31 31 19.605   0.573  179.41 -21.844  14.663 15.3  0.1   225. 00:56    10    10
+22 06 2017  02 58 37.   18 55 26.3165 -31 31 20.384   18 55 26.3167 -31 31 20.742   0.358  179.55 -21.924  14.661 18.0  0.1   329. 00:53    10    10
+22 06 2017  21 18 48.   18 55 15.6525 -31 31 21.670   18 55 15.6525 -31 31 21.621   0.049  359.72 -22.004  14.659 14.3  0.1    53. 00:50    10    10
+23 06 2017  21 34 37.   18 55 01.4812 -31 31 22.442   18 55 01.4812 -31 31 22.227   0.216  359.91 -22.102  14.657 17.9  0.1    48. 00:46    10    10
+24 06 2017  10 13 39.   18 54 54.0675 -31 31 22.367   18 54 54.0675 -31 31 22.286   0.081    0.01 -22.149  14.656 18.0  0.1   218. 00:43    10    10
+25 06 2017  10 55 09.   18 54 39.5530 -31 31 21.699   18 54 39.5529 -31 31 21.891   0.192  180.23 -22.233  14.654 17.1  0.1   206. 00:39    10    10
+26 06 2017  08 14 35.   18 54 26.9750 -31 31 20.512   18 54 26.9748 -31 31 20.999   0.487  180.41 -22.298  14.653 17.7  0.1   245. 00:35    10    10
+26 06 2017  20 46 07.   18 54 19.5697 -31 31 20.433   18 54 19.5698 -31 31 20.234   0.199    0.51 -22.333  14.652 17.8  0.1    57. 00:33    10    10
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ Planete: 10199 Chariklo: Star GAIA-DR2, CHARIKLO/DE438_SMALL
+ Notes:
+ C/A: geocentric closest approach, in arcsec
+ P/A: Planet's position angle wrt to star at C/A, in deg
+ vel: velocity in plane of sky, in km/sec, positive= prograde, negative= retrograde
+ G*, K*: quite rough R and K magnitudes from 1.2m ESO Swiss telescope,
+         **corrected to a standard velocity of 20 km/sec**
+ Delta: Planet's range to Earth, AU
+ long: East longitude of sub-planet point, deg, positive towards East
+ loc. t.= UT + long: **rough** local solar time at sub-planet point, hh:mm
+ ---------------------------------------------------------------------------------------------------------------------------------------
+ Selection criteria:
+ Maximum corrected magnitudes R* and K* considered: 100.0
+ Maximum geocentrique closest approach considered: 0.624 arcsec 
+ List below has:          8  entries
+ Offset applied to ephemeris (mas):     0.0     0.0
+ 151.0                                                Radius (km)
+ 1997CU26          1997CU26          10199 Chariklo             Provisional Designation, Number, Name
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ d  m year  h:m:s UT    ra___dec___J2000_candidate    ra___dec___J2000_ephemeris     C/A    P/A     vel   Delta   G*   K*   long  loc.t.  e_ra  e_dec
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+21 06 2017  09 57 43.   18 55 36.1745 -31 31 19.032   18 55 36.1750 -31 31 19.605   0.573  179.41 -21.844  14.663 15.3  0.1   225. 00:56    10    10
+22 06 2017  02 58 37.   18 55 26.3165 -31 31 20.384   18 55 26.3167 -31 31 20.742   0.358  179.55 -21.924  14.661 18.0  0.1   329. 00:53    10    10
+22 06 2017  21 18 48.   18 55 15.6525 -31 31 21.670   18 55 15.6525 -31 31 21.621   0.049  359.72 -22.004  14.659 14.3  0.1    53. 00:50    10    10
+23 06 2017  21 34 37.   18 55 01.4812 -31 31 22.442   18 55 01.4812 -31 31 22.227   0.216  359.91 -22.102  14.657 17.9  0.1    48. 00:46    10    10
+24 06 2017  10 13 39.   18 54 54.0675 -31 31 22.367   18 54 54.0675 -31 31 22.286   0.081    0.01 -22.149  14.656 18.0  0.1   218. 00:43    10    10
+25 06 2017  10 55 09.   18 54 39.5530 -31 31 21.699   18 54 39.5529 -31 31 21.891   0.192  180.23 -22.233  14.654 17.1  0.1   206. 00:39    10    10
+26 06 2017  08 14 35.   18 54 26.9750 -31 31 20.512   18 54 26.9748 -31 31 20.999   0.487  180.41 -22.298  14.653 17.7  0.1   245. 00:35    10    10
+26 06 2017  20 46 07.   18 54 19.5697 -31 31 20.433   18 54 19.5698 -31 31 20.234   0.199    0.51 -22.333  14.652 17.8  0.1    57. 00:33    10    10
+ ----------------------------------------------------------------------------------------------------------------------------------------------------

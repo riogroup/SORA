@@ -1,0 +1,26 @@
+# .readthedocs.yaml
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+# Python version
+python:
+  version: "3"
+  install:
+    - requirements: docs/requirements.txt
+
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+   builder: html
+   configuration: docs/conf.py
+   fail_on_warning: true
+
+# Optionally build your docs in additional formats such as PDF
+formats:
+  - pdf
+
+# By default readthedocs does not checkout git submodules
+submodules:
+    include: all
