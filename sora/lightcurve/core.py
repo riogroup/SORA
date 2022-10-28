@@ -800,7 +800,7 @@ class LightCurve:
 
         delta_t = 2*self.cycle
         loop = kwargs.get('loop', 10000)
-        verbose = kwargs.get('verbose', False)
+        verbose = kwargs.get('verbose', True)
         tmax = self.time.max()
         tmin = self.time.min()
         immersion_time = tmin - self.exptime
