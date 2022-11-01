@@ -9,6 +9,32 @@ sora.body
 
 - Added `get_position()` in Body as a shortcut to `ephem.get_position()`. [:issue:`76`]
 
+- Created new `frame` submodule: [:issue:`74`]
+
+  - Define a new class for the orientation of the body (`PlanetocentricFrame`),
+    giving its rotation velocity, pole coordinates, and precession parameters as defined by
+    Archinal et al. (2018). With it, we can transform to other reference frames using Astropy.
+
+  - The definitions of the orientation parameters in Archinal et al. (2018) are hardcoded.
+    The user can overwrite it by providing its own frame.
+
+  - With the `PlanetocentricFrame`, we process and rotate the body to find its orientation
+    at any epoch (must consider light time).
+
+- Created new `shape` submodule to: [:issue:`74`]
+
+  - Define the new `Shape3D` class where we can provide to the body a wavefront file
+    with its 3D shape. An image corresponding to the texture can also be provided.
+
+  - Define the new `Ellipsoid` class where the 3-dimensional sizes of the ellipsoid
+    are provided to create a 3D object.
+
+  - Plot the 3D shape on the tangent plane considering the sub-observer coordinates,
+    its pole orientation, and the solar illumination.
+
+  - Compute the limb of the rotated 3D shape to use it in the fitting process.
+    This limb now requires a dependency on shapely.
+
 sora.config
 ^^^^^^^^^^^
 
@@ -44,6 +70,11 @@ sora.occultation
 
 - Added argument "verbose" in `Occultation.fit_ellipse()` method to enable
   progress bar during fitting procedure. [:issue:`75`]
+
+- New method `fit_shape()` is created to fit the occultation chords to the 3D shape. [:issue:`74`]
+
+- An auxiliary fitting function `fit_to_limb()` was created to fit the chords to a
+  limb provided by the user. [:issue:`74`]
 
 sora.prediction
 ^^^^^^^^^^^^^^^

@@ -137,7 +137,11 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         at most a month, or a timeout error may be raised by the Horizon query.
 
     mag_lim : `int`, `float`, `dict`, default=None
-        Faintest Gmag allowed in the search.
+        Faintest magnitude allowed in the search. If the catalogue has more
+        than one band defined in the catalogue object, the magnitude limit can
+        be done for a specific band or a set of band. Ex: ``mag_lim={'V': 15}``,
+        which will only download stars with V<=15 or ``mag_lim={'V': 15, 'B': 14}``
+        which will download stars with V<=15 AND B<=14.
 
     catalogue : `str`, `VizierCatalogue`
         The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
@@ -251,13 +255,13 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
             print('\nSearching occultations in part {}/{}'.format(i+1, divs))
             print("Generating Ephemeris between {} and {} ...".format(nt.min(), nt.max()))
         ncoord = ephem.get_position(time=nt, observer=reference_center)
-        ra = np.mean([ncoord.ra.min().deg, ncoord.ra.max().deg])
-        dec = np.mean([ncoord.dec.min().deg, ncoord.dec.max().deg])
+        reg = SkyCoord([ncoord.ra.min(), ncoord.ra.max()], [ncoord.dec.min(), ncoord.dec.max()])
+        center = reg.spherical.mean()
         mindist = (np.arcsin(radius_search/ncoord.distance).max() +
                    sigma*np.max([ephem.error_ra.value, ephem.error_dec.value])*u.arcsec)
         width = ncoord.ra.max() - ncoord.ra.min() + 2*mindist
         height = ncoord.dec.max() - ncoord.dec.min() + 2*mindist
-        pos_search = SkyCoord(ra*u.deg, dec*u.deg)
+        pos_search = SkyCoord(center)
 
         if verbose:
             print('Downloading stars ...')

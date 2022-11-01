@@ -28,18 +28,20 @@ method, except for Cartopy.
 -  `Astroquery <https://astroquery.readthedocs.io/en/latest/>`_ (0.4.6): To query
    astronomical database as JPL and Vizier.
 
--  `Matplotlib <https://matplotlib.org/>`_ (3.4.3): For easy and beautiful plots.
+-  `Matplotlib <https://matplotlib.org/>`_ (3.5.3): For easy and beautiful plots.
 
 -  `NumPy <https://numpy.org/>`_ (1.21): Otimized mathematical functions.
 
 -  `SciPy <https://www.scipy.org/>`_ (1.7.1): Otimized functions for mathematics, science, and
    engineering.
 
--  `SpiceyPy <https://spiceypy.readthedocs.io/en/main/>`_ (4.0.2): SPICE/NAIF functions in python.
+-  `SpiceyPy <https://spiceypy.readthedocs.io/en/main/>`_ (5.1.1): SPICE/NAIF functions in python.
 
 -  `PyERFA <https://pyerfa.readthedocs.io/en/latest/>`_ (2.0): Python wrapper for the ERFA library based on the SOFA library.   
 
 -  `Cartopy <https://scitools.org.uk/cartopy/docs/latest/>`_ (0.20.4): Geospatial data processing to produce maps.
+
+-  `Shapely <https://shapely.readthedocs.io/en/stable/manual.html>`_ (1.8.2): Package for set-theoretic analysis and manipulation of planar features.
 
 
 

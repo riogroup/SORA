@@ -15,7 +15,7 @@ __all__ = ['fit_ellipse', 'fit_to_limb', 'fit_shape']
 @deprecated_alias(pos_angle='position_angle', dpos_angle='dposition_angle', log='verbose')  # remove this line for v1.0
 def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcenter_f=0, center_g=0,
                 dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
-                loop=10000, number_chi=10000, dchi_min=None, verbose=False, ellipse_error=0, sigma_result=1,
+                loop=10000, number_chi=10000, dchi_min=None, verbose=True, ellipse_error=0, sigma_result=1,
                 method='least_squares', threads=1):
     """Fits an ellipse to given occultation using given parameters.
 
@@ -66,7 +66,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         In other methods it is the number of values (simulations) that should lie within
         the provided `sigma_result`.
 
-    verbose : `bool`, default=False
+    verbose : `bool`, default=True
         If True, it prints information while fitting.
 
     ellipse_error : `int`, `float`

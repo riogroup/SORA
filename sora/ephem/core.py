@@ -53,6 +53,7 @@ class EphemPlanete(BaseEphem):
         self.__reftime = self.time[0]
         self.min_time = Time(data[0].min(), format='jd')
         self.max_time = Time(data[0].max(), format='jd')
+        self.meta = {'kernels': str(ephem)}
 
     def get_position(self, time, observer='geocenter'):
         """Returns the object's geocentric position.
