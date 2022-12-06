@@ -14,7 +14,7 @@ Examples
 
 SORA is a Python-based, object-oriented library for optimal analysis of
 stellar occultation data. The user can use this library to build pipelines 
-to analyse their stellar occultation’s data. Here follows some key examples 
+to analyse their stellar occultation's data. Here follows some key examples 
 on how SORA can be used.
 
 .. warning::
@@ -23,9 +23,12 @@ on how SORA can be used.
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
 
    examples/prediction/maps
    examples/prediction/spacecraft
    examples/catalog
    examples/shape3d
+   examples/OptimizationAndMultiprocessing
+
 

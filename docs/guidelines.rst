@@ -17,6 +17,7 @@ All the Jupyter-Notebooks can be downloaded :download:`here <SORA_guidelines.zip
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
 
    guidelines/body
    guidelines/star
