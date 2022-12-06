@@ -34,6 +34,7 @@ Welcome to SORA's documentation!
    GettingStarted
    examples
    guidelines
+   knownissues
 
 Indices and tables
 ==================
