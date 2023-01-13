@@ -145,6 +145,9 @@ sora.config
 sora.ephem
 ^^^^^^^^^^
 
+- Fixed bug that did not calculated ephemeris for observer when using Horizons
+  if the observer did not have IAU code. [:issue:`80`]
+
 sora.extra
 ^^^^^^^^^^
 

@@ -258,7 +258,10 @@ def ephem_horizons(time, target, observer, id_type='smallbody', output='ephemeri
     if not location and isinstance(observer, str):
         location = observer
     if isinstance(observer, (Observer, Spacecraft)):
-        location = f'{getattr(observer, "code", "")}@{getattr(observer, "spkid", "")}'
+        if getattr(observer, "code", None) is None:
+            location = {'lon': observer.lon.deg, 'lat': observer.lat.deg, 'elevation': observer.height.to(u.km).value}
+        else:
+            location = f'{getattr(observer, "code", "")}@{getattr(observer, "spkid", "")}'
     if not location:
         raise ValueError("observer must be 'geocenter', 'barycenter' or an observer object.")
     if output not in ['ephemeris', 'vector']:
