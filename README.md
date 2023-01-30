@@ -33,17 +33,18 @@ improvements and implementations can be available in future versions.
 AUTHORS
 -------
 
-Altair R. Gomes-Júnior (1, 2),
-Bruno E. Morgado (3, 2, 4),
-Gustavo Benedetti-Rossi (1, 3, 2),
-Rodrigo C. Boufleur (4, 2),
-Flavia L. Rommel (4, 2),
-Martin B. Huarca (2, 4)
+Altair R. Gomes-Júnior (1, 2, 3),
+Bruno E. Morgado (4, 3, 5),
+Gustavo Benedetti-Rossi (2, 4, 3),
+Rodrigo C. Boufleur (5, 3),
+Flavia L. Rommel (5, 3),
+Martin B. Huarca (3, 5)
 
-(1) UNESP - São Paulo State University, Grupo de Dinâmica Orbital e Planetologia, CEP 12516-410, Guaratinguetá, SP 12516-410, Brazil</br>
-(2) Laboratório Interinstitucional de e-Astronomia - LIneA and INCT do e-Universo, Rua Gal. José Cristino 77, Rio de Janeiro, RJ 20921-400, Brazil</br>
-(3) LESIA, Observatoire de Paris, Université PSL, CNRS, Sorbonne Université, Univ. Paris Diderot, Sorbonne Paris Cité, 5 place Jules Janssen, 92195 Meudon, France</br>
-(4) Observatório Nacional/MCTIC, R. General José Cristino 77, Rio de Janeiro, RJ 20.921-400, Brazil</br>
+(1) UFU - Federal University of Uberlândia, Physics Institute, Av. João Naves de Ávila 2121, Uberlândia, MG 38408-100, Brazil</br>
+(2) UNESP - São Paulo State University, Grupo de Dinâmica Orbital e Planetologia, Guaratinguetá, SP 12516-410, Brazil</br>
+(3) Laboratório Interinstitucional de e-Astronomia - LIneA and INCT do e-Universo, Rua Gal. José Cristino 77, Rio de Janeiro, RJ 20921-400, Brazil</br>
+(4) LESIA, Observatoire de Paris, Université PSL, CNRS, Sorbonne Université, Univ. Paris Diderot, Sorbonne Paris Cité, 5 place Jules Janssen, 92195 Meudon, France</br>
+(5) Observatório Nacional/MCTIC, R. General José Cristino 77, Rio de Janeiro, RJ 20.921-400, Brazil</br>
 
 CITATION
 --------

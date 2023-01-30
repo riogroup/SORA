@@ -57,8 +57,8 @@ SORA Team
    | |pic4| | | Postdoctoral Researcher                         |
    |        | | Observatório Nacional and LIneA/Brazil          |
    +--------+------------+--------------------------------------+
-   |        | | **Msc. Flavia Luane Rommel**                    |
-   | |pic5| | | PhD Student                                     |
+   |        | | **Dr. Flavia Luane Rommel**                     |
+   | |pic5| | | Postdoctoral Researcher                         |
    |        | | Observatório Nacional and LIneA/Brazil          |
    +--------+------------+--------------------------------------+
    |        | | **Dr. Martin Banda Huarca**                     |

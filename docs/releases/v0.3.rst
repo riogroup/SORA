@@ -1,5 +1,5 @@
-SORA v0.3 (unreleased)
-======================
+SORA v0.3 (2023/Jan/31)
+=======================
 
 New Features
 ------------
@@ -35,15 +35,6 @@ sora.body
   - Compute the limb of the rotated 3D shape to use it in the fitting process.
     This limb now requires a dependency on shapely.
 
-sora.config
-^^^^^^^^^^^
-
-sora.ephem
-^^^^^^^^^^
-
-sora.extra
-^^^^^^^^^^
-
 sora.lightcurve
 ^^^^^^^^^^^^^^^
 
@@ -55,9 +46,6 @@ sora.lightcurve
 
 - Added argument "verbose" in `LightCurve.occ_lcfit()` method to enable
   progress bar during fitting procedure. [:issue:`75`]
-
-sora.observer
-^^^^^^^^^^^^^
 
 sora.occultation
 ^^^^^^^^^^^^^^^^
@@ -103,69 +91,17 @@ sora.stats
 API Changes
 -----------
 
-sora.body
-^^^^^^^^^
-
-sora.config
-^^^^^^^^^^^
-
 sora.ephem
 ^^^^^^^^^^
 
 - `id_type` for planets and satellites are passed as `None` instead of `major_body`,
   following changes made in Horizons. [:issue:`76`]
 
-sora.extra
-^^^^^^^^^^
-
-sora.lightcurve
-^^^^^^^^^^^^^^^
-
-sora.observer
-^^^^^^^^^^^^^
-
-sora.occultation
-^^^^^^^^^^^^^^^^
-
-sora.prediction
-^^^^^^^^^^^^^^^
-
-sora.star
-^^^^^^^^^
-
 Bug Fixes
 ---------
-
-sora.body
-^^^^^^^^^
-
-sora.config
-^^^^^^^^^^^
 
 sora.ephem
 ^^^^^^^^^^
 
 - Fixed bug that did not calculated ephemeris for observer when using Horizons
   if the observer did not have IAU code. [:issue:`80`]
-
-sora.extra
-^^^^^^^^^^
-
-sora.lightcurve
-^^^^^^^^^^^^^^^
-
-sora.observer
-^^^^^^^^^^^^^
-
-sora.occultation
-^^^^^^^^^^^^^^^^
-
-sora.prediction
-^^^^^^^^^^^^^^^
-
-sora.star
-^^^^^^^^^
-
-
-
-
