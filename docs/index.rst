@@ -12,8 +12,10 @@
 |
 
 
-Welcome to SORA's documentation!
+Welcome to SORA's v0.3 documentation!
 ==================================================================
+
+(Legacy documentation for SORA v0.2.1 is available `here <https://sora-v021.readthedocs.io>`_.)
 
 .. toctree::
    :maxdepth: 2

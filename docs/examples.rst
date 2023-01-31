@@ -23,7 +23,6 @@ on how SORA can be used.
 
 .. toctree::
    :maxdepth: 2
-   :hidden:
 
    examples/prediction/maps
    examples/prediction/spacecraft
