@@ -169,7 +169,7 @@ class Body(BaseBody):
         pp = sbdb['phys_par']  # get the physical parameters (pp) of the sbdb
 
         if 'extent' in pp:
-            extent = np.array(pp['extent'].split('x'), dtype=np.float)/2
+            extent = np.array(pp['extent'].split('x'), dtype=float)/2
             self.shape = extent
         self.albedo = PhysicalData('Albedo', pp.get('albedo'), pp.get('albedo_sig'), pp.get('albedo_ref'), pp.get('albedo_note'))
         self.H = PhysicalData('Absolute Magnitude', pp.get('H'), pp.get('H_sig'), pp.get('H_ref'), pp.get('H_note'), unit=u.mag)
