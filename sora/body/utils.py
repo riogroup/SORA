@@ -31,7 +31,7 @@ def search_sbdb(name):
     from . import values
 
     print('Obtaining data for {} from SBDB'.format(name))
-    sbdb = SBDB.query(name, full_precision=True, solution_epoch=True, validity=True, phys=True, discovery=True)
+    sbdb = SBDB.query(name, full_precision=True, solution_epoch=True, validity=True, phys=True, discovery=True, cache=False)
     if 'message' in sbdb:
         if sbdb['message'] == values.not_found_message:
             raise ValueError(values.not_found_message + " on SBDB")
