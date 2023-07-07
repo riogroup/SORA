@@ -1,5 +1,10 @@
-import astropy.units as u
 import numpy as np
+import astropy.constants as const
+import astropy.units as u
+from astropy.coordinates import SkyOffsetFrame
+
+from sora.body import Body
+from sora.ephem import EphemHorizons
 
 __all__ = ['filter_negative_chord', 'positionv', 'add_arrow']
 
@@ -223,3 +228,64 @@ def add_arrow(line, position=None, direction='right', size=15, color=None):
                        arrowprops=dict(arrowstyle="->", color=color),
                        size=size
                        )
+
+
+sun = Body(name='Sun', spkid='10', ephem=EphemHorizons(name='Sun', spkid=10, id_type='majorbody'),
+           GM=const.G*(1*u.M_sun), database=None)
+
+
+def calc_sun_dif_ld(body_coord, star_coord, time, observer="geocenter"):
+    """Computes differential light deflection of star and body caused by the Sun.
+
+    Parameters
+    ----------
+    body_coord : `astropy.coordinates.SkyCoord`
+        The astrometric coordinate of the body at given time
+
+    star_coord : `astropy.coordinates.SkyCoord`
+        The astrometric coordinate of the star at given time
+
+    time : `astropy.time.Time`
+        The time which to compute the light deflection.
+        Use to compute the position of the Sun
+
+    observer : `sora.observer.Observer`
+        The observer to compute the position of the Sun.
+
+    Returns
+    -------
+    ld_ra, ld_dec : `astropy.coordinates.Angle`
+        The offsets in right ascension and declination of the object relative to the star,
+        considering the light deflection caused by the Sun.
+
+    """
+    import erfa
+    from astropy.coordinates import SkyCoord
+
+    pos_sun = sun.get_position(time=time, observer=observer)
+    bm = 1  # Sun Mass in Solar Masses
+
+    e = -(pos_sun.cartesian.xyz / pos_sun.cartesian.norm()).value  # unitary vector Sun -> observer
+    em = pos_sun.distance.to(u.AU).value  # distance Sun -> observer in AU
+
+    pbody = (body_coord.cartesian.xyz / body_coord.cartesian.norm()).value  # unitary vector observer -> body
+    pbs = (body_coord.cartesian - pos_sun.cartesian)  # vector Sun -> body
+    q = (pbs.xyz / pbs.norm()).value  # unitary vector Sun -> body
+
+    # computes the gravitational light deflection, return new normalized vector observer -> body
+    ds_body = erfa.ld(bm, pbody, q, e, em, 0)
+
+    os_body = SkyCoord(*ds_body * body_coord.cartesian.norm(), representation_type='cartesian')
+    dra_b, ddec_b = body_coord.spherical_offsets_to(os_body)  # computes offset between corrected and astrometric
+
+    pstar = (star_coord.cartesian.xyz / star_coord.cartesian.norm()).value  # unitary vector observer -> star
+    pbs = (star_coord.cartesian - pos_sun.cartesian)  # vector Sun -> star
+    q = (pbs.xyz / pbs.norm()).value  # unitary vector Sun -> star
+
+    # computes the gravitational light deflection, return new normalized vector observer -> body
+    ds_star = erfa.ld(bm, pstar, q, e, em, 0)
+
+    os_star = SkyCoord(*ds_star * star_coord.cartesian.norm(), representation_type='cartesian')
+    dra_s, ddec_s = star_coord.spherical_offsets_to(os_star)  # computes offset between corrected and astrometric
+
+    return dra_b - dra_s, ddec_b - ddec_s
