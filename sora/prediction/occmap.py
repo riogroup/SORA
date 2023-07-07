@@ -617,12 +617,18 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon1 < 1e+30)
         axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(), color=ercolor)
+        j = np.where(lon1 > 1e+30)
+        if 'centerproj' not in kwargs:
+            plt.plot(ax2[j].to(u.m).value, by2[j].to(u.m).value, '--', color=ercolor, clip_on=(not centert), zorder=-0.2)
 
         ax3 = ax + errd*np.sin(paplus) + radius*np.sin(paplus)
         by3 = by + errd*np.cos(paplus) + radius*np.cos(paplus)
         lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon2 < 1e+30)
         axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(), color=ercolor)
+        j = np.where(lon1 > 1e+30)
+        if 'centerproj' not in kwargs:
+            plt.plot(ax3[j].to(u.m).value, by3[j].to(u.m).value, '--', color=ercolor, clip_on=(not centert), zorder=-0.2)
 
     # plots ring
     if ring is not None:
@@ -632,12 +638,18 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon1 < 1e+30)
         axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(), color=rncolor)
+        j = np.where(lon1 > 1e+30)
+        if 'centerproj' not in kwargs:
+            plt.plot(ax2[j].to(u.m).value, by2[j].to(u.m).value, '--', color=rncolor, clip_on=(not centert), zorder=-0.2)
 
         ax3 = ax + rng*np.sin(paplus)
         by3 = by + rng*np.cos(paplus)
         lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon2 < 1e+30)
         axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(), color=rncolor)
+        j = np.where(lon1 > 1e+30)
+        if 'centerproj' not in kwargs:
+            plt.plot(ax3[j].to(u.m).value, by3[j].to(u.m).value, '--', color=rncolor, clip_on=(not centert), zorder=-0.2)
 
     # plots atm
     if atm is not None:
@@ -647,12 +659,18 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         lon1, lat1 = xy2latlon(ax2.to(u.m).value, by2.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon1 < 1e+30)
         axf.plot(lon1[j], lat1[j], '--', transform=ccrs.Geodetic(), color=atcolor)
+        j = np.where(lon1 > 1e+30)
+        if 'centerproj' not in kwargs:
+            plt.plot(ax2[j].to(u.m).value, by2[j].to(u.m).value, '--', color=atcolor, clip_on=(not centert), zorder=-0.2)
 
         ax3 = ax + atmo*np.sin(paplus)
         by3 = by + atmo*np.cos(paplus)
         lon2, lat2 = xy2latlon(ax3.to(u.m).value, by3.to(u.m).value, centers.lon.value, centers.lat.value, datas1)
         j = np.where(lon2 < 1e+30)
         axf.plot(lon2[j], lat2[j], '--', transform=ccrs.Geodetic(), color=atcolor)
+        j = np.where(lon1 > 1e+30)
+        if 'centerproj' not in kwargs:
+            plt.plot(ax3[j].to(u.m).value, by3[j].to(u.m).value, '--', color=atcolor, clip_on=(not centert), zorder=-0.2)
 
     # plots center points
     vec = np.arange(0, int(8000/(np.absolute(occs['vel'].value))), cpoints)
