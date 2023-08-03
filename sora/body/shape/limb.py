@@ -8,11 +8,15 @@ __all__ = ['Limb']
 zero = geometry.Point(0, 0)
 
 
-class Limb(geometry.LineString):
+class Limb:
+    __doc__ = geometry.LineString.__doc__
+
+    def __init__(self, *args, **kwargs):
+        self._contour = geometry.LineString(*args, **kwargs)
 
     @property
     def xy(self):
-        return np.array(super(Limb, self).xy)
+        return np.array(self._contour.xy)
 
     def plot(self, center_f=0, center_g=0, scale=1, ax=None, **kwargs):
         """Plots the limb on the tangent plane
@@ -44,7 +48,7 @@ class Limb(geometry.LineString):
     @property
     def maxdist(self):
         """Computes the maximum distance of the limb from the origin"""
-        return self.hausdorff_distance(zero)
+        return self._contour.hausdorff_distance(zero)
 
     def radial_residual_to(self, fg):
         """Calculates radial residuals from points.
@@ -70,9 +74,15 @@ class Limb(geometry.LineString):
         """
         points = geometry.MultiPoint(fg)
         endlines = (fg.T * 1.1 * self.maxdist / np.linalg.norm(fg, axis=-1)).T
-        vals = [point.distance(self.intersection(geometry.LineString([zero, endline]))) for point, endline in
+        vals = [point.distance(self._contour.intersection(geometry.LineString([zero, endline]))) for point, endline in
                 zip(points.geoms, endlines)]
         return np.array(vals)
+
+    def __str__(self):
+        return self._contour.__str__()
+
+    def __repr__(self):
+        return self._contour.__repr__()
 
 
 def limb_radial_residual(limb, fg, center_f=0, center_g=0, scale=1, position_angle=0):

@@ -378,7 +378,7 @@ class Occultation:
                       format(normal_vel))
 
     @deprecated_alias(log='verbose')  # remove this line in v1.0
-    def new_astrometric_position(self, time=None, offset=None, error=None, verbose=True, observer=None):
+    def new_astrometric_position(self, time=None, offset=None, error=None, verbose=True, observer=None, sun_ld=False):
         """Calculates the new astrometric position for the object given fitted parameters.
 
         Parameters
@@ -418,6 +418,10 @@ class Occultation:
         observer : `str`, `sora.Observer`, `sora.Spacecraft`
             IAU code of the observer (must be present in given list of kernels),
             a SORA observer object or a string: ['geocenter', 'barycenter']
+
+        sun_ld : `bool`
+            If true, it computes the differential light deflection caused by the Sun
+            in the starlight before being occulted.
         """
         from astropy.coordinates import SkyCoord, SkyOffsetFrame
 
@@ -481,6 +485,17 @@ class Occultation:
         if e_dist:
             e_off_ra = np.arctan2(e_off_ra, distance)
             e_off_dec = np.arctan2(e_off_dec, distance)
+
+        if sun_ld:
+            from .utils import calc_sun_dif_ld
+
+            pos_star = self.star.get_position(time=time, observer=observer)
+            ndra, nddec = calc_sun_dif_ld(body_coord=coord, star_coord=pos_star, time=time, observer=observer)
+            off_ra -= ndra
+            off_dec -= nddec
+            print('Differential Sun Light Deflection included (mas): DRA={:.3f}, DDEC={:.3f}'.format(
+                  ndra.to(u.mas).value, nddec.to(u.mas).value))
+
         new_pos = SkyCoord(lon=off_ra, lat=off_dec, frame=coord_frame)
         new_pos = new_pos.icrs
 

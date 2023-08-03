@@ -169,7 +169,7 @@ class Body(BaseBody):
         pp = sbdb['phys_par']  # get the physical parameters (pp) of the sbdb
 
         if 'extent' in pp:
-            extent = np.array(pp['extent'].split('x'), dtype=np.float)/2
+            extent = np.array(pp['extent'].split('x'), dtype=float)/2
             self.shape = extent
         self.albedo = PhysicalData('Albedo', pp.get('albedo'), pp.get('albedo_sig'), pp.get('albedo_ref'), pp.get('albedo_note'))
         self.H = PhysicalData('Absolute Magnitude', pp.get('H'), pp.get('H_sig'), pp.get('H_ref'), pp.get('H_note'), unit=u.mag)
@@ -186,8 +186,9 @@ class Body(BaseBody):
         self.UB = PhysicalData('U-B color', pp.get('UB'), pp.get('UB_sig'), pp.get('UB_ref'), pp.get('UB_note'))
         if 'pole' in pp:
             self.pole = SkyCoord(pp['pole'].replace('/', ' '), unit=('deg', 'deg'))
-            self.pole.ra.uncertainty = Longitude(pp['pole_sig'].split('/')[0], unit=u.deg)
-            self.pole.dec.uncertainty = Latitude(pp['pole_sig'].split('/')[1], unit=u.deg)
+            pole_err = pp['pole_sig'].split('/')
+            self.pole.ra.uncertainty = Longitude(pole_err[0], unit=u.deg)
+            self.pole.dec.uncertainty = Latitude(pole_err[0] if len(pole_err) == 1 else pole_err[1], unit=u.deg)
             self.pole.reference = pp['pole_ref'] or ""
             self.pole.notes = pp['pole_note'] or ""
         else:

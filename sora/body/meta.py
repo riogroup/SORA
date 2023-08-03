@@ -89,6 +89,8 @@ class PhysicalData(u.Quantity):
     def uncertainty(self, value):
         unit = self.unit
         given_unit = unit
+        if '%' in str(value):
+            value = float(str(value).replace('%', ''))*self.value/100
         if isinstance(value, u.core.CompositeUnit):
             unit = u.dimensionless_unscaled
             for i in np.arange(len(value.bases)):
@@ -397,7 +399,7 @@ class BaseBody():
         elif isinstance(value, str):
             self._shape = Shape3D(value)
         else:
-            value = np.array(value, ndmin=1, dtype=np.float)
+            value = np.array(value, ndmin=1, dtype=float)
             if len(value) <= 3:
                 self._shape = Ellipsoid(*value)
             else:

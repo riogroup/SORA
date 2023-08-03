@@ -30,9 +30,9 @@ def read_obj_file(filename):
     faces = []
     for line in lines:
         if line.startswith('v '):
-            vertices.append(line.strip().split(' ')[1:4])
+            vertices.append(line.strip().split()[1:4])
         elif line.startswith('f '):
-            values = line.strip().split(' ')[1:]
+            values = line.strip().split()[1:]
             faces.append([i.split('/')[0] for i in values])
 
     vertices = np.array(vertices, dtype='float')
