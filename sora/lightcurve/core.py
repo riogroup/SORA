@@ -676,6 +676,7 @@ class LightCurve:
         fresnel_scale_2 = calc_fresnel(dist, lamb+dlamb/2.0)
         fresnel_scale = (fresnel_scale_1 + fresnel_scale_2)/2.0
         time_resolution = (np.min([fresnel_scale/vel, self.exptime]))/time_resolution_factor
+        self.model_resolution = time_resolution
 
         # Creating a high resolution curve to compute fresnel diffraction, stellar diameter and instrumental integration
         time_model = np.arange(time_obs.min()-5*self.exptime, time_obs.max()+5*self.exptime, time_resolution)
@@ -871,7 +872,7 @@ class LightCurve:
 
         if method not in ['chisqr', 'least_squares', 'ls', 'fastchi', 'differential_evolution', 'de']:
             warnings.warn(f'Invalid method `{method}` provided. Setting to default.')
-            method = 'least_squares'
+            method = 'chisqr'
 
         set_bestchi = False # variable used with convergence algorithms and fastchi
 
