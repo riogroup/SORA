@@ -676,6 +676,7 @@ class LightCurve:
         fresnel_scale_2 = calc_fresnel(dist, lamb+dlamb/2.0)
         fresnel_scale = (fresnel_scale_1 + fresnel_scale_2)/2.0
         time_resolution = (np.min([fresnel_scale/vel, self.exptime]))/time_resolution_factor
+        self.model_resolution = time_resolution
 
         # Creating a high resolution curve to compute fresnel diffraction, stellar diameter and instrumental integration
         time_model = np.arange(time_obs.min()-5*self.exptime, time_obs.max()+5*self.exptime, time_resolution)
@@ -758,6 +759,10 @@ class LightCurve:
             Fluxes errors. If None it will use the `self.dflux`. If 'auto' it
             will calculate using the region outside the event.
 
+        sigma_model : `int`, `float`, default=0
+            Model uncertainty to be considered in the fit, in flux. 
+            Only for method=='chisqr'.
+
         loop : `int`, default=10000
             Number of tests to be done.
 
@@ -790,7 +795,8 @@ class LightCurve:
         from multiprocessing import Pool
 
         allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max', 'immersion_time', 'emersion_time', 'opacity',
-                          'delta_t', 'dopacity', 'sigma', 'loop', 'verbose', 'sigma_result', 'method', 'threads']
+                          'delta_t', 'dopacity', 'sigma', 'loop', 'verbose', 'sigma_result', 'method', 'threads',
+                          'sigma_model']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if not hasattr(self, 'flux'):
@@ -823,6 +829,7 @@ class LightCurve:
                 tmin = immersion_time - 10*self.cycle
         tmax = kwargs.get('tmax', tmax)
         tmin = kwargs.get('tmin', tmin)
+        sigma_model = kwargs.get('sigma_model', 0)
         delta_t = kwargs.get('delta_t', delta_t)
         if 'immersion_time' in kwargs:
             immersion_time = kwargs['immersion_time']
@@ -865,7 +872,7 @@ class LightCurve:
 
         if method not in ['chisqr', 'least_squares', 'ls', 'fastchi', 'differential_evolution', 'de']:
             warnings.warn(f'Invalid method `{method}` provided. Setting to default.')
-            method = 'least_squares'
+            method = 'chisqr'
 
         set_bestchi = False # variable used with convergence algorithms and fastchi
 
@@ -875,11 +882,11 @@ class LightCurve:
             if verbose:
                 for i in progressbar(range(loop), 'LightCurve fit:'):
                     model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
-                    chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2))
+                    chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2 + sigma_model**2))
             else:
                 for i in range(loop):
                     model_test = self.__occ_model(t_i[i], t_e[i], opas[i], mask, flux_min=flux_min, flux_max=flux_max)
-                    chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2))
+                    chi2[i] = np.sum(((self.flux[mask] - model_test)**2)/(sigma[mask]**2 + sigma_model**2))
 
         else:
             # get the number of threads

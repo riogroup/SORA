@@ -67,9 +67,10 @@ class PredictRow(Row):
         sites : `dict`
             Plots site positions in map. It must be a python dictionary where the
             key is  the `name` of the site, and the value is a list with `longitude`,
-            `latitude`, `delta_x`, `delta_y` and `color`. `delta_x` and `delta_y`
-            are displacement, in km, from the point position of the site in the map
-            and the `name`. `color` is the color of the point.
+            `latitude`, `delta_x`, `delta_y`, `color` and `marker`. `delta_x` and 
+            `delta_y` are displacement, in km, from the point position of the site 
+            in the map and the `name`. `color` is the color of the point. `marker` is
+            the symbols used for each stations following matplotlib.pyplot properties. 
 
         site_name : `bool`
             If True, it prints the name of the sites given, else it plots only the points.

@@ -565,7 +565,7 @@ class Occultation:
         color = {'positive': 'blue', 'negative': 'red'}
         for name, chord in self.chords.items():
             obs = chord.observer
-            sites[name] = [obs.lon.deg, obs.lat.deg, 10, 10, color[chord.status()]]
+            sites[name] = [obs.lon.deg, obs.lat.deg, 10, 10, color[chord.status()], 'o']
         return sites
 
     def plot_occ_map(self, **kwargs):

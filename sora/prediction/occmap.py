@@ -194,9 +194,10 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     sites : `dict`
         Plots site positions in map. It must be a python dictionary where the
         key is  the `name` of the site, and the value is a list with `longitude`,
-        `latitude`, `delta_x`, `delta_y` and `color`. `delta_x` and `delta_y`
-        are displacement, in km, from the point position of the site in the map
-        and the `name`. `color` is the color of the point.
+        `latitude`, `delta_x`, `delta_y`, `color` and `marker`. `delta_x` and 
+        `delta_y` are displacement, in km, from the point position of the site 
+        in the map and the `name`. `color` is the color of the point. `marker` is
+        the symbols used for each stations following matplotlib.pyplot properties. 
 
     site_name : `bool`
         If True, it prints the name of the sites given, else it plots only the points.
@@ -405,11 +406,11 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     sites = {}
     if 'sites' in kwargs.keys():
         if type(kwargs['sites']) == str and os.path.isfile(kwargs['sites']):
-            data = np.loadtxt(kwargs['sites'], dtype={'names': ('name', 'lon', 'lat', 'offx', 'offy', 'color'),
-                                                      'formats': ('S30', 'f8', 'f8', 'f8', 'f8', 'S30')},
+            data = np.loadtxt(kwargs['sites'], dtype={'names': ('name', 'lon', 'lat', 'offx', 'offy', 'color','marker'),
+                                                      'formats': ('S30', 'f8', 'f8', 'f8', 'f8', 'S30','S30')},
                               delimiter=',', ndmin=1)
             for i, s in enumerate(data):
-                sites[s['name'].strip().decode()] = [s['lon'], s['lat'], s['offx'], s['offy'], s['color'].strip().decode()]
+                sites[s['name'].strip().decode()] = [s['lon'], s['lat'], s['offx'], s['offy'], s['color'].strip().decode(), s['marker']]
         elif type(kwargs['sites']) == dict:
             sites = kwargs['sites']
         else:
@@ -739,7 +740,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     # plots the sites
     for site in sites.keys():
         s = EarthLocation.from_geodetic(sites[site][0], sites[site][1], 0.0*u.km)
-        axf.plot(s.lon.deg, s.lat.deg, 'o', transform=ccrs.Geodetic(),
+        axf.plot(s.lon.deg, s.lat.deg, transform=ccrs.Geodetic(), marker=sites[site][5],
                  markersize=mapsize[0].value*sscale*10.0/46.0, color=sites[site][4])
         if site_name:
             xt, yt = latlon2xy(s.lon.deg, s.lat.deg, center_map.lon.value, center_map.lat.value)
