@@ -48,7 +48,7 @@ def parse_coordinate(coordinate):
     return coordinate.spherical
 
 
-def rotated_matrix(coordinate, sub_observer, pole_position_angle):
+def rotated_matrix(coordinate, sub_observer, pole_position_angle, right_hand=True):
     """
     Parameters
     ----------
@@ -61,6 +61,9 @@ def rotated_matrix(coordinate, sub_observer, pole_position_angle):
     pole_position_angle : `float`, `int`
         Body's North Pole position angle with respect to direction of the ICRS
         North Pole, i.e. N-E-S-W.
+    right_hand : `bool`
+        Defines de orientation which to compute the longitude
+        default: True
 
     Returns
     -------
@@ -68,8 +71,9 @@ def rotated_matrix(coordinate, sub_observer, pole_position_angle):
         Coordinate rotated by given orientation
     """
     sub_observer = parse_coordinate(sub_observer)
+    long_dir = {True: 1, False: -1}[right_hand]
     pa = u.Quantity(pole_position_angle, unit=u.deg)
-    rz = rotation_matrix(-sub_observer.lon, axis='z')
+    rz = rotation_matrix(-sub_observer.lon*long_dir, axis='z')
     ry = rotation_matrix(-sub_observer.lat, axis='y')
     rx = rotation_matrix(-pa, axis='x')
     rot_matrix = np.matmul(rx, np.matmul(ry, rz))

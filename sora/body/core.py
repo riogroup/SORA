@@ -137,6 +137,10 @@ class Body(BaseBody):
             self.spectral_type['Tholen']['value'] = kwargs.pop('tholen')
         for key in kwargs:
             setattr(self, key, kwargs[key])
+        try:
+            shape = self.shape
+        except AttributeError:
+            self.shape = self.radius.value
         self._shared_with['ephem']['search_name'] = self._search_name
         self._shared_with['ephem']['id_type'] = self._id_type
         if getattr(self, "frame", None) is None:

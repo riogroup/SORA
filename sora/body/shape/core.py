@@ -21,13 +21,16 @@ class Shape3D(BaseShape):
     ----------
     obj_file : `str`
         Path to the Wavefront OBJ file.
-
     texture : `str`
         Path to the image that contains the surface texture of the object.
         If None, then a gray color will be defined.
+    scale : `float`
+        Scale factor for the shape model
+    right_hand : `bool`
+        Defines de orientation which to compute the longitude
     """
 
-    def __init__(self, obj_file, texture=None, scale=1) -> None:
+    def __init__(self, obj_file, texture=None, scale=1, right_hand=False) -> None:
         super(Shape3D, self).__init__()
         vertices, faces = read_obj_file(obj_file)
         self.name = obj_file
@@ -38,6 +41,7 @@ class Shape3D(BaseShape):
         self._faces = faces
         if texture:
             self.texture = texture
+        self._right_hand = right_hand
 
     @property
     def faces(self):
@@ -115,7 +119,7 @@ class Shape3D(BaseShape):
             complementing the right-hand rule.
         """
         rotated_vertices = rotated_matrix(coordinate=self.vertices, sub_observer=sub_observer,
-                                          pole_position_angle=pole_position_angle)
+                                          pole_position_angle=pole_position_angle, right_hand=self._right_hand)
         return rotated_vertices
 
     @lru_cache(maxsize=128)
@@ -208,7 +212,8 @@ class Shape3D(BaseShape):
         ax = ax or plt.gca()
         ax.axis('equal')
 
-        vertices_observer = self.rotated_vertices(sub_observer=sub_observer, pole_position_angle=pole_position_angle)
+        params = {'sub_observer': sub_observer, 'pole_position_angle': pole_position_angle}
+        vertices_observer = self.rotated_vertices(**params)
         cart_obs = vertices_observer[self.faces.T]
         ab = cart_obs[0] - cart_obs[1]
         ac = cart_obs[0] - cart_obs[-1]
@@ -237,8 +242,9 @@ class Shape3D(BaseShape):
         minz = vert.z.argmin()
         npole = CartesianRepresentation([0, 0] * u.km, [0, 0] * u.km, [vert[maxz].norm(), maxd * 1.2])*scale
         spole = CartesianRepresentation([0, 0] * u.km, [0, 0] * u.km, [-vert[minz].norm(), -maxd * 1.2])*scale
-        rnpole = rotated_matrix(coordinate=npole, sub_observer=sub_observer, pole_position_angle=pole_position_angle)
-        rspole = rotated_matrix(coordinate=spole, sub_observer=sub_observer, pole_position_angle=pole_position_angle)
+        params['right_hand'] = self._right_hand
+        rnpole = rotated_matrix(coordinate=npole, **params)
+        rspole = rotated_matrix(coordinate=spole, **params)
 
         poles = {'north': rnpole, 'south': rspole}
         pcolor = {'north': 'red', 'south': 'blue'}
@@ -261,9 +267,9 @@ class Shape3D(BaseShape):
 
 class Ellipsoid(Shape3D):
 
-    def __init__(self, a, b=None, c=None, texture=None):
+    def __init__(self, a, b=None, c=None, texture=None, right_hand=False):
         obj_file = pkg_resources.resource_filename('sora', 'data/sphere.obj')
-        super().__init__(obj_file=obj_file, texture=texture)
+        super().__init__(obj_file=obj_file, texture=texture, right_hand=right_hand)
         self.a = a
         self.b = b or self.a
         self.c = c or self.b

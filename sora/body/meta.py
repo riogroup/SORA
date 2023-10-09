@@ -381,8 +381,9 @@ class BaseBody():
         from .frame import PlanetocentricFrame
         if not isinstance(value, PlanetocentricFrame):
             raise ValueError('frame attribute must be a PlanetocentricFrame object.')
-        self.pole = value.pole
         self._frame = value
+        self.pole = value.pole
+        self.shape.right_hand = value.right_hand
 
     @property
     def shape(self):
