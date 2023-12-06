@@ -16,7 +16,7 @@ class PlanetocentricFrame(BaseCoordinateFrame):
     Parameters
     ----------
     epoch : `str`, `astropy.time.Time`
-        Reference epoch of the given parameters, in TDB.
+        Reference epoch of the given parameters.
 
     pole : `str`, `astropy.coordinates.SkyCoord`
         ICRS coordinates of the pole at reference epoch.
@@ -89,6 +89,7 @@ class PlanetocentricFrame(BaseCoordinateFrame):
         ----------
         epoch : `str`, `astropy.time.Time`
             Time to which rotate the frame.
+            If string, the scale will be UTC.
 
         Returns
         -------
@@ -115,6 +116,7 @@ class PlanetocentricFrame(BaseCoordinateFrame):
         ----------
         epoch : `str`, `astropy.time.Time`
             Time to which rotate the frame.
+            If string, the scale will be UTC.
 
         Returns
         -------
@@ -139,7 +141,7 @@ class PlanetocentricFrame(BaseCoordinateFrame):
 
     def __str__(self):
         string = ["PlanetocentricFrame:",
-                  "    Epoch: {}".format(self.epoch.__str__()),
+                  "    Epoch: {} {}".format(self.epoch.__str__(), self.epoch.scale),
                   "    alpha_pole = {} {:+f}*T {}".format(self.pole.ra.value, self.alphap.value*100,
                                                           ''.join(self.extra_alpha.__str__().split('\n'))),
                   "    delta_pole = {} {:+f}*T {}".format(self.pole.dec.value, self.deltap.value*100,
