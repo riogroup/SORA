@@ -243,6 +243,10 @@ gaiadr3 = VizierCatalogue(name='GaiaDR3', cat_path='I/355/gaiadr3', code='Source
                           pmra='pmRA', pmdec='pmDE', epoch=epoch, parallax='Plx', rad_vel='RV', band={'G': 'Gmag'},
                           errors=['e_RA_ICRS', 'e_DE_ICRS', 'e_pmRA', 'e_pmDE', 'e_Plx', 'e_RV'])
 
+epoch_ubsc = Time('J1991.25', scale='tdb')
+ubsc = VizierCatalogue(name='UBSC', cat_path='J/AJ/164/36/table2', code='HIP', ra='RA_ICRS', dec='DE_ICRS',
+                       pmra='pmRA', pmdec='pmDE', epoch=epoch_ubsc, parallax='plx', band={'Hp': 'Hpmag'},
+                       errors=['e_RA_ICRS', 'e_DE_ICRS', 'e_pmRA', 'e_pmDE', 'e_plx', None])
 
 allowed_catalogues = SelectDefault(instance=VizierCatalogue,
-                                   defaults={'gaiadr2': gaiadr2, 'gaiaedr3': gaiaedr3, 'gaiadr3': gaiadr3})
+                                   defaults={'gaiadr2': gaiadr2, 'gaiaedr3': gaiaedr3, 'gaiadr3': gaiadr3, 'ubsc': ubsc})
