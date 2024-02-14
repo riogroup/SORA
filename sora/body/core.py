@@ -189,12 +189,20 @@ class Body(BaseBody):
         self.BV = PhysicalData('B-V color', pp.get('BV'), pp.get('BV_sig'), pp.get('BV_ref'), pp.get('BV_note'))
         self.UB = PhysicalData('U-B color', pp.get('UB'), pp.get('UB_sig'), pp.get('UB_ref'), pp.get('UB_note'))
         if 'pole' in pp:
-            self.pole = SkyCoord(pp['pole'].replace('/', ' '), unit=('deg', 'deg'))
-            pole_err = pp['pole_sig'].split('/')
-            self.pole.ra.uncertainty = Longitude(pole_err[0], unit=u.deg)
-            self.pole.dec.uncertainty = Latitude(pole_err[0] if len(pole_err) == 1 else pole_err[1], unit=u.deg)
-            self.pole.reference = pp['pole_ref'] or ""
-            self.pole.notes = pp['pole_note'] or ""
+            delimiters = [",", "|", ";", "/"]
+            pole = pp['pole']
+            for delimiter in delimiters:
+                pole = pole.replace(delimiter, " ")
+            if len(pole.split()) == 2:
+                self.pole = SkyCoord(pole, unit=('deg', 'deg'))
+                # Removed uncertainty due to different SBDB formats.
+                # pole_err = pp['pole_sig'].split('/')
+                # self.pole.ra.uncertainty = Longitude(pole_err[0], unit=u.deg)
+                # self.pole.dec.uncertainty = Latitude(pole_err[0] if len(pole_err) == 1 else pole_err[1], unit=u.deg)
+                self.pole.reference = pp['pole_ref'] or ""
+                self.pole.notes = pp['pole_note'] or ""
+            else:
+                self.pole = None
         else:
             self.pole = None
         self.spectral_type = {
