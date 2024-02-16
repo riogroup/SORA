@@ -35,6 +35,7 @@ Welcome to SORA's v0.3 documentation!
    modules
    GettingStarted
    examples
+   videotutorials
    guidelines
    knownissues
 

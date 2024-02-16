@@ -52,6 +52,7 @@ extensions = [
     'sphinx_rtd_theme',
     'nbsphinx',
     'sphinx_issues',
+    'sphinxcontrib.youtube'
 ]
 
 # GitHub repo
