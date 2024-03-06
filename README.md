@@ -80,11 +80,11 @@ SORA was developed in Python 3.7 and requires the following packages:
 
 -  SciPy (1.7.1): Otimized functions for mathematics, science, and engineering.
 
--  SpiceyPy (5.1.1): SPICE/NAIF functions in python.
+-  SpiceyPy (6.0.0): SPICE/NAIF functions in python.
 
 -  PyERFA (2.0): Python wrapper for the ERFA library based on the SOFA library.
 
--  Cartopy (0.22): Geospatial data processing to produce maps.
+-  Cartopy (0.21): Geospatial data processing to produce maps.
 
 -  Shapely (2.0.1): Package for set-theoretic analysis and manipulation of planar features.
 

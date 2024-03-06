@@ -1,0 +1,64 @@
+SORA v0.3.1 (2024/Mar/19)
+=========================
+
+New Features
+------------
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Included `sigma_model` to the LightCurve fit. [:issue:`87`]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Now it is possible to obtain the final astrometri position considering
+  the relative light deflection between the body and the star caused only by the Sun.
+  This feature can be only used in the method `new_astrometric_position` of the
+  Occultation object. It does not change chord projection. [:issue:`84`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Included the possibility to change the marker formats of sites when
+  plotting the occultation maps.  [:issue:`87`]
+
+sora.star
+^^^^^^^^^
+
+- Included USNO Bright Star Catalogue in the default list of catalogues.
+
+API Changes
+-----------
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Default method in fitting changed from least squares to chi sqrares. [:issue:`87`]
+
+Bug Fixes
+---------
+
+sora.body
+^^^^^^^^^
+
+- Fixes a bug that did not properly read OBJ files in some cases [:issue:`84`]
+
+- Removed numpy.float as it is deprecated in numpy. [:issue:`84`]
+
+- Removed cache from SBDB as it may not get new data from the webserver. [:issue:`84`]
+
+- Fixes a problem caused by the update of Shapely to v2.0. [:issue:`84`]
+
+- Fixes orientation parametes for some satellites and asteroids from Archinal
+  where the longitude was counted in the wrong direction. [:issue:`84`]
+
+- Fixed orientation issue between shape and frame.
+
+- Included a safeguard when reading pole coordinates from SBDB to not cause an issue
+  if the format is different from expected.
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Fixed problem in occultation maps where the error bars were not plotted outsid Earth. [:issue:`84`]

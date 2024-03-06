@@ -36,35 +36,43 @@ SORA Team
 
 
 .. table::
-   :widths: 30 50
+   :widths: 30 1 50
 
-   +--------+---------------------------------------------------+
-   | Photo  | Details                                           |
-   +========+===================================================+
-   |        | | **Dr. Altair Ramos Gomes Júnior**               |
-   | |pic1| | | Assistant Professor                             |
-   |        | | Federal University of Uberlândia/Brazil         |
-   +--------+---------------------------------------------------+
-   |        | | **Dr. Bruno Eduardo Morgado**                   |
-   | |pic2| | | Assistant Professor                             |
-   |        | | UFRJ-Observatório do Valongo and LIneA/Brazil   |
-   +--------+------------+--------------------------------------+
-   |        | | **Dr. Gustavo Benedetti Rossi**                 |
-   | |pic3| | | Postdoctoral Researcher                         |
-   |        | | UNESP-Campus Guaratinguetá and LIneA/Brazil     |
-   +--------+------------+--------------------------------------+
-   |        | | **Dr. Rodrigo Carlos Boufleur**                 |
-   | |pic4| | | Postdoctoral Researcher                         |
-   |        | | Observatório Nacional and LIneA/Brazil          |
-   +--------+------------+--------------------------------------+
-   |        | | **Dr. Flavia Luane Rommel**                     |
-   | |pic5| | | Postdoctoral Researcher                         |
-   |        | | Observatório Nacional and LIneA/Brazil          |
-   +--------+------------+--------------------------------------+
-   |        | | **Dr. Martin Banda Huarca**                     |
-   | |pic6| | | Postdoctoral Researcher                         |
-   |        | | LIneA and INCT do e-Universo/Brazil             |
-   +--------+------------+--------------------------------------+
+   +--------+--------------------------------------------------------------------------+
+   | Photo  | Details                                                                  |
+   +========+==========================================================================+
+   |        | | **Dr. Altair Ramos Gomes Júnior**                                      |
+   | |pic1| | | Assistant Professor                                                    |
+   |        | | Federal University of Uberlândia/Brazil                                |
+   +--------+------------+-------------------------------------------------------------+
+   |        | | **Dr. Bruno Eduardo Morgado**                                          |
+   | |pic2| | | Assistant Professor                                                    |
+   |        | | UFRJ-Observatório do Valongo and LIneA/Brazil                          |
+   +--------+------------+-------------------------------------------------------------+
+   |        | | **Dr. Gustavo Benedetti Rossi**                                        |
+   | |pic3| | | Postdoctoral Researcher                                                |
+   |        | | UNESP-Campus Guaratinguetá and LIneA/Brazil                            |
+   +--------+------------+-------------------------------------------------------------+
+   |        | | **Dr. Rodrigo Carlos Boufleur**                                        |
+   | |pic4| | | Postdoctoral Researcher                                                |
+   |        | | Observatório Nacional and LIneA/Brazil                                 |
+   +--------+------------+-------------------------------------------------------------+
+   |        | | **Dr. Flavia Luane Rommel**                                            |
+   | |pic5| | | Postdoctoral Researcher                                                |
+   |        | | Florida Space Institute - University of Central Florida, Orlando, USA  |
+   +--------+------------+-------------------------------------------------------------+
+   |        | | **Dr. Martin Banda Huarca**                                            |
+   | |pic6| | | Postdoctoral Researcher                                                |
+   |        | | LIneA and INCT do e-Universo/Brazil                                    |
+   +--------+------------+-------------------------------------------------------------+
+   |        | | **MSc. Chrystian Luciano Pereira**                                     |
+   | |pic7| | | Ph.D. Student                                                         |
+   |        | | Observatório Nacional/Brazil                                           |
+   +--------+------------+-------------------------------------------------------------+
+   |        | | **Giuliano Margotti**                                                  |
+   | |pic8| | | Master Student                                                         |
+   |        | | Federal University of Technology, Paraná/Brazil                        |
+   +--------+------------+-------------------------------------------------------------+
 
 
 .. |pic1| image:: images/Altair_Gomes.jpg
@@ -83,6 +91,12 @@ SORA Team
    :width: 100%
    
 .. |pic6| image:: images/Martin_Banda.jpg
+   :width: 100%
+
+.. |pic7| image:: images/Chrystian_Pereira.jpeg
+   :width: 100%
+
+.. |pic8| image:: images/Giuliano_Margotti.jpeg
    :width: 100%
    
 Contact us
