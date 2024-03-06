@@ -24,7 +24,7 @@ setup(
         'pyerfa>=2.0',
         'astropy>=4.3.1',
         'astroquery>=0.4.6',
-        'spiceypy>=5.1.1',
+        'spiceypy>=6.0.0',
         'matplotlib>=3.5.3',
         'scipy>=1.7.1',
         'requests',
