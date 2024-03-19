@@ -5,7 +5,7 @@ __all__ = ['occ_detect']
 
 
 def occ_detect(flux, dflux, time, cycle, maximum_duration=None, dur_step=None, snr_limit=None,
-               n_detections=None, plot=False):
+               n_detections=None, tmin=None, tmax=None, plot=False):
     """Detects automatically the occultation event in the light curve.
 
     Detects a 'square well' shaped transit. All parameters are optional.
@@ -38,6 +38,12 @@ def occ_detect(flux, dflux, time, cycle, maximum_duration=None, dur_step=None, s
         Number of detections regardless the SNR. `n_detections` is superseded by
         `snr_limit`.
 
+    tmin : `float`, default=None
+        Lower limit in time to the lightcurve.
+
+    tmax : `float`, default=None
+        Upper limit in time to the lightcurve.
+
     plot : `boolean`, default=False
         True if output plots are desired.
 
@@ -46,7 +52,8 @@ def occ_detect(flux, dflux, time, cycle, maximum_duration=None, dur_step=None, s
     -------
     OrderedDict : `dict`
         An ordered dictionary of :attr:`name`::attr:`value` pairs for each
-        parameter.
+        parameter. 'occ_mask' parameter reflects `tmin` and `tmax` intervals 
+        when applied.
 
 
     Examples
@@ -68,6 +75,23 @@ def occ_detect(flux, dflux, time, cycle, maximum_duration=None, dur_step=None, s
     'occ_mask': array([False, False, False, ..., False, False, False])}
 
     """
+    original_array_lenght = len(time)
+
+    # Check if tmin == tmax
+    if (tmin is not None) and (tmax is not None) and (tmin == tmax):
+        raise ValueError("tmin should be less than tmax")
+
+    # Ensure that tmin < tmax
+    if (tmin is not None) and (tmax is not None) and (tmin > tmax):
+        tmin, tmax = tmax, tmin
+
+    # Assuming tmin and tmax are already defined variables
+    tidx0 = np.argmin(time <= tmin) if (tmin is not None) else 0
+    tidx1 = np.argmax(time >= tmax)-1 if (tmax is not None) else -1
+
+    # Adjust variables for tmin and tmax
+    time, flux = time[tidx0:tidx1].copy(), flux[tidx0:tidx1].copy()
+    dflux = dflux[tidx0:tidx1].copy() if dflux is not None else None
 
     # duration of the light curve
     time_span = time[-1] - time[0]
