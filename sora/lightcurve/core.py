@@ -802,13 +802,14 @@ class LightCurve:
         if not hasattr(self, 'flux'):
             raise ValueError('Fit curve is only possible when a LightCurve is instantiated with time and flux.')
 
-        preliminar_occ = self.occ_detect()
+        tmax = self.time.max()
+        tmin = self.time.min()
+
+        preliminar_occ = self.occ_detect(tmin=tmin, tmax=tmax)
 
         delta_t = 2*self.cycle
         loop = kwargs.get('loop', 10000)
         verbose = kwargs.get('verbose', True)
-        tmax = self.time.max()
-        tmin = self.time.min()
         immersion_time = tmin - self.exptime
         do_immersion = False
         emersion_time = tmax + self.exptime
@@ -1109,27 +1110,45 @@ class LightCurve:
             f.close()
 
     def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None,
-                   n_detections=None, plot=False):
+                   n_detections=None, tmin=None, tmax=None, plot=False):
         """Detects automatically the occultation event in the light curve.
 
         Detects a 'square well' shaped transit. All parameters are optional.
 
         Parameters
         ----------
+        flux : `float` array
+            Flux of the time series. Dependent variable.
+
+        dflux: `float` array
+            Error in the flux. Error in the dependent variable.
+
+        time: `float` array
+            Time variable. Independent variable.
+
+        cycle: `float`
+            Sampling value of the time series.
+
         maximum_duration : `float`, default: light curve time span
             Maximum duration of the occultation event.
 
-        dur_step : `float`, default: 1/2 of sampling rate
+        dur_step : `float`, default: 1/2 cycle
             Step size to sweep occultation duration event.
 
         snr_limit : `float`, default=None
             Minimum occultation SNR.
 
         n_detections : `int`, default=1
-            Number of detections regardless the SNR. `n_detections` is
-            superseded by `snr_limit`.
+            Number of detections regardless the SNR. `n_detections` is superseded by
+            `snr_limit`.
 
-        plot : `bool`
+        tmin : `float`, default=None
+            Lower limit in time to the lightcurve.
+
+        tmax : `float`, default=None
+            Upper limit in time to the lightcurve.
+
+        plot : `boolean`, default=False
             True if output plots are desired.
 
 
@@ -1137,7 +1156,8 @@ class LightCurve:
         -------
         OrderedDict : `dict`
             An ordered dictionary of :attr:`name`::attr:`value` pairs for each
-            parameter.
+            parameter. 'occ_mask' parameter reflects `tmin` and `tmax` intervals 
+            when applied.
 
         Examples
         --------
@@ -1159,7 +1179,7 @@ class LightCurve:
         """
         from .occdetect import occ_detect
         occ = occ_detect(self.flux, self.dflux, self.time, self.cycle, maximum_duration=maximum_duration,
-                         dur_step=dur_step, snr_limit=snr_limit, n_detections=n_detections, plot=plot)
+                         dur_step=dur_step, snr_limit=snr_limit, n_detections=n_detections, tmin=tmin, tmax=tmax, plot=plot)
         return occ
 
     def __occ_model(self, immersion_time, emersion_time, opacity, mask, npt_star=12,
