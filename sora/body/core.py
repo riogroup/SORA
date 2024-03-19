@@ -268,7 +268,7 @@ class Body(BaseBody):
         self.discovery = ""
 
     def get_position(self, time, observer='geocenter'):
-        """Returns the object geocentric position.
+        """Returns the object position as seen by an observer
 
         Parameters
         ----------
@@ -388,6 +388,32 @@ class Body(BaseBody):
         f.close()
 
     def get_orientation(self, time, observer='geocenter'):
+        """Returns the object orientation as seen by an observer.
+
+        Parameters
+        ----------
+        time : `str`, `astropy.time.Time`
+            Epoch of observation to calculate the object orientation. It can be a string
+            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        observer : `str`, `sora.Observer`, `sora.Spacecraft`
+            IAU code of the observer (must be present in given list of kernels),
+            a SORA observer object or a string: ['geocenter', 'barycenter']
+            to compute ephemeris.
+
+        Returns
+        -------
+        orientation : `dict`
+            A dictionary with the following orientation parameters:
+            - `sub_observer`: `str`
+                the longitude and latitude of the body in the direction of the observer.
+            - `sub_solar` : `str`
+                The sub-solar coordinate.
+            - `pole_position_angle` : `astropy.coordinates.Angle`
+                Apparent position angle of the pole.
+            - `pole_aperture_angle` : `astropy.coordinates.Angle`
+                Apparent aperture angle of the pole.
+        """
         time = Time(time)
         pos = self.ephem.get_position(time=time, observer=observer)
         orientation = {}
