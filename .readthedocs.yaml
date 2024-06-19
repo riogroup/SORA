@@ -19,7 +19,7 @@ sphinx:
   # You can configure Sphinx to use a different builder, for instance use the dirhtml builder for simpler URLs
   builder: "html"
   # Fail on all warnings to avoid broken references
-  fail_on_warning: false
+  fail_on_warning: False
 
 # Optionally build your docs in additional formats such as PDF
 formats:
