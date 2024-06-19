@@ -8,3 +8,5 @@ astroquery
 tqdm
 shapely
 scipy
+sphinx_rtd_theme
+sphinxcontrib.youtube
