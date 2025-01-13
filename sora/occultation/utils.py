@@ -1,7 +1,6 @@
 import numpy as np
 import astropy.constants as const
 import astropy.units as u
-from astropy.coordinates import SkyOffsetFrame
 
 from sora.body import Body
 from sora.ephem import EphemHorizons
@@ -230,10 +229,6 @@ def add_arrow(line, position=None, direction='right', size=15, color=None):
                        )
 
 
-sun = Body(name='Sun', spkid='10', ephem=EphemHorizons(name='Sun', spkid=10, id_type='majorbody'),
-           GM=const.G*(1*u.M_sun), database=None)
-
-
 def calc_sun_dif_ld(body_coord, star_coord, time, observer="geocenter"):
     """Computes differential light deflection of star and body caused by the Sun.
 
@@ -262,6 +257,8 @@ def calc_sun_dif_ld(body_coord, star_coord, time, observer="geocenter"):
     import erfa
     from astropy.coordinates import SkyCoord
 
+    sun = Body(name='Sun', spkid='10', ephem=EphemHorizons(name='Sun', spkid=10, id_type='majorbody'),
+               GM=const.G * (1 * u.M_sun), database=None)
     pos_sun = sun.get_position(time=time, observer=observer)
     bm = 1  # Sun Mass in Solar Masses
 
