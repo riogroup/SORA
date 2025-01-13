@@ -1,5 +1,6 @@
 import os
 import warnings
+from pathlib import Path
 
 import astropy.constants as const
 import astropy.units as u
@@ -397,8 +398,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     arrow = kwargs.get('arrow', True)
     site_name = kwargs.get('site_name', True)
     path = kwargs.get('path', '.')
-    if not os.path.exists(path):
-        raise IOError('Path does not exists')
+    Path(path).mkdir(parents=True, exist_ok=True)
     chord_delta = np.array(kwargs.get('chord_delta', []), ndmin=1)*u.km
     chord_geo = kwargs.get('chord_geo', [])
     if len(chord_geo) > 0:
