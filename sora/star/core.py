@@ -97,6 +97,8 @@ class Star(MetaStar):
         self.bjones = False
         self.__cgaudin = kwargs.get('cgaudin', True)
 
+        self.code = ''
+        self.cov = np.zeros((6, 6))
         if 'code' in kwargs:
             self.code = kwargs['code']
         if 'coord' in kwargs:
