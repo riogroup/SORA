@@ -4,7 +4,7 @@ import warnings
 
 import astropy.units as u
 import numpy as np
-from astropy.coordinates import SkyCoord, get_sun, get_moon
+from astropy.coordinates import SkyCoord, get_body
 from astropy.table import Table, Row, Column
 from astropy.time import Time
 
@@ -239,9 +239,9 @@ class PredictionTable(Table):
                 longi = (coord.ra - time.sidereal_time('mean', 'greenwich')).wrap_at(360*u.deg)
                 ntime = time + longi.hour*u.hour
                 values['loct'] = Column(['{}'.format(t.iso[11:16]) for t in ntime], unit='hh:mm')
-            moon_pos = get_moon(time)
+            moon_pos = get_body('moon', time)
             values['M-G-T'] = Column(moon_pos.separation(coord), unit='deg', format='3.0f')
-            sun_pos = get_sun(time)
+            sun_pos = get_body('sun', time)
             values['S-G-T'] = Column(sun_pos.separation(coord), unit='deg', format='3.0f')
             catalogue = kwargs.get('meta', {}).get('catalogue', '')
             if 'source' in kwargs.keys():
