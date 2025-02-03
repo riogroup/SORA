@@ -748,6 +748,9 @@ class LightCurve:
 
         opacity : `int`, `float`, default=1
             Initial guess for opacity. Opaque = 1, Transparent = 0.
+            Please note that this opacity already takes into account both
+            the Airy diffraction and cross-sectional flux block by individual 
+            particles (Cuzzi, 1984), where p = 1 - sqrt(transmittance)
 
         delta_t : `int`, `float`
             Interval to fit immersion or emersion time.
