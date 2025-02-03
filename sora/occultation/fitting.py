@@ -527,7 +527,8 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
     return [chi2_best, f0_chi, g0_chi, a_chi,  obla_chi, posang_chi]
 
 
-def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, dscale=0, loop=150000):
+def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, dscale=0, loop=150000,
+                model_error=0):
     """
 
     Parameters
@@ -565,6 +566,9 @@ def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=
     loop : `int`, default=150000
         The number of centers to attempt fitting.
 
+     model_error :  `int`, `float`, default=0
+        Model uncertainty to be considered in the fit, in km.
+
     Returns
     -------
 
@@ -590,7 +594,7 @@ def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=
     x0 = center_f + dcenter_f * (2 * np.random.random(loop) - 1)
     y0 = center_g + dcenter_g * (2 * np.random.random(loop) - 1)
     s0 = scale + dscale * (2 * np.random.random(loop) - 1)
-    err2 = np.square(error)
+    err2 = np.square(error) + np.square(model_error)
 
     def calc_dist(item):
         residual = limb_radial_residual(limb, fg, center_f=x0[item], center_g=y0[item], scale=s0[item])
@@ -601,7 +605,8 @@ def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=
     return ChiSquare(chi2, center_f=x0, center_g=y0, scale=s0, npts=len(fg))
 
 
-def fit_shape(occ, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, dscale=0, loop=150000, sigma_result=1):
+def fit_shape(occ, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, dscale=0, loop=150000, sigma_result=1,
+              model_error=0):
     """
     Parameters
     ----------
@@ -623,6 +628,8 @@ def fit_shape(occ, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, ds
         The number of centers to attempt fitting.
     sigma_result : `int`, `float`
         Sigma value to be considered as result.
+    model_error :  `int`, `float`, default=0
+        Model uncertainty to be considered in the fit, in km.
 
     Returns
     -------
@@ -635,7 +642,7 @@ def fit_shape(occ, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, ds
     limb = occ.body.shape.get_limb(**orientation)
     chord_names, fg, error = occ.chords.get_limb_points()
     chisquare = fit_to_limb(limb, fg, error, center_f=center_f, dcenter_f=dcenter_f, center_g=center_g, dcenter_g=dcenter_g,
-                            scale=scale, dscale=dscale, loop=loop)
+                            scale=scale, dscale=dscale, loop=loop, model_error=model_error)
 
     result_sigma = chisquare.get_nsigma(sigma=sigma_result)
     occ.fitted_params = {i: result_sigma[i] for i in ['center_f', 'center_g', 'scale']}

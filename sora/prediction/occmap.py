@@ -1,10 +1,13 @@
 import os
+import warnings
+from pathlib import Path
 
 import astropy.constants as const
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import GCRS, ITRS, SkyOffsetFrame, SkyCoord, EarthLocation, Angle, get_sun
 from astropy.time import Time
+from astropy.utils.exceptions import AstropyWarning
 
 from sora.config import input_tests
 
@@ -38,8 +41,10 @@ def xy2latlon(x, y, loncen, latcen, time):
     """
     r = const.R_earth.to(u.m).value
     site_cen = EarthLocation(loncen*u.deg, latcen*u.deg)
-    itrs_cen = site_cen.get_itrs(obstime=time)
-    gcrs_cen = itrs_cen.transform_to(GCRS(obstime=time))
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyWarning)
+        itrs_cen = site_cen.get_itrs(obstime=time)
+        gcrs_cen = itrs_cen.transform_to(GCRS(obstime=time))
 
     z = np.array(y, ndmin=1)
     y = np.array(x, ndmin=1)
@@ -64,8 +69,10 @@ def xy2latlon(x, y, loncen, latcen, time):
             n_itrs = n_coord.transform_to(ITRS(obstime=time))
             n_site = n_itrs.earth_location
             n_site = EarthLocation(n_site.lon, n_site.lat, 0)
-            itrs_site = n_site.get_itrs(obstime=time)
-            gcrs_site = itrs_site.transform_to(GCRS(obstime=time))
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', AstropyWarning)
+                itrs_site = n_site.get_itrs(obstime=time)
+                gcrs_site = itrs_site.transform_to(GCRS(obstime=time))
             target1 = gcrs_site.transform_to(center_frame[a])
             if n == 4:
                 lon[a] = n_site.lon.deg
@@ -391,8 +398,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     arrow = kwargs.get('arrow', True)
     site_name = kwargs.get('site_name', True)
     path = kwargs.get('path', '.')
-    if not os.path.exists(path):
-        raise IOError('Path does not exists')
+    Path(path).mkdir(parents=True, exist_ok=True)
     chord_delta = np.array(kwargs.get('chord_delta', []), ndmin=1)*u.km
     chord_geo = kwargs.get('chord_geo', [])
     if len(chord_geo) > 0:

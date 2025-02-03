@@ -1,6 +1,9 @@
+import warnings
+
 import astropy.units as u
 from astropy.coordinates import SkyCoord, EarthLocation, GCRS, AltAz
 from astropy.time import Time
+from astropy.utils.exceptions import AstropyWarning
 
 from sora.config import input_tests
 from .utils import search_code_mpc
@@ -203,7 +206,9 @@ class Observer:
         from sora.ephem.utils import ephem_horizons, ephem_kernel
 
         itrs = self.site.get_itrs(obstime=time)
-        gcrs = itrs.transform_to(GCRS(obstime=time))
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', AstropyWarning)
+            gcrs = itrs.transform_to(GCRS(obstime=time))
 
         if self.ephem == 'horizons':
             vector = ephem_horizons(time=time, target=self.spkid, observer=origin, id_type='majorbody', output='vector')

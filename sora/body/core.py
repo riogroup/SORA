@@ -510,7 +510,7 @@ class Body(BaseBody):
             if value:
                 out.append('    Tholen: {} [Reference: {}]\n'.format(value, self.spectral_type['Tholen']['reference']))
             out += " "*7 + (smass.get(self.spectral_type['SMASS']['value']) or
-                            tholen.get(self.spectral_type['Tholen']['value'])) + "\n"
+                            tholen.get(self.spectral_type['Tholen']['value']) or '') + "\n"
         out.append(self.discovery)
 
         out.append('\n\nPhysical parameters:\n')

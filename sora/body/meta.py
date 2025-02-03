@@ -106,6 +106,8 @@ class PhysicalData(u.Quantity):
             raise ValueError('Given value must be a scalar. Given: {}'.format(value))
         if not unit.is_equivalent(self.unit):
             raise ValueError('{} is not equivalent to {}'.format(unit, given_unit))
+        if '/' in str(value):
+            value = np.max(np.absolute([float(i) for i in str(value).split('/')]))
         self._uncertainty = u.Quantity(value, unit).to(given_unit)
         if self._uncertainty < 0:
             raise ValueError('uncertainty cannot be a negative value')

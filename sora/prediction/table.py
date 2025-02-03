@@ -7,6 +7,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord, get_body
 from astropy.table import Table, Row, Column
 from astropy.time import Time
+from astropy.utils.exceptions import AstropyWarning
 
 from sora.config import input_tests
 
@@ -240,9 +241,9 @@ class PredictionTable(Table):
                 ntime = time + longi.hour*u.hour
                 values['loct'] = Column(['{}'.format(t.iso[11:16]) for t in ntime], unit='hh:mm')
             moon_pos = get_body('moon', time)
-            values['M-G-T'] = Column(moon_pos.separation(coord), unit='deg', format='3.0f')
+            values['M-G-T'] = Column(moon_pos.separation(coord, origin_mismatch="ignore"), unit='deg', format='3.0f')
             sun_pos = get_body('sun', time)
-            values['S-G-T'] = Column(sun_pos.separation(coord), unit='deg', format='3.0f')
+            values['S-G-T'] = Column(sun_pos.separation(coord, origin_mismatch="ignore"), unit='deg', format='3.0f')
             catalogue = kwargs.get('meta', {}).get('catalogue', '')
             if 'source' in kwargs.keys():
                 values[f'{catalogue} Source ID'] = Column(kwargs['source'], dtype='str')
@@ -442,11 +443,14 @@ class PredictionTable(Table):
         f.close()
 
     def plot_occ_map(self, **kwargs):
-        basename = kwargs.get('nameimg', None)
-        for i in range(len(self)):
-            if basename and len(self) > 1:
-                kwargs['nameimg'] = f'{basename}_{i}'
-            self[i].plot_occ_map(**kwargs)
+        from astropy.utils.exceptions import AstropyWarning
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', AstropyWarning)
+            basename = kwargs.get('nameimg', None)
+            for i in range(len(self)):
+                if basename and len(self) > 1:
+                    kwargs['nameimg'] = f'{basename}_{i}'
+                self[i].plot_occ_map(**kwargs)
 
     plot_occ_map.__doc__ = PredictRow.plot_occ_map.__doc__
 

@@ -97,6 +97,8 @@ class Star(MetaStar):
         self.bjones = False
         self.__cgaudin = kwargs.get('cgaudin', True)
 
+        self.code = ''
+        self.cov = np.zeros((6, 6))
         if 'code' in kwargs:
             self.code = kwargs['code']
         if 'coord' in kwargs:
@@ -291,13 +293,13 @@ class Star(MetaStar):
         if hasattr(self, 'code'):
             catalogue = catalog.search_star(code=self.code)
         else:
-            catalogue = catalog.search_star(coord=self.coord, radius=2 * u.arcsec)
+            catalogue = catalog.search_star(coord=self.coord, radius=1 * u.arcsec)
         if len(catalogue) == 0:
             raise ValueError('No star was found. It does not exist or VizieR is out.')
         catalogue = catalogue[0]
         if len(catalogue) > 1:
             if self._verbose:
-                print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
+                print('{} stars were found within 1 arcsec from given coordinate.'.format(len(catalogue)))
                 print('The list below is sorted by distance. Please select the correct star')
             catalogue = choice_star(catalogue, self.coord, ['RA_ICRS', 'DE_ICRS', 'Gmag'], source='gaia')
         cat_data = catalog.parse_catalogue(catalogue)
