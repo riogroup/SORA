@@ -163,7 +163,10 @@ class Shape3D(BaseShape):
         x = - faced_vertices.T[observable].y.value + center_f
         y = faced_vertices.T[observable].z.value + center_g
         triangles = [geometry.Polygon(np.transpose(triangle)) for triangle in zip(x, y)]
-        pol = unary_union(triangles)
+        
+        valid_triangles = [poly.buffer(0) if not poly.is_valid else poly for poly in triangles]
+        
+        pol = unary_union(valid_triangles)
         limb = pol.boundary
         if isinstance(limb, geometry.multilinestring.MultiLineString):
             limb = limb.geoms[0]
