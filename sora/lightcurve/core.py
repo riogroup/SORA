@@ -12,7 +12,6 @@ from sora.config.visuals import progressbar
 
 warnings.simplefilter('always', UserWarning)
 
-
 class LightCurve:
     """Defines a Light Curve.
 
@@ -359,6 +358,7 @@ class LightCurve:
                 Star diameter, in km.
         """
         from .utils import read_lc_file
+        import scipy.stats as scst
 
         input_done = False
         usecols = None
@@ -430,8 +430,8 @@ class LightCurve:
                 self.dflux = self.dflux[order]
             self.initial_time = np.min(time)
             self.end_time = np.max(time)
-            time_diffs = np.diff(self._time[0:]).tolist()
-            self.cycle = max(set(time_diffs), key=time_diffs.count).sec
+            time_diffs = time_diffs = (self._time[1:] - self._time[:-1]).sec
+            self.cycle = scst.mode(time_diffs, keepdims=False).mode
             if self.cycle < self.exptime:
                 warnings.warn('Exposure time ({:0.4f} seconds) higher than Cycle time ({:0.4f} seconds)'.
                               format(self.exptime, self.cycle))
@@ -648,6 +648,9 @@ class LightCurve:
 
         opacity : `int`, `float`
             Opacity. Opaque = 1.0, transparent = 0.0,
+            Please note that this opacity already takes into account both
+            the Airy diffraction and cross-sectional flux block by individual 
+            particles (Cuzzi, 1984), where p = 1 - sqrt(transmittance)
 
         mask : `bool` array
             Mask with True values to be computed.
@@ -717,7 +720,7 @@ class LightCurve:
         self.model_fresnel = flux_fresnel*(flux_max - flux_min) + flux_min
         ev_model = (time_model > immersion_time) & (time_model < emersion_time)
         flux_box = np.ones(len(time_model))
-        flux_box[ev_model] = (1-opacity)**2
+        flux_box[ev_model] = (1 -opacity)**2
         flux_box = flux_box*(flux_max - flux_min) + flux_min
         self.model_geometric = flux_box
         self.baseflux = flux_max
@@ -748,6 +751,9 @@ class LightCurve:
 
         opacity : `int`, `float`, default=1
             Initial guess for opacity. Opaque = 1, Transparent = 0.
+            Please note that this opacity already takes into account both
+            the Airy diffraction and cross-sectional flux block by individual 
+            particles (Cuzzi, 1984), where p = 1 - sqrt(transmittance)
 
         delta_t : `int`, `float`
             Interval to fit immersion or emersion time.
@@ -817,6 +823,8 @@ class LightCurve:
         opacity = kwargs.get('opacity', 1.0)
         delta_opacity = kwargs.get('dopacity', 0.0)
         do_opacity = 'dopacity' in kwargs
+        if do_opacity == True:
+            warnings.warn("Fitting Opacity will be removed in future version")
         if ('immersion_time' not in kwargs) and ('emersion_time' not in kwargs):
             immersion_time = preliminar_occ['immersion_time']
             do_immersion = True
