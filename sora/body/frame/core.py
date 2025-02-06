@@ -172,7 +172,7 @@ def get_matrix_vectors(planetocentric_frame, inverse=False):
         A vector to convert between origins
 
     """
-    from astropy.coordinates.matrix_utilities import rotation_matrix, matrix_product, matrix_transpose
+    from astropy.coordinates.matrix_utilities import rotation_matrix, matrix_transpose
     offset = CartesianRepresentation(0 * u.km, 0 * u.km, 0 * u.km)
     pole, W = planetocentric_frame.orientation_at(planetocentric_frame.epoch)
     if planetocentric_frame.right_hand:
@@ -183,7 +183,7 @@ def get_matrix_vectors(planetocentric_frame, inverse=False):
     rx = rotation_matrix(90 * u.deg - pole.dec, axis='x')
     rz1 = rotation_matrix(pole.ra + 90 * u.deg, axis='z')
 
-    A = matrix_product(m1, rz2, rx, rz1)
+    A = m1 @ rz2 @ rx @ rz1
     if inverse:
         A = matrix_transpose(A)
     return A, offset
