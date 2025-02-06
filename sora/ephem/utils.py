@@ -43,6 +43,8 @@ def getBSPfromJPL(identifier, initial_date, final_date, email, directory='./'):
     directory : `str`
         Directory path to save the bsp files.
     """
+    warnings.warn("This function is no longer working due to changes in the JPL Query service. Alternatives are being considered.")
+    return
     import pathlib
     import shutil
     import requests
