@@ -10,7 +10,7 @@ setup(
     name='sora-astro',
     packages=find_packages(),
     package_data={'sora': ['data/*']},
-    version='0.3.2',
+    version='0.3.2.post1',
     license='MIT',
     description='Stellar Occultation Library',
     long_description=long_description,

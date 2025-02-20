@@ -17,6 +17,8 @@ Welcome to SORA's v0.3 documentation!
 
 (Legacy documentation for SORA v0.2.1 is available `here <https://sora-v021.readthedocs.io>`_.)
 
+From version 0.3.2, SORA is available with Python>=3.12
+
 .. toctree::
    :maxdepth: 2
    :caption: Details:

@@ -1,0 +1,76 @@
+SORA v0.3.2 (2025/Fev/06)
+=======================
+
+New Features
+------------
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Included `model_error` in 3D limb fitting. [:issue:`97`]
+
+API Changes
+-----------
+
+sora.body
+^^^^^^^^^
+
+- Added a warning message stating that the `getBSPfromJPL` function is
+  no longer working due to changes in the JPL query service.
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Removed a large number of warning messages in predictions and map plotting
+  related to polar motion. [:issue:`96`]
+
+- Now, when saving a map to a folder, if the folder does not exists,
+  it is created. [:issue:`96`]
+
+sora.star
+^^^^^^^^^
+
+- The are of search for a single star was reduced to 1 arcsec to prevent
+  selecting stars too often. [:issue:`96`]
+
+- Added disclaimer message and warning related the correct use of the
+  opacity parameter within LightCurve. [:issue:`97`]
+
+Bug Fixes
+---------
+
+sora.body
+^^^^^^^^^
+
+- Fixed issue with geometries being merged using Shapely's unary_union. Often,
+  when geometries have overlapping or intersecting regions, that creates a
+  "side location conflict" preventing a successful union. [:issue:`94`]
+
+- Refactor deprecated astropy function `get_moon` and `get_sun` to `get_body`.
+  Now it is required Astropy >= 7.0. [:issue:`95`]
+
+- Fixed error when reading the error bar from SBDB if it has two values
+  separated by a "/". [:issue:`96`]
+
+- Fixed error when printing the Body if it does not have a pre-defined
+  spectral type. [:issue:`96`]
+
+- Removed the deprecated astropy `matrix_product` function. Replaced by `@`.
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Fixed error when reading a large file in LightCurve. The time of reading
+  the file was too long. [:issue:`97`]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Move the definition of the Sun in `utils.py` to the specific light deflection
+  function to prevent error when offline. [:issue:`96`]
+
+sora.star
+^^^^^^^^^
+
+- Included default parameters that prevented the Star module from being used
+  from local information. [:issue:`96`]
