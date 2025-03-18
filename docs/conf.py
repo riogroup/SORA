@@ -52,8 +52,10 @@ extensions = [
     'sphinx_rtd_theme',
     'nbsphinx',
     'sphinx_issues',
-    'sphinxcontrib.youtube'
+    'sphinxcontrib.youtube',
+    'sphinxcontrib.bibtex',
 ]
+bibtex_bibfiles = ['ref.bib']
 
 # GitHub repo
 issues_github_path = "riogroup/sora"
@@ -210,3 +212,7 @@ todo_include_todos = True
 
 # Mock modules during compilation
 # autodoc_mock_imports = ["numpy"]
+
+#
+
+

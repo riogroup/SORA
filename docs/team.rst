@@ -83,11 +83,11 @@ SORA Team
    |        |                                                                       |
    |        | Observatório Nacional/Brazil                                          |
    +--------+-----------------------------------------------------------------------+
-   | |pic8| | **Giuliano Margotti**                                                 |
+   | |pic8| | **Giuliano Margoti**                                                  |
    |        |                                                                       |
-   |        | Master Student                                                        |
+   |        | Ph.D. Student                                                         |
    |        |                                                                       |
-   |        | Federal University of Technology, Paraná/Brazil                       |
+   |        | Observatório Nacional/Brazil                                          |
    +--------+-----------------------------------------------------------------------+
 
 
