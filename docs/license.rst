@@ -109,6 +109,8 @@ included in all copies or substantial portions of the Software.
 Papers that cited SORA
 ---------
 
+Last updated on March 19, 2025
+
 .. bibliography::
    :all:
    :style: plain
