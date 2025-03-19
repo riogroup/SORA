@@ -10,3 +10,4 @@ shapely
 scipy
 sphinx_rtd_theme
 sphinxcontrib.youtube
+sphinxcontrib.bibtex

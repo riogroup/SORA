@@ -104,3 +104,13 @@ included in all copies or substantial portions of the Software.
     LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
     OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
     WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+Papers that cited SORA
+---------
+
+Last updated on March 19, 2025
+
+.. bibliography::
+   :all:
+   :style: plain
