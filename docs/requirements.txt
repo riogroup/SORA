@@ -1,5 +1,5 @@
 ipython
-Sphinx==5.*
+Sphinx==8.*
 nbsphinx
 sphinx_issues
 astropy
