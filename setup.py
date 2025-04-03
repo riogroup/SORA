@@ -10,7 +10,7 @@ setup(
     name='sora-astro',
     packages=find_packages(),
     package_data={'sora': ['data/*']},
-    version='0.3.2.post1',
+    version='0.3.2.post2',
     license='MIT',
     description='Stellar Occultation Library',
     long_description=long_description,
@@ -32,12 +32,12 @@ setup(
         'shapely>=2.0.7',
         'cartopy>=0.24',
     ],
-    python_requires=">=3.12, <4",
+    python_requires=">=3.11, <4",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Science/Research ',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.11',
         'Topic :: Scientific/Engineering :: Astronomy',
     ],
     project_urls={
