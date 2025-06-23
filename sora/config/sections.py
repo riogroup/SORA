@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from math import isfinite
-from typing import Any, Mapping
+from typing import Any, Callable, Iterable, Mapping
 from urllib.parse import urlparse
 
 from .meta import BaseConfigSection
@@ -13,6 +13,49 @@ __all__ = [
     'ServicesConfig',
     'StarConfig',
 ]
+
+
+def _prompt_schema(
+    fields: tuple[str, ...],
+    *,
+    basic: set[str],
+    develop: set[str] | None = None,
+    choices: Mapping[
+        str,
+        Iterable[Any] | Callable[[], Iterable[Any]],
+    ] | None = None,
+) -> dict[str, dict[str, Any]]:
+    develop = set() if develop is None else develop
+    choices = {} if choices is None else choices
+    declared_fields = set(fields)
+    unknown = (basic | develop).difference(declared_fields)
+    if unknown:
+        raise ValueError(f'Unknown prompt fields: {sorted(unknown)}')
+    overlap = basic.intersection(develop)
+    if overlap:
+        raise ValueError(f'Prompt fields cannot use two levels: {sorted(overlap)}')
+
+    schema = {}
+    for field in fields:
+        prompt = {
+            'question': f"{field.replace('_', ' ').capitalize()}:",
+            'level': 1 if field in basic else 3 if field in develop else 2,
+        }
+        if field in choices:
+            choice_values = choices[field]
+            prompt['choices'] = (
+                choice_values if callable(choice_values) else list(choice_values)
+            )
+        schema[field] = prompt
+    return schema
+
+
+def _catalogue_choices() -> list[str]:
+    """Return the names currently registered as allowed star catalogues."""
+    # Import lazily because the catalogue module itself imports sora.config.
+    from sora.star.catalog import allowed_catalogues
+
+    return list(allowed_catalogues.allowed_keys)
 
 
 def _is_positive_number(value: Any) -> bool:
@@ -44,6 +87,16 @@ class ServicesConfig(BaseConfigSection):
         'horizons_cache',
     )
     LOCAL_KEYS = frozenset(FIELDS)
+    PROMPTS = _prompt_schema(
+        FIELDS,
+        basic={'sbdb_cache', 'vizier_cache', 'horizons_cache'},
+        develop={'linea_tap_url'},
+        choices={
+            'sbdb_cache': [True, False],
+            'vizier_cache': [True, False],
+            'horizons_cache': [True, False],
+        },
+    )
 
     def _initialize(
         self,
@@ -92,6 +145,17 @@ class StarConfig(BaseConfigSection):
         'nomad_search_radius_arcsec',
     )
     LOCAL_KEYS = frozenset(FIELDS)
+    PROMPTS = _prompt_schema(
+        FIELDS,
+        basic={'default_catalogue', 'fetch_nomad_photometry'},
+        develop={'catalogue_row_limit', 'fallback_catalogue'},
+        choices={
+            'default_catalogue': _catalogue_choices,
+            'fallback_catalogue': _catalogue_choices,
+            'fallback_on_timeout': [True, False],
+            'fetch_nomad_photometry': [True, False],
+        },
+    )
 
     def _initialize(
         self,
@@ -150,6 +214,17 @@ class BodyPlotConfig(BaseConfigSection):
         'surface_alpha',
     )
     LOCAL_KEYS = frozenset(FIELDS)
+    PROMPTS = _prompt_schema(
+        FIELDS,
+        basic={
+            'show_pole',
+            'north_pole_color',
+            'south_pole_color',
+            'default_surface_color',
+            'surface_alpha',
+        },
+        choices={'show_pole': [True, False]},
+    )
 
     def _initialize(
         self,
@@ -206,6 +281,16 @@ class PredictionConfig(BaseConfigSection):
         'fallback_on_timeout',
     )
     LOCAL_KEYS = frozenset(FIELDS)
+    PROMPTS = _prompt_schema(
+        FIELDS,
+        basic={'default_catalogue'},
+        develop={'catalogue_row_limit', 'fallback_catalogue'},
+        choices={
+            'default_catalogue': _catalogue_choices,
+            'fallback_catalogue': _catalogue_choices,
+            'fallback_on_timeout': [True, False],
+        },
+    )
 
     def _initialize(
         self,
@@ -269,6 +354,31 @@ class OccMapConfig(BaseConfigSection):
         'site_box_alpha',
     )
     LOCAL_KEYS = frozenset(FIELDS)
+    PROMPTS = _prompt_schema(
+        FIELDS,
+        basic={
+            'format',
+            'dpi',
+            'size_cm',
+            'states',
+            'labels',
+            'site_names',
+            'arrow',
+        },
+        develop={
+            'center_point_interval',
+            'site_marker',
+            'site_name_offset_km',
+        },
+        choices={
+            'style': [1, 2],
+            'resolution': [1, 2, 3],
+            'states': [True, False],
+            'labels': [True, False],
+            'site_names': [True, False],
+            'arrow': [True, False],
+        },
+    )
 
     def _initialize(
         self,

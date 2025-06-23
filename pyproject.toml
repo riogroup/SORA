@@ -45,6 +45,7 @@ dependencies = [
     "cartopy>=0.24",
     "PyYAML>=6.0",
     "platformdirs>=4.3",
+    "questionary>=2.1",
 ]
 
 [project.optional-dependencies]
@@ -68,6 +69,10 @@ docs = [
 Repository = "https://github.com/riogroup/SORA"
 Documentation = "https://sora.readthedocs.io/"
 Issues = "https://github.com/riogroup/SORA/issues"
+
+# Entry point for CLI
+[project.scripts]
+sora = "sora.cli:main"
 
 [tool.setuptools]
 zip-safe = false
