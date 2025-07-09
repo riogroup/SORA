@@ -79,6 +79,32 @@ class Chord:
         if em is not None and 'emersion' not in self._isable:
             self._isable['emersion'] = True
         return self._isable
+    
+    @property
+    def detection_limits(self):
+        """
+        Detection limits for opacity and optical depth derived from light curve flux noise.
+
+        This property returns a `DetectionLimits` object that provides methods to compute
+        upper limits for opacity and optical depth, based on the out-of-occultation flux
+        noise of the light curve.
+
+        Use this when you want to estimate the sensitivity of your data.
+
+        Examples
+        --------
+        >>> lc.detection_limits.apparent_opacity()
+        0.013  # 1-sigma upper limit
+
+        >>> lc.detection_limits.optical_depth(sigma=3)
+        0.022  # 3-sigma upper limit
+
+        >>> lc.detection_limits.clear()  # Reset if lc.flux or lc.dflux changed
+
+        """
+        if not hasattr(self, '_detection_limits'):
+            self._detection_limits = DetectionLimits(self)
+        return self._detection_limits
 
     def enable(self, *, time=None):
         """Enables a contact point of the curve to be used in the fit.
@@ -599,7 +625,7 @@ class Chord:
         xy = np.array(val)
         xy_err = np.array(err) - xy
         return names, xy, xy_err
-
+    
 
     def get_sky_profile(self, center_f=0, center_g=0):
         '''
@@ -735,7 +761,7 @@ class Chord:
     def __repr__(self):
         """String representation of the Chord Class
         """
-        return '<{}: {}>'.format(self.__class__.__name__, self.name)
+        return '<{}: {}>'.format(self.__class__.__name__, self.name)    
 
     def __str__(self):
         """String of the Chord Class used in str(obj) or print(obj)
@@ -751,5 +777,137 @@ class Chord:
             string.append('Target altitude: {:.1f} deg'.format(ephem_altaz[0]))
             string.append('Target azimuth:  {:.1f} deg'.format(ephem_altaz[1]))
         string.append('')
-        string.append(self.lightcurve.__str__())
+
+        lines = str(self.lightcurve).splitlines()
+        insert_index = next(
+            (i for i, line in enumerate(lines) if "Apparent equivalent width:" in line),
+            -1
+        )
+
+        P, B = self.detection_limits._P, self.detection_limits._B
+       
+        try:
+            if P is not None and B is not None:
+                proj_block = self.detection_limits.__str__().splitlines()                
+                if insert_index >= 0:
+                    lines[insert_index + 1:insert_index + 1] = proj_block
+                else:
+                    lines.extend(proj_block)
+        except:
+            pass        
+
+        string.extend(lines)
         return '\n'.join(string)
+
+class DetectionLimits:
+    def __init__(self, chord):
+        self.chord = chord 
+        self.apparent_opacity = chord.lightcurve.detection_limits.apparent_opacity
+        self.apparent_optical_depth = chord.lightcurve.detection_limits.apparent_optical_depth
+        self.apparent_equivalent_width = chord.lightcurve.detection_limits.apparent_equivalent_width
+
+        body = self.chord._shared_with['chordlist']['body']
+        occtime = self.chord._shared_with['chordlist']['time']
+
+        self._P, self._B = None, None
+        self._used_pole = None
+        rings = getattr(body, 'rings', None)
+
+        if not np.isnan(body.pole.ra):
+            orientation = body.get_orientation(time=occtime)
+            self._P = orientation['pole_position_angle']
+            self._B = orientation['pole_aperture_angle']
+            self._used_pole = body.pole.icrs.to_string('hmsdms')
+
+        elif rings:
+            ring_id, ring = next(iter(body.rings.items()))
+            self._P, self._B = ring.get_ring_orientation(time=occtime)
+            self._used_pole = ring.pole_orientation.icrs.to_string('hmsdms')
+        else:
+            pass
+
+    def opacity(self, sigma=1):
+        """ Estimate the physical opacity limit, applying a correction for single-particle diffraction
+        when the Airy scale exceeds the spatial resolution of the light curve.
+
+        This method follows the formulation described by Cuzzi (1985) and Roques et al. (1987),
+        where the diffraction of light by ring particles causes an overestimation of the 
+        true (normal) opacity. If the Airy scale is larger than the spatial resolution of the 
+        observation, a correction is applied to derive the physical opacity.
+
+        Parameters
+        ----------
+        sigma : float, optional
+            Sigma level for the detection threshold. Default is 1-sigma.
+
+        Returns
+        -------
+        float or None
+        Estimated physical opacity. If the flux is not defined, returns None.
+        """
+    
+        apparent_opacity = self.apparent_opacity(sigma=sigma)
+        if apparent_opacity is None:
+            return None
+        
+        particle_size = 0.001
+        wavelenght = self.chord.lightcurve.central_bandpass*u.micrometer.to('km')
+        dist_km = self.chord.lightcurve.dist*u.au.to('km')
+        spatial_resolution = abs(self.chord.lightcurve.exptime * self.chord.lightcurve.vel)
+        airy_scale = (wavelenght/(2*particle_size))*dist_km
+
+        if airy_scale > spatial_resolution:
+            opacity = 1 - np.sqrt(1 - apparent_opacity)        
+        else:
+            opacity = apparent_opacity
+        return opacity
+    
+    def optical_depth(self, sigma=1):
+        """
+        """
+        opacity = self.opacity(sigma=sigma)
+        if opacity is None:
+            return None
+        
+        optical_depth = - np.log(1- opacity)
+        return optical_depth
+    
+    def normal_opacity(self, sigma=1):
+        """
+        """
+        opacity = self.opacity(sigma=sigma)
+        if opacity is None or self._B is None:
+            return None        
+        
+        normal_opacity = opacity*abs(np.sin(self._B).value)
+        return normal_opacity
+    
+    def normal_optical_depth(self, sigma=1):
+        """
+        """
+        opacity = self.opacity(sigma=sigma)
+        if opacity is None or self._B is None:
+            return None
+        
+        normal_optical_depth = - np.log(1- opacity)*abs(np.sin(self._B).value)
+        return normal_optical_depth
+
+    def __str__(self):
+        """ String representation of the Detection Limits. 
+        """
+        if self._B is not None:
+            output = '\nProjected detection limits (3-sigma):\n' 
+            output += ('    Reference pole:             {}\n'
+                       '    Opening angle:              {:.3f}\n'
+                       '    Aperture angle:             {:.3f}\n'
+                       '    Normal opacity:             {:.3f}\n'
+                       '    Normal optical depth:       {:.3f}\n'
+                       '    Equivalent width:            km\n'.format(
+                           self._used_pole,
+                           self._B,
+                           self._P,
+                           self.normal_opacity(sigma=3),
+                           self.normal_optical_depth(sigma=3))                                               
+                       )
+            return output
+        return '\nPole orientation not available to compute projected detection limits.\n'
