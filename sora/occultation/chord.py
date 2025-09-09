@@ -625,138 +625,317 @@ class Chord:
         xy = np.array(val)
         xy_err = np.array(err) - xy
         return names, xy, xy_err
-    
 
-    def get_sky_profile(self, center_f=0, center_g=0):
-        '''
-        Computes the radial distance in the sky plane (f, g) relative to a given center, 
-        and returns it along with the corresponding flux measurements from the light curve.
+    def get_sky_profile(self, center_f=0, center_g=0, to_file=False):
+        """ Computes the radial distance in the sky plane relative to a given center,
+        and returns it along with the corresponding flux and flux uncertainty.
 
-        If immersion and emersion times are defined, the function restricts the light curve 
-        to out-of-occultation data. Otherwise, the full light curve is used.
+        The radial sign is defined based on the time of closest approach.
 
         Parameters
         ----------
         center_f : float, optional
-            The f-coordinate of the reference center in kilometers. Default is 0.
+            f-coordinate of the reference center in km. Default is 0.
         center_g : float, optional
-            The g-coordinate of the reference center in kilometers. Default is 0.
+            g-coordinate of the reference center in km. Default is 0.
 
         Returns
         -------
         r_sky : np.ndarray
-            Signed radial distances (in km) in the (f, g) sky plane relative to the center. 
-            Negative values are assigned before the closest approach (minimum r).
+            Radial distances in the sky plane relative to the center, in km.
         flux : np.ndarray
-            Flux values corresponding to the filtered light curve.
+            Observed flux values from the light curve.
+        dflux : np.ndarray
+            Associated flux uncertainties.
+        sign : np.ndarray
+            Array of +1 or -1 indicating ingress/egress phase relative to closest approach.
 
-        Notes
-        -----
-        The sign of `r_sky` is determined based on the closest approach time (`t_ip`), 
-        making the profile useful for symmetric fitting or center-aligned analysis.
-        '''
-
-        immersion = getattr(self.lightcurve, 'immersion', None)
-        emersion = getattr(self.lightcurve, 'emersion', None)
-        tref = getattr(self.lightcurve, 'tref', None)
-        dflux = getattr(self.lightcurve, 'dflux', None)
-
-        if immersion is not None and emersion is not None and tref is not None:
-            imm = (immersion - tref).sec - self.lightcurve.exptime
-            eme = (emersion - tref).sec + self.lightcurve.exptime
-            mask = (self.lightcurve.time < imm) + (self.lightcurve.time > eme)
-            time = self.lightcurve.time[mask]
-            flux = self.lightcurve.flux[mask]
+        """
+        tref = self.lightcurve.tref
+        time = self.lightcurve.time
+        flux = self.lightcurve.flux
+        
+        if self.lightcurve.dflux is not None:
+            dflux = self.lightcurve.dflux
         else:
-            time = self.lightcurve.time
-            flux = self.lightcurve.flux
+            dflux = np.repeat(flux.std(ddof=1), len(flux))
 
-        # Calculating the sky plane distance
-        f, g = self.get_fg(time = time*u.s + Time(self.lightcurve.tref))
-               
+        t = Time(tref) + time * u.s
+        f, g = self.get_fg(time=t)
+
         f_sky = f - center_f
-        g_sky = g - center_g        
-        r_sky = np.sqrt((f_sky)**2 + (g_sky)**2)
-        t_ip = time[r_sky.argmin()]
+        g_sky = g - center_g
+        r_sky = np.sqrt(f_sky**2 + g_sky**2)
+
+        times = self.lightcurve.time
+        t_ip = times[r_sky.argmin()]
         sign = np.ones(len(r_sky))
-        sign[time < t_ip] = -1
-        sign[time > t_ip] = +1 
-        #r_sky = r_sky*sign
+        sign = np.where(times < t_ip, -1, 1)
+
+        if to_file:
+            np.savetxt(f'{self.lightcurve.name}_sky_profile.txt', np.column_stack((r_sky, flux, dflux, sign)), delimiter='\t', fmt='%.6f')
 
         return r_sky, flux, dflux, sign
 
-    def get_ring_profile(self, ring_id, center_f=0, center_g=0):
-        '''
-        Computes the radial distance in the ring plane relative to a given center, 
-        converting sky plane coordinates (f, g) into the ring plane coordinates, and 
-        returns the radial distances along with the corresponding flux measurements 
-        from the light curve.
+    def get_ring_profile(self, ring_id, center_f=0, center_g=0, to_file=False):
+        """
+        Compute the flux profile projected onto the ring plane.
+
+        Projects the (f, g) sky-plane coordinates into the ring plane based on the 
+        ring's orientation, returning the radial distance from a reference center 
+        and the corresponding flux data.
 
         Parameters
         ----------
-        ring_id : str or int
+        ring_id : str
             Identifier for the ring in the body's ring system.
         center_f : float, optional
-            The f-coordinate of the reference center in the sky plane. Default is 0.
+            f-coordinate of the reference center in the sky plane (km). Default is 0.
         center_g : float, optional
-            The g-coordinate of the reference center in the sky plane. Default is 0.
+            g-coordinate of the reference center in the sky plane (km). Default is 0.
 
         Returns
         -------
         r_ring : np.ndarray
-            Radial distances in the ring plane relative to the center, in km.
+            Radial distances in the ring plane relative to the center (km).
         flux : np.ndarray
-            Flux values corresponding to the light curve.
+            Flux values from the light curve.
         dflux : np.ndarray
-            Errors associated with the flux measurements.
+            Errors associated with the flux values.
         sign : np.ndarray
-            Array with +1 or -1 indicating the temporal side relative to the closest approach time, useful for distinguishing ingress and egress phases.
-
-        Notes
-        -----
-        The function retrieves the ring orientation and calculates projection coefficients to map sky plane coordinates to the ring plane. 
-        The sign array is based on the time of minimum radial distance and can help in phase separation of occultation events.
-        '''
-
+            +1 or -1 depending on whether the point is after or before closest approach.
+        """
         body = self._shared_with["chordlist"]["body"]
         time = self._shared_with["chordlist"]["time"]
-        ephem = self._shared_with["chordlist"]["ephem"]
 
         if not hasattr(body, 'rings'):
-            raise ValueError("This body has no ring attribute.")
-
+            raise ValueError("This body has no 'rings' attribute.")
         ring = body.get_ring(ring_id)
         if ring is None:
-            raise ValueError(f"Ring ID '{ring_id}' not found in body.ring.")
-
+            raise ValueError(f"Ring ID '{ring_id}' not found in body.rings.")
         pole_orientation = getattr(ring, 'pole_orientation', None)
         if pole_orientation is None:
             raise ValueError(f"Ring '{ring_id}' has no pole orientation.")
 
-        ephem = ephem.get_position(time)
+        t = Time(self.lightcurve.tref) + self.lightcurve.time * u.s
+        f, g = self.get_fg(time=t)
+        x_ring, y_ring = ring.to_ring_plane(time=time,
+                                            f=f, 
+                                            g=g,
+                                            center_f=center_f, 
+                                            center_g=center_g
+                                            )
+        r_ring = np.sqrt(x_ring**2 + y_ring**2)
+
+        times = self.lightcurve.time
+        t_ip = times[r_ring.argmin()]
+        sign = np.where(times < t_ip, -1, 1)
+
+        flux = self.lightcurve.flux
+        if self.lightcurve.dflux is not None:
+            dflux = self.lightcurve.dflux
+        else:
+            dflux = np.repeat(flux.std(ddof=1), len(flux))
+
+        if to_file:
+            np.savetxt(f'{self.lightcurve.name}_ring_profile.txt', np.column_stack((r_ring, flux, dflux, sign)), delimiter='\t', fmt='%.6f')
+
+        return r_ring, flux, dflux, sign
+    
+    def get_app_optical_depth(self, center_f=0, center_g=0, to_file=False):
+        """
+        Compute the apparent optical depth profile in the sky plane.
+
+        Parameters
+        ----------
+        center_f : float, optional
+            Reference f-coordinate in the sky plane (km). Default is 0.
+        center_g : float, optional
+            Reference g-coordinate in the sky plane (km). Default is 0.
+
+        Returns
+        -------
+        r_sky : np.ndarray
+            Radial distances from the center in the sky plane (km).
+        tau : np.ndarray
+            Apparent optical depth profile: tau = -ln(flux).
+        dtau : np.ndarray
+            Uncertainty in the apparent optical depth.
+        sign : np.ndarray
+            Sign array indicating ingress (-1) or egress (+1) relative to closest approach.
+        """
+        tref = self.lightcurve.tref
+        time = self.lightcurve.time
+        flux = self.lightcurve.flux
+
+        if self.lightcurve.dflux is not None:
+            dflux = self.lightcurve.dflux
+        else:
+            dflux = np.repeat(flux.std(ddof=1), len(flux))
+
+        f, g = self.get_fg(time=(tref + time * u.s))
+        r_sky = np.sqrt((f - center_f)**2 + (g - center_g)**2)
+
+        t_ip = time[r_sky.argmin()]
+        sign = np.where(time < t_ip, -1, 1)
+
+        tau = -np.log(flux)
+        dtau = dflux / flux
+
+        if to_file:
+            np.savetxt(f'{self.lightcurve.name}_app_optical_depth.txt', np.column_stack((r_sky, tau, dtau, sign)), delimiter='\t', fmt='%.6f')
+
+        return r_sky, tau, dtau, sign
+    
+    def get_normal_optical_depth(self, ring_id, center_f=0, center_g=0, to_file=False):
+        """
+        Compute the normal optical depth profile projected onto the ring plane.
+
+        Parameters
+        ----------
+        ring_id : str
+            Identifier of the ring in the body's ring system.
+        center_f : float, optional
+            Reference f-coordinate in the sky plane. Default is 0.
+        center_g : float, optional
+            Reference g-coordinate in the sky plane. Default is 0.
+
+        Returns
+        -------
+        r_ring : np.ndarray
+            Radial distances in the ring plane.
+        tau : np.ndarray
+            Normal optical depth profile.
+        dtau : np.ndarray
+            Uncertainty of the normal optical depth.
+        sign : np.ndarray
+            Sign indicating ingress (-1) and egress (+1) relative to closest approach.
+        """
+        body = self._shared_with["chordlist"]["body"]
+        time = self._shared_with["chordlist"]["time"]
+
+        if not hasattr(body, 'rings'):
+            raise ValueError("This body has no 'rings' attribute.")
+
+        ring = body.get_ring(ring_id)
+        if ring is None:
+            raise ValueError(f"Ring ID '{ring_id}' not found.")
+
+        pole_orientation = ring.pole_orientation
+        if pole_orientation is None:
+            raise ValueError(f"Ring '{ring_id}' has no defined pole orientation.")
 
         P, B = ring.get_ring_orientation(time=time)
-
-        earth_pole = SkyCoord('12 00 00.00000 +90 00 00.00000', unit=(u.hourangle, u.deg))
-
-        coef, coef_polo = calc_coef_projecao(ephem, pole_orientation, B, P, earth_pole)
+        sinB = abs(np.sin(B).value)
 
         t = Time(self.lightcurve.tref) + self.lightcurve.time * u.s
         f, g = self.get_fg(time=t)
 
-        x_ring, y_ring = to_ring_plane(ksi=f, eta=g, coef=coef, coef_polo=coef_polo, ksi_0=center_f, eta_0=center_g)
+        x_ring, y_ring = ring.to_ring_plane(time=time,
+                                            f=f, 
+                                            g=g,
+                                            center_f=center_f, 
+                                            center_g=center_g
+                                            )
         r_ring = np.sqrt(x_ring**2 + y_ring**2)
 
         flux = self.lightcurve.flux
-        dflux = self.lightcurve.dflux
-        times = self.lightcurve.time
 
-        t_ip = times[r_ring.argmin()]
-        sign = np.ones(len(r_ring))
-        sign[times < t_ip] = -1
-        sign[times > t_ip] = +1
+        if self.lightcurve.dflux is not None:
+            dflux = self.lightcurve.dflux
+        else:
+            dflux = np.repeat(flux.std(ddof=1), len(flux))
 
-        return r_ring, flux, dflux, sign
+        t_ip = self.lightcurve.time[r_ring.argmin()]
+        sign = np.where(self.lightcurve.time < t_ip, -1, 1)
+
+        tau = -np.log(flux) * 0.5 * sinB
+        dtau = dflux / flux * 0.5 * sinB
+
+        if to_file:
+            np.savetxt(f'{self.lightcurve.name}_normal_optical_depth.txt', np.column_stack((r_ring, tau, dtau, sign)), delimiter='\t', fmt='%.6f')
+
+        return r_ring, tau, dtau, sign
+    
+    def get_normal_equivalent_width(self, ring_id, center_f=0, center_g=0, to_file=False):
+        """
+        """
+        
+        body = self._shared_with["chordlist"]["body"]
+        time = self._shared_with["chordlist"]["time"]
+
+        if not hasattr(body, 'rings'):
+            raise ValueError("This body has no 'rings' attribute.")
+
+        ring = body.get_ring(ring_id)
+        if ring is None:
+            raise ValueError(f"Ring ID '{ring_id}' not found.")
+
+        pole_orientation = ring.pole_orientation
+        if pole_orientation is None:
+            raise ValueError(f"Ring '{ring_id}' has no defined pole orientation.")
+
+        P, B = ring.get_ring_orientation(time=time)
+        sinB = abs(np.sin(B).value)
+
+
+        t = Time(self.lightcurve.tref) + self.lightcurve.time * u.s
+        f, g = self.get_fg(time=t)
+
+        x_ring, y_ring = ring.to_ring_plane(time=time,
+                                            f=f, 
+                                            g=g,
+                                            center_f=center_f, 
+                                            center_g=center_g
+                                            )
+        r_ring = np.sqrt(x_ring**2 + y_ring**2)
+
+        flux = self.lightcurve.flux
+        
+        if self.lightcurve.dflux is not None:
+            dflux = self.lightcurve.dflux
+        else:
+            dflux = np.repeat(flux.std(ddof=1), len(flux))
+
+        t_ip = self.lightcurve.time[r_ring.argmin()]
+        sign = np.where(self.lightcurve.time < t_ip, -1, 1)
+        
+        delta_r = abs(np.diff(r_ring, prepend=r_ring[0]))
+        equivalent_width = sinB * 0.5 * (1 - flux) * delta_r
+        dequivalent_width = sinB * 0.5 * dflux * delta_r
+
+        if to_file:
+            np.savetxt(f'{self.lightcurve.name}_normal_equivalent_width.txt', np.column_stack((r_ring, equivalent_width, dequivalent_width, sign)), delimiter='\t', fmt='%.6f')
+
+        return r_ring, equivalent_width, dequivalent_width, sign
+    
+    def get_apparent_equivalent_width(self, center_f=0, center_g=0, to_file=False):
+        """
+        """
+        
+        tref = self.lightcurve.tref
+        time = self.lightcurve.time
+        flux = self.lightcurve.flux
+
+        if self.lightcurve.dflux is not None:
+            dflux = self.lightcurve.dflux
+        else:
+            dflux = np.repeat(flux.std(ddof=1), len(flux))
+            
+        f, g = self.get_fg(time=(tref + time * u.s))
+        r_sky = np.sqrt((f - center_f)**2 + (g - center_g)**2)
+
+        t_ip = time[r_sky.argmin()]
+        sign = np.where(time < t_ip, -1, 1)
+        
+        delta_r = abs(np.diff(r_sky, prepend=r_sky[0]))
+        app_equivalent_width = (1 - flux)*delta_r
+        dapp_equivalent_width = dflux * delta_r
+
+        if to_file:
+            np.savetxt(f'{self.lightcurve.name}_apparent_equivalent_width.txt', np.column_stack((r_sky, app_equivalent_width, dapp_equivalent_width, sign)), delimiter='\t', fmt='%.6f')
+
+        return r_sky, app_equivalent_width, dapp_equivalent_width, sign
 
     def __repr__(self):
         """String representation of the Chord Class
@@ -800,7 +979,22 @@ class Chord:
         return '\n'.join(string)
 
 class DetectionLimits:
+    """ Computes the detection limits for ring-like features based on a single occultation chord.
+
+    This class calculates physical and projected limits such as opacity, optical depth, and
+    equivalent width from the detection thresholds in a light curve. Corrections for
+    diffraction effects and geometric projection are applied when the pole orientation
+    of the ring/body is available.
+    """
+
     def __init__(self, chord):
+        """ Initialize the detection limits from a chord object.
+
+        Parameters
+        ----------
+        chord : `sora.lightcurve.Chord`
+            Chord object associated with one observing site.
+        """
         self.chord = chord 
         self.apparent_opacity = chord.lightcurve.detection_limits.apparent_opacity
         self.apparent_optical_depth = chord.lightcurve.detection_limits.apparent_optical_depth
@@ -827,13 +1021,11 @@ class DetectionLimits:
             pass
 
     def opacity(self, sigma=1):
-        """ Estimate the physical opacity limit, applying a correction for single-particle diffraction
-        when the Airy scale exceeds the spatial resolution of the light curve.
+        """ Estimate the physical opacity limit, correcting for single-particle diffraction.
 
-        This method follows the formulation described by Cuzzi (1985) and Roques et al. (1987),
-        where the diffraction of light by ring particles causes an overestimation of the 
-        true (normal) opacity. If the Airy scale is larger than the spatial resolution of the 
-        observation, a correction is applied to derive the physical opacity.
+        When the Fresnel (Airy) scale is larger than the light curve's spatial resolution,
+        the apparent opacity may be overestimated. This method applies a correction based on
+        Cuzzi (1985) and Roques et al. (1987) to obtain a more realistic physical opacity.
 
         Parameters
         ----------
@@ -843,7 +1035,7 @@ class DetectionLimits:
         Returns
         -------
         float or None
-        Estimated physical opacity. If the flux is not defined, returns None.
+            Estimated physical opacity. If not computable, returns None.
         """
     
         apparent_opacity = self.apparent_opacity(sigma=sigma)
@@ -863,7 +1055,20 @@ class DetectionLimits:
         return opacity
     
     def optical_depth(self, sigma=1):
-        """
+        """ Compute the optical depth (tau) from the physical opacity.
+
+        Applies the standard conversion:
+        τ = -ln(1 - opacity)
+
+        Parameters
+        ----------
+        sigma : float, optional
+            Sigma level for the detection threshold. Default is 1-sigma.
+
+        Returns
+        -------
+        float or None
+            Estimated optical depth. Returns None if opacity is not defined.
         """
         opacity = self.opacity(sigma=sigma)
         if opacity is None:
@@ -873,7 +1078,20 @@ class DetectionLimits:
         return optical_depth
     
     def normal_opacity(self, sigma=1):
-        """
+        """ Compute the normal opacity by correcting the physical opacity for projection.
+
+        Uses the sine of the pole opening angle (B) to project the opacity from
+        the sky plane to the equatorial plane.
+
+        Parameters
+        ----------
+        sigma : float, optional
+            Sigma level for the detection threshold. Default is 1-sigma.
+
+        Returns
+        -------
+        float or None
+            Normal opacity, or None if the pole orientation is unavailable.
         """
         opacity = self.opacity(sigma=sigma)
         if opacity is None or self._B is None:
@@ -883,7 +1101,17 @@ class DetectionLimits:
         return normal_opacity
     
     def normal_optical_depth(self, sigma=1):
-        """
+        """ Compute the normal optical depth, corrected for projection effects.
+
+        Parameters
+        ----------
+        sigma : float, optional
+            Sigma level for the detection threshold. Default is 1-sigma.
+
+        Returns
+        -------
+        float or None
+            Projected (normal) optical depth. Returns None if pole orientation is unavailable.
         """
         opacity = self.opacity(sigma=sigma)
         if opacity is None or self._B is None:
@@ -893,7 +1121,12 @@ class DetectionLimits:
         return normal_optical_depth
 
     def __str__(self):
-        """ String representation of the Detection Limits. 
+        """ Return a formatted string with the detection limits at 3-sigma level.
+
+        Returns
+        -------
+        str
+            Summary of detection limit estimates, or a warning if pole is unavailable.
         """
         if self._B is not None:
             output = '\nProjected detection limits (3-sigma):\n' 
