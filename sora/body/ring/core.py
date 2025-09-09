@@ -8,6 +8,7 @@ from .meta import BaseRing
 import astropy.units as u
 import numpy as np
 import warnings
+from sora.body.ring.utils import calc_coef_projecao, project_to_ring_plane
 
 class Ring(BaseRing):    
     def __init__(self, ephem, **kwargs):
@@ -79,7 +80,7 @@ class Ring(BaseRing):
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         self.ephem = ephem        
-        self.ring_id = kwargs.get('ring_id')      
+        self.ring_id = kwargs.get('ring_id')
         
         if not 'pole_orientation' in kwargs:
             raise ValueError(f'Pole orientation is not defined for ring {self.ring_id}') 
@@ -146,7 +147,38 @@ class Ring(BaseRing):
                                          )
                                        )
         return ring_position_angle.to('deg'), ring_opening_angle.to('deg')
+    
+    def to_ring_plane(self, f, g, time, center_f=0, center_g=0):
+        """
+        Convert sky-plane coordinates (f, g) to ring-plane (x, y),
+        computing internally the projection coefficients.
+
+        Parameters
+        ----------
+        f, g : array_like
+            Sky-plane coordinates [km]
+        time : astropy.time.Time
+            Time of observation.
+        ephem : Ephem object
+            Ephemeris of the body.
+        center_f, center_g : float
+            Sky-plane offset [km]
+
         
+        Returns
+        -------
+        x, y : ndarray
+            Coordinates in the ring plane [km]
+        """
+        pos = self.ephem.get_position(time)
+        P, B = self.get_ring_orientation(time)
+        earth_pole = SkyCoord('12h00m00s +90d00m00s')
+
+        coef, coef_polo = calc_coef_projecao(pos, self.pole_orientation, B, P, earth_pole)
+        x, y = project_to_ring_plane(f, g, coef, coef_polo, ksi_0=center_f, eta_0=center_g)
+
+        return x, y
+    
     def __str__(self):
 
         """ String representation of the Ring class
