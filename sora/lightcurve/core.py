@@ -1338,6 +1338,10 @@ class LightCurve:
         except:
             output += '\nThere is no occultation associated with this light curve.\n'
         try:
+            output += self.detection_limits.__str__()
+        except:
+            pass
+        try:
             output += ('Inst. response:       {:.3f} seconds or {:.2f} km\n'
                        'Dead time effect:     {:.3f} seconds or {:.2f} km\n'
                        'Model resolution:     {:.3f} seconds or {:.2f} km\n'
@@ -1619,71 +1623,67 @@ def _occ_model_fit_parallel(time, flux, dflux, bestchi, immersion_time, emersion
 
 
 class DetectionLimits:
-    """Compute detection limits for opacity and optical depth based on light curve flux noise.
+    """ Class to compute detection limits for ring-like features in a stellar occultation light curve.
 
-    This class estimates the minimum detectable values for opacity and optical depth
-    using either the standard deviation of the flux (if no errors are provided) or
-    the average uncertainty of the flux values.
+    This class provides estimates of the minimum detectable opacity, optical depth, and equivalent
+    width of a feature based on the noise level in the flux. If available, per-point uncertainties
+    (`lc.dflux`) are used in a weighted noise estimation; otherwise, a simple standard deviation is applied.
+
+    The computation masks out points inside the occultation interval if immersion/emersion times are defined,
+    using ±1 exposure time as margin. Otherwise, all flux data is used.
+
+    Parameters
+    ----------
+    lightcurve : LightCurve
+        The light curve object associated with the detection limit analysis.
+
+    Attributes
+    ----------
+    flux : array-like
+        Flux values outside the occultation region used to estimate the detection limits.
+
+    flux_err : array-like or None
+        Flux uncertainties corresponding to `flux`, or None if unavailable or inconsistent.
 
     Notes
     -----
-    If per-point flux errors are available (e.g., `lc.dflux`), they will be used to estimate
-    the noise level. Otherwise, the standard deviation of the flux will be used.
-    
+    The detection limits computed here are projected in the plane of the sky and do not include
+    corrections for diffraction or projection effects (e.g., inclination of the ring plane).
+    See `sora.occultation.chord.DetectionLimits` for corrected estimates.
+
     Examples
     --------
     >>> from sora.lightcurve import LightCurve
-    >>> lc01 = LightCurve(name = 'name',
-                  file='lightcurve.dat',
-                  usecols=[4,9,10],
-                  exptime=0.1,
-                  tref = Time('2025-06-12 00:00:00'))
-
-    # Access detection limits (1-sigma by default)
+    >>> lc = LightCurve(file='lightcurve.dat', usecols=[0,1,2], exptime=0.1, tref='2025-01-01')
     >>> lc.detection_limits.apparent_opacity()
-    0.015
-
-    >>> lc.detection_limits.optical_depth(sigma=3)  # 3-sigma upper limit
-    0.022
-
-    # If the flux or errors are updated:
-    >>> lc.dflux = new_error_array
-    >>> lc.detection_limits.clear()  # Reset cached limits
-
-    # Access updated values
-    >>> lc.detection_limits.optical_depth()
-    0.019
+    0.027
+    >>> lc.detection_limits.apparent_optical_depth(sigma=3)
+    0.080
+    >>> print(lc.detection_limits)
     """
     
     def __init__(self, lightcurve):
-        """ Initialize the DetectionLimits object using flux values outside the occultation region.
+        """ Initialize the detection limit computation by masking data and preparing flux arrays.
 
-        This method prepares the data needed to compute detection limits by:
-        
-        - Extracting the flux values from the light curve (`lc.flux`);
-        - Optionally using the associated per-point flux uncertainties (`lc.dflux`);
-        - Automatically masking out points that occur during the occultation (between
-        immersion and emersion), adding a margin of +/- 1 exposure;
-        - Uses the full light curve if occultation times or reference time are not defined;
-        - Ensuring consistency between the masked `flux` and `dflux` arrays. 
+        If immersion/emersion/tref are defined in the light curve, the method masks out the
+        data during the occultation (±1 exposure). Otherwise, the full flux array is used.
 
-        Notes
-        -----
-        If `immersion`, `emersion`, and `tref` are defined, the code masks out all flux
-        values within the occultation window (+/- 1 exposure time). The resulting flux values
-        are assumed to represent the out-of-occultation baseline used to estimate detection limits.
-
-        If `dflux` is defined and has the same length as `flux`, it is used to improve
-        the noise estimation using a weighted approach. Otherwise, a warning is raised
-        and `dflux` is ignored.
+        Parameters
+        ----------
+        lightcurve : LightCurve
+            The input light curve object containing flux and timing data.
         """
 
         self.lc = lightcurve
-        self.flux_err = getattr(self.lc, "dflux", None)
+        self.flux_err = getattr(self.lc, 'dflux', None)
+        self.flux = getattr(self.lc, 'flux', None)
         immersion = getattr(self.lc, 'immersion', None)
         emersion = getattr(self.lc, 'emersion', None)
         tref = getattr(self.lc, 'tref', None)
 
+        if self.lc.flux is None or self.lc.time is None:
+            return 
+        
         # Define mask to exclude data inside the occultation (with margin of 1 exposure time)
         if immersion and emersion and tref:
             imm = (immersion - tref).sec - self.lc.exptime
@@ -1699,14 +1699,24 @@ class DetectionLimits:
                 self.flux_err = np.array(self.flux_err)
 
         if self.flux_err is not None and len(self.flux_err) != len(self.flux):
-            warnings.warn("Length of 'dflux' does not match masked 'flux'. Ignoring dflux.")
             self.flux_err = None
 
     def _estimate_noise(self):
-        """Estimate 1-sigma flux noise.
-        
+        """ Estimate the 1-sigma noise level in the out-of-occultation flux.
+
+        If flux uncertainties are available and consistent in size with the flux,
+        a weighted standard deviation is used. Otherwise, the sample standard deviation
+        of the flux is returned.
+
+        Returns
+        -------
+        float or None
+            Estimated 1-sigma noise in the normalized flux, or None if data is invalid.
         """
-        # Essa abordagem respeita a distribuição dos erros e evita que pontos ruidosos dominem a estatística.
+        
+        if self.flux is None or len(self.flux) == 0:
+            return None
+        
         if self.flux_err is not None:
             weights = 1 / (self.flux_err)**2
             weighted_mean = np.average(self.flux, weights=weights)
@@ -1716,92 +1726,86 @@ class DetectionLimits:
             return np.std(self.flux, ddof=1)
 
     def apparent_opacity(self, sigma=1):
-        """
-        Estimate the apparent opacity detection limit in the sky plane.
+        """  Compute the apparent opacity detection limit.
 
-        This represents the depth of a possible signal (e.g., from a ring)
-        that would be indistinguishable from Gaussian noise at a given sigma level.
+        The apparent opacity corresponds to the minimum flux drop distinguishable from noise
+        at a given sigma level.
 
         Parameters
         ----------
         sigma : float, optional
-            The sigma level for the detection threshold (e.g., 1, 3, or 5). Default is 1-sigma.
+            The sigma level for the detection threshold (default is 1-sigma).
 
         Returns
         -------
-        float
-            Apparent opacity limit, computed as app_opacity = sigma x std(flux).
+        float or None
+            Apparent opacity value or None if flux data is missing.
         """
-        return self._estimate_noise() * sigma
+        noise = self._estimate_noise()
+        if noise is None:
+            return None
+        return noise * sigma
+
     
-    def opacity(self, sigma=1):
-        """
-        Estimate the physical opacity limit corrected for single-particle diffraction.
-
-        Applies the diffraction correction proposed by Cuzzi (1985), based on the
-        apparent opacity. The sigma scaling reflects the detection threshold level.
-
-        Parameters
-        ----------
-        sigma : float, optional
-            The sigma level for the detection threshold. Default is 1-sigma.
-
-        Returns
-        -------
-        float
-            Opacity limit: opacity = 1 - sqrt(1 - app_opacity).
-        """
-        app_opacity = self._estimate_noise() * sigma
-        return 1 - np.sqrt(1 - app_opacity)
-
     def apparent_optical_depth(self, sigma=1):
-        """
-        Estimate the apparent optical depth from the apparent opacity.
+        """ Compute the apparent optical depth detection limit.
 
-        This is the logarithmic measure of attenuation based on flux depth,
-        without correcting for sigle-particle diffraction effects.
-
-        Parameters
-        ----------
-        sigma : float, optional
-            The sigma level for the detection threshold. Default is 1-sigma.
-
-        Returns
-        -------
-        float
-            Apparent optical depth: apparent_optical_depth = -ln(1 - app_opacity).
-        """
-        app_opacity = self._estimate_noise() * sigma
-        return -np.log(1 - app_opacity)
-
-    def optical_depth(self, sigma=1):
-        """
-        Estimate the optical depth corrected for diffraction (optical_depth = apparent_optical_depth / 2).
-
-        Accounts for the forward-scattering effect of small particles, where
-        the apparent depth overestimates the physical opacity by a factor of ~2
-        (Cuzzi, 1985).
+        Derived from the apparent opacity using the relation:
+        τ = -ln(1 - opacity)
 
         Parameters
         ----------
         sigma : float, optional
-            The sigma level for the detection threshold. Default is 1-sigma.
+            The sigma level for the detection threshold (default is 1-sigma).
 
         Returns
         -------
-        float
-            Diffraction-corrected optical depth.
+        float or None
+            Apparent optical depth value or None if flux data is missing.
         """
-        app_opacity = self._estimate_noise() * sigma
-        return -np.log(1 - app_opacity) / 2
+        noise = self._estimate_noise()
+        if noise is None:
+            return None
+        return -np.log(1 - noise*sigma)
     
-    def clear(self):
-        """
-        Clear the current DetectionLimits instance from the parent LightCurve object.
+    def apparent_equivalent_width(self, sigma=1):
+        """ Estimate the apparent equivalent width detection limit (in km).
 
-        Calling this will delete the `_detection_limits` attribute from the associated
-        light curve, forcing its recomputation upon next access to `lc.detection_limits`.
-        """
-        if hasattr(self.lc, '_detection_limits'):
-            del self.lc._detection_limits
+        Computed as the product of the flux noise, the exposure time, and the projected velocity:
+        EW = sigma * flux_noise * velocity * exptime
 
+        Parameters
+        ----------
+        sigma : float, optional
+            The sigma level for the detection threshold (default is 1-sigma).
+
+        Returns
+        -------
+        float or None
+            Apparent equivalent width in km or None if flux data is missing.
+        """
+        noise = self._estimate_noise()
+        if noise is None:
+            return None
+        return noise * sigma * self.lc.vel * self.lc.exptime 
+    
+    def __str__(self):
+        """ String summary of detection limits at 3-sigma.
+
+        Returns
+        -------
+        str
+            Formatted output with apparent opacity, optical depth, and equivalent width.
+        """
+        if self.lc.flux is not None and len(self.lc.flux) > 0:
+            output = '\nDetection limits (3-sigma):\n' 
+            output += ('    Apparent opacity:             {:.3f}\n'
+                       '    Apparent optical depth:       {:.3f}\n'
+                       '    Apparent equivalent width:    {:.3f} km\n\n'.format(
+                           self.apparent_opacity(sigma=3),
+                           self.apparent_optical_depth(sigma=3),
+                           self.apparent_equivalent_width(sigma=3)
+                           )
+                        )
+            return output
+        return '\nNo flux data available to compute detection limits.\n'
