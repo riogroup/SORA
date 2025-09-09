@@ -1,7 +1,7 @@
 import astropy.units as u
 import numpy as np
 
-__all__ = ['to_ring_plane','to_sky_plane','calc_longitude','calc_equatorial_vel', 'calc_coef_projecao']
+__all__ = ['project_to_ring_plane','to_sky_plane','calc_longitude','calc_equatorial_vel', 'calc_coef_projecao']
 
 def calc_coef_projecao(ephem, pole_coord, B, P, earth_pole):
     """ Function that calculate the projection coeficients """ 
@@ -34,7 +34,7 @@ def calc_coef_projecao(ephem, pole_coord, B, P, earth_pole):
     return coef, coef_polo
 
 
-def to_ring_plane(ksi, eta, coef, coef_polo, ksi_0=0.0, eta_0=0.0):
+def project_to_ring_plane(ksi, eta, coef, coef_polo, ksi_0=0.0, eta_0=0.0):
     """ Convert between the sky-plane and the (equatorial) ring plane 
 
         Parameters:
@@ -42,7 +42,7 @@ def to_ring_plane(ksi, eta, coef, coef_polo, ksi_0=0.0, eta_0=0.0):
             eta (int, float): Eta
             ksi_0 (int, float): Central ksi value, default=0.0
             eta_0 (int, float): Central eta value, default=0.0
-
+    
         Returns:
             xp (float): X Position in the ring plane
             yp (float): Y Position in the ring plane            
