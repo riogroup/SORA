@@ -3,6 +3,8 @@ import os
 import numpy as np
 
 from sora.config.decorators import deprecated_alias
+import scipy.special as scsp
+
 
 __all__ = ['calc_fresnel', 'calc_magnitude_drop']
 
@@ -73,6 +75,33 @@ def bar_fresnel(X, X01, X02, fresnel_scale, opacity):
     # Determining the flux considering fresnel diffraction
     flux_fresnel = (1.0 + r_ampli) ** 2 + i_ampli ** 2
     return flux_fresnel
+
+
+def bar_fresnel_double(X, X01, X02, X03, X04, fresnel_scale, opacity1, opacity2):
+    
+    x = X / fresnel_scale
+    x01 = X01 / fresnel_scale
+    x02 = X02 / fresnel_scale
+    x03 = X03 / fresnel_scale
+    x04 = X04 / fresnel_scale
+
+    # Fresnel integrals
+    s1, c1 = scsp.fresnel(x - x01)
+    s2, c2 = scsp.fresnel(x - x02)
+    s3, c3 = scsp.fresnel(x - x03)
+    s4, c4 = scsp.fresnel(x - x04)
+
+    # primeira caixa
+    cc1, ss1 = (c1 - c2), (s1 - s2)
+    r_amp = -(cc1 + ss1) * (opacity1 / 2.0)
+    i_amp = +(cc1 - ss1) * (opacity1 / 2.0)
+
+    # segunda caixa
+    cc2, ss2 = (c3 - c4), (s3 - s4)
+    r_amp -= (cc2 + ss2) * (opacity2 / 2.0)
+    i_amp += (cc2 - ss2) * (opacity2 / 2.0)
+
+    return (1.0 + r_amp) ** 2 + i_amp ** 2
 
 
 def fit_pol(x, y, deg):

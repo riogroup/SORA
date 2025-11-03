@@ -1,0 +1,911 @@
+# sora/lightcurve/model.py
+"""
+Light-curve models for stellar occultations.
+
+Features
+--------
+- SquareWellModel : Fresnel-aware square-well occultation model with optional spectral integration.
+- CompositeModel : multiplicative (non-coherent) combination of independent structures.
+
+Design goals
+------------
+- Preserve the physics of the original SORA `occ_model`:
+  Fresnel diffraction, finite star, and instrumental integration.
+- Add spectral integration (n_lambda or bandpass response curve).
+- Keep API simple and backward-compatible (e.g., lc.square_well_model()).
+- Modular architecture to allow future models (Lorentzian, Gaussian, etc).
+
+Examples
+--------
+>>> m1 = lc.square_well_model(immersion_time=23474, emersion_time=23476, opacity=0.04)
+>>> m2 = lc.square_well_model(immersion_time=23664.3, emersion_time=23710, opacity=1.0)
+>>> m3 = lc.square_well_model(immersion_time=23911, emersion_time=23912.3, opacity=0.7)
+
+Combine multiple components (non-coherent product of intensities):
+>>> multi = CompositeModel()
+>>> multi.add_component("main_body", m1)
+>>> multi.add_component("ring1", m2)
+>>> multi.add_component("ring2", m3)
+>>> flux = multi()
+>>> lc.plot(model=flux)
+"""
+
+from __future__ import annotations
+import numpy as np
+import astropy.units as u
+import matplotlib.pyplot as plt
+from typing import Dict, Tuple, Optional
+from scipy.special import fresnel
+
+
+from .utils import calc_fresnel, bar_fresnel, bar_fresnel_double
+
+__all__ = [
+    "BaseModel",
+    "SquareWellModel",
+    "CompositeModel",
+    "DoubleSquareWellModel",
+    "attach_to_lightcurve_class",
+    "occ_model", 
+    "occ_model_double"
+]
+
+# Base class
+class BaseModel:
+    """Base interface for light-curve models."""
+
+    def __init__(self, name: str = "BaseModel", params: Optional[Dict] = None):
+        self.name = name
+        self.params = params or {}
+
+    def compute(self) -> np.ndarray:
+        """Return model intensity (flux)."""
+        raise NotImplementedError
+
+    def __call__(self) -> np.ndarray:
+        """Shortcut for self.compute()."""
+        return self.compute()
+
+    def summary(self) -> str:
+        """Return string summary of model parameters."""
+        return f"{self.name}: " + ", ".join(f"{k}={v}" for k, v in self.params.items())
+
+
+# Fresnel square-well model with spectral integration
+class SquareWellModel(BaseModel):
+    """
+    Square-well occultation model.
+
+    Includes Fresnel diffraction, finite stellar diameter, instrumental integration,
+    and optional spectral integration across the bandpass.
+
+    Parameters
+    ----------
+    immersion_time, emersion_time : float
+        Immersion and emersion times (s, relative to tref or arbitrary zero).
+    opacity : float
+        Opacity (1 = opaque, 0 = transparent).
+    distance : float, optional
+        Object-observer distance in AU.
+    vel : float, optional
+        Tangential vel in km/s.
+    exptime : float, optional
+        Exposure time in seconds.
+    d_star : float, optional
+        Stellar diameter (km). If 0, star is treated as a point source.
+    lambda_0, delta_lambda : float, optional
+        Central wavelength and bandpass width (μm).
+    npt_star : int, optional
+        Number of subdivisions for integrating the stellar disk.
+    time_resolution_factor : float, optional
+        Time sampling factor relative to Fresnel scale (default 10).
+    flux_min, flux_max : float, optional
+        Flux scaling limits (default 0-1).
+    n_lambda : int, optional
+        Number of wavelength samples across the bandpass (default 2).
+        n_lambda = 1 → monochromatic (λ₀),
+        n_lambda = 2 → average of λ₀ ± Δλ/2 (SORA classic),
+        n_lambda > 2 → uniform integration across band.
+    response : (μm, Tλ) array pair, optional
+        Transmission curve for realistic spectral integration.
+    lightcurve : LightCurve, optional
+        If provided, inherits distance, vel, exptime, d_star, λ₀, Δλ from it.
+
+    Notes
+    -----
+    This reproduces the physics of the classic `occ_model()` but in modular form.
+    """
+
+    def __init__(
+        self,
+        immersion_time: float,
+        emersion_time: float,
+        opacity: float,
+        distance: Optional[float] = None,
+        vel: Optional[float] = None,
+        exptime: Optional[float] = None,
+        d_star: Optional[float] = None,
+        lambda_0: Optional[float] = None,
+        delta_lambda: Optional[float] = None,
+        lightcurve=None,
+        npt_star: int = 12,
+        time_resolution_factor: float = 10.0,
+        flux_min: float = 0.0,
+        flux_max: float = 1.0,
+        n_lambda: int = 2,
+        response: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+    ):
+        if lightcurve is not None:
+            distance     = getattr(lightcurve, "dist", distance)
+            vel     = getattr(lightcurve, "vel", vel)
+            exptime      = getattr(lightcurve, "exptime", exptime)
+            d_star       = getattr(lightcurve, "d_star", d_star)
+            lambda_0     = getattr(lightcurve, "lambda_0", lambda_0)
+            delta_lambda = getattr(lightcurve, "delta_lambda", delta_lambda)
+            response     = getattr(lightcurve, "response", response)
+
+
+        if distance is None or vel is None or exptime is None:
+            raise ValueError(
+                "Missing required parameters: distance, vel, or exptime.\n"
+                "Provide them explicitly or pass a LightCurve via 'lightcurve'."
+            )
+
+        super().__init__(name="SquareWell")
+        self.lightcurve = lightcurve
+        self.params = dict(
+            immersion_time=float(immersion_time),
+            emersion_time=float(emersion_time),
+            opacity=float(opacity),
+            distance=float(distance),
+            vel=float(vel),
+            exptime=float(exptime),
+            d_star=float(d_star or 0.0),
+            lambda_0=float(lambda_0 or 0.7),
+            delta_lambda=float(delta_lambda or 0.3),
+            npt_star=int(npt_star),
+            time_resolution_factor=float(time_resolution_factor),
+            flux_min=float(flux_min),
+            flux_max=float(flux_max),
+            n_lambda=int(n_lambda),
+            response=response,
+        )
+
+        self.time_model = None
+        self.model_fresnel = None
+        self.model_star = None
+        self.model_geometric = None
+
+    # Main compute method
+    def compute(self, time: Optional[np.ndarray] = None) -> np.ndarray:
+        """
+        Compute model flux using the associated LightCurve time array.
+
+        Returns
+        -------
+        flux_inst : ndarray
+            Modeled relative flux values (same length as lc.time).
+
+        Notes
+        -----
+        - Integrates Fresnel diffraction across wavelength samples.
+        - Convolves with stellar diameter (if nonzero).
+        - Integrates over exposure time for instrumental response.
+        """
+        if not hasattr(self, "lightcurve") or not hasattr(self.lightcurve, "time"):
+            raise ValueError("This model must be linked to a LightCurve to compute flux.")
+
+        p = self.params
+
+        if time is None:
+            time = np.asarray(self.lightcurve.time, dtype=float)
+        else:
+            time = np.asarray(time, dtype=float)
+
+        lam_array, weights = _lambda_weights(p["lambda_0"], 
+                                             p["delta_lambda"], 
+                                             p["n_lambda"],
+                                             p["response"])
+
+        dist_km = p["distance"] * u.au.to("km")
+        vel = abs(p["vel"])
+        lamb_center = p["lambda_0"] * u.micrometer.to("km")
+        fresnel_center = calc_fresnel(dist_km, lamb_center)
+        time_resolution = min(fresnel_center / vel, p["exptime"]) / p["time_resolution_factor"]
+        time_model = np.arange(time.min() - 5*p["exptime"], time.max() + 5*p["exptime"], time_resolution)
+        x = time_model * vel
+        x01 = p["immersion_time"] * vel
+        x02 = p["emersion_time"] * vel
+
+        flux_fresnel = np.zeros_like(time_model)
+
+        for lam, w in zip(lam_array, weights):
+            lam_km = lam * u.micrometer.to("km")
+            fresnel_scale = calc_fresnel(dist_km, lam_km)
+            flux_temp = bar_fresnel(x, x01, x02, fresnel_scale, p["opacity"])
+            flux_fresnel += w * flux_temp
+            
+        flux_star = flux_fresnel.copy()
+
+        if p["d_star"] > 0:
+            npt = p["npt_star"]
+            res = (p["d_star"]/2)/npt
+            pgrid = np.arange(-npt, npt)*res
+            coeff = np.sqrt(np.abs((p["d_star"]/2)**2 - pgrid**2))
+            coeff_sum = coeff.sum() if coeff.sum() != 0 else 1.0
+            mask = (np.abs(x-x01) < 3*p["d_star"]) | (np.abs(x-x02) < 3*p["d_star"])
+            for ii in np.where(mask)[0]:
+                xx = x[ii] + pgrid
+                val = 0
+                for lam, w in zip(lam_array, weights):
+                    lam_km = lam * u.micrometer.to("km")
+                    fresnel_scale = calc_fresnel(dist_km, lam_km)
+                    flux = bar_fresnel(xx, x01, x02, fresnel_scale, p["opacity"])
+                    val += w * np.sum(coeff * flux) / coeff_sum
+                flux_star[ii] = val
+
+        flux_inst = np.zeros_like(time)
+        for i, t in enumerate(time):
+            mask_event = (time_model > (t - p["exptime"]/2.)) & (time_model < (t + p["exptime"]/2.))
+            flux_inst[i] = flux_star[mask_event].mean() if mask_event.any() else flux_star[np.argmin(np.abs(time_model - t))]
+
+        flux_inst = flux_inst * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
+
+        self.time_model = time_model
+        self.model_fresnel = flux_fresnel * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
+        self.model_star = flux_star * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
+        geom = np.ones_like(time_model)
+        geom[(time_model > p["immersion_time"]) & (time_model < p["emersion_time"])] = (1 - p["opacity"])**2
+        self.model_geometric = geom * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
+
+        return flux_inst
+
+    def plot(self, show_components=False, ax=None):
+        if self.model_fresnel is None:
+            self.compute()
+
+        return _plot_model(
+            ax=ax,
+            lightcurve=self.lightcurve,
+            flux_model=self(),
+            model_geometric=self.model_geometric,
+            model_fresnel=self.model_fresnel,
+            model_star=self.model_star,
+            time_model=self.time_model,
+            show_components=show_components,
+            title=f"{self.lightcurve.name}: {self.name}"
+        )
+
+# Double Square-Well model (two consecutive regions with coherent diffraction)
+
+class DoubleSquareWellModel(BaseModel):
+    """
+    Fresnel-aware occultation model with TWO consecutive square-well regions.
+
+    Includes Fresnel diffraction (coherent sum of the four edges),
+    finite stellar diameter convolution, instrumental integration,
+    and optional spectral integration across the bandpass.
+
+    Parameters
+    ----------
+    immersion_1, emersion_1 : float
+        Immersion and emersion times of the first region (s, relative to tref).
+    opacity_1 : float
+        Opacity of the first region (1 = opaque, 0 = transparent).
+    immersion_2, emersion_2 : float
+        Immersion and emersion times of the second region (s).
+    opacity_2 : float
+        Opacity of the second region (1 = opaque, 0 = transparent).
+
+    distance : float, optional
+        Object-observer distance in AU.
+    vel : float, optional
+        Tangential vel in km/s.
+    exptime : float, optional
+        Exposure time in seconds.
+    d_star : float, optional
+        Stellar diameter (km). If 0, star is treated as a point source.
+    lambda_0, delta_lambda : float, optional
+        Central wavelength and bandpass width (μm).
+    npt_star : int, optional
+        Number of subdivisions for integrating the stellar disk.
+    time_resolution_factor : float, optional
+        Time sampling factor relative to Fresnel scale (default 10).
+    flux_min, flux_max : float, optional
+        Flux scaling limits (default 0–1).
+    n_lambda : int, optional
+        Number of wavelength samples across the bandpass (default 2).
+        n_lambda = 1 → monochromatic (λ₀),
+        n_lambda = 2 → average of λ₀ ± Δλ/2 (classic),
+        n_lambda > 2 → uniform integration across band.
+    response : (μm, Tλ) array pair, optional
+        Transmission curve for realistic spectral integration.
+    lightcurve : LightCurve, optional
+        If provided, inherits distance, vel, exptime, d_star, λ₀, Δλ, response from it.
+
+    Notes
+    -----
+    - Physics: coherent addition of edge amplitudes for two square wells,
+      then |A|^2 to get intensity. Matches the legacy SORA two-box behavior.
+    - Internal high-res grid is stored in self.time_model and component curves
+      in self.model_fresnel, self.model_star, self.model_geometric.
+    """
+
+    def __init__(
+        self,
+        immersion1: float,
+        emersion1: float,
+        opacity1: float,
+        immersion2: float,
+        emersion2: float,
+        opacity2: float,
+        distance: Optional[float] = None,
+        vel: Optional[float] = None,
+        exptime: Optional[float] = None,
+        d_star: Optional[float] = None,
+        lambda_0: Optional[float] = None,
+        delta_lambda: Optional[float] = None,
+        lightcurve=None,
+        npt_star: int = 12,
+        time_resolution_factor: float = 10.0,
+        flux_min: float = 0.0,
+        flux_max: float = 1.0,
+        n_lambda: int = 2,
+        response: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+    ):
+        if lightcurve is not None:
+            distance     = getattr(lightcurve, "dist", distance)
+            vel     = getattr(lightcurve, "vel", vel)
+            exptime      = getattr(lightcurve, "exptime", exptime)
+            d_star       = getattr(lightcurve, "d_star", d_star)
+            lambda_0     = getattr(lightcurve, "lambda_0", lambda_0)
+            delta_lambda = getattr(lightcurve, "delta_lambda", delta_lambda)
+            response     = getattr(lightcurve, "response", response)
+
+        if distance is None or vel is None or exptime is None:
+            raise ValueError(
+                "Missing required parameters: distance, vel, or exptime.\n"
+                "Provide them explicitly or pass a LightCurve via 'lightcurve'."
+            )
+
+        super().__init__(name="DoubleSquareWell")
+        self.lightcurve = lightcurve
+        self.params = dict(
+            immersion1=float(immersion1),
+            emersion1=float(emersion1),
+            opacity1=float(opacity1),
+            immersion2=float(immersion2),
+            emersion2=float(emersion2),
+            opacity2=float(opacity2),
+            distance=float(distance),
+            vel=float(vel),
+            exptime=float(exptime),
+            d_star=float(d_star or 0.0),
+            lambda_0=float(lambda_0 or 0.7),
+            delta_lambda=float(delta_lambda or 0.3),
+            npt_star=int(npt_star),
+            time_resolution_factor=float(time_resolution_factor),
+            flux_min=float(flux_min),
+            flux_max=float(flux_max),
+            n_lambda=int(n_lambda),
+            response=response,
+        )
+
+        self.time_model = None
+        self.model_fresnel = None
+        self.model_star = None
+        self.model_geometric = None
+        self.model_inst = None
+
+    def compute(self, time: Optional[np.ndarray] = None) -> np.ndarray:
+        """
+        Compute model flux using either the LightCurve time array or a custom one.
+
+        Parameters
+        ----------
+        time : array-like, optional
+            Custom time array (in seconds relative to tref).
+            If not given, uses self.lightcurve.time by default.
+
+        Returns
+        -------
+        flux_inst : ndarray
+            Modeled relative flux values evaluated at the requested time grid.
+        """
+
+        if self.lightcurve is None and time is None:
+            raise ValueError("This model needs a LightCurve or a provided 'time' array.")
+
+        p = self.params
+
+        if time is None:
+            if not hasattr(self.lightcurve, "time"):
+                raise ValueError("Linked LightCurve has no 'time' array.")
+            time = np.asarray(self.lightcurve.time, dtype=float)
+        else:
+            time = np.asarray(time, dtype=float)
+
+        lam_array, weights = _lambda_weights(p["lambda_0"], 
+                                             p["delta_lambda"], 
+                                             p["n_lambda"], 
+                                             p["response"])
+
+        dist_km = p["distance"] * u.au.to("km")
+        vel = abs(p["vel"])
+        lamb_center = p["lambda_0"] * u.micrometer.to("km")
+        fresnel_center = calc_fresnel(dist_km, lamb_center)
+        time_resolution = min(fresnel_center / vel, p["exptime"]) / p["time_resolution_factor"]
+        tmin = time.min() - 5.0 * p["exptime"]
+        tmax = time.max() + 5.0 * p["exptime"]
+        time_model = np.arange(tmin, tmax, time_resolution)
+
+        x = time_model * vel
+        x01 = p["immersion1"] * vel
+        x02 = p["emersion1"] * vel
+        x03 = p["immersion2"] * vel
+        x04 = p["emersion2"] * vel
+
+        flux_fresnel = np.zeros_like(time_model)
+
+        for lam, w in zip(lam_array, weights):
+            lam_km = lam * u.micrometer.to("km")
+            fr = calc_fresnel(dist_km, lam_km)
+
+            u1 = (x - x01) / fr
+            u2 = (x - x02) / fr
+            u3 = (x - x03) / fr
+            u4 = (x - x04) / fr
+
+            s1, c1 = fresnel(u1)
+            s2, c2 = fresnel(u2)
+            s3, c3 = fresnel(u3)
+            s4, c4 = fresnel(u4)
+
+            cc1, ss1 = (c1 - c2), (s1 - s2)
+            cc2, ss2 = (c3 - c4), (s3 - s4)
+
+            r_amp = - (cc1 + ss1) * (p["opacity1"]/2.0) - (cc2 + ss2) * (p["opacity2"]/2.0)
+            i_amp = + (cc1 - ss1) * (p["opacity1"]/2.0) + (cc2 - ss2) * (p["opacity2"]/2.0)
+
+            I = (1.0 + r_amp)**2 + i_amp**2
+            flux_fresnel += w * I
+
+        flux_star = flux_fresnel.copy()
+
+        if p["d_star"] > 0:
+            npt = p["npt_star"]
+            res = (p["d_star"]/2.0) / npt
+            pgrid = np.arange(-npt, npt) * res
+            coeff = np.sqrt(np.abs((p["d_star"]/2.0)**2 - pgrid**2))
+            csum = coeff.sum() if coeff.sum() != 0 else 1.0
+
+            edge_mask = (np.abs(x-x01) < 3*p["d_star"]) | (np.abs(x-x02) < 3*p["d_star"]) | \
+                        (np.abs(x-x03) < 3*p["d_star"]) | (np.abs(x-x04) < 3*p["d_star"])
+            idx = np.where(edge_mask)[0]
+
+            for ii in idx:
+                xx = x[ii] + pgrid
+                acc = 0.0
+                for lam, w in zip(lam_array, weights):
+                    lam_km = lam * u.micrometer.to("km")
+                    fr = calc_fresnel(dist_km, lam_km)
+
+                    u1 = (xx - x01)/fr; s1, c1 = fresnel(u1)
+                    u2 = (xx - x02)/fr; s2, c2 = fresnel(u2)
+                    u3 = (xx - x03)/fr; s3, c3 = fresnel(u3)
+                    u4 = (xx - x04)/fr; s4, c4 = fresnel(u4)
+
+                    cc1, ss1 = (c1 - c2), (s1 - s2)
+                    cc2, ss2 = (c3 - c4), (s3 - s4)
+
+                    r_amp = - (cc1 + ss1) * (p["opacity1"]/2.0) - (cc2 + ss2) * (p["opacity2"]/2.0)
+                    i_amp = + (cc1 - ss1) * (p["opacity1"]/2.0) + (cc2 - ss2) * (p["opacity2"]/2.0)
+
+                    I = (1.0 + r_amp)**2 + i_amp**2
+                    acc += w * np.sum(coeff * I) / csum
+
+                flux_star[ii] = acc
+
+        flux_inst = np.zeros_like(time)
+        half = p["exptime"]/2.0
+        for i, t in enumerate(time):
+            m = (time_model > (t - half)) & (time_model < (t + half))
+            flux_inst[i] = flux_star[m].mean() if m.any() else flux_star[np.argmin(np.abs(time_model - t))]
+
+        flux_inst = flux_inst * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
+
+        self.time_model = time_model
+        geom = np.ones_like(time_model)
+        in1 = (time_model > p["immersion1"]) & (time_model < p["emersion1"])
+        in2 = (time_model > p["immersion2"]) & (time_model < p["emersion2"])
+        if np.any(in1): geom[in1] *= (1 - p["opacity1"])**2
+        if np.any(in2): geom[in2] *= (1 - p["opacity2"])**2
+        self.model_geometric = geom * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
+        self.model_fresnel   = flux_fresnel * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
+        self.model_star      = flux_star * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
+        self.model_inst      = flux_inst
+
+        return flux_inst
+
+    def plot(self, show_components: bool = False, ax=None):
+        """Plot observed LC + geometric (always) + final model; optional Fresnel/stellar."""
+        if self.model_fresnel is None:
+            self.compute()
+        return _plot_model(
+            ax=ax,
+            lightcurve=self.lightcurve,
+            flux_model=self.model_inst if self.model_inst is not None else self(),
+            model_geometric=self.model_geometric,
+            model_fresnel=self.model_fresnel,
+            model_star=self.model_star,
+            time_model=self.time_model,
+            show_components=show_components,
+            title=f"{self.lightcurve.name}: {self.name}",
+        )
+
+# Composite (non-coherent) model
+class CompositeModel(BaseModel):
+    """
+    Multiply intensities of independent components (non-coherent).
+
+    Generates a single combined model (geometric, Fresnel, stellar, instrumental)
+    from all subcomponents.
+
+    Example
+    -------
+    >>> m1 = lc.square_well_model(...)
+    >>> m2 = lc.square_well_model(...)
+    >>> comp = lc.composite_model()
+    >>> comp.add_component("main", m1)
+    >>> comp.add_component("ring1", m2)
+    >>> comp.plot(show_components=True)
+    """
+
+    def __init__(self, components=None):
+        super().__init__(name="CompositeModel")
+        self.components = components or []
+        self.lightcurve = None
+
+        self.time_model = None
+        self.model_geometric = None
+        self.model_fresnel = None
+        self.model_star = None
+        self.model_inst = None
+
+    def add_component(self, flag: str, model: BaseModel):
+        """Add a component model to the composite."""
+        if not isinstance(model, BaseModel):
+            raise TypeError("Each component must be a BaseModel instance.")
+        self.components.append((flag, model))
+        if self.lightcurve is None:
+            self.lightcurve = model.lightcurve
+
+    def compute(self, time: Optional[np.ndarray] = None) -> np.ndarray:
+        """Compute the combined model from all components.
+
+        Parameters
+        ----------
+        time : array-like, optional
+            Custom time array (in seconds relative to tref).
+            If not given, uses the lightcurve time from the first component.
+
+        Returns
+        -------
+        flux_inst : ndarray
+            Combined modeled flux evaluated at the specified time array.
+        """
+        if not self.components:
+            raise ValueError("No components added to CompositeModel.")
+
+        lc = self.components[0][1].lightcurve
+        self.lightcurve = lc
+
+        if time is None:
+            time = lc.time
+        else:
+            time = np.asarray(time, dtype=float)
+
+        finest_dt = min([
+            (m.params["exptime"] / m.params["time_resolution_factor"])
+            for _, m in self.components
+        ])
+        exptime_ref = min([m.params["exptime"] for _, m in self.components])
+
+        tmin = time.min() - 5 * exptime_ref
+        tmax = time.max() + 5 * exptime_ref
+        time_model = np.arange(tmin, tmax, finest_dt)
+
+        geom_total = np.ones_like(time_model)
+        fres_total = np.ones_like(time_model)
+        star_total = np.ones_like(time_model)
+
+        for _, model in self.components:
+            if model.model_fresnel is None:
+                model.compute()
+
+            fres_total *= np.interp(time_model, model.time_model, model.model_fresnel)
+            star_total *= np.interp(time_model, model.time_model, model.model_star)
+            geom_total *= np.interp(time_model, model.time_model, model.model_geometric)
+
+        exptime = lc.exptime
+        flux_inst = np.zeros_like(time)
+        for i, t in enumerate(time):
+            m = (time_model > (t - exptime/2)) & (time_model < (t + exptime/2))
+            flux_inst[i] = star_total[m].mean() if np.any(m) else star_total[np.argmin(np.abs(time_model - t))]
+
+        self.time_model = time_model
+        self.model_geometric = geom_total
+        self.model_fresnel = fres_total
+        self.model_star = star_total
+        self.model_inst = flux_inst
+
+        return flux_inst
+
+
+    def plot(self, show_components=False, ax=None):
+        """Plot the combined composite model and observed light curve."""
+        if self.model_fresnel is None:
+            self.compute()
+        return _plot_model(
+            ax=ax,
+            lightcurve=self.lightcurve,
+            flux_model=self.model_inst,
+            model_geometric=self.model_geometric,
+            model_fresnel=self.model_fresnel,
+            model_star=self.model_star,
+            time_model=self.time_model,
+            show_components=show_components,
+            title=f"{self.lightcurve.name}: Composite Model"
+        )
+
+    def __call__(self) -> np.ndarray:
+        """Shortcut for self.compute()."""
+        return self.compute()
+
+
+# Helper: attach models to LightCurve
+def attach_to_lightcurve_class(LightCurveClass):
+    """
+    Attach model constructors as LightCurve methods.
+
+    Examples
+    --------
+    >>> lc.square_well_model(immersion_time=..., emersion_time=..., opacity=0.8)
+    >>> multi = lc.composite_model()
+    """
+
+    def _square_well_model(self, immersion_time, emersion_time, opacity=1.0, **kwargs):
+        """Return a SquareWellModel linked to this LightCurve."""
+        return SquareWellModel(
+            lightcurve=self,
+            immersion_time=immersion_time,
+            emersion_time=emersion_time,
+            opacity=opacity,
+            **kwargs,
+        )
+    def _double_square_well_model(self,
+                                immersion1, emersion1, opacity1,
+                                immersion2, emersion2, opacity2,
+                                **kwargs):
+        """Return a DoubleSquareWellModel linked to this LightCurve."""
+        return DoubleSquareWellModel(
+            lightcurve=self,
+            immersion1=immersion1, emersion1=emersion1, opacity1=opacity1,
+            immersion2=immersion2, emersion2=emersion2, opacity2=opacity2,
+            **kwargs
+        )
+
+    setattr(LightCurveClass, "double_square_well_model", _double_square_well_model)
+
+
+    def _composite_model(self):
+        """Return a new CompositeModel linked to this LightCurve."""
+        model = CompositeModel()
+        model.lightcurve = self
+        return model
+
+    setattr(LightCurveClass, "square_well_model", _square_well_model)
+    setattr(LightCurveClass, "composite_model", _composite_model)
+
+
+### Fast models
+def occ_model(time, immersion_time, emersion_time, opacity,
+              lambda_0, delta_lambda, distance, vel, exptime, d_star,
+              npt_star=12, time_resolution_factor=10, flux_min=0.0, flux_max=1.0):
+    """
+    Fast, allocation-light model (no class instantiation).
+    Physics: average of Fresnel patterns at λ0 ± Δλ/2 (SORA classic),
+    finite stellar diameter (npt_star), and exposure-time integration.
+    """
+
+    time = np.asarray(time, dtype=float)
+    vel = abs(float(vel))
+    dist_km = float(distance) * u.au.to("km")
+
+    lamb_center = float(lambda_0) * u.micrometer.to("km")
+    dlamb = float(delta_lambda) * u.micrometer.to("km")
+    lam1, lam2 = lamb_center - dlamb/2.0, lamb_center + dlamb/2.0
+
+    fresnel_center = calc_fresnel(dist_km, lamb_center)
+    dt = min(fresnel_center/vel, float(exptime)) / float(time_resolution_factor)
+
+    tmin = time.min() - 5.0*exptime
+    tmax = time.max() + 5.0*exptime
+    time_model = np.arange(tmin, tmax, dt)
+
+    x   = time_model * vel
+    x01 = float(immersion_time) * vel
+    x02 = float(emersion_time) * vel
+
+    fr1 = calc_fresnel(dist_km, lam1)
+    fr2 = calc_fresnel(dist_km, lam2)
+    f1  = bar_fresnel(x, x01, x02, fr1, float(opacity))
+    f2  = bar_fresnel(x, x01, x02, fr2, float(opacity))
+    flux_fresnel = 0.5*(f1 + f2)
+
+    flux_star = flux_fresnel.copy()
+    dstar = float(d_star)
+    if dstar > 0:
+        step = (dstar/2.0)/int(npt_star)
+        pgrid = np.arange(-int(npt_star), int(npt_star)) * step
+        coeff = np.sqrt(np.abs((dstar/2.0)**2 - pgrid**2))
+        csum  = coeff.sum() if coeff.sum() != 0 else 1.0
+        mask  = (np.abs(x - x01) < 3.0*dstar) | (np.abs(x - x02) < 3.0*dstar)
+        idx   = np.where(mask)[0]
+        for ii in idx:
+            xx = x[ii] + pgrid
+            g1 = bar_fresnel(xx, x01, x02, fr1, float(opacity))
+            g2 = bar_fresnel(xx, x01, x02, fr2, float(opacity))
+            flux_star[ii] = 0.5*(np.sum(coeff*g1)/csum + np.sum(coeff*g2)/csum)
+
+    out = np.zeros_like(time)
+    half = exptime/2.0
+    for i, t in enumerate(time):
+        m = (time_model > (t - half)) & (time_model < (t + half))
+        if m.any():
+            out[i] = flux_star[m].mean()
+        else:
+            out[i] = flux_star[np.argmin(np.abs(time_model - t))]
+
+    return out*(flux_max - flux_min) + flux_min 
+
+def occ_model_double(time, immersion1, emersion1, opacity1,
+                     immersion2, emersion2, opacity2,
+                     lambda_0, delta_lambda, distance, vel, exptime, d_star,
+                     npt_star=12, time_resolution_factor=10,
+                     flux_min=0.0, flux_max=1.0):
+    """
+    Fast, allocation-light model for TWO occulting regions (DoubleSquare).
+    Physics: coherent sum of four edges (two square wells), averaged over
+    λ₀ ± Δλ/2, with Fresnel diffraction, finite star, and instrumental integration.
+
+    Parameters
+    ----------
+    lc : LightCurve
+        Input light curve object (must contain vel, dist, exptime, etc.).
+    t1, t2, t3, t4 : float
+        Immersion and emersion times (s) for the two square wells.
+    opacity1, opacity2 : float
+        Normal opacities for each region (0 transparent, 1 opaque).
+    ...
+
+    Returns
+    -------
+    flux_inst : ndarray
+        Modeled relative flux for the given lc.time array.
+    """
+
+    lamb_center = float(lambda_0) * u.micrometer.to("km")
+    dlamb = float(delta_lambda) * u.micrometer.to("km")
+    dist = distance * u.au.to('km')
+    vel = np.abs(vel)
+    exptime = exptime
+    d_star = d_star
+
+    time_obs = time
+    fresnel_scale_1 = calc_fresnel(dist, lamb_center - dlamb / 2.0)
+    fresnel_scale_2 = calc_fresnel(dist, lamb_center + dlamb / 2.0)
+    fresnel_scale = 0.5 * (fresnel_scale_1 + fresnel_scale_2)
+
+    time_res = np.min([fresnel_scale / vel, exptime]) / time_resolution_factor
+    time_model = np.arange(time_obs.min() - 5 * exptime,
+                           time_obs.max() + 5 * exptime,
+                           time_res)
+
+    x = time_model * vel
+    x01, x02 = immersion1 * vel, emersion1 * vel
+    x03, x04 = immersion2 * vel, emersion2 * vel
+
+    flux_f1 = bar_fresnel_double(x, x01, x02, x03, x04, fresnel_scale_1, opacity1, opacity2)
+    flux_f2 = bar_fresnel_double(x, x01, x02, x03, x04, fresnel_scale_2, opacity1, opacity2)
+    flux_fresnel = 0.5 * (flux_f1 + flux_f2)
+    flux_star = flux_fresnel.copy()
+
+    if d_star > 0:
+        step = (d_star / 2.0) / npt_star
+        p = np.arange(-npt_star, npt_star) * step
+        coeff = np.sqrt(np.abs((d_star / 2.0) ** 2 - p ** 2))
+        csum = coeff.sum() if coeff.sum() != 0 else 1.0
+
+        mask_region = ((np.abs(x - x01) < 3 * d_star) |
+                       (np.abs(x - x02) < 3 * d_star) |
+                       (np.abs(x - x03) < 3 * d_star) |
+                       (np.abs(x - x04) < 3 * d_star))
+        for ii in np.where(mask_region)[0]:
+            xx = x[ii] + p
+            f1c = bar_fresnel_double(xx, x01, x02, x03, x04, fresnel_scale_1, opacity1, opacity2)
+            f2c = bar_fresnel_double(xx, x01, x02, x03, x04, fresnel_scale_2, opacity1, opacity2)
+            flux_star[ii] = 0.5 * ((coeff @ f1c) / csum + (coeff @ f2c) / csum)
+
+    flux_inst = np.zeros(len(time_obs))
+    half = exptime / 2.0
+    for i, t in enumerate(time_obs):
+        window = (time_model > (t - half)) & (time_model < (t + half))
+        if np.any(window):
+            flux_inst[i] = flux_star[window].mean()
+        else:
+            flux_inst[i] = flux_star[np.argmin(np.abs(time_model - t))]
+
+    return flux_inst * (flux_max - flux_min) + flux_min
+
+def _lambda_weights(lambda_0, delta_lambda, n_lambda, response):
+    """
+    Retorna (lam_array, weights) normalizados para integração espectral.
+    - Se response for dado: usa integração ponderada por T(λ)
+    - Caso contrário: usa banda uniforme λ0 ± Δλ/2 com n_lambda pontos
+      (n_lambda<=1 => monocromático em λ0).
+    """
+    import numpy as np
+
+    if response is not None:
+        lam, T = response
+        lam = np.asarray(lam, float)
+        T = np.asarray(T, float)
+        order = np.argsort(lam)
+        lam, T = lam[order], T[order]
+        dlam = np.gradient(lam)
+        num = T * dlam
+        den = np.trapz(T, lam)
+        if not np.isfinite(den) or den <= 0:
+            raise ValueError("Invalid spectral response (zero/NaN integral).")
+        w = num / np.sum(num) 
+        return lam, w
+
+    if n_lambda <= 1:
+        return np.array([lambda_0], float), np.array([1.0], float)
+
+    lam = np.linspace(lambda_0 - delta_lambda/2.0,
+                      lambda_0 + delta_lambda/2.0,
+                      int(n_lambda))
+    w = np.ones_like(lam) / lam.size
+    return lam, w
+
+def _plot_model(ax, lightcurve, flux_model,
+                model_geometric=None,
+                model_fresnel=None,
+                model_star=None,
+                time_model=None,
+                show_components=False,
+                title=None):
+
+    ax = ax or plt.gca()
+
+    if model_geometric is not None and time_model is not None:
+        ax.plot(time_model, model_geometric, 'b-', label='Geometric', zorder=1)
+
+        if show_components and time_model is not None:
+            if model_fresnel is not None:
+                ax.plot(time_model, model_fresnel, 'c-', label='Fresnel', zorder=1)
+            if model_star is not None:
+                ax.plot(time_model, model_star, 'g-', label='Star diam.', zorder=1)
+    
+    ax.plot(lightcurve.time, flux_model, 'r-', lw=1.0, label='Model', zorder=3)
+    ax.scatter(lightcurve.time, flux_model, s=50, facecolors='none', edgecolors='r', zorder=3)
+
+    if hasattr(lightcurve, "flux"):
+        ax.plot(lightcurve.time, lightcurve.flux, "k.-", alpha=1, label='Observed')
+
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Relative flux")
+    ax.set_title(title or lightcurve.name)
+    ax.legend()
