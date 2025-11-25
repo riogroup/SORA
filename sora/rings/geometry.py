@@ -2,6 +2,7 @@
 import numpy as np
 import astropy.units as u
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
 
 __all__ = ["RingGeometry"]
 
@@ -32,16 +33,12 @@ class RingGeometry:
     """
 
     def __init__(self, pole_ra=None, pole_dec=None, epoch=None, reference="User"):
-        self.set_pole(pole_ra, pole_dec, reference)
         self.epoch = epoch
-
-    def set_pole(self, pole_ra, pole_dec, reference="User"):
-        """Define the pole orientation."""
         if pole_ra is None or pole_dec is None:
             self.pole = SkyCoord(np.nan, np.nan, unit=(u.deg, u.deg))
         else:
-            self.pole = SkyCoord(pole_ra, pole_dec)
-        self.reference = reference
+            self.pole = SkyCoord(ra=pole_ra*u.deg, dec=pole_dec*u.deg, frame="icrs")
+
 
     def orientation(self, ephem, time, observer="geocenter"):
         time = Time(time)
@@ -57,7 +54,6 @@ class RingGeometry:
 
         return P, B
 
-    # ------------------------------------------------------------------
     def __str__(self):
         out = "Ring Geometry:\n"
         out += f"  Pole (RA, Dec): {self.pole.ra.deg:.3f}°, {self.pole.dec.deg:.3f}°\n"
