@@ -498,37 +498,6 @@ class Body(BaseBody):
             self.shape.get_limb(**orientation).plot(center_f=center_f, center_g=center_g, ax=ax, **kwargs)
         else:
             self.shape.plot(**orientation, center_f=center_f, center_g=center_g, ax=ax, plot_pole=plot_pole, **kwargs)
-
-    def add_ring(self, **kwargs):
-        from sora.body.ring import Ring
-        ring = Ring(ephem=self.ephem, **kwargs)
-        ring_id = kwargs.get('ring_id')    
-        #if ring_id:
-        #    self.rings[ring_id] = ring
-        #    setattr(self, ring_id, ring)
-        #else:
-            #print("Error: ring_id is required to add a ring.")
-            
-        if not ring_id in self.rings:
-            self.rings[ring_id] = ring
-            setattr(self, ring_id, ring)
-        else:
-            raise ValueError(f"{ring_id} was already instantiated.")
-        
-            
-    def remove_ring(self, ring_id):
-        if ring_id in self.rings:
-            del self.rings[ring_id]
-            delattr(self, ring_id)  
-                
-    def list_rings(self):
-        return [str(ring) for ring in self.rings.values()] 
-
-    def get_ring(self, ring_id):
-        try:
-            return self.rings[ring_id]
-        except KeyError:
-            raise ValueError(f"Ring ID '{ring_id}' not found for body '{self.name}'.")   
         
     def __str__(self):
         from .values import smass, tholen
