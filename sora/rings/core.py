@@ -1,4 +1,29 @@
 # sora/rings/core.py
+
+
+# TODO (REFORMAT-PHYSICALDATA):
+# The classes storing ring physical properties (e.g., PhysicalData-derived fields)
+# generate excessive blank lines when optional attributes (error, reference, notes)
+# are None. Their __str__() methods should be refactored to:
+#
+# 1. Print only fields that have meaningful values.
+# 2. Avoid empty lines caused by missing metadata.
+# 3. Remove trailing commas or partially filled lines (e.g., "Reference: User, ").
+# 4. Return an empty string when the property value itself is None.
+#
+# This affects the formatted output of Ring.__str__() because each PhysicalData
+# block inserts extra newlines even when nearly all fields are undefined.
+#
+# Proposed fix:
+# - Update PhysicalData.__str__() to conditionally assemble lines:
+#     - Always show the property name and value.
+#     - Only show error, reference, notes when they are not None/empty.
+#     - Strip trailing whitespace and collapse empty lines.
+#
+# This will eliminate large blank gaps in print(Ring) and produce a clean,
+# compact summary of the ring's parameters.
+
+
 import warnings
 import numpy as np
 import astropy.units as u
@@ -145,14 +170,22 @@ class Ring(BaseRing):
         return self.geometry.to_ring_plane(pos, f, g, P, B, center_f, center_g)
     
     def __str__(self):
-        out = []
-        out.append(f"Ring ID: {self.ring_id}\n")
+        out = [f"Ring ID: {self.ring_id}\n"]
         out.append(str(self.geometry))
-        out.append(self._radius.__str__() + "\n")
-        out.append(self._normal_opacity.__str__() + "\n")
-        out.append(self._normal_optical_depth.__str__() + "\n")
-        out.append(self._radial_width.__str__() + "\n")
-        out.append(self._eccentricity.__str__() + "\n")
-        out.append(self._equivalent_width.__str__() + "\n")
-        out.append(self._equivalent_depth.__str__() + "\n")
-        return ''.join(out)
+
+        props = [
+            self._radius,
+            self._normal_opacity,
+            self._normal_optical_depth,
+            self._radial_width,
+            self._eccentricity,
+            self._equivalent_width,
+            self._equivalent_depth,
+        ]
+
+        for prop in props:
+            if prop is not None and prop.value is not None:
+                out.append(str(prop) + "\n")
+
+        return "".join(out)
+

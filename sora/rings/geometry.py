@@ -92,7 +92,7 @@ class RingGeometry:
             P : position angle of the ring plane in degrees.
             B : opening angle of the ring plane in degrees.
         """
-        
+
         time = Time(time)
         pos = ephem.get_position(time, observer=observer)
 
@@ -141,6 +141,6 @@ class RingGeometry:
         return x, y
 
     def __str__(self):
-        out = "Ring Geometry:\n"
+        out = "Ring Pole:\n"
         out += f"  Pole (RA, Dec): {self.pole.ra.deg:.3f}°, {self.pole.dec.deg:.3f}°\n"
         return out

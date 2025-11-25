@@ -193,7 +193,6 @@ class BaseRing:
             
         self._equivalent_width = equivalent_width
 
-    # ------------------------------------------------------------------
     def summary(self):
         """Return string summary of all defined parameters."""
         fields = ["radius", "radial_width", "normal_opacity", "normal_optical_depth",
