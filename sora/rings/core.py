@@ -27,7 +27,6 @@ class Ring(BaseRing):
     """
 
     def __init__(self, **kwargs):
-        # --- attach body if provided ---
         self.body = kwargs.pop("body", None)
         if self.body is not None:
             self.ephem = self.body.ephem
@@ -53,13 +52,11 @@ class Ring(BaseRing):
 
         pole = kwargs.get("pole_orientation", None)
 
-        # If no explicit pole is given, inherit from body if possible
         if pole is None and self.body is not None:
             body_pole = getattr(self.body, "pole", None)
             if body_pole is not None and not np.isnan(body_pole.ra.deg):
                 pole = body_pole
 
-        # Build RingGeometry
         if pole is None:
             self.geometry = RingGeometry(pole_ra=None, pole_dec=None)
         else:
@@ -67,8 +64,6 @@ class Ring(BaseRing):
             self.geometry = RingGeometry(pole_ra=pole.ra.deg, pole_dec=pole.dec.deg)
 
 
-
-        # --- physical properties (BaseRing init) ---
         super().__init__(
             radius=kwargs.get('radius'),
             radial_width=kwargs.get('radial_width'),
@@ -79,7 +74,6 @@ class Ring(BaseRing):
             eccentricity=kwargs.get('eccentricity'),
         )
 
-        # --- attach uncertainties ---
         self._radius.uncertainty = kwargs.get('radius_err', 0.0)
         self._radial_width.uncertainty = kwargs.get('radial_width_err', 0.0)
         self._normal_opacity.uncertainty = kwargs.get('normal_opacity_err', 0.0)
@@ -88,25 +82,68 @@ class Ring(BaseRing):
         self._equivalent_width.uncertainty = kwargs.get('equivalent_width_err', 0.0)
         self._eccentricity.uncertainty = kwargs.get('eccentricity_err', 0.0)
 
-    # ------------------------------------------------------------------
     def get_ring_orientation(self, time, observer="geocenter"):
+        """
+        Return the instantaneous ring orientation as seen by the specified observer.
+
+        This method computes the projected position angle (P) and opening angle (B)
+        of the ring plane on the sky at a given epoch. The computation is delegated
+        to the `RingGeometry.orientation()` method.
+
+        Parameters
+        ----------
+        time : str or astropy.time.Time
+            Epoch at which the ring orientation is evaluated.
+        observer : str or sora.Observer, optional
+            Observer location. Defaults to 'geocenter'.
+
+        Returns
+        -------
+        P, B : astropy.units.Quantity
+            - P : position angle of the ring plane (degrees), measured east of north.
+            - B : opening angle of the ring (degrees); B = 0° corresponds to edge-on.
+
+        """
         return self.geometry.orientation(self.ephem, time, observer)
 
-    # ------------------------------------------------------------------
-    def to_ring_plane(self, f, g, time, center_f=0, center_g=0):
+    def to_ring_plane(self, f, g, time, center_f=0, center_g=0, observer="geocenter"):
         """
-        Convert sky-plane coordinates (f, g) to ring-plane (x, y),
-        computing internally the projection coefficients.
+        Convert sky-plane coordinates (f, g) into the ring-plane coordinates (x, y).
+
+        This method transforms observer-centered sky-plane positions into the 
+        equatorial plane of the ring using the instantaneous ring orientation. 
+        Internally, it:
+
+        1. Obtains the apparent position of the body at the given epoch (time).
+        2. Computes the ring opening angle (B) and position angle (P).
+        3. Applies the projection coefficients to map (f, g) → (x, y).
+
+        Parameters
+        ----------
+        f, g : float or array_like
+            Sky-plane coordinates in km (positive f = celestial east, positive g = celestial north).
+        time : str or astropy.time.Time
+            Epoch at which the projection is computed.
+        center_f, center_g : float, optional
+            Offsets of the body's center in the (f, g) plane, in km. 
+            Defaults to 0 for both.
+        observer : str or sora.Observer, optional
+            Observer location. Defaults to 'geocenter'.
+
+        Returns
+        -------
+        x, y : ndarray
+            Coordinates in the ring-plane (equatorial plane of the ring), in km.
+
+        Notes
+        -----
+        - The result depends on the instantaneous ring orientation relative to the
+        observer, meaning (x, y) are time-dependent quantities.
         """
-        pos = self.ephem.get_position(time)
-        P, B = self.get_ring_orientation(time)
-        earth_pole = SkyCoord('12h00m00s +90d00m00s')
-
-        coef, coef_polo = calc_coef_projecao(pos, self.geometry.pole, B, P, earth_pole)
-        x, y = project_to_ring_plane(f, g, coef, coef_polo, ksi_0=center_f, eta_0=center_g)
-        return x, y
-
-    # ------------------------------------------------------------------
+        pos = self.ephem.get_position(time, observer=observer)
+        P, B = self.geometry.orientation(self.ephem, time, observer)
+        return self.geometry.to_ring_plane(pos, f, g, P, B, center_f, center_g)
+    
     def __str__(self):
         out = []
         out.append(f"Ring ID: {self.ring_id}\n")
