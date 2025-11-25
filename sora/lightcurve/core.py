@@ -760,6 +760,8 @@ class LightCurve:
 
         if not hasattr(self, 'models') or not self.models:
             ax.plot(self.time, np.ones_like(self.time), 'r-', label='Model', zorder=2)
+            ax.scatter(self.time, np.ones_like(self.time), s=40, facecolors='none', edgecolors='r', zorder=3)
+
 
         else:
             comp = self.composite_model()
@@ -820,10 +822,6 @@ class LightCurve:
         flux = model.compute()
         self.model = flux
         return model
-    
-    
-
-
 
     def to_log(self, namefile=None):
         """Saves the light curve log to a file.
