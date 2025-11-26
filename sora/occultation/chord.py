@@ -5,7 +5,7 @@ import numpy as np
 from astropy.coordinates import SkyOffsetFrame, SkyCoord
 from astropy.time import Time
 from .utils import add_arrow
-from sora.body.ring.utils import *
+#from sora.body.ring.utils import *
 
 __all__ = ['Chord']
 
@@ -677,7 +677,7 @@ class Chord:
 
         return r_sky, flux, dflux, sign
 
-    def get_ring_profile(self, ring_id, center_f=0, center_g=0, to_file=False):
+    def get_ring_profile(self, ring, center_f=0, center_g=0, to_file=False):
         """
         Compute the flux profile projected onto the ring plane.
 
@@ -687,8 +687,8 @@ class Chord:
 
         Parameters
         ----------
-        ring_id : str
-            Identifier for the ring in the body's ring system.
+        ring:
+            A Ring instance from sora.rings.
         center_f : float, optional
             f-coordinate of the reference center in the sky plane (km). Default is 0.
         center_g : float, optional
@@ -705,26 +705,19 @@ class Chord:
         sign : np.ndarray
             +1 or -1 depending on whether the point is after or before closest approach.
         """
-        body = self._shared_with["chordlist"]["body"]
         time = self._shared_with["chordlist"]["time"]
-
-        if not hasattr(body, 'rings'):
-            raise ValueError("This body has no 'rings' attribute.")
-        ring = body.get_ring(ring_id)
-        if ring is None:
-            raise ValueError(f"Ring ID '{ring_id}' not found in body.rings.")
-        pole_orientation = getattr(ring, 'pole_orientation', None)
-        if pole_orientation is None:
-            raise ValueError(f"Ring '{ring_id}' has no pole orientation.")
 
         t = Time(self.lightcurve.tref) + self.lightcurve.time * u.s
         f, g = self.get_fg(time=t)
-        x_ring, y_ring = ring.to_ring_plane(time=time,
-                                            f=f, 
-                                            g=g,
-                                            center_f=center_f, 
-                                            center_g=center_g
-                                            )
+
+        x_ring, y_ring = ring.to_ring_plane(
+            f=f,
+            g=g,
+            time=time,
+            center_f=center_f,
+            center_g=center_g
+        )
+
         r_ring = np.sqrt(x_ring**2 + y_ring**2)
 
         times = self.lightcurve.time
@@ -732,13 +725,17 @@ class Chord:
         sign = np.where(times < t_ip, -1, 1)
 
         flux = self.lightcurve.flux
-        if self.lightcurve.dflux is not None:
-            dflux = self.lightcurve.dflux
-        else:
-            dflux = np.repeat(flux.std(ddof=1), len(flux))
+        dflux = (self.lightcurve.dflux
+                if self.lightcurve.dflux is not None
+                else np.repeat(flux.std(ddof=1), len(flux)))
 
         if to_file:
-            np.savetxt(f'{self.lightcurve.name}_ring_profile.txt', np.column_stack((r_ring, flux, dflux, sign)), delimiter='\t', fmt='%.6f')
+            np.savetxt(
+                f"{self.lightcurve.name}_ring_profile.txt",
+                np.column_stack((r_ring, flux, dflux, sign)),
+                delimiter="\t",
+                fmt="%.6f"
+            )
 
         return r_ring, flux, dflux, sign
     
@@ -787,18 +784,18 @@ class Chord:
 
         return r_sky, tau, dtau, sign
     
-    def get_normal_optical_depth(self, ring_id, center_f=0, center_g=0, to_file=False):
+    def get_normal_optical_depth(self, ring, center_f=0, center_g=0, to_file=False):
         """
         Compute the normal optical depth profile projected onto the ring plane.
 
         Parameters
         ----------
-        ring_id : str
-            Identifier of the ring in the body's ring system.
+        ring : Ring
+            Instance of a ring from sora.rings.
         center_f : float, optional
-            Reference f-coordinate in the sky plane. Default is 0.
+            Reference f-coordinate in the sky plane (km). Default is 0.
         center_g : float, optional
-            Reference g-coordinate in the sky plane. Default is 0.
+            Reference g-coordinate in the sky plane (km). Default is 0.
 
         Returns
         -------
@@ -809,38 +806,26 @@ class Chord:
         dtau : np.ndarray
             Uncertainty of the normal optical depth.
         sign : np.ndarray
-            Sign indicating ingress (-1) and egress (+1) relative to closest approach.
+            -1 or +1 depending on ingress/egress relative to closest approach.
         """
-        body = self._shared_with["chordlist"]["body"]
         time = self._shared_with["chordlist"]["time"]
 
-        if not hasattr(body, 'rings'):
-            raise ValueError("This body has no 'rings' attribute.")
-
-        ring = body.get_ring(ring_id)
-        if ring is None:
-            raise ValueError(f"Ring ID '{ring_id}' not found.")
-
-        pole_orientation = ring.pole_orientation
-        if pole_orientation is None:
-            raise ValueError(f"Ring '{ring_id}' has no defined pole orientation.")
-
         P, B = ring.get_ring_orientation(time=time)
-        sinB = abs(np.sin(B).value)
+        sinB = abs(np.sin(B))
 
         t = Time(self.lightcurve.tref) + self.lightcurve.time * u.s
         f, g = self.get_fg(time=t)
 
-        x_ring, y_ring = ring.to_ring_plane(time=time,
-                                            f=f, 
-                                            g=g,
-                                            center_f=center_f, 
-                                            center_g=center_g
-                                            )
+        x_ring, y_ring = ring.to_ring_plane(
+            f=f,
+            g=g,
+            time=time,
+            center_f=center_f,
+            center_g=center_g
+        )
         r_ring = np.sqrt(x_ring**2 + y_ring**2)
 
         flux = self.lightcurve.flux
-
         if self.lightcurve.dflux is not None:
             dflux = self.lightcurve.dflux
         else:
@@ -850,48 +835,60 @@ class Chord:
         sign = np.where(self.lightcurve.time < t_ip, -1, 1)
 
         tau = -np.log(flux) * 0.5 * sinB
-        dtau = dflux / flux * 0.5 * sinB
+        dtau = (dflux / flux) * 0.5 * sinB
 
         if to_file:
-            np.savetxt(f'{self.lightcurve.name}_normal_optical_depth.txt', np.column_stack((r_ring, tau, dtau, sign)), delimiter='\t', fmt='%.6f')
+            np.savetxt(
+                f"{self.lightcurve.name}_normal_optical_depth.txt",
+                np.column_stack((r_ring, tau, dtau, sign)),
+                delimiter="\t",
+                fmt="%.6f"
+            )
 
         return r_ring, tau, dtau, sign
     
-    def get_normal_equivalent_width(self, ring_id, center_f=0, center_g=0, to_file=False):
+    def get_normal_equivalent_width(self, ring, center_f=0, center_g=0, to_file=False):
         """
+        Compute the normal equivalent width profile projected onto the ring plane.
+
+        Parameters
+        ----------
+        ring : Ring
+            Instance of a ring from sora.rings.
+        center_f : float, optional
+            Reference f-coordinate in the sky plane (km). Default is 0.
+        center_g : float, optional
+            Reference g-coordinate in the sky plane (km). Default is 0.
+
+        Returns
+        -------
+        r_ring : np.ndarray
+            Radial coordinates in the ring plane (km).
+        equivalent_width : np.ndarray
+            Normal equivalent width profile.
+        dequivalent_width : np.ndarray
+            Uncertainty in the normal equivalent width.
+        sign : np.ndarray
+            -1 or +1 depending on ingress/egress relative to closest approach.
         """
-        
-        body = self._shared_with["chordlist"]["body"]
         time = self._shared_with["chordlist"]["time"]
 
-        if not hasattr(body, 'rings'):
-            raise ValueError("This body has no 'rings' attribute.")
-
-        ring = body.get_ring(ring_id)
-        if ring is None:
-            raise ValueError(f"Ring ID '{ring_id}' not found.")
-
-        pole_orientation = ring.pole_orientation
-        if pole_orientation is None:
-            raise ValueError(f"Ring '{ring_id}' has no defined pole orientation.")
-
         P, B = ring.get_ring_orientation(time=time)
-        sinB = abs(np.sin(B).value)
-
+        sinB = abs(np.sin(B))
 
         t = Time(self.lightcurve.tref) + self.lightcurve.time * u.s
         f, g = self.get_fg(time=t)
 
-        x_ring, y_ring = ring.to_ring_plane(time=time,
-                                            f=f, 
-                                            g=g,
-                                            center_f=center_f, 
-                                            center_g=center_g
-                                            )
+        x_ring, y_ring = ring.to_ring_plane(
+            f=f,
+            g=g,
+            time=time,
+            center_f=center_f,
+            center_g=center_g
+        )
         r_ring = np.sqrt(x_ring**2 + y_ring**2)
 
         flux = self.lightcurve.flux
-        
         if self.lightcurve.dflux is not None:
             dflux = self.lightcurve.dflux
         else:
@@ -899,13 +896,19 @@ class Chord:
 
         t_ip = self.lightcurve.time[r_ring.argmin()]
         sign = np.where(self.lightcurve.time < t_ip, -1, 1)
-        
+
         delta_r = abs(np.diff(r_ring, prepend=r_ring[0]))
+
         equivalent_width = sinB * 0.5 * (1 - flux) * delta_r
         dequivalent_width = sinB * 0.5 * dflux * delta_r
 
         if to_file:
-            np.savetxt(f'{self.lightcurve.name}_normal_equivalent_width.txt', np.column_stack((r_ring, equivalent_width, dequivalent_width, sign)), delimiter='\t', fmt='%.6f')
+            np.savetxt(
+                f"{self.lightcurve.name}_normal_equivalent_width.txt",
+                np.column_stack((r_ring, equivalent_width, dequivalent_width, sign)),
+                delimiter="\t",
+                fmt="%.6f"
+            )
 
         return r_ring, equivalent_width, dequivalent_width, sign
     
