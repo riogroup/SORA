@@ -47,7 +47,7 @@ def sky_distance(f, g, center_f=0, center_g=0):
 
 
 
-def sky_width(fi, gi, fe, ge, center_f=0, center_g=0, dfi=None, dgi=None, dfe=None, dge=None):
+def sky_width(fi, gi, fe, ge, center_f=0, center_g=0):
     """Compute the width of a feature in the sky plane between immersion and emersion points.
 
     Parameters

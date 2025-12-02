@@ -716,31 +716,26 @@ class LightCurve:
     def plot(self, ax=None):
         """
         Plot the observed light curve and all associated models.
-
-        Behavior
-        --------
-        - If no model exists, plots a flat baseline (flux = 1).
-        - If one or more models exist in `self.models`, they are automatically
-        combined into a CompositeModel and plotted.
-        - Optionally show individual model components with `show_components=True`.
-
-        Parameters
-        ----------
-        ax : matplotlib.axes.Axes, optional
-            Existing Axes instance to plot into.
         """
         import matplotlib.pyplot as plt
 
-        if not any(self.flux):
-            raise ValueError('Plotting the light curve is only possible when the '
-                             'Object LightCurve is instantiated with time and flux')
+        if not hasattr(self, 'flux') or self.flux is None:
+            raise ValueError("LightCurve must have time and flux defined to plot.")
+
         ax = ax or plt.gca()
-        ax.plot(self.time, self.flux, 'k.-', label='Obs.', zorder=0)
-        if any(self.model):
-            ax.plot(self.time, self.model, 'r-', label='Model', zorder=2)
-            ax.scatter(self.time, self.model, s=50, facecolors='none', edgecolors='r', zorder=3)
+
+        ax.plot(self.time, self.flux, 'k.-', label='Observed', zorder=0)
+        
+        if not hasattr(self, 'model') or not self.model.any():
+            ax.plot(self.time, np.ones(len(self.time)), 'r.-', label='Model', zorder=0)
+            ax.scatter(self.time, np.ones(len(self.time)), edgecolor='r', facecolor='none', zorder=0)   
+        else:
+            ax.plot(self.time, self.model, 'r.-', label='Model', zorder=0)
+            ax.scatter(self.time, self.model, edgecolor='r', facecolor='none', zorder=0) 
+            
         ax.set_xlabel('Time [seconds]', fontsize=20)
         ax.set_ylabel('Relative Flux', fontsize=20)
+        ax.title(self.name)
         ax.legend()
 
 
@@ -787,6 +782,24 @@ class LightCurve:
         flux = model.compute()
         self.model = flux
         return model
+    
+    def clear_fits(self):
+        """Remove all stored models / chi2 / fit results."""
+        if hasattr(self, "models"):
+            self.models.clear()
+        if hasattr(self, "chi2_maps"):
+            self.chi2_maps.clear()
+        if hasattr(self, "_fit_results"):
+            self._fit_results.clear()
+
+    def remove_fit(self, label: str):
+        """Remove a specific fit labelled 'fit1', 'fit2', etc.
+        Check the labelled fits using lightcurve.models
+        """
+        for attr in ("models", "chi2_maps", "_fit_results"):
+            d = getattr(self, attr, None)
+            if isinstance(d, dict) and label in d:
+                del d[label]
 
     def to_log(self, namefile=None):
         """Saves the light curve log to a file.
