@@ -731,31 +731,16 @@ class LightCurve:
         """
         import matplotlib.pyplot as plt
 
-        if not hasattr(self, 'flux') or self.flux is None:
-            raise ValueError("LightCurve must have time and flux defined to plot.")
-
+        if not any(self.flux):
+            raise ValueError('Plotting the light curve is only possible when the '
+                             'Object LightCurve is instantiated with time and flux')
         ax = ax or plt.gca()
-
-        ax.plot(self.time, self.flux, 'k.-', label='Observed', zorder=0)
-
-        if not hasattr(self, 'models') or not self.models:
-            ax.plot(self.time, np.ones_like(self.time), 'r-', label='Model', zorder=2)
-            ax.scatter(self.time, np.ones_like(self.time), s=40, facecolors='none', edgecolors='r', zorder=3)
-
-
-        else:
-            comp = self.composite_model()
-            for model_flag, model_obj in self.models.items():
-                comp.add_component(model_flag, model_obj)
-
-            flux_model = comp()
-            ax.plot(self.time, flux_model, 'r-', label='Model', zorder=2)
-            ax.scatter(self.time, flux_model, s=40, facecolors='none', edgecolors='r', zorder=3)
-
-            
-        ax.set_xlabel('Time [seconds]', fontsize=16)
-        ax.set_ylabel('Relative Flux', fontsize=16)
-        ax.set_title(self.name or 'Light Curve', fontsize=16)
+        ax.plot(self.time, self.flux, 'k.-', label='Obs.', zorder=0)
+        if any(self.model):
+            ax.plot(self.time, self.model, 'r-', label='Model', zorder=2)
+            ax.scatter(self.time, self.model, s=50, facecolors='none', edgecolors='r', zorder=3)
+        ax.set_xlabel('Time [seconds]', fontsize=20)
+        ax.set_ylabel('Relative Flux', fontsize=20)
         ax.legend()
 
 

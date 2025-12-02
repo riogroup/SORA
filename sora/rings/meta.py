@@ -23,7 +23,7 @@ class BaseRing:
     """
 
     def __init__(self, **kwargs):
-        allowed_kwargs = ['ring_id',
+        allowed_kwargs = ['name',
                           'radius', 'radius_err',
                           'eccentricity', 'eccentricity_err',
                           'pole_orientation',
