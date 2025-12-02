@@ -4,6 +4,7 @@ from .lightcurve import LightCurve
 from .observer import Observer, Spacecraft
 from .star import Star
 from .occultation import Occultation
+from .rings import Ring
 
 __version__ = '0.3.2'
 
