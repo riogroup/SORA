@@ -6,6 +6,7 @@ from astropy.coordinates import SkyOffsetFrame, SkyCoord
 from astropy.time import Time
 from .utils import add_arrow
 #from sora.body.ring.utils import *
+from sora.rings.detection_limits import DetectionLimits
 
 __all__ = ['Chord']
 
@@ -80,32 +81,6 @@ class Chord:
             self._isable['emersion'] = True
         return self._isable
     
-    @property
-    def detection_limits(self):
-        """
-        Detection limits for opacity and optical depth derived from light curve flux noise.
-
-        This property returns a `DetectionLimits` object that provides methods to compute
-        upper limits for opacity and optical depth, based on the out-of-occultation flux
-        noise of the light curve.
-
-        Use this when you want to estimate the sensitivity of your data.
-
-        Examples
-        --------
-        >>> lc.detection_limits.apparent_opacity()
-        0.013  # 1-sigma upper limit
-
-        >>> lc.detection_limits.optical_depth(sigma=3)
-        0.022  # 3-sigma upper limit
-
-        >>> lc.detection_limits.clear()  # Reset if lc.flux or lc.dflux changed
-
-        """
-        if not hasattr(self, '_detection_limits'):
-            self._detection_limits = DetectionLimits(self)
-        return self._detection_limits
-
     def enable(self, *, time=None):
         """Enables a contact point of the curve to be used in the fit.
 
@@ -959,191 +934,18 @@ class Chord:
             string.append('Target altitude: {:.1f} deg'.format(ephem_altaz[0]))
             string.append('Target azimuth:  {:.1f} deg'.format(ephem_altaz[1]))
         string.append('')
-
-        lines = str(self.lightcurve).splitlines()
-        insert_index = next(
-            (i for i, line in enumerate(lines) if "Apparent equivalent width:" in line),
-            -1
-        )
-
-        P, B = self.detection_limits._P, self.detection_limits._B
-       
-        try:
-            if P is not None and B is not None:
-                proj_block = self.detection_limits.__str__().splitlines()                
-                if insert_index >= 0:
-                    lines[insert_index + 1:insert_index + 1] = proj_block
-                else:
-                    lines.extend(proj_block)
-        except:
-            pass        
-
-        string.extend(lines)
+        string.append(self.lightcurve.__str__())
         return '\n'.join(string)
 
-class DetectionLimits:
-    """ Computes the detection limits for ring-like features based on a single occultation chord.
-
-    This class calculates physical and projected limits such as opacity, optical depth, and
-    equivalent width from the detection thresholds in a light curve. Corrections for
-    diffraction effects and geometric projection are applied when the pole orientation
-    of the ring/body is available.
-    """
-
-    def __init__(self, chord):
-        """ Initialize the detection limits from a chord object.
-
-        Parameters
-        ----------
-        chord : `sora.lightcurve.Chord`
-            Chord object associated with one observing site.
+    def detection_limits(self, *, P=None, B=None, pole=None, ring=None):
         """
-        self.chord = chord 
-        self.apparent_opacity = chord.lightcurve.detection_limits.apparent_opacity
-        self.apparent_optical_depth = chord.lightcurve.detection_limits.apparent_optical_depth
-        self.apparent_equivalent_width = chord.lightcurve.detection_limits.apparent_equivalent_width
+        Compute detection limits for this chord.
 
-        body = self.chord._shared_with['chordlist']['body']
-        occtime = self.chord._shared_with['chordlist']['time']
+        If no orientation is provided, only apparent (sky-plane) limits are available.
+        To obtain projected limits, pass either:
 
-        self._P, self._B = None, None
-        self._used_pole = None
-        rings = getattr(body, 'rings', None)
-
-        if not np.isnan(body.pole.ra):
-            orientation = body.get_orientation(time=occtime)
-            self._P = orientation['pole_position_angle']
-            self._B = orientation['pole_aperture_angle']
-            self._used_pole = body.pole.icrs.to_string('hmsdms')
-
-        elif rings:
-            ring_id, ring = next(iter(body.rings.items()))
-            self._P, self._B = ring.get_ring_orientation(time=occtime)
-            self._used_pole = ring.pole_orientation.icrs.to_string('hmsdms')
-        else:
-            pass
-
-    def opacity(self, sigma=1):
-        """ Estimate the physical opacity limit, correcting for single-particle diffraction.
-
-        When the Fresnel (Airy) scale is larger than the light curve's spatial resolution,
-        the apparent opacity may be overestimated. This method applies a correction based on
-        Cuzzi (1985) and Roques et al. (1987) to obtain a more realistic physical opacity.
-
-        Parameters
-        ----------
-        sigma : float, optional
-            Sigma level for the detection threshold. Default is 1-sigma.
-
-        Returns
-        -------
-        float or None
-            Estimated physical opacity. If not computable, returns None.
+            - P and B explicitly, or
+            - a Ring instance (ring=...), optionally with a pole for printing.
         """
-    
-        apparent_opacity = self.apparent_opacity(sigma=sigma)
-        if apparent_opacity is None:
-            return None
-        
-        particle_size = 0.001
-        wavelenght = self.chord.lightcurve.central_bandpass*u.micrometer.to('km')
-        dist_km = self.chord.lightcurve.dist*u.au.to('km')
-        spatial_resolution = abs(self.chord.lightcurve.exptime * self.chord.lightcurve.vel)
-        airy_scale = (wavelenght/(2*particle_size))*dist_km
-
-        if airy_scale > spatial_resolution:
-            opacity = 1 - np.sqrt(1 - apparent_opacity)        
-        else:
-            opacity = apparent_opacity
-        return opacity
-    
-    def optical_depth(self, sigma=1):
-        """ Compute the optical depth (tau) from the physical opacity.
-
-        Applies the standard conversion:
-        τ = -ln(1 - opacity)
-
-        Parameters
-        ----------
-        sigma : float, optional
-            Sigma level for the detection threshold. Default is 1-sigma.
-
-        Returns
-        -------
-        float or None
-            Estimated optical depth. Returns None if opacity is not defined.
-        """
-        opacity = self.opacity(sigma=sigma)
-        if opacity is None:
-            return None
-        
-        optical_depth = - np.log(1- opacity)
-        return optical_depth
-    
-    def normal_opacity(self, sigma=1):
-        """ Compute the normal opacity by correcting the physical opacity for projection.
-
-        Uses the sine of the pole opening angle (B) to project the opacity from
-        the sky plane to the equatorial plane.
-
-        Parameters
-        ----------
-        sigma : float, optional
-            Sigma level for the detection threshold. Default is 1-sigma.
-
-        Returns
-        -------
-        float or None
-            Normal opacity, or None if the pole orientation is unavailable.
-        """
-        opacity = self.opacity(sigma=sigma)
-        if opacity is None or self._B is None:
-            return None        
-        
-        normal_opacity = opacity*abs(np.sin(self._B).value)
-        return normal_opacity
-    
-    def normal_optical_depth(self, sigma=1):
-        """ Compute the normal optical depth, corrected for projection effects.
-
-        Parameters
-        ----------
-        sigma : float, optional
-            Sigma level for the detection threshold. Default is 1-sigma.
-
-        Returns
-        -------
-        float or None
-            Projected (normal) optical depth. Returns None if pole orientation is unavailable.
-        """
-        opacity = self.opacity(sigma=sigma)
-        if opacity is None or self._B is None:
-            return None
-        
-        normal_optical_depth = - np.log(1- opacity)*abs(np.sin(self._B).value)
-        return normal_optical_depth
-
-    def __str__(self):
-        """ Return a formatted string with the detection limits at 3-sigma level.
-
-        Returns
-        -------
-        str
-            Summary of detection limit estimates, or a warning if pole is unavailable.
-        """
-        if self._B is not None:
-            output = '\nProjected detection limits (3-sigma):\n' 
-            output += ('    Reference pole:             {}\n'
-                       '    Opening angle:              {:.3f}\n'
-                       '    Aperture angle:             {:.3f}\n'
-                       '    Normal opacity:             {:.3f}\n'
-                       '    Normal optical depth:       {:.3f}\n'
-                       '    Equivalent width:            km\n'.format(
-                           self._used_pole,
-                           self._B,
-                           self._P,
-                           self.normal_opacity(sigma=3),
-                           self.normal_optical_depth(sigma=3))                                               
-                       )
-            return output
-        return '\nPole orientation not available to compute projected detection limits.\n'
+        from sora.rings.detection_limits import DetectionLimits
+        return DetectionLimits(self, P=P, B=B, pole=pole, ring=ring)
