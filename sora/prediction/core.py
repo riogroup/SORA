@@ -7,7 +7,7 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
 from sora.body import Body
-from sora.body.ring import Ring
+#from sora.body.ring import Ring
 from sora.ephem.meta import BaseEphem
 from sora.star import Star
 from sora.config.decorators import deprecated_alias
