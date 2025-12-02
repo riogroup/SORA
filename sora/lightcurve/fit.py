@@ -101,8 +101,6 @@ class _FitHandler:
         opacity = kwargs.get('opacity', 1.0)
         delta_opacity = kwargs.get('dopacity', 0.0)
         do_opacity = ('dopacity' in kwargs)
-        if do_opacity:
-            warnings.warn("Fitting Opacity will be removed in future version")
 
         if ('immersion_time' not in kwargs) and ('emersion_time' not in kwargs):
             immersion_time = prelim['immersion_time']

@@ -54,13 +54,13 @@ class Ring(BaseRing):
         else:
             self.ephem = None
             warnings.warn(
-            f"Ring '{kwargs.get('ring_id', 'Unknown')}' created without a body. "
+            f"Ring '{kwargs.get('name', 'Unknown')}' created without a body. "
             "Ephemeris-dependent methods will not work.",
             UserWarning
         )
 
         allowed_kwargs = [
-            'ring_id',
+            'name',
             'radius', 'radius_err',
             'eccentricity', 'eccentricity_err',
             'pole_orientation',
@@ -73,7 +73,7 @@ class Ring(BaseRing):
 
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
-        self.ring_id = kwargs.get('ring_id', 'Unknown')
+        self.name = kwargs.get('name', 'Unknown')
 
         pole = kwargs.get("pole_orientation", None)
 
@@ -82,13 +82,13 @@ class Ring(BaseRing):
             if body_pole is not None and not np.isnan(body_pole.ra.deg):
                 pole = body_pole
                 warnings.warn(
-                f"Ring '{self.ring_id}' has no pole_orientation; using body's pole.",
+                f"Ring '{self.name}' has no pole_orientation; using body's pole.",
                 UserWarning
             )
 
         if pole is None:
             warnings.warn(
-            f"Ring '{self.ring_id}' initialized without any pole information.",
+            f"Ring '{self.name}' initialized without any pole information.",
             UserWarning
         )
             self.geometry = RingGeometry(pole_ra=None, pole_dec=None)
@@ -178,7 +178,7 @@ class Ring(BaseRing):
         return self.geometry.to_ring_plane(pos, f, g, P, B, center_f, center_g)
     
     def __str__(self):
-        out = [f"Ring ID: {self.ring_id}\n"]
+        out = [f"Ring ID: {self.name}\n"]
         out.append(str(self.geometry))
 
         props = [
