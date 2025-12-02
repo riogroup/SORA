@@ -8,7 +8,7 @@ from astropy.time import Time
 from sora.config import input_tests
 from sora.config.decorators import deprecated_alias
 from .utils import calc_fresnel
-from .detectionlimits import DetectionLimits
+from .detection_limits import DetectionLimits
 from .occdetect import occ_detect
 from .model import *
 from .fit import fit
