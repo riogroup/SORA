@@ -8,7 +8,6 @@ from astropy.time import Time
 from sora.config import input_tests
 from sora.config.decorators import deprecated_alias
 from .utils import calc_fresnel
-from .detection_limits import DetectionLimits
 from .occdetect import occ_detect
 from .model import *
 from .fit import fit
@@ -316,27 +315,8 @@ class LightCurve:
         
     @property
     def detection_limits(self):
-        """
-        Detection limits for opacity and optical depth derived from light curve flux noise.
-
-        This property returns a `DetectionLimits` object that provides methods to compute
-        upper limits for opacity and optical depth, based on the out-of-occultation flux
-        noise of the light curve.
-
-        Use this when you want to estimate the sensitivity of your data.
-
-        Examples
-        --------
-        >>> lc.detection_limits.apparent_opacity()
-        0.013  # 1-sigma upper limit
-
-        >>> lc.detection_limits.optical_depth(sigma=3)
-        0.022  # 3-sigma upper limit
-
-        >>> lc.detection_limits.clear()  # Reset if lc.flux or lc.dflux changed
-
-        """
-        if not hasattr(self, '_detection_limits'):
+        if not hasattr(self, "_detection_limits"):
+            from sora.rings.detection_limits import DetectionLimits
             self._detection_limits = DetectionLimits(self)
         return self._detection_limits
 
@@ -963,7 +943,8 @@ class LightCurve:
             output += '\nThere is no occultation associated with this light curve.\n'
 
         try:
-            output += self.detection_limits.__str__()
+            lc_dl = self.detection_limits
+            output += lc_dl.__str__()
         except:
             pass
                     
