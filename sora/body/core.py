@@ -155,8 +155,6 @@ class Body(BaseBody):
         if 'ephem' not in kwargs:
             self.ephem = 'horizons'
             
-        self.rings = {}
-
     def __from_sbdb(self, name):
         """Searches the object in the SBDB and defines its physical parameters.
 
@@ -534,10 +532,5 @@ class Body(BaseBody):
         if hasattr(self, 'shape'):
             out.append('\n' + self.shape.__str__() + '\n')
         if hasattr(self, 'ephem'):
-            out.append('\n' + self.ephem.__str__() + '\n')
-        if self.rings:
-            out.append('-' * 13 + ' Rings ' + '-' * 13 + '\n')
-            for ring_id, ring in self.rings.items():
-                out.append(f"\n{ring_id} - Ring parameters:\n{ring}\n")
-         
+            out.append('\n' + self.ephem.__str__() + '\n')         
         return ''.join(out)
