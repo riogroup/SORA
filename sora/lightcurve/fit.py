@@ -85,8 +85,8 @@ class _FitHandler:
         if not hasattr(self.lc, 'flux'):
             raise ValueError('Fit curve is only possible when a LightCurve is instantiated with time and flux.')
 
-        tmax = self.lc.time.max()
-        tmin = self.lc.time.min()
+        tmax = kwargs.get('tmax', self.lc.time.max())
+        tmin = kwargs.get('tmin', self.lc.time.min())
 
         prelim = self.lc.occ_detect(tmin=tmin, tmax=tmax)
 
@@ -116,8 +116,7 @@ class _FitHandler:
                 tmax = emersion_time + 10*self.lc.cycle
                 tmin = immersion_time - 10*self.lc.cycle
 
-        tmax = kwargs.get('tmax', tmax)
-        tmin = kwargs.get('tmin', tmin)
+
         sigma_model = kwargs.get('sigma_model', 0.0)
         delta_t = kwargs.get('delta_t', delta_t)
 

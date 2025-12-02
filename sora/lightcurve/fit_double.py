@@ -23,7 +23,6 @@ Returns:
 """
 
 import numpy as np
-import warnings
 from multiprocessing import Pool
 import astropy.units as u
 
@@ -117,7 +116,8 @@ class _FitDoubleHandler:
         if not hasattr(lc, 'flux'):
             raise ValueError("LightCurve must have 'time' and 'flux' for fitting.")
 
-        tmax, tmin = lc.time.max(), lc.time.min()
+        tmin = kwargs.get('tmin', lc.time.min())
+        tmax = kwargs.get('tmax', lc.time.max())
 
         required = ['immersion1','emersion1','opacity1','immersion2','emersion2','opacity2']
         missing = [r for r in required if r not in kwargs]
@@ -136,8 +136,6 @@ class _FitDoubleHandler:
         method = str(kwargs.get('method', 'chisqr')).lower()
         threads = int(kwargs.get('threads', 1))
 
-        tmin = kwargs.get('tmin', tmin)
-        tmax = kwargs.get('tmax', tmax)
         mask = (lc.time >= tmin) & (lc.time <= tmax)
 
         # --- sigma ---
