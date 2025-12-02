@@ -64,9 +64,6 @@ class DetectionLimits:
           sin(B) are applied.
     """
 
-    # ------------------------------------------------------------------
-    # Constructor
-    # ------------------------------------------------------------------
     def __init__(self, source, *, P=None, B=None, pole=None, ring=None):
         self.source = source
         self.kind = self._infer_kind(source)
@@ -90,9 +87,7 @@ class DetectionLimits:
         else:
             raise TypeError(f"DetectionLimits does not support type {type(source)}")
 
-    # ------------------------------------------------------------------
-    # Type identification
-    # ------------------------------------------------------------------
+
     def _infer_kind(self, src):
         from sora.lightcurve.core import LightCurve
         from sora.occultation.chord import Chord
@@ -103,9 +98,7 @@ class DetectionLimits:
             return "chord"
         return None
 
-    # ------------------------------------------------------------------
-    # Helper: compute flux / flux_err from LightCurve (apparent limits)
-    # ------------------------------------------------------------------
+
     @staticmethod
     def _compute_flux_from_lightcurve(lc):
         """
@@ -141,9 +134,7 @@ class DetectionLimits:
 
         return flux, flux_err
 
-    # ------------------------------------------------------------------
-    #  LIGHTCURVE MODE (PURELY APPARENT)
-    # ------------------------------------------------------------------
+
     def _init_from_lightcurve(self):
         """
         Sets up the inputs for the apparent detection-limit code.
@@ -156,9 +147,7 @@ class DetectionLimits:
         self._B = None
         self._used_pole = None
 
-    # ------------------------------------------------------------------
-    #  CHORD MODE (OPTIONALLY APPLY GEOMETRY + DIFFRACTION)
-    # ------------------------------------------------------------------
+
     def _init_from_chord(self, *, P=None, B=None, pole=None, ring=None):
         """
         In chord mode, the apparent limits come from the underlying LightCurve,
@@ -219,9 +208,7 @@ class DetectionLimits:
         self._B = B
         self._used_pole = used_pole
 
-    # ------------------------------------------------------------------
-    # Noise estimation (same as original LC algorithm)
-    # ------------------------------------------------------------------
+
     def _estimate_noise(self):
         """Same algorithm used originally in LightCurve detectionlimits."""
         if self.flux is None or len(self.flux) == 0:
@@ -246,9 +233,6 @@ class DetectionLimits:
 
         return np.std(clean_flux, ddof=1)
 
-    # ------------------------------------------------------------------
-    # APPARENT DETECTION LIMITS
-    # ------------------------------------------------------------------
     def apparent_opacity(self, sigma=1):
         """
         Apparent opacity detection limit (sky-plane), same for LightCurve and Chord.
