@@ -31,13 +31,9 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
 from sora.config import input_tests
-from sora.body.meta import PhysicalData
-from sora.body import Body
-from sora.ephem.meta import BaseEphem
 
 from .meta import BaseRing
 from .geometry import RingGeometry
-from .utils import calc_coef_projecao, project_to_ring_plane
 
 
 __all__ = ["Ring"]
@@ -57,6 +53,11 @@ class Ring(BaseRing):
             self.ephem = self.body.ephem
         else:
             self.ephem = None
+            warnings.warn(
+            f"Ring '{kwargs.get('ring_id', 'Unknown')}' created without a body. "
+            "Ephemeris-dependent methods will not work.",
+            UserWarning
+        )
 
         allowed_kwargs = [
             'ring_id',
@@ -70,7 +71,6 @@ class Ring(BaseRing):
             'equivalent_width', 'equivalent_width_err'
         ]
 
-        kwargs.pop("body", None)
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         self.ring_id = kwargs.get('ring_id', 'Unknown')
@@ -81,8 +81,16 @@ class Ring(BaseRing):
             body_pole = getattr(self.body, "pole", None)
             if body_pole is not None and not np.isnan(body_pole.ra.deg):
                 pole = body_pole
+                warnings.warn(
+                f"Ring '{self.ring_id}' has no pole_orientation; using body's pole.",
+                UserWarning
+            )
 
         if pole is None:
+            warnings.warn(
+            f"Ring '{self.ring_id}' initialized without any pole information.",
+            UserWarning
+        )
             self.geometry = RingGeometry(pole_ra=None, pole_dec=None)
         else:
             pole = SkyCoord(pole)
