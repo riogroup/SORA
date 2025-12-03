@@ -430,7 +430,7 @@ class Body(BaseBody):
         except AttributeError:
             warnings.warn('Frame attribute is not defined')
             pole = self.pole
-        if not np.isnan(pole.ra):
+        if np.all(~np.isnan(pole.ra)):
             position_angle = pos.position_angle(pole).rad * u.rad
             aperture_angle = np.arcsin(
                 -(np.sin(pole.dec) * np.sin(pos.dec) +
