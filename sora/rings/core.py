@@ -34,7 +34,7 @@ from sora.config import input_tests
 
 from .meta import BaseRing
 from .geometry import RingGeometry
-
+from .contacts import RingContact, RingContactList
 
 __all__ = ["Ring"]
 
@@ -115,6 +115,8 @@ class Ring(BaseRing):
         self._equivalent_width.uncertainty = kwargs.get('equivalent_width_err', 0.0)
         self._eccentricity.uncertainty = kwargs.get('eccentricity_err', 0.0)
 
+        self.contacts = RingContactList()
+
     def get_ring_orientation(self, time, observer="geocenter"):
         """
         Return the instantaneous ring orientation as seen by the specified observer.
@@ -176,6 +178,49 @@ class Ring(BaseRing):
         pos = self.ephem.get_position(time, observer=observer)
         P, B = self.geometry.orientation(self.ephem, time, observer)
         return self.geometry.to_ring_plane(pos, f, g, P, B, center_f, center_g)
+    
+    def add_contact(self, chi2, chord, contact, sigma=1):
+
+        vals = chi2.get_nsigma(sigma=sigma)
+
+        immersion     = vals.get("immersion")[0]*u.s + chord.lightcurve.tref
+        immersion_err = vals.get("immersion")[1]
+        emersion      = vals.get("emersion")[0]*u.s + chord.lightcurve.tref
+        emersion_err  = vals.get("emersion")[1]
+        opacity     = vals.get("opacity")[0]
+        opacity_err = vals.get("opacity")[1]
+        time_m = (vals.get("immersion")[0] + vals.get("emersion")[0])/2
+        time_mean = time_m*u.s + chord.lightcurve.tref
+    
+
+        label = f"{self.name}_{chord.name}_{contact}"
+
+        occ = RingContact(
+            ring=self,
+            label=label,
+            chi2=chi2,
+            chord=chord,
+            contact = contact,
+            time_mean=time_mean,
+            immersion=immersion,
+            immersion_err=immersion_err,
+            emersion=emersion,
+            emersion_err=emersion_err,
+            opacity=opacity,
+            opacity_err=opacity_err,
+        )
+
+        self.contacts[label] = occ
+        return occ
+    
+    #def remove(self):
+
+    def clear(self):
+        """
+        Clean all contacts associated to this Ring.
+        """
+        if hasattr(self, "contacts"):
+            self.contacts.clear()
     
     def __str__(self):
         out = [f"Ring ID: {self.name}\n"]
