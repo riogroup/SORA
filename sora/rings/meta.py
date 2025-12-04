@@ -3,6 +3,8 @@ import numpy as np
 import astropy.units as u
 from sora.body.meta import PhysicalData 
 from sora.config import input_tests
+from astropy.coordinates import SkyCoord
+
 
 
 __all__ = ["BaseRing"]
@@ -68,23 +70,26 @@ class BaseRing:
 
     @property
     def pole_orientation(self):
-        """Return ring pole orientation as a SkyCoord"""
-        if self.geometry is None or self.geometry.pole is None:
+        """Return ring pole orientation as SkyCoord."""
+        if self.geometry is None:
             return None
-        return self.geometry.pole
+        return self.geometry.pole_orientation
 
     @pole_orientation.setter
     def pole_orientation(self, value):
-        """Allow setting the pole orientation using a SkyCoord or string."""
-        if value is None:
-            self.geometry.set_pole(None, None)
-        else:
-            pole = SkyCoord(value)
-            self.geometry.set_pole(pole.ra.deg, pole.dec.deg)
-            
+        """
+        Set the ring pole orientation.
+        Accepts SkyCoord, or strings like "180d 30d".
+        """
+        if self.geometry is None:
+            raise AttributeError("Ring has no geometry object associated.")
+
+        self.geometry.pole_orientation = value
+
     @property
     def radius(self):
         return self._radius    
+    
     @radius.setter
     def radius(self, value):
         if isinstance(value, PhysicalData):
@@ -98,7 +103,8 @@ class BaseRing:
         
     @property
     def normal_opacity(self):
-        return self._normal_opacity    
+        return self._normal_opacity  
+      
     @normal_opacity.setter
     def normal_opacity(self, value):
         if isinstance(value, PhysicalData):
@@ -116,6 +122,7 @@ class BaseRing:
     @property
     def normal_optical_depth(self):
         return self._normal_optical_depth    
+    
     @normal_optical_depth.setter
     def normal_optical_depth(self, value):
         if isinstance(value, PhysicalData):
@@ -132,6 +139,7 @@ class BaseRing:
     @property
     def radial_width(self):
         return self._radial_width    
+    
     @radial_width.setter
     def radial_width(self, value):
         if isinstance(value, PhysicalData):
@@ -148,6 +156,7 @@ class BaseRing:
     @property
     def eccentricity(self):
         return self._eccentricity    
+    
     @eccentricity.setter
     def eccentricity(self, value):
         if isinstance(value, PhysicalData):
@@ -163,7 +172,8 @@ class BaseRing:
 
     @property
     def equivalent_depth(self):
-        return self._equivalent_depth    
+        return self._equivalent_depth   
+     
     @equivalent_depth.setter
     def equivalent_depth(self, value):
         if isinstance(value, PhysicalData):
@@ -180,6 +190,7 @@ class BaseRing:
     @property
     def equivalent_width(self):
         return self._equivalent_width 
+    
     @equivalent_width.setter
     def equivalent_width(self, value):
         if isinstance(value, PhysicalData):

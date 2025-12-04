@@ -59,11 +59,27 @@ class RingGeometry:
         """
         self.epoch = epoch
         if pole_ra is None or pole_dec is None:
-            self.pole = SkyCoord(np.nan, np.nan, unit=(u.deg, u.deg))
+            self._pole = SkyCoord(np.nan, np.nan, unit=(u.deg, u.deg))
         else:
-            self.pole = SkyCoord(ra=pole_ra*u.deg, dec=pole_dec*u.deg, frame="icrs")
+            self._pole = SkyCoord(ra=pole_ra*u.deg, dec=pole_dec*u.deg)
 
+    @property
+    def pole_orientation(self):
+        """Return the ring pole as a SkyCoord."""
+        return self._pole
 
+    @pole_orientation.setter
+    def pole_orientation(self, value):
+        """Set the ring pole (SkyCoord or parseable string)."""
+        if value is None:
+            self._pole = SkyCoord(np.nan, np.nan, unit=(u.deg, u.deg))
+        else:
+            self._pole = SkyCoord(value)
+
+        # keep numeric attributes in sync
+        self.pole_ra = self._pole.ra.deg
+        self.pole_dec = self._pole.dec.deg
+    
     def orientation(self, ephem, time, observer="geocenter"):
         """
         Compute the apparent orientation of the ring as seen by the observer.
@@ -96,17 +112,17 @@ class RingGeometry:
         time = Time(time)
         pos = ephem.get_position(time, observer=observer)
 
-        pole = self.pole    
+        pole_orientation = self.pole_orientation    
 
-        P = pos.position_angle(pole).to(u.deg)
+        P = pos.position_angle(pole_orientation).to(u.deg)
         B = np.arcsin(
-            -(np.sin(pole.dec)*np.sin(pos.dec) +
-            np.cos(pole.dec)*np.cos(pos.dec)*np.cos(pole.ra - pos.ra))
+            -(np.sin(pole_orientation.dec)*np.sin(pos.dec) +
+            np.cos(pole_orientation.dec)*np.cos(pos.dec)*np.cos(pole_orientation.ra - pos.ra))
         ).to(u.deg)
 
         return P, B
     
-    def to_ring_plane(self, pos, f, g, P, B, center_f=0, center_g=0):
+    def to_ring_plane(self, pos, f, g, P, B, center_f=0, center_g=0, earth_pole = SkyCoord('12h00m00s +90d00m00s')):
         """
         Convert sky-plane coordinates (f, g) to ring-plane (x, y).
 
@@ -121,11 +137,10 @@ class RingGeometry:
         center_f, center_g : float
             Offsets of body center in km.
         """
-        earth_pole = SkyCoord('12h00m00s +90d00m00s')
 
         coef, coef_polo = calc_coef_projecao(
             ephem=pos,              
-            pole_coord=self.pole,
+            pole_coord=self.pole_orientation,
             B=B,
             P=P,
             earth_pole=earth_pole
