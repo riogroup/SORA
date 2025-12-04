@@ -735,7 +735,7 @@ class LightCurve:
             
         ax.set_xlabel('Time [seconds]', fontsize=20)
         ax.set_ylabel('Relative Flux', fontsize=20)
-        ax.title(self.name)
+        ax.set_title(self.name)
         ax.legend()
 
 
