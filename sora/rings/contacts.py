@@ -5,28 +5,92 @@ from typing import Any, Dict
 import matplotlib.pyplot as plt
 import astropy.units as u
 import numpy as np
+from collections import OrderedDict
 
 
-@dataclass
 class RingContact:
-    ring : object
-    label: str
-    chi2: Any
-    chord: Any
-    contact: str
+    """
+    Representa um contato de anel detectado em uma curva de luz.
+    Pode ser inicializado a partir de:
+        - um modelo SORA
+        - um objeto de chi2
+        - valores numéricos # TODO ou Time.
+    """
 
-    time_mean: float | None
+    def __init__(self, *, ring, label, chord, contact,
+                 sigma=1, model=None, chi2=None,
+                 immersion=None, emersion=None,
+                 immersion_err=None, emersion_err=None):
 
-    immersion: float | None
-    immersion_err: float | None
+        self.ring = ring
+        self.label = label
+        self.chord = chord
+        self.contact = contact
 
-    emersion: float | None
-    emersion_err: float | None
+        self.model = model
+        self.chi2 = chi2
+        self._sigma = sigma
+        self._immersion_num = immersion
+        self._emersion_num = emersion
+        self._immersion_err = immersion_err
+        self._emersion_err = emersion_err
 
-    opacity: float | None
-    opacity_err: float | None
+        modes = [model is not None,
+                 chi2 is not None,
+                 immersion is not None or emersion is not None]
+        if sum(modes) == 0:
+            raise ValueError("Must provide model OR chi2 OR numeric values")
+        if sum(modes) > 1:
+            raise ValueError("Provide only ONE type of input")
 
-    properties: Dict[str, Any] | None = None
+    @property
+    def immersion(self):
+        if self._immersion_num is not None:
+            return self.chord.lightcurve.tref + self._immersion_num*u.s
+        if self.model is not None:
+            return self.chord.lightcurve.tref + self.model.params.get("immersion")*u.s
+        if self.chi2 is not None:
+            return self.chord.lightcurve.tref + self.chi2.get_nsigma(sigma=self._sigma)['immersion'][0]*u.s
+        return None
+
+    @property
+    def emersion(self):
+        if self._emersion_num is not None:
+            return self._emersion_num
+        if self.model is not None:
+            return self.chord.lightcurve.tref + self.model.params.get("emersion")*u.s
+
+        if self.chi2 is not None:
+            return self.chord.lightcurve.tref + self.chi2.get_nsigma(sigma=self._sigma)['emersion'][0]*u.s
+        return None
+    
+    @property
+    def immersion_err(self):
+        if self._immersion_err is not None:
+            return self.immersion_err
+        if self.model is not None:
+            return float(0.0) # TODO - ajustar o model.params para ter o _err também
+        if self.chi2 is not None:
+            return self.chi2.get_nsigma(sigma=self._sigma)['immersion'][1]
+        return None
+    
+    @property
+    def emersion_err(self):
+        if self._immersion_err is not None:
+            return self.emersion_err
+        if self.model is not None:
+            return float(0.0) # TODO - ajustar o model.params para ter o _err também
+        if self.chi2 is not None:
+            return self.chi2.get_nsigma(sigma=self._sigma)['emersion'][1]
+        return None
+
+    @property
+    def time_mean(self):
+        i = (self.immersion - self.chord.lightcurve.tref).sec
+        e = (self.emersion - self.chord.lightcurve.tref).sec
+        if i is None or e is None:
+            return None
+        return self.chord.lightcurve.tref + (0.5*(i+e))*u.s
 
     def plot_contact(self, *, segment='central_point', plot_ring=False, 
                       ring_radius=None, ax=None, time_direction=False, 
@@ -36,9 +100,7 @@ class RingContact:
         ax.set_xlabel('f (km)')
         ax.set_ylabel('g (km)')
         ax.axis('equal')
-        
-        dur = (self.emersion - self.immersion).sec*u.s        
-            
+                    
         var = [] 
         
         if segment == 'standard':
@@ -53,8 +115,9 @@ class RingContact:
 
         if segment == 'central_point':
             fc, gc = self.chord.get_fg(time=[self.time_mean])
-            ax.plot(*self.chord.get_fg(time=[self.time_mean - dur/2 - self.immersion_err*u.s,
-                                                    self.time_mean + dur/2 + self.emersion_err*u.s]),
+            dur = (self.emersion - self.immersion).sec
+            ax.plot(*self.chord.get_fg(time=[self.time_mean - (dur/2 - self.immersion_err)*u.s,
+                                                    self.time_mean + (dur/2 + self.emersion_err)*u.s]),
                         color='r', linewidth=2, zorder=1)
             ax.scatter(fc, gc, marker='.', zorder=5)
                         
@@ -96,7 +159,7 @@ class RingContact:
             return fc, gc
         return fc, gc, vfc, vgc
 
-class RingContactList(dict):
+class RingContactList(OrderedDict):
     """
     Container for RingContact objects.
 
@@ -145,7 +208,6 @@ class RingContactList(dict):
         self.validate_add(occ)
         super().__setitem__(key, occ)
 
-    # ------------------------------------------------------------
     def __getitem__(self, key: str | int):
         """
         Access by label (string) or by integer index.
@@ -155,18 +217,19 @@ class RingContactList(dict):
         elif isinstance(key, int):
             return list(self.values())[key]
         else:
-            raise TypeError(
-                "Key must be a string (label) or an integer index."
-            )
+            raise TypeError("Key must be string (label) or integer index.")
 
-    # ------------------------------------------------------------
+    def __iter__(self):
+        """Iterate over RingContact objects (like ChordList)."""
+        return iter(self.values())
+    
     def __repr__(self):
         """
         Representation, similar to ChordList.
         """
-        out = ["<RingOccultationList:"]
+        out = ["<RingContactList:"]
         for i, occ in enumerate(self.values()):
-            out.append(f"    {i}: RingOccultation('{occ.label}')")
+            out.append(f"    {i}: RingContact({occ.chord.name}, {occ.contact})")
         out.append(">")
         return "\n".join(out)
 
