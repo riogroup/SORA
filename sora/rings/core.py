@@ -212,22 +212,23 @@ class Ring(BaseRing):
             self.contacts.clear()
     
     def __str__(self):
-        out = [f"Ring ID: {self.name}\n"]
-        out.append(str(self.geometry))
+        out = [f"Ring ID: {self.name}"]
+        if hasattr(self, 'pole_orientation'):
+            out.append('\n' + self.geometry.__str__())
+        if hasattr(self, 'radius'):
+            out.append(self._radius.__str__())
+        if hasattr(self, 'eccentricity'):
+            out.append(self._eccentricity.__str__())
+        if hasattr(self, 'normal_opacity'):
+            out.append(self._normal_opacity.__str__())
+        if hasattr(self, 'normal_optical_depth'):
+            out.append(self._normal_optical_depth.__str__())
+        if hasattr(self, 'radial_width'):
+            out.append(self._radial_width.__str__())
+        if hasattr(self, 'equivalent_width'):
+            out.append(self._equivalent_width.__str__())
+        if hasattr(self, 'equivalent_depth'):
+            out.append(self._equivalent_depth.__str__())
 
-        props = [
-            self._radius,
-            self._normal_opacity,
-            self._normal_optical_depth,
-            self._radial_width,
-            self._eccentricity,
-            self._equivalent_width,
-            self._equivalent_depth,
-        ]
-
-        for prop in props:
-            if prop is not None and prop.value is not None:
-                out.append(str(prop) + "\n")
-
-        return "".join(out)
+        return ''.join(out)
 

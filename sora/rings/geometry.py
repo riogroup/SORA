@@ -1,7 +1,7 @@
 # sora/rings/geometry.py
 import numpy as np
 import astropy.units as u
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, Longitude, Latitude
 from astropy.time import Time
 from .utils import calc_coef_projecao, project_to_ring_plane
 
@@ -74,11 +74,8 @@ class RingGeometry:
         if value is None:
             self._pole = SkyCoord(np.nan, np.nan, unit=(u.deg, u.deg))
         else:
-            self._pole = SkyCoord(value)
-
-        # keep numeric attributes in sync
-        self.pole_ra = self._pole.ra.deg
-        self.pole_dec = self._pole.dec.deg
+            self._pole = SkyCoord(value, unit=(u.hourangle, u.deg))
+        self._pole.reference = "User"
     
     def orientation(self, ephem, time, observer="geocenter"):
         """
@@ -156,6 +153,11 @@ class RingGeometry:
         return x, y
 
     def __str__(self):
-        out = "Ring Pole:\n"
-        out += f"  Pole (RA, Dec): {self.pole.ra.deg:.3f}°, {self.pole.dec.deg:.3f}°\n"
-        return out
+        if not np.isnan(self._pole.ra):
+            out = ('Pole orientation\n    RA:{}\n    DEC:{}\n    Reference: {}\n'.format(
+                self._pole.ra.__str__(), 
+                self._pole.dec.__str__(),
+                self._pole.reference.__str__()))
+            return ''.join(out)
+        return ''
+        
