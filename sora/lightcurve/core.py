@@ -17,8 +17,9 @@ warnings.simplefilter('always', UserWarning)
 
 # Future improvement:
 # Integrar fit blocks (fit1, fit2, ...) com objetos Ring e Chord.
-# Cada ajuste poderá apontar para o respectivo alvo (target),
-# como corpo principal ou anel identificado via ring_id.
+# Cada ajuste poderá apontar para o respectivo alvo (target), como corpo principal ou anel identificado via ring_id.
+# Remover immersion and emersion do lightcurve, já que são parâmetros do modelo
+
 
 
 class LightCurve:
@@ -716,6 +717,9 @@ class LightCurve:
     def plot(self, ax=None):
         """
         Plot the observed light curve and all associated models.
+
+        Remover o modelo vindo de model e plotar apenas a lc. Para plotar o modelo aqui, usar lightcurve.plot(model=model)
+
         """
         import matplotlib.pyplot as plt
 
@@ -727,7 +731,7 @@ class LightCurve:
         ax.plot(self.time, self.flux, 'k.-', label='Observed', zorder=0)
         
         if not hasattr(self, 'model') or not self.model.any():
-            ax.plot(self.time, np.ones(len(self.time)), 'r.-', label='Model', zorder=0)
+            ax.plot(self.time, np.ones(len(self.time)), 'r-', label='Model', zorder=0)
             ax.scatter(self.time, np.ones(len(self.time)), edgecolor='r', facecolor='none', zorder=0)   
         else:
             ax.plot(self.time, self.model, 'r.-', label='Model', zorder=0)
@@ -739,7 +743,7 @@ class LightCurve:
         ax.legend()
 
 
-    def occ_model(self, immersion_time, emersion_time, opacity, mask,
+    def occ_model(self, immersion, emersion, opacity, mask,
                 npt_star=12, time_resolution_factor=10, flux_min=0, flux_max=1):
         """
         Deprecated method (use `lc.SquareWellModel()` instead).
@@ -748,7 +752,7 @@ class LightCurve:
 
         Parameters
         ----------
-        immersion_time, emersion_time : float
+        immersion, emersion : float
             Immersion and emersion times (seconds relative to tref).
         opacity : float
             Opacity of the occulting region (1=opaque, 0=transparent).
@@ -771,8 +775,8 @@ class LightCurve:
 
         model = SquareWellModel(
             lightcurve=self,
-            immersion_time=immersion_time,
-            emersion_time=emersion_time,
+            immersion=immersion,
+            emersion=emersion,
             opacity=opacity,
             npt_star=npt_star,
             time_resolution_factor=time_resolution_factor,
