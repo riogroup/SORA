@@ -179,19 +179,10 @@ class Ring(BaseRing):
         P, B = self.geometry.orientation(self.ephem, time, observer)
         return self.geometry.to_ring_plane(pos, f, g, P, B, center_f, center_g)
     
-    def add_contact(self, chi2, chord, contact, sigma=1):
-
-        vals = chi2.get_nsigma(sigma=sigma)
-
-        immersion     = vals.get("immersion")[0]*u.s + chord.lightcurve.tref
-        immersion_err = vals.get("immersion")[1]
-        emersion      = vals.get("emersion")[0]*u.s + chord.lightcurve.tref
-        emersion_err  = vals.get("emersion")[1]
-        opacity     = vals.get("opacity")[0]
-        opacity_err = vals.get("opacity")[1]
-        time_m = (vals.get("immersion")[0] + vals.get("emersion")[0])/2
-        time_mean = time_m*u.s + chord.lightcurve.tref
-    
+    def add_contact(self, *, contact, chord, sigma=1, 
+                    chi2=None, model=None,
+                    immersion=None, emersion=None,
+                    immersion_err=None, emersion_err=None):
 
         label = f"{self.name}_{chord.name}_{contact}"
 
@@ -199,16 +190,14 @@ class Ring(BaseRing):
             ring=self,
             label=label,
             chi2=chi2,
+            model=model,            
             chord=chord,
             contact = contact,
-            time_mean=time_mean,
             immersion=immersion,
             immersion_err=immersion_err,
             emersion=emersion,
-            emersion_err=emersion_err,
-            opacity=opacity,
-            opacity_err=opacity_err,
-        )
+            emersion_err=emersion_err
+            )
 
         self.contacts[label] = occ
         return occ
