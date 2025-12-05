@@ -17,9 +17,9 @@ Design goals
 
 Examples
 --------
->>> m1 = lc.square_well_model(immersion_time=23474, emersion_time=23476, opacity=0.04)
->>> m2 = lc.square_well_model(immersion_time=23664.3, emersion_time=23710, opacity=1.0)
->>> m3 = lc.square_well_model(immersion_time=23911, emersion_time=23912.3, opacity=0.7)
+>>> m1 = lc.square_well_model(immersion=23474, emersion=23476, opacity=0.04)
+>>> m2 = lc.square_well_model(immersion=23664.3, emersion=23710, opacity=1.0)
+>>> m3 = lc.square_well_model(immersion=23911, emersion=23912.3, opacity=0.7)
 
 Combine multiple components (non-coherent product of intensities):
 >>> multi = CompositeModel()
@@ -56,20 +56,22 @@ class BaseModel:
 
     def __init__(self, name: str = "BaseModel", params: Optional[Dict] = None):
         self.name = name
-        self.params = params or {}
-
-    def compute(self) -> np.ndarray:
-        """Return model intensity (flux)."""
-        raise NotImplementedError
+        self._params: Dict = params or {}
+        self.lightcurve = None
 
     def __call__(self) -> np.ndarray:
         """Shortcut for self.compute()."""
         return self.compute()
-
-    def summary(self) -> str:
-        """Return string summary of model parameters."""
-        return f"{self.name}: " + ", ".join(f"{k}={v}" for k, v in self.params.items())
-
+    
+    @property
+    def params(self):
+        return self._params
+    
+    @params.setter
+    def params(self, value: Dict):
+        if not isinstance(value, dict):
+            raise TypeError("params must be a dict.")
+        self._params = value
 
 # Fresnel square-well model with spectral integration
 class SquareWellModel(BaseModel):
@@ -81,7 +83,7 @@ class SquareWellModel(BaseModel):
 
     Parameters
     ----------
-    immersion_time, emersion_time : float
+    immersion, emersion : float
         Immersion and emersion times (s, relative to tref or arbitrary zero).
     opacity : float
         Opacity (1 = opaque, 0 = transparent).
@@ -117,24 +119,24 @@ class SquareWellModel(BaseModel):
     """
 
     def __init__(
-        self,
-        immersion_time: float,
-        emersion_time: float,
-        opacity: float,
-        distance: Optional[float] = None,
-        vel: Optional[float] = None,
-        exptime: Optional[float] = None,
-        d_star: Optional[float] = None,
-        lambda_0: Optional[float] = None,
-        delta_lambda: Optional[float] = None,
-        lightcurve=None,
-        npt_star: int = 12,
-        time_resolution_factor: float = 10.0,
-        flux_min: float = 0.0,
-        flux_max: float = 1.0,
-        n_lambda: int = 2,
-        response: Optional[Tuple[np.ndarray, np.ndarray]] = None,
-    ):
+            self,
+            immersion: float,
+            emersion: float,
+            opacity: float,
+            distance: Optional[float] = None,
+            vel: Optional[float] = None,
+            exptime: Optional[float] = None,
+            d_star: Optional[float] = None,
+            lambda_0: Optional[float] = None,
+            delta_lambda: Optional[float] = None,
+            lightcurve=None,
+            npt_star: int = 12,
+            time_resolution_factor: float = 10.0,
+            flux_min: float = 0.0,
+            flux_max: float = 1.0,
+            n_lambda: int = 2,
+            response: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        ):
         if lightcurve is not None:
             distance     = getattr(lightcurve, "dist", distance)
             vel     = getattr(lightcurve, "vel", vel)
@@ -154,8 +156,8 @@ class SquareWellModel(BaseModel):
         super().__init__(name="SquareWell")
         self.lightcurve = lightcurve
         self.params = dict(
-            immersion_time=float(immersion_time),
-            emersion_time=float(emersion_time),
+            immersion=float(immersion),
+            emersion=float(emersion),
             opacity=float(opacity),
             distance=float(distance),
             vel=float(vel),
@@ -176,6 +178,49 @@ class SquareWellModel(BaseModel):
         self.model_star = None
         self.model_geometric = None
 
+    @property
+    def immersion(self):
+        """
+        Immersion as absolute Time if lightcurve.tref exists,
+        otherwise returns the relative immersion (float, s).
+        """
+        t_rel = self.params.get("immersion")
+        if t_rel is None:
+            return None
+        tref = getattr(self.lightcurve, "tref", None)
+        return tref + t_rel * u.s
+
+    @property
+    def emersion(self):
+        """
+        Emersion as absolute Time if lightcurve.tref exists,
+        otherwise returns the relative emersion (float, s).
+        """
+        t_rel = self.params.get("immersion")
+        if t_rel is None:
+            return None
+        tref = getattr(self.lightcurve, "tref", None)
+        return tref + t_rel * u.s
+    
+    @property
+    def opacity(self):
+        return self.params.get("opacity")
+
+    @property
+    def immersion_err(self):
+        """Uncertainty on immersion time (if available)."""
+        return self.params.get("immersion_err")
+
+    @property
+    def emersion_err(self):
+        """Uncertainty on emersion time (if available)."""
+        return self.params.get("emersion_err")
+        
+    @property
+    def opacity_err(self):
+        """Uncertainty on emersion time (if available)."""
+        return self.params.get("opacity_err")
+    
     # Main compute method
     def compute(self, time: Optional[np.ndarray] = None) -> np.ndarray:
         """
@@ -214,8 +259,8 @@ class SquareWellModel(BaseModel):
         time_resolution = min(fresnel_center / vel, p["exptime"]) / p["time_resolution_factor"]
         time_model = np.arange(time.min() - 5*p["exptime"], time.max() + 5*p["exptime"], time_resolution)
         x = time_model * vel
-        x01 = p["immersion_time"] * vel
-        x02 = p["emersion_time"] * vel
+        x01 = p["immersion"] * vel
+        x02 = p["emersion"] * vel
 
         flux_fresnel = np.zeros_like(time_model)
 
@@ -255,7 +300,7 @@ class SquareWellModel(BaseModel):
         self.model_fresnel = flux_fresnel * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
         self.model_star = flux_star * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
         geom = np.ones_like(time_model)
-        geom[(time_model > p["immersion_time"]) & (time_model < p["emersion_time"])] = (1 - p["opacity"])**2
+        geom[(time_model > p["immersion"]) & (time_model < p["emersion"])] = (1 - p["opacity"])**2
         self.model_geometric = geom * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
 
         return flux_inst
@@ -275,6 +320,15 @@ class SquareWellModel(BaseModel):
             show_components=show_components,
             title=f"{self.lightcurve.name}: {self.name}"
         )
+    
+    def __str__(self):
+        string = ['-' * 79]
+        string.append(f'{self.name}')
+        string.append(f"  immersion = {self.immersion} +/- {self.immersion_err}")
+        string.append(f"  emersion  = {self.emersion} +/- {self.emersion_err}")
+        string.append(f"  opacity   = {self.params.get('opacity')} +/- {self.params.get('opacity_err')}")
+        string.append('')
+        return '\n'.join(string)
 
 # Double Square-Well model (two consecutive regions with coherent diffraction)
 
@@ -542,6 +596,18 @@ class DoubleSquareWellModel(BaseModel):
             show_components=show_components,
             title=f"{self.lightcurve.name}: {self.name}",
         )
+    
+    def __str__(self):
+        """String summary of SquareWellModel parameters."""
+        p = self.params
+
+        lines = [f"SquareWellModel:"]
+
+        lines.append(f"  immersion = {self.lightcurve.tref+ p['immersion']*u.s}")
+        lines.append(f"  emersion  = {self.lightcurve.tref + p['emersion']*u.s}")
+        lines.append(f"  opacity        = {p['opacity']}")
+        return "\n".join(lines)
+
 
 # Composite (non-coherent) model
 class CompositeModel(BaseModel):
@@ -657,10 +723,34 @@ class CompositeModel(BaseModel):
             show_components=show_components,
             title=f"{self.lightcurve.name}: Composite Model"
         )
-
+    
     def __call__(self) -> np.ndarray:
         """Shortcut for self.compute()."""
         return self.compute()
+        
+    def __str__(self):
+        """
+        String summary of the composite model.
+        Lists each component and its immersion/emersion/opacity.
+        """
+        lines = ["CompositeModel with {} components:".format(len(self.components))]
+
+        for name, model in self.components:
+            p = model.params
+
+            im = p.get("immersion") or p.get("immersion1")
+            em = p.get("emersion")  or p.get("emersion1")
+            op = p.get("opacity")        or p.get("opacity1")
+
+            lines.append(f"  [{name}] {model.name}")
+            if im is not None:
+                lines.append(f"      immersion = {self.lightcurve.tref + im*u.s}")
+            if em is not None:
+                lines.append(f"      emersion  = {self.lightcurve.tref + em*u.s}")
+            if op is not None:
+                lines.append(f"      opacity        = {op}")
+
+        return "\n".join(lines)
 
 
 # Helper: attach models to LightCurve
@@ -670,16 +760,16 @@ def attach_to_lightcurve_class(LightCurveClass):
 
     Examples
     --------
-    >>> lc.square_well_model(immersion_time=..., emersion_time=..., opacity=0.8)
+    >>> lc.square_well_model(immersion=..., emersion=..., opacity=0.8)
     >>> multi = lc.composite_model()
     """
 
-    def _square_well_model(self, immersion_time, emersion_time, opacity=1.0, **kwargs):
+    def _square_well_model(self, immersion, emersion, opacity=1.0, **kwargs):
         """Return a SquareWellModel linked to this LightCurve."""
         return SquareWellModel(
             lightcurve=self,
-            immersion_time=immersion_time,
-            emersion_time=emersion_time,
+            immersion=immersion,
+            emersion=emersion,
             opacity=opacity,
             **kwargs,
         )
@@ -709,7 +799,7 @@ def attach_to_lightcurve_class(LightCurveClass):
 
 
 ### Fast models
-def occ_model(time, immersion_time, emersion_time, opacity,
+def occ_model(time, immersion, emersion, opacity,
               lambda_0, delta_lambda, distance, vel, exptime, d_star,
               npt_star=12, time_resolution_factor=10, flux_min=0.0, flux_max=1.0):
     """
@@ -734,8 +824,8 @@ def occ_model(time, immersion_time, emersion_time, opacity,
     time_model = np.arange(tmin, tmax, dt)
 
     x   = time_model * vel
-    x01 = float(immersion_time) * vel
-    x02 = float(emersion_time) * vel
+    x01 = float(immersion) * vel
+    x02 = float(emersion) * vel
 
     fr1 = calc_fresnel(dist_km, lam1)
     fr2 = calc_fresnel(dist_km, lam2)
