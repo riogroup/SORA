@@ -173,6 +173,7 @@ class SquareWellModel(BaseModel):
             response=response,
         )
 
+        self.model_flux = None
         self.time_model = None
         self.model_fresnel = None
         self.model_star = None
@@ -282,11 +283,11 @@ class SquareWellModel(BaseModel):
             for ii in np.where(mask)[0]:
                 xx = x[ii] + pgrid
                 val = 0
-                for lam, w in zip(lam_array, weights):
-                    lam_km = lam * u.micrometer.to("km")
-                    fresnel_scale = calc_fresnel(dist_km, lam_km)
-                    flux = bar_fresnel(xx, x01, x02, fresnel_scale, p["opacity"])
-                    val += w * np.sum(coeff * flux) / coeff_sum
+                #for lam, w in zip(lam_array, weights):
+                #    lam_km = lam * u.micrometer.to("km")
+                #    fresnel_scale = calc_fresnel(dist_km, lam_km)
+                flux = bar_fresnel(xx, x01, x02, fresnel_center, p["opacity"])
+                val += w * np.sum(coeff * flux) / coeff_sum
                 flux_star[ii] = val
 
         flux_inst = np.zeros_like(time)
@@ -302,7 +303,7 @@ class SquareWellModel(BaseModel):
         geom = np.ones_like(time_model)
         geom[(time_model > p["immersion"]) & (time_model < p["emersion"])] = (1 - p["opacity"])**2
         self.model_geometric = geom * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
-
+        self.model_flux = flux_inst
         return flux_inst
 
     def plot(self, show_components=False, ax=None):
@@ -312,7 +313,7 @@ class SquareWellModel(BaseModel):
         return _plot_model(
             ax=ax,
             lightcurve=self.lightcurve,
-            flux_model=self(),
+            flux_model=self.model_flux,
             model_geometric=self.model_geometric,
             model_fresnel=self.model_fresnel,
             model_star=self.model_star,
@@ -940,35 +941,51 @@ def occ_model_double(time, immersion1, emersion1, opacity1,
 
 def _lambda_weights(lambda_0, delta_lambda, n_lambda, response):
     """
-    Retorna (lam_array, weights) normalizados para integração espectral.
-    - Se response for dado: usa integração ponderada por T(λ)
-    - Caso contrário: usa banda uniforme λ0 ± Δλ/2 com n_lambda pontos
-      (n_lambda<=1 => monocromático em λ0).
+    Optimized wavelength sampling for Fresnel integration.
+        
+    Assumes response is ALWAYS a tuple:
+        response = (lamb_array, tlamb_array)
     """
-    import numpy as np
 
-    if response is not None:
-        lam, T = response
-        lam = np.asarray(lam, float)
-        T = np.asarray(T, float)
-        order = np.argsort(lam)
-        lam, T = lam[order], T[order]
-        dlam = np.gradient(lam)
-        num = T * dlam
-        den = np.trapz(T, lam)
-        if not np.isfinite(den) or den <= 0:
-            raise ValueError("Invalid spectral response (zero/NaN integral).")
-        w = num / np.sum(num) 
-        return lam, w
+    from scipy.interpolate import interp1d
+    from numpy.polynomial.legendre import leggauss
 
-    if n_lambda <= 1:
-        return np.array([lambda_0], float), np.array([1.0], float)
+    if response is None:
+        if n_lambda == 1:
+            return np.array([lambda_0]), np.array([1.0])
+        lam_min = lambda_0 - delta_lambda/2
+        lam_max = lambda_0 + delta_lambda/2
+        lam_array = np.linspace(lam_min, lam_max, n_lambda)
+        weights = np.ones_like(lam_array) / n_lambda
+        return lam_array, weights
 
-    lam = np.linspace(lambda_0 - delta_lambda/2.0,
-                      lambda_0 + delta_lambda/2.0,
-                      int(n_lambda))
-    w = np.ones_like(lam) / lam.size
-    return lam, w
+    lamb_resp = np.asarray(response[0])
+    t_resp    = np.asarray(response[1])
+
+    t_resp = np.clip(t_resp, 0, None)
+    if t_resp.max() > 0:
+        t_resp = t_resp / t_resp.max()
+
+    if len(lamb_resp) <= 10:
+        weights = t_resp / t_resp.sum()
+        return lamb_resp, weights
+
+    N = 5
+
+    interp = interp1d(lamb_resp, t_resp, kind='linear',
+                      bounds_error=False, fill_value=0.0)
+
+    lam_min = lamb_resp.min()
+    lam_max = lamb_resp.max()
+
+    xi, wi = leggauss(N)  
+
+    lam_nodes = 0.5*(lam_max - lam_min)*xi + 0.5*(lam_max + lam_min)
+    weights   = interp(lam_nodes) * wi
+
+    weights = weights / weights.sum()
+
+    return lam_nodes, weights
 
 def _plot_model(ax, lightcurve, flux_model,
                 model_geometric=None,
