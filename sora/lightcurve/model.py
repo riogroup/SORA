@@ -904,14 +904,16 @@ def _lambda_weights(lambda_0, delta_lambda, n_lambda, response):
     if len(lamb_resp) <= 10:
         return lamb_resp, t_resp
     
-    N = 5
-
     interp = interp1d(lamb_resp, t_resp, kind='linear',
                       bounds_error=False, fill_value=0.0)
 
     lam_min = lamb_resp.min()
     lam_max = lamb_resp.max()
 
+    N = 5
+    if n_lambda > 5:
+        N = n_lambda
+    
     xi, wi = leggauss(N)  
 
     lam_nodes = 0.5*(lam_max - lam_min)*xi + 0.5*(lam_max + lam_min)

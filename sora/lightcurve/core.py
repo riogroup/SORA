@@ -49,13 +49,30 @@ class LightCurve:
                 Exposure time [s].
             dflux : array_like, optional
                 Flux uncertainties.
-            response : tuple of array_like
-                Tuple (lambda [µm], transmission) describing instrumental or filter response.
+            response : tuple of array_like, optional
+                Tuple ``(lambda [µm], transmission)`` describing the instrumental or
+                filter spectral response. When provided, the occultation model performs
+                a Gauss-Legendre integration of the Fresnel diffraction across the
+                response bandpass. The number of quadrature nodes is controlled by
+                ``n_lambda`` (minimum 5). In this case, ``delta_lambda`` and the
+                uniform-bandpass approximation are ignored.
             n_lambda : int, optional
-                Number of wavelength samples across the bandpass (default 2).
-                n_lambda = 1 → monochromatic (λ₀),
-                n_lambda = 2 → average of λ₀ ± Δλ/2 (SORA classic),
-                n_lambda > 2 → uniform integration across band.
+                Spectral sampling parameter controlling the number of Gauss-Legendre
+                nodes used in the wavelength integration. Default is 2.
+
+                - If ``response`` is **None**:
+                    * ``n_lambda = 1`` → monochromatic model at ``lambda_0``.
+                    * ``n_lambda = 2`` → SORA classic bandpass approximation
+                    (endpoints ``lambda_0 ± Δλ/2`` with equal weights).
+                    * ``n_lambda ≥ 3`` → Gauss-Legendre integration of order
+                    ``max(n_lambda, 5)`` across the top-hat bandpass
+                    ``[lambda_0 - Δλ/2, lambda_0 + Δλ/2]``.
+
+                - If ``response`` is **not None**:
+                    * A Gauss-Legendre integration with ``max(n_lambda, 5)`` nodes is
+                    performed over the wavelength range covered by the response curve.
+                    * ``n_lambda`` thus controls the spectral resolution of the
+                    physically accurate response-weighted Fresnel diffraction.
             central_bandpass, delta_bandpass : float
                 Effective central wavelength [µm] and bandpass width [µm].
             tref, dist, vel, d_star : float
@@ -937,10 +954,14 @@ class LightCurve:
                     f"Spectral response:    Custom curve ({len(lam)} points)\n"
                     f"  Bandpass (derived): {self.lambda_0:.3f} ± {self.delta_lambda:.3f} μm\n"
                 )
+                if self.n_lambda != 2:   
+                    output += f"  λ-sampling    : Gauss-Legendre, N = n_lambda = {self.n_lambda}\n"
             else:
                 output += (
                     f"Bandpass:             {self.lambda_0:.3f} ± {self.delta_lambda:.3f} μm\n"
                 )
+                if self.n_lambda != 2:   
+                    output += f"  λ-sampling    : n_lambda = {self.n_lambda}\n"
 
 
             output += (
