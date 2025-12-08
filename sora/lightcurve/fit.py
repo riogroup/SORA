@@ -25,7 +25,7 @@ from sora.extra import ChiSquare
 from sora.stats import Parameters, least_squares, differential_evolution
 from sora.config.visuals import progressbar
 from sora.config import input_tests
-from .model import occ_model
+from .model import *
 
 import astropy.units as u  
 
@@ -94,9 +94,9 @@ class _FitHandler:
         loop = kwargs.get('loop', 10000)
         verbose = kwargs.get('verbose', True)
 
-        immersion_time = tmin - self.lc.exptime
+        immersion_time = self.lc.time.min() - self.lc.exptime
         do_immersion = False
-        emersion_time = tmax + self.lc.exptime
+        emersion_time = self.lc.time.max() + self.lc.exptime
         do_emersion = False
         opacity = kwargs.get('opacity', 1.0)
         delta_opacity = kwargs.get('dopacity', 0.0)
@@ -326,7 +326,6 @@ class _FitHandler:
         # roda o modelo final e salva no objeto
         model = self.lc.occ_model(
             immersion_time, emersion_time, opacity,
-            np.repeat(True, len(self.lc.flux)),
             flux_min=flux_min, flux_max=flux_max
         )
 
@@ -364,8 +363,8 @@ class _FitHandler:
                 "bottomflux": flux_min,
                 "curve_sigma": sigma.mean(),
             }
-        except Exception as e:
-            print(f"[WARN] Could not register fit result: {e}")
+        except:
+            pass         
         return model, chisquare
 
 
@@ -374,13 +373,31 @@ class _FitHandler:
 # Error function used by LS/DE (idêntico à filosofia do original)
 # -----------------------------------------------------------
 def _fit_error(parameters, time, flux, dflux, flux_min, flux_max,
-               lambda_0, delta_lambda, distance, velocity, exptime, d_star,
+               lambda_0, delta_lambda, distance, vel, exptime, d_star,
                time_resolution_factor, npt_star):
     v = parameters.valuesdict()
-    mdl = occ_model(time, v['immersion_time'], v['emersion_time'], v['opacity'],
-                    lambda_0, delta_lambda, distance, velocity, exptime, d_star,
-                    npt_star=npt_star, time_resolution_factor=time_resolution_factor,
-                    flux_min=flux_min, flux_max=flux_max)
+    #mdl = occ_model(time, v['immersion_time'], v['emersion_time'], v['opacity'],
+    #                lambda_0, delta_lambda, distance, velocity, exptime, d_star,
+    #                npt_star=npt_star, time_resolution_factor=time_resolution_factor,
+    #                flux_min=flux_min, flux_max=flux_max)
+    
+    model = SquareWellModel(
+            lightcurve=None,
+            immersion=v['immersion_time'],
+            emersion= v['emersion_time'],
+            opacity=v['opacity'],
+            npt_star=npt_star,
+            lambda_0=lambda_0,
+            delta_lambda=delta_lambda,
+            distance=distance, 
+            vel=vel, 
+            exptime=exptime,
+            d_star=d_star,
+            time_resolution_factor=time_resolution_factor,
+            flux_min=flux_min,
+            flux_max=flux_max,
+        )
+    mdl=model.compute(time)
     return (flux - mdl)**2 / (dflux**2)
 
 

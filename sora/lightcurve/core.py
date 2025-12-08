@@ -743,7 +743,7 @@ class LightCurve:
         ax.legend()
 
 
-    def occ_model(self, immersion, emersion, opacity, mask,
+    def occ_model(self, immersion, emersion, opacity,
                 npt_star=12, time_resolution_factor=10, flux_min=0, flux_max=1):
         """
         Deprecated method (use `lc.SquareWellModel()` instead).
@@ -783,8 +783,7 @@ class LightCurve:
             flux_min=flux_min,
             flux_max=flux_max,
         )
-        flux = model.compute()
-        self.model = flux
+        self.model = model.compute()
         return model
     
     def clear_fits(self):
