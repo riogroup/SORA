@@ -145,6 +145,7 @@ class SquareWellModel(BaseModel):
             lambda_0     = getattr(lightcurve, "lambda_0", lambda_0)
             delta_lambda = getattr(lightcurve, "delta_lambda", delta_lambda)
             response     = getattr(lightcurve, "response", response)
+            n_lambda     = getattr(lightcurve, "n_lambda", n_lambda)
 
 
         if distance is None or vel is None or exptime is None:
@@ -809,26 +810,7 @@ def occ_model_double(time, immersion1, emersion1, opacity1,
                      lambda_0, delta_lambda, distance, vel, exptime, d_star,
                      npt_star=12, time_resolution_factor=10,
                      flux_min=0.0, flux_max=1.0):
-    """
-    Fast, allocation-light model for TWO occulting regions (DoubleSquare).
-    Physics: coherent sum of four edges (two square wells), averaged over
-    λ₀ ± Δλ/2, with Fresnel diffraction, finite star, and instrumental integration.
 
-    Parameters
-    ----------
-    lc : LightCurve
-        Input light curve object (must contain vel, dist, exptime, etc.).
-    t1, t2, t3, t4 : float
-        Immersion and emersion times (s) for the two square wells.
-    opacity1, opacity2 : float
-        Normal opacities for each region (0 transparent, 1 opaque).
-    ...
-
-    Returns
-    -------
-    flux_inst : ndarray
-        Modeled relative flux for the given lc.time array.
-    """
 
     lamb_center = float(lambda_0) * u.micrometer.to("km")
     dlamb = float(delta_lambda) * u.micrometer.to("km")
@@ -901,19 +883,27 @@ def _lambda_weights(lambda_0, delta_lambda, n_lambda, response):
         lam_max = lambda_0 + delta_lambda/2
         lam_array = np.linspace(lam_min, lam_max, n_lambda)
         weights = np.ones_like(lam_array) / n_lambda
+        weights /= weights.sum()
         return lam_array, weights
 
     lamb_resp = np.asarray(response[0])
     t_resp    = np.asarray(response[1])
 
+    order = np.argsort(lamb_resp)
+    lamb_resp = lamb_resp[order]
+    t_resp    = t_resp[order]
+
     t_resp = np.clip(t_resp, 0, None)
-    if t_resp.max() > 0:
-        t_resp = t_resp / t_resp.max()
+    total = t_resp.sum()
+
+    if total <= 0:
+        raise ValueError("Spectral response has zero total throughput.")
+    
+    t_resp /= total
 
     if len(lamb_resp) <= 10:
-        weights = t_resp / t_resp.sum()
-        return lamb_resp, weights
-
+        return lamb_resp, t_resp
+    
     N = 5
 
     interp = interp1d(lamb_resp, t_resp, kind='linear',
@@ -927,8 +917,11 @@ def _lambda_weights(lambda_0, delta_lambda, n_lambda, response):
     lam_nodes = 0.5*(lam_max - lam_min)*xi + 0.5*(lam_max + lam_min)
     weights   = interp(lam_nodes) * wi
 
-    weights = weights / weights.sum()
+    total_w = weights.sum()
+    if not np.isfinite(total_w) or total_w <= 0:
+        raise RuntimeError("Invalid spectral weights derived from response.")
 
+    weights /= total_w
     return lam_nodes, weights
 
 def _plot_model(ax, lightcurve, flux_model,

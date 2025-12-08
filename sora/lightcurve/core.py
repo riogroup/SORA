@@ -51,6 +51,11 @@ class LightCurve:
                 Flux uncertainties.
             response : tuple of array_like
                 Tuple (lambda [µm], transmission) describing instrumental or filter response.
+            n_lambda : int, optional
+                Number of wavelength samples across the bandpass (default 2).
+                n_lambda = 1 → monochromatic (λ₀),
+                n_lambda = 2 → average of λ₀ ± Δλ/2 (SORA classic),
+                n_lambda > 2 → uniform integration across band.
             central_bandpass, delta_bandpass : float
                 Effective central wavelength [µm] and bandpass width [µm].
             tref, dist, vel, d_star : float
@@ -70,7 +75,8 @@ class LightCurve:
                           'initial_time', 'end_time',
                           'file', 'time', 'flux', 
                           'exptime', 'dflux',
-                          'central_bandpass', 'delta_bandpass', 'response', 
+                          'central_bandpass', 'delta_bandpass', 
+                          'response', 'n_lambda',
                           'tref', 'dist', 'vel', 'd_star', 
                           'skiprows', 'usecols']
         
@@ -122,6 +128,9 @@ class LightCurve:
             input_done = True
         if not input_done:
             raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')
+        
+        if 'n_lambda' in kwargs:
+            self.n_lambda = kwargs['n_lambda']  
         
         if 'response' in kwargs:
             lam, T = kwargs['response']
