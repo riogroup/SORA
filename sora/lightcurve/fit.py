@@ -71,7 +71,7 @@ class _FitHandler:
     def __init__(self, lc):
         self.lc = lc
 
-    def run(self, **kwargs):
+    def run(self, clear_fits=True, **kwargs):
         """
         Execute the fit preserving the occ_lcfit philosophy & args.
         Returns (model, ChiSquare).
@@ -81,6 +81,9 @@ class _FitHandler:
                           'delta_t', 'dopacity', 'sigma', 'loop', 'verbose',
                           'sigma_result', 'method', 'threads', 'sigma_model']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
+
+        if clear_fits and hasattr(self.lc, "clear_fits"):
+            self.lc.clear_fits()
 
         if not hasattr(self.lc, 'flux'):
             raise ValueError('Fit curve is only possible when a LightCurve is instantiated with time and flux.')
@@ -338,7 +341,6 @@ class _FitHandler:
         # TODO [future feature]:
         # Integrar parâmetro `target` (Body, Ring, Satellite, etc.) aos métodos fit()
         # para vincular cada ajuste ao objeto físico correspondente.
-        # Isso permitirá usar obj, obj.rings[...] e obj.satellites[...] como destino do fit
 
         if not hasattr(self.lc, "models"):
             self.lc.models = {}
@@ -349,23 +351,27 @@ class _FitHandler:
 
         label = f"fit{len(self.lc.models) + 1}"
 
+        nsig1 = chisquare.get_nsigma(sigma=1)
+        model.immersion_err = nsig1["immersion"][1] if 'immersion' in nsig1.keys() else None
+        model.emersion_err = nsig1["emersion"][1] if 'emersion' in nsig1.keys() else None
+        model.opacity_err = nsig1["opacity"][1] if 'opacity' in nsig1.keys() else None
+
         self.lc.models[label] = model
         self.lc.chi2_maps[label] = chisquare
 
-        try:
-            self.lc._fit_results[label] = {
-                "type": "SquareWell",
-                "immersion_time": self.lc._immersion,
-                "immersion_err": getattr(self.lc, "immersion_err", np.nan),
-                "emersion_time": self.lc._emersion,
-                "emersion_err": getattr(self.lc, "emersion_err", np.nan),
-                "opacity": opacity,
-                "baseflux": flux_max,
-                "bottomflux": flux_min,
-                "curve_sigma": sigma.mean(),
-            }
-        except:
-            pass         
+        self.lc._fit_results[label] = {
+            "type": "SquareWell",
+            "immersion_time": model.immersion,
+            "immersion_err": model.immersion_err,
+            "emersion_time": model.emersion,
+            "emersion_err": model.emersion_err,
+            "opacity": model.opacity,
+            "opacity_err": model.opacity_err,
+            "baseflux": flux_max,
+            "bottomflux": flux_min,
+            "curve_sigma": sigma.mean(),
+        }
+
         return model, chisquare
 
 
@@ -400,5 +406,5 @@ def _fit_error(parameters, time, flux, dflux, flux_min, flux_max,
 # -----------------------------------------------------------
 # Public interface to be bound into LightCurve
 # -----------------------------------------------------------
-def fit(self, **kwargs):
-    return _FitHandler(self).run(**kwargs)
+def fit(self, clear_fits=True, **kwargs):
+    return _FitHandler(self).run(clear_fits=clear_fits, **kwargs)
