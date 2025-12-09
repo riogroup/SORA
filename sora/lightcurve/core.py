@@ -15,78 +15,139 @@ from .fit_double import fit_double
 
 warnings.simplefilter('always', UserWarning)
 
-# Future improvement:
-# Integrar fit blocks (fit1, fit2, ...) com objetos Ring e Chord.
-# Cada ajuste poderá apontar para o respectivo alvo (target), como corpo principal ou anel identificado via ring_id.
-# Remover immersion and emersion do lightcurve, já que são parâmetros do modelo
-
-
-
 class LightCurve:
+    """ Defines a Light Curve.
+
+    Parameters
+    ----------
+    name : `str`
+        The name of the LightCurve. Each time a LightCurve object is defined
+        the name must be different.
+
+    tref : `astropy.time.Time`, `str`, `float`
+        Instant of reference.
+
+        Format: `Julian Date`, string in ISO format or Time object.
+        Required only when input times are not given in Julian Date.
+
+    central_bandpass : `int`, `float`, optional, default=0.58
+        The effective central wavelength of the detector used in observation.
+        Value in microns.
+
+    delta_bandpass : `int`, `float`, optional, default=0.40
+        The effective bandpass width of the detector used in observation.
+        Value in microns.
+
+    exptime : `int`, `float`
+        The exposure time of the observation, in seconds.
+        *Required* in case *1* below.
+        *Not required* in cases *2*, *3* and *4* below.
+
+    response : `tuple` of array_like, optional
+        Instrumental or filter spectral response.
+        Must be a tuple ``(lambda [µm], transmission)`` of the same length.
+
+        When given, a Gauss-Legendre integration of the Fresnel diffraction is
+        performed across the response bandpass. The number of nodes is set by
+        `n_lambda` (minimum of 5). In this case, the uniform-bandpass
+        approximation using ``delta_bandpass`` is ignored.
+
+    n_lambda : `int`, optional, default=2
+        Spectral sampling parameter controlling the number of Gauss-Legendre
+        nodes used in the wavelength integration.
+
+        If `response` is **None**:
+            - ``n_lambda = 1`` → monochromatic model at `central_bandpass`.
+            - ``n_lambda = 2`` → classic SORA two-endpoint approximation
+              (``central_bandpass ± delta_bandpass/2``).
+            - ``n_lambda ≥ 3`` → Gauss-Legendre integration over the top-hat
+              bandpass.
+
+        If `response` is **not None**:
+            - Integration uses ``max(n_lambda, 5)`` nodes.
+            - The physically accurate, response-weighted Fresnel diffraction
+              is evaluated across the wavelength range defined by `response`.
+
+    **kwargs : `int`, `float`
+        Physical parameters of the occultation geometry.
+
+        Note
+        ----
+        vel : `int`, `float`
+            Shadow velocity, in km/s.
+
+        dist : `int`, `float`
+            Geocentric distance of the occulting body, in AU.
+
+        d_star : `float`
+            Stellar diameter, in km.
+
+
+    Warning
+    -------
+    Input data must follow one of the 4 options below:
+
+    1) Input data from file with time and flux  
+        `file (str)`: Path to a file containing time and flux.  
+        A third column with the flux error may also be given.
+
+        `usecols (int, tuple or array)`: Which columns to read, with the first
+        being time, the second flux, and the optional third the flux error.
+
+        `skiprows (int)`: Number of header lines to skip.
+
+        **Example:**
+
+        >>> LightCurve(name, file=file_path, exptime=0.1)
+
+
+    2) Input data when file is not given:  
+        `time`: array-like of times (seconds from tref, JD, or Time objects).
+
+        `flux`: array-like of fluxes. Must match the length of `time`.
+
+        `dflux`: array-like of flux uncertainties (optional).
+
+        **Example:**
+
+        >>> LightCurve(name, time=time_array, flux=flux_array, exptime=0.1)
+
+
+    Cases for when `time` and `flux` are not given.
+
+
+    3) Input for a positive occultation:  
+        `immersion`: The instant of immersion.  
+        `emersion`: The instant of emersion.  
+        `immersion_err`: Immersion time uncertainty, in seconds.  
+        `emersion_err`: Emersion time uncertainty, in seconds.
+
+        **Example:**
+
+        >>> LightCurve(name, immersion, immersion_err, emersion, emersion_err)
+
+
+    4) Input for a negative occultation:  
+        `initial_time`: The initial time of observation.  
+        `end_time`: The end time of observation.
+
+        **Example:**
+
+        >>> LightCurve(name, initial_time, end_time)
+
+
+    Notes
+    -----
+    - If a `response` tuple is given, the effective bandpass (central_bandpass,
+      delta_bandpass) is derived by integrating the normalized transmission curve.
+
+    - Default filter parameters:
+        central_bandpass = 0.58 µm  
+        delta_bandpass   = 0.40 µm
+    """   
+
     @deprecated_alias(lambda_0='central_bandpass', delta_lambda='delta_bandpass')  # remove this line for v1.0
     def __init__(self, name='', **kwargs):
-        """
-            Initialize a LightCurve instance.
-
-            Parameters
-            ----------
-            name : str, optional
-                Identifier for the light curve (default: '').
-
-            Other Parameters
-            ----------------
-            immersion, emersion : float
-                Immersion and emersion times [s or JD, depending on context].
-            immersion_err, emersion_err : float, optional
-                Uncertainties on immersion/emersion times.
-            initial_time, end_time : float
-                Time range of the light curve.
-            file : str
-                Path to data file.
-            time, flux : array_like
-                Time and flux arrays.
-            exptime : float
-                Exposure time [s].
-            dflux : array_like, optional
-                Flux uncertainties.
-            response : tuple of array_like, optional
-                Tuple ``(lambda [µm], transmission)`` describing the instrumental or
-                filter spectral response. When provided, the occultation model performs
-                a Gauss-Legendre integration of the Fresnel diffraction across the
-                response bandpass. The number of quadrature nodes is controlled by
-                ``n_lambda`` (minimum 5). In this case, ``delta_lambda`` and the
-                uniform-bandpass approximation are ignored.
-            n_lambda : int, optional
-                Spectral sampling parameter controlling the number of Gauss-Legendre
-                nodes used in the wavelength integration. Default is 2.
-
-                - If ``response`` is **None**:
-                    * ``n_lambda = 1`` → monochromatic model at ``lambda_0``.
-                    * ``n_lambda = 2`` → SORA classic bandpass approximation
-                    (endpoints ``lambda_0 ± Δλ/2`` with equal weights).
-                    * ``n_lambda ≥ 3`` → Gauss-Legendre integration of order
-                    ``max(n_lambda, 5)`` across the top-hat bandpass
-                    ``[lambda_0 - Δλ/2, lambda_0 + Δλ/2]``.
-
-                - If ``response`` is **not None**:
-                    * A Gauss-Legendre integration with ``max(n_lambda, 5)`` nodes is
-                    performed over the wavelength range covered by the response curve.
-                    * ``n_lambda`` thus controls the spectral resolution of the
-                    physically accurate response-weighted Fresnel diffraction.
-            central_bandpass, delta_bandpass : float
-                Effective central wavelength [µm] and bandpass width [µm].
-            tref, dist, vel, d_star : float
-                Reference time, geocentric distance, shadow velocity, and stellar diameter.
-            skiprows, usecols : int or list, optional
-                Options for data reading.
-
-            Notes
-            -----
-            - If a `response` tuple is given, the effective bandpass (central_bandpass, 
-            delta_bandpass) is derived by integrating the normalized transmission curve.
-            - Default filter parameters: central_bandpass = 0.70 µm, delta_bandpass = 0.30 µm.
-            """
-
         allowed_kwargs = ['immersion', 'immersion_err',
                           'emersion', 'emersion_err',  
                           'initial_time', 'end_time',
@@ -144,17 +205,12 @@ class LightCurve:
             self.set_flux(**kwargs)
             input_done = True
         if not input_done:
-            raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')
-        
-        if 'n_lambda' in kwargs:
-            self.n_lambda = kwargs['n_lambda']  
-        
+            raise ValueError('No allowed input conditions satisfied. Please refer to the tutorial.')                
         if 'response' in kwargs:
             lam, T = kwargs['response']
             lam = np.asarray(lam, dtype=float)
             T = np.asarray(T, dtype=float)
 
-            # Require at least 3 points and non-zero transmission
             if len(lam) < 3 or np.all(T == 0):
                 self.set_filter(
                     central_bandpass=kwargs.get('central_bandpass', 0.70),
@@ -166,8 +222,8 @@ class LightCurve:
                 norm = np.trapz(T, lam)
                 if norm <= 0 or not np.isfinite(norm):
                     self.set_filter(
-                        central_bandpass=kwargs.get('central_bandpass', 0.70),
-                        delta_bandpass=kwargs.get('delta_bandpass', 0.30)
+                        central_bandpass=kwargs.get('central_bandpass', 0.58),
+                        delta_bandpass=kwargs.get('delta_bandpass', 0.40)
                     )
                 else:
                     Tn = T / norm
@@ -179,11 +235,12 @@ class LightCurve:
         else:
             self.response = None
             self.set_filter(
-                central_bandpass=kwargs.get('central_bandpass', 0.70),
-                delta_bandpass=kwargs.get('delta_bandpass', 0.30)
+                central_bandpass=kwargs.get('central_bandpass', 0.58),
+                delta_bandpass=kwargs.get('delta_bandpass', 0.40)
             )
 
-        self._dt = 0.0
+        self.dt = 0.0
+        self.n_lambda = kwargs.get('n_lambda', 2)
 
     @property
     def fresnel_scale(self):
@@ -206,20 +263,6 @@ class LightCurve:
     @property
     def name(self):
         return self._name
-    
-    @property
-    def dt(self):
-        if hasattr(self, '_dt'):
-            return self._dt
-        else:
-            raise AttributeError("Attribute _dt not set")
-
-    @dt.setter
-    def dt(self, value):
-        if type(value) in [int, float]:
-            self._dt = value
-        else:
-            raise TypeError("dt must be an integer or float")
 
     @property
     def tref(self):
@@ -241,7 +284,7 @@ class LightCurve:
     @property
     def immersion(self):
         if hasattr(self, '_immersion'):
-            return self._immersion + self._dt*u.s
+            return self._immersion + self.dt*u.s
         else:
             raise AttributeError('The immersion time was not fitted or instantiated.')
 
@@ -263,7 +306,7 @@ class LightCurve:
     @property
     def emersion(self):
         if hasattr(self, '_emersion'):
-            return self._emersion + self._dt*u.s
+            return self._emersion + self.dt*u.s
         else:
             raise AttributeError('The emersion time was not fitted or instanciated.')
 
@@ -348,7 +391,7 @@ class LightCurve:
         return self._detection_limits
 
     def set_flux(self, **kwargs):
-        """Sets the flux for the LightCurve.
+        """ Sets the flux for the LightCurve.
 
         Parameters
         ----------
@@ -472,7 +515,7 @@ class LightCurve:
                               format(self.exptime, self.cycle))
 
     def set_exptime(self, exptime):
-        """Sets the light curve exposure time.
+        """ Sets the light curve exposure time.
 
         Parameters
         ----------
@@ -493,7 +536,7 @@ class LightCurve:
             pass
 
     def set_vel(self, vel):
-        """Sets the occultation velocity.
+        """ Sets the occultation velocity.
 
         Parameters
         ----------
@@ -504,7 +547,7 @@ class LightCurve:
         self.vel = np.absolute(vel.value)
 
     def set_dist(self, dist):
-        """Sets the object distance.
+        """ Sets the object distance.
 
         Parameters
         ----------
@@ -517,7 +560,7 @@ class LightCurve:
         self.dist = np.absolute(dist.value)
 
     def set_star_diam(self, d_star):
-        """Sets the star diameter.
+        """ Sets the star diameter.
 
         Parameters
         ----------
@@ -531,7 +574,7 @@ class LightCurve:
 
     @deprecated_alias(lambda_0='central_bandpass', delta_lambda='delta_bandpass')  # remove this line for v1.0
     def set_filter(self, central_bandpass, delta_bandpass):
-        """Sets the filter bandwidth in microns.
+        """ Sets the filter bandwidth in microns.
 
         Parameters
         ----------
@@ -555,13 +598,12 @@ class LightCurve:
                                                                        np.array([-1, 1])*delta_bandpass).value))
 
     def set_response(self, response):
-        """
-        Sets the spectral response curve (λ, Tλ).
+        """ Sets the spectral response curve (λ, Tλ).
 
         Parameters
         ----------
         response : array-like, tuple
-            Two arrays (λ, Tλ) in microns and relative transmission (0–1).
+            Two arrays (λ, Tλ) in microns and relative transmission (0-1).
         """
         import numpy as np
 
@@ -582,7 +624,7 @@ class LightCurve:
         self.response = (lam, trans)
 
     def calc_magnitude_drop(self, mag_star, mag_obj):
-        """Determines the magnitude drop of the occultation.
+        """ Determines the magnitude drop of the occultation.
 
         Parameters
         ----------
@@ -606,7 +648,7 @@ class LightCurve:
         self.bottom_flux = bottom_flux
 
     def normalize(self, poly_deg=None, mask=None, flux_min=0.0, flux_max=1.0, plot=False):
-        """Returns the normalized flux within the flux min and flux max defined scale.
+        """ Returns the normalized flux within the flux min and flux max defined scale.
 
         Parameters
         ----------
@@ -695,8 +737,7 @@ class LightCurve:
 
     def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None,
                n_detections=None, tmin=None, tmax=None, plot=False):
-        """
-        Automatically detect an occultation event in the light curve.
+        """ Automatically detect an occultation event in the light curve.
 
         This is used internally by `fit()` to estimate immersion/emersion times
         when not provided by the user.
@@ -741,11 +782,7 @@ class LightCurve:
         return occ
 
     def plot(self, ax=None):
-        """
-        Plot the observed light curve and all associated models.
-
-        Remover o modelo vindo de model e plotar apenas a lc. Para plotar o modelo aqui, usar lightcurve.plot(model=model)
-
+        """ Plots the light curve
         """
         import matplotlib.pyplot as plt
 
@@ -771,8 +808,7 @@ class LightCurve:
 
     def occ_model(self, immersion, emersion, opacity,
                 npt_star=12, time_resolution_factor=10, flux_min=0, flux_max=1):
-        """
-        Deprecated method (use `lc.SquareWellModel()` instead).
+        """ Deprecated method (use `lc.SquareWellModel()` instead).
 
         Returns the modelled light curve using the Fresnel-aware square-well model.
 
@@ -813,7 +849,7 @@ class LightCurve:
         return model
     
     def clear_fits(self):
-        """Remove all stored models / chi2 / fit results."""
+        """ Remove all stored models / chi2 / fit results."""
         if hasattr(self, "models"):
             self.models.clear()
         if hasattr(self, "chi2_maps"):
@@ -822,7 +858,7 @@ class LightCurve:
             self._fit_results.clear()
 
     def remove_fit(self, label: str):
-        """Remove a specific fit labelled 'fit1', 'fit2', etc.
+        """ Remove a specific fit labelled 'fit1', 'fit2', etc.
         Check the labelled fits using lightcurve.models
         """
         for attr in ("models", "chi2_maps", "_fit_results"):
@@ -831,7 +867,7 @@ class LightCurve:
                 del d[label]
 
     def to_log(self, namefile=None):
-        """Saves the light curve log to a file.
+        """ Saves the light curve log to a file.
 
         Parameters
         ----------
@@ -845,8 +881,7 @@ class LightCurve:
         f.close()
 
     def to_file(self, namefile=None, overwrite=False):
-        """
-        Saves the observed light curve to an ASCII file with metadata.
+        """ Saves the observed light curve to an ASCII file with metadata.
         
         """
         if self.flux is None:
@@ -934,13 +969,13 @@ class LightCurve:
                     f"  Bandpass (derived): {self.lambda_0:.3f} ± {self.delta_lambda:.3f} μm\n"
                 )
                 if self.n_lambda != 2:   
-                    output += f"  λ-sampling    : Gauss-Legendre, N = n_lambda = {self.n_lambda}\n"
+                    output += f"  λ-sampling:         Gauss-Legendre, N = n_lambda = {self.n_lambda}\n"
             else:
                 output += (
                     f"Bandpass:             {self.lambda_0:.3f} ± {self.delta_lambda:.3f} μm\n"
                 )
                 if self.n_lambda != 2:   
-                    output += f"  λ-sampling    : n_lambda = {self.n_lambda}\n"
+                    output += f"  λ-sampling:         n_lambda = {self.n_lambda}\n"
 
 
             output += (
@@ -950,7 +985,7 @@ class LightCurve:
                 f"Stellar size effect:  {self.d_star/self.vel:.3f} seconds or {self.d_star:.2f} km\n"
             )
         except Exception as e:
-            output += '\nThere is no occultation associated with this light curve.\n'
+            output += f'\nThere is no occultation associated with this light curve {e}.\n'
 
         try:
             lc_dl = self.detection_limits
@@ -1003,10 +1038,7 @@ class LightCurve:
         else:
             output += '\nObject LightCurve model was not fitted.\n\n'
 
-        return output
-
-
-   
+        return output 
 
 LightCurve.fit = fit
 LightCurve.fit_double = fit_double
