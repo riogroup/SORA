@@ -198,7 +198,7 @@ class SquareWellModel(BaseModel):
         Emersion as absolute Time if lightcurve.tref exists,
         otherwise returns the relative emersion (float, s).
         """
-        t_rel = self.params.get("immersion")
+        t_rel = self.params.get("emersion")
         if t_rel is None:
             return None
         tref = getattr(self.lightcurve, "tref", None)
@@ -303,6 +303,8 @@ class SquareWellModel(BaseModel):
             show_components=show_components,
             title=f"{self.lightcurve.name}: {self.name}"
         )
+    
+
     
     def __str__(self):
         string = ['-' * 79]
@@ -428,11 +430,11 @@ class DoubleSquareWellModel(BaseModel):
             response=response,
         )
 
+        self.model_flux = None
         self.time_model = None
         self.model_fresnel = None
         self.model_star = None
         self.model_geometric = None
-        self.model_inst = None
 
     def compute(self, time: Optional[np.ndarray] = None) -> np.ndarray:
         """
@@ -560,7 +562,7 @@ class DoubleSquareWellModel(BaseModel):
         self.model_geometric = geom * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
         self.model_fresnel   = flux_fresnel * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
         self.model_star      = flux_star * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
-        self.model_inst      = flux_inst
+        self.model_flux      = flux_inst
 
         return flux_inst
 
@@ -571,7 +573,7 @@ class DoubleSquareWellModel(BaseModel):
         return _plot_model(
             ax=ax,
             lightcurve=self.lightcurve,
-            flux_model=self.model_inst if self.model_inst is not None else self(),
+            flux_model=self.model_flux if self.model_flux is not None else self(),
             model_geometric=self.model_geometric,
             model_fresnel=self.model_fresnel,
             model_star=self.model_star,
@@ -619,7 +621,7 @@ class CompositeModel(BaseModel):
         self.model_geometric = None
         self.model_fresnel = None
         self.model_star = None
-        self.model_inst = None
+        self.model_flux = None
 
     def add_component(self, flag: str, model: BaseModel):
         """Add a component model to the composite."""
@@ -686,7 +688,7 @@ class CompositeModel(BaseModel):
         self.model_geometric = geom_total
         self.model_fresnel = fres_total
         self.model_star = star_total
-        self.model_inst = flux_inst
+        self.model_flux = flux_inst
 
         return flux_inst
 
@@ -698,7 +700,7 @@ class CompositeModel(BaseModel):
         return _plot_model(
             ax=ax,
             lightcurve=self.lightcurve,
-            flux_model=self.model_inst,
+            flux_model=self.model_flux,
             model_geometric=self.model_geometric,
             model_fresnel=self.model_fresnel,
             model_star=self.model_star,
@@ -747,7 +749,8 @@ def attach_to_lightcurve_class(LightCurveClass):
     >>> multi = lc.composite_model()
     """
 
-    def _square_well_model(self, immersion, emersion, opacity=1.0, **kwargs):
+    def _square_well_model(self, immersion, emersion, opacity=1.0
+                           ):
         """Return a SquareWellModel linked to this LightCurve."""
         return SquareWellModel(
             lightcurve=self,
@@ -756,8 +759,8 @@ def attach_to_lightcurve_class(LightCurveClass):
             opacity=opacity)
     def _double_square_well_model(self,
                                 immersion1, emersion1, opacity1,
-                                immersion2, emersion2, opacity2,
-                                **kwargs):
+                                immersion2, emersion2, opacity2
+                                ):
         """Return a DoubleSquareWellModel linked to this LightCurve."""
         return DoubleSquareWellModel(
             lightcurve=self,

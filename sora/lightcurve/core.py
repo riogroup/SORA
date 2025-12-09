@@ -847,30 +847,19 @@ class LightCurve:
     def to_file(self, namefile=None, overwrite=False):
         """
         Saves the observed light curve to an ASCII file with metadata.
-
-        If the LightCurve is associated with a Chord, it automatically includes
-        information about the observer site and the occulted object.
+        
         """
         if self.flux is None:
             raise ValueError("Cannot save light curve — no flux data found.")
 
         if namefile is None:
-            namefile = f'{self.name.replace(" ", "_").replace("-", "_")}_lightcurve.dat'
+            namefile = f'{self.tref.iso[:10].replace("-", "")}_{self.name.replace(" ", "_").replace("-", "_")}_lightcurve.dat'
 
         if os.path.exists(namefile) and not overwrite:
             raise FileExistsError(f"File '{namefile}' already exists. Use overwrite=True to replace it.")
 
-        observer = None
-        if hasattr(self, "_chord"):
-            chord = self._chord
-            observer = getattr(chord, "_observer", None)
-            obj = chord._shared_with['chordlist']['body']
-
         header_lines = [f"SORA LightCurve export",
                         f"Light curve name: {self.name}"]
-
-        if obj:
-            header_lines.append(f"Object: {obj.shortname}")
 
         if hasattr(self, "tref"):
             header_lines.append(f"Reference time (UTC): {self.tref.isot}")
@@ -896,31 +885,21 @@ class LightCurve:
         if hasattr(self, "d_star"):
             header_lines.append(f"Stellar diameter:  {self.d_star:.3f} km")
 
-        if observer is not None:
-            name = getattr(observer, "name", "Unknown site")
-            lat = getattr(observer, "lat", None)
-            lon = getattr(observer, "lon", None)
-            alt = getattr(observer, "height", None)
-            header_lines.append("")
-            header_lines.append(f"Observer:          {name}")
-            if lat is not None and lon is not None:
-                header_lines.append(f"Latitude:          {lat:.6f}")
-                header_lines.append(f"Longitude:         {lon:.6f}")
-            if alt is not None:
-                header_lines.append(f"Altitude:          {alt:.1f}")
-
         header_lines.append("")
-        header_lines.append("Columns: jd, sec from tref, flux, flux_uncertainty")
+        header_lines.append("Columns: jd, sec from tref, flux, flux_uncertainty, modeled flux, residuals")
         header = "\n".join(header_lines)
 
-        # --- Data ---
         time_sec = self.time
         time_iso = Time(self.tref) + self.time*u.s
         time_jd = time_iso.jd
-        if self.dflux is not None:
-            data = np.column_stack((time_jd, time_sec, self.flux, self.dflux))
-        else:
-            data = np.column_stack((time_jd, time_sec, self.flux))
+        for model in self.models:
+            mdl_flux = self.models[model].model_flux    
+            
+        data = np.column_stack((time_jd, 
+                                time_sec, 
+                                self.flux, 
+                                self.dflux if self.dflux is not None else np.repeat(self.flux.std(ddof=1), len(self.flux)),
+                                mdl_flux, self.flux - mdl_flux))
 
         np.savetxt(namefile, data, header=header, fmt="%.6f")
 
