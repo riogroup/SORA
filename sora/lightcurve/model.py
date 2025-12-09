@@ -36,9 +36,12 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 from typing import Dict, Tuple, Optional
 from scipy.special import fresnel
+from astropy.time import Time
+import os
 
 
-from .utils import calc_fresnel, bar_fresnel, bar_fresnel_double
+
+from .utils import calc_fresnel, bar_fresnel
 
 __all__ = [
     "BaseModel",
@@ -164,8 +167,8 @@ class SquareWellModel(BaseModel):
             vel=float(vel),
             exptime=float(exptime),
             d_star=float(d_star),
-            lambda_0=float(lambda_0 or 0.7),
-            delta_lambda=float(delta_lambda or 0.3),
+            lambda_0=float(lambda_0 or 0.58),
+            delta_lambda=float(delta_lambda or 0.40),
             npt_star=int(npt_star),
             time_resolution_factor=float(time_resolution_factor),
             flux_min=float(flux_min),
@@ -179,6 +182,10 @@ class SquareWellModel(BaseModel):
         self.model_fresnel = None
         self.model_star = None
         self.model_geometric = None
+
+        self.immersion_err = None
+        self.emersion_err  = None
+        self.opacity_err   = None
 
     @property
     def immersion(self):
@@ -207,21 +214,6 @@ class SquareWellModel(BaseModel):
     @property
     def opacity(self):
         return self.params.get("opacity")
-
-    @property
-    def immersion_err(self):
-        """Uncertainty on immersion time (if available)."""
-        return self.params.get("immersion_err")
-
-    @property
-    def emersion_err(self):
-        """Uncertainty on emersion time (if available)."""
-        return self.params.get("emersion_err")
-        
-    @property
-    def opacity_err(self):
-        """Uncertainty on emersion time (if available)."""
-        return self.params.get("opacity_err")
     
     # Main compute method
     def compute(self, time: Optional[np.ndarray] = None) -> np.ndarray:
@@ -304,14 +296,54 @@ class SquareWellModel(BaseModel):
             title=f"{self.lightcurve.name}: {self.name}"
         )
     
+    def to_file(self, namefile=None, overwrite=False):
+        """
+        Saves the modeled light curve to an ASCII file with metadata.
+        """
+        if namefile is None:
+            namefile = f'{self.lightcurve.tref.iso[:10].replace("-", "")}_{self.lightcurve.name.replace(" ", "_").replace("-", "_")}_model.dat'
 
+        if os.path.exists(namefile) and not overwrite:
+            raise FileExistsError(f"File '{namefile}' already exists. Use overwrite=True to replace it.")
+                
+        header_lines = [f"SORA Model export",
+                        f"Light curve name: {self.lightcurve.name}"]
+
+        if hasattr(self, "tref"):
+            header_lines.append(f"Reference time (UTC): {self.tref.isot}")
+        if hasattr(self, 'immersion'):
+            imm_err = getattr(self, 'immersion_err') or 0.0
+            header_lines.append(f"Immersion time:     {self.immersion.iso} +/- {imm_err:.3f} s")
+        if hasattr(self, 'emersion'):
+            eme_err = getattr(self, 'emersion_err') or 0.0
+            header_lines.append(f"Emersion time:     {self.emersion.iso} +/- {eme_err:.3f} s ")
+        if hasattr(self, 'opacity'):
+            opa_err = getattr(self, 'opacity_err') or 0.0
+            header_lines.append(f"Opacity:     {self.opacity:.3f} +/- {opa_err:.3f}")
+
+        header_lines.append("")
+        header_lines.append("Columns: jd, sec from tref, Fresnel model, star model, geometric model")
+        header = "\n".join(header_lines)
+
+        # --- Data ---
+        time_sec = self.time_model
+        time_iso = Time(self.lightcurve.tref) + time_sec*u.s
+        time_jd = time_iso.jd
+        data = np.column_stack((time_jd, time_sec, self.model_fresnel, self.model_star, self.model_geometric))
+
+        np.savetxt(namefile, data, header=header, fmt="%.6f")
+
+        return namefile
     
     def __str__(self):
         string = ['-' * 79]
         string.append(f'{self.name}')
-        string.append(f"  immersion = {self.immersion} +/- {self.immersion_err}")
-        string.append(f"  emersion  = {self.emersion} +/- {self.emersion_err}")
-        string.append(f"  opacity   = {self.params.get('opacity')} +/- {self.params.get('opacity_err')}")
+        imm_str = f"+/- {self.immersion_err:.3f}" if self.immersion_err is not None else ''
+        eme_str = f"+/- {self.emersion_err:.3f}" if self.emersion_err is not None else ''
+        opa_str = f"+/- {self.opacity_err:.3f}" if self.opacity_err is not None else ''
+        string.append(f"  immersion = {self.immersion} {imm_str}")
+        string.append(f"  emersion  = {self.emersion} {eme_str}")
+        string.append(f"  opacity   = {self.opacity} {opa_str}")
         string.append('')
         return '\n'.join(string)
 
@@ -420,8 +452,8 @@ class DoubleSquareWellModel(BaseModel):
             vel=float(vel),
             exptime=float(exptime),
             d_star=float(d_star or 0.0),
-            lambda_0=float(lambda_0 or 0.7),
-            delta_lambda=float(delta_lambda or 0.3),
+            lambda_0=float(lambda_0 or 0.58),
+            delta_lambda=float(delta_lambda or 0.40),
             npt_star=int(npt_star),
             time_resolution_factor=float(time_resolution_factor),
             flux_min=float(flux_min),
