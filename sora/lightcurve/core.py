@@ -862,11 +862,11 @@ class LightCurve:
                         f"Light curve name: {self.name}"]
 
         if hasattr(self, "tref"):
-            header_lines.append(f"Reference time (UTC): {self.tref.isot}")
+            header_lines.append(f"Reference time (UTC): {self.tref.iso}")
         if hasattr(self, "initial_time") and hasattr(self, "end_time"):
             duration = (self.end_time - self.initial_time).to(u.min).value
-            header_lines.append(f"Observation start: {self.initial_time.isot}")
-            header_lines.append(f"Observation end:   {self.end_time.isot}")
+            header_lines.append(f"Observation start: {self.initial_time.iso}")
+            header_lines.append(f"Observation end:   {self.end_time.iso}")
             header_lines.append(f"Duration:          {duration:.2f} minutes")
 
         if hasattr(self, "exptime"):
