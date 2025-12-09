@@ -30,7 +30,7 @@ from sora.extra import ChiSquare
 from sora.stats import Parameters, least_squares, differential_evolution
 from sora.config.visuals import progressbar
 from sora.config import input_tests
-from .model import occ_model_double
+from .model import *
 
 
 # Internal worker for parallel fastchi
@@ -38,11 +38,23 @@ def _mc_worker(time, flux, sigma, bestchi,
                immersion1, emersion1, opacity1,
                immersion2, emersion2, opacity2,
                delta_t, delta_opacity,
-               lambda_0, delta_lambda, dist, vel, exptime, d_star,
+               lambda_0, delta_lambda, distance, vel, exptime, d_star,
                npt_star, time_resolution_factor, flux_min, flux_max,
                loop, verbose):
 
     rng = np.random.RandomState()
+
+    im1 = immersion1 + delta_t * (2*rng.random(loop) - 1)
+    em1 = emersion1  + delta_t * (2*rng.random(loop) - 1)
+    im2 = immersion2 + delta_t * (2*rng.random(loop) - 1)
+    em2 = emersion2  + delta_t * (2*rng.random(loop) - 1)
+    op1 = np.clip(opacity1 + delta_opacity * (2*rng.random(loop) - 1), 0.0, 1.0)
+    op2 = np.clip(opacity2 + delta_opacity * (2*rng.random(loop) - 1), 0.0, 1.0)
+
+    if bestchi is not None and loop > 0:
+        im1[0], em1[0], op1[0] = immersion1, emersion1, opacity1
+        im2[0], em2[0], op2[0] = immersion2, emersion2, opacity2
+
     chi = np.empty(loop, dtype=float)
 
     if verbose:
@@ -50,33 +62,32 @@ def _mc_worker(time, flux, sigma, bestchi,
     else:
         iterator = range(loop)
 
-    im1 = immersion1 + delta_t * (2*rng.random(loop) - 1)
-    em1 = emersion1  + delta_t * (2*rng.random(loop) - 1)
-    im2 = immersion2 + delta_t * (2*rng.random(loop) - 1)
-    em2 = emersion2  + delta_t * (2*rng.random(loop) - 1)
-
-    op1 = np.clip(opacity1 + delta_opacity * (2*rng.random(loop) - 1), 0.0, 1.0)
-    op2 = np.clip(opacity2 + delta_opacity * (2*rng.random(loop) - 1), 0.0, 1.0)
-
     swap = im1 > em1
     im1[swap], em1[swap] = em1[swap], im1[swap]
     swap = im2 > em2
     im2[swap], em2[swap] = em2[swap], im2[swap]
 
-    if bestchi is not None and loop > 0:
-        im1[0], em1[0], op1[0] = immersion1, emersion1, opacity1
-        im2[0], em2[0], op2[0] = immersion2, emersion2, opacity2
-
     for i in iterator:
-        mdl = occ_model_double(
-            time,
-            im1[i], em1[i], op1[i],
-            im2[i], em2[i], op2[i],
-            lambda_0, delta_lambda, dist, vel, exptime, d_star,
-            npt_star, time_resolution_factor,
-            flux_min, flux_max
-        )
-        chi[i] = np.sum(((flux - mdl)**2) / (sigma**2))
+        mdl = DoubleSquareWellModel(
+            lightcurve=None, 
+            immersion1=immersion1,
+            emersion1=emersion1,
+            opacity1=opacity1,
+            immersion2=immersion2,
+            emersion2=emersion2,
+            opacity2=opacity2,        
+            npt_star=npt_star,
+            lambda_0=lambda_0,
+            delta_lambda=delta_lambda,
+            distance=distance, 
+            vel=vel, 
+            exptime=exptime,
+            d_star=d_star,
+            time_resolution_factor=time_resolution_factor,
+            flux_min=flux_min,
+            flux_max=flux_max,
+            )
+        chi[i] = np.sum(((flux - mdl.compute(time=time))**2) / (sigma**2))
 
     return [chi, im1, em1, op1, im2, em2, op2]
 
@@ -84,19 +95,31 @@ def _mc_worker(time, flux, sigma, bestchi,
 # Error function for LS/DE
 def _fit_error_double(parameters, time, flux, dflux,
                       flux_min, flux_max,
-                      lambda_0, delta_lambda, distance, velocity,
+                      lambda_0, delta_lambda, distance, vel,
                       exptime, d_star,
                       time_resolution_factor, npt_star):
     v = parameters.valuesdict()
-    mdl = occ_model_double(
-        time,
-        v['immersion1'], v['emersion1'], v['opacity1'],
-        v['immersion2'], v['emersion2'], v['opacity2'],
-        lambda_0, delta_lambda, distance, velocity, exptime, d_star,
-        npt_star, time_resolution_factor,
-        flux_min, flux_max
-    )
-    return (flux - mdl)**2 / (dflux**2)
+    mdl = DoubleSquareWellModel(
+        lightcurve=None, 
+        immersion1=v['immersion1'],
+        emersion1=v['emersion1'],
+        opacity1=v['opacity1'],
+        immersion2=v['immersion2'],
+        emersion2=v['emersion2'],
+        opacity2=v['opacity2'],        
+        npt_star=npt_star,
+        lambda_0=lambda_0,
+        delta_lambda=delta_lambda,
+        distance=distance, 
+        vel=vel, 
+        exptime=exptime,
+        d_star=d_star,
+        time_resolution_factor=time_resolution_factor,
+        flux_min=flux_min,
+        flux_max=flux_max,
+        )
+    
+    return (flux - mdl.compute(time))**2 / (dflux**2)
 
 
 # LightCurve handler
@@ -112,38 +135,62 @@ class _FitDoubleHandler:
                           'sigma_result', 'method', 'threads', 'sigma_model']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
-        lc = self.lc
-        if not hasattr(lc, 'flux'):
+        if not hasattr(self.lc, 'flux'):
             raise ValueError("LightCurve must have 'time' and 'flux' for fitting.")
 
-        tmin = kwargs.get('tmin', lc.time.min())
-        tmax = kwargs.get('tmax', lc.time.max())
+        tmin = kwargs.get('tmin', self.lc.time.min())
+        tmax = kwargs.get('tmax', self.lc.time.max())
 
+        # occ_detect não implementado no ajuste de caixa dupla
         required = ['immersion1','emersion1','opacity1','immersion2','emersion2','opacity2']
         missing = [r for r in required if r not in kwargs]
         if missing:
             raise ValueError(f"Missing initial parameters for double fit: {', '.join(missing)}")
 
-        # --- inputs ---
         im1, em1, op1 = kwargs['immersion1'], kwargs['emersion1'], kwargs['opacity1']
         im2, em2, op2 = kwargs['immersion2'], kwargs['emersion2'], kwargs['opacity2']
-        delta_t = kwargs.get('delta_t', 2*lc.cycle)
+
+        sigma_model = kwargs.get('sigma_model', 0.0)
+        delta_t = kwargs.get('delta_t', 2*self.lc.cycle)
         delta_opacity = kwargs.get('dopacity', 0.0)
         loop = int(kwargs.get('loop', 10000))
+
+        t_i1 = im1 + delta_t*(2*np.random.random(loop)-1)
+        t_e2 = em1 + delta_t*(2*np.random.random(loop)-1)
+        op_1 = np.clip(op1 + delta_opacity*(2*np.random.random(loop)-1), 0, 1)
+        t_i2 = im2 + delta_t*(2*np.random.random(loop)-1)
+        t_e2 = em2 + delta_t*(2*np.random.random(loop)-1)
+        op_2 = np.clip(op2 + delta_opacity*(2*np.random.random(loop)-1), 0, 1)
+
+        
         verbose = bool(kwargs.get('verbose', True))
-        sigma_model = kwargs.get('sigma_model', 0.0)
         sigma_result = kwargs.get('sigma_result', 1)
-        method = str(kwargs.get('method', 'chisqr')).lower()
         threads = int(kwargs.get('threads', 1))
+        method = str(kwargs.get('method', 'chisqr')).lower()
+        if method not in ['chisqr', 'least_squares', 'ls', 'fastchi', 'differential_evolution', 'de']:
+            warnings.warn(f'Invalid method `{method}` provided. Setting to default.')
+            method = 'chisqr'
 
-        mask = (lc.time >= tmin) & (lc.time <= tmax)
+        mask = (self.lc.time >= tmin) & (self.lc.time <= tmax)
 
-        # --- sigma ---
         if 'sigma' not in kwargs:
-            sigma = np.array(lc.dflux) if getattr(lc, 'dflux', None) is not None else np.repeat(lc.flux.std(ddof=1), len(lc.flux))
+            if getattr(self.lc, 'dflux', None) is not None:
+                sigma = np.array(self.lc.dflux)
+            else:
+                sigma = 'auto'
         else:
-            s = kwargs['sigma']
-            sigma = np.repeat(float(s), len(lc.flux)) if isinstance(s, (float,int)) else np.array(s)
+            if isinstance(kwargs['sigma'], (float, int)):
+                sigma = np.repeat(kwargs['sigma'], len(self.lc.flux))
+            elif kwargs['sigma'] is None:
+                sigma = np.array(self.lc.dflux) if getattr(self.lc, 'dflux', None) is not None else 'auto'
+            else:
+                sigma = np.array(kwargs['sigma'])
+
+        if isinstance(sigma, str) and (sigma == 'auto'):
+            mask_sigma = (((self.lc.time >= tmin) & (self.lc.time < im1 - self.lc.exptime)) |
+                          ((self.lc.time > em2 + self.lc.exptime) & (self.lc.time <= tmax)))
+            sig = self.lc.flux[mask_sigma].std(ddof=1)
+            sigma = np.repeat(sig, len(self.lc.flux))
 
         flux_min = kwargs.get('flux_min', 0)
         flux_max = kwargs.get('flux_max', 1)
@@ -168,10 +215,11 @@ class _FitDoubleHandler:
                             maxval=min(1, val + delta_opacity),
                             free=(delta_opacity > 0))
 
-            args = (lc.time[mask], lc.flux[mask], sigma[mask],
-                    flux_min, flux_max,
-                    lc.lambda_0, lc.delta_lambda, lc.dist, lc.vel,
-                    lc.exptime, lc.d_star, 10, 12)
+            args = (self.lc.time[mask], self.lc.flux[mask], 
+                    sigma[mask], flux_min, flux_max,
+                    self.lc.lambda_0, self.lc.delta_lambda, 
+                    self.lc.dist, self.lc.vel,
+                    self.lc.exptime, self.lc.d_star, 10, 12)
 
             if method in ['least_squares', 'ls']:
                 res = least_squares(_fit_error_double, initial, args=args,
@@ -195,28 +243,29 @@ class _FitDoubleHandler:
                 chi2 = np.empty(loop, float)
                 rng = progressbar(range(loop), 'LightCurve double fit:') if verbose else range(loop)
                 for i in rng:
-                    mdl = occ_model_double(lc.time[mask],
-                                           im1 + delta_t*(2*np.random.random()-1),
-                                           em1 + delta_t*(2*np.random.random()-1),
-                                           np.clip(op1 + delta_opacity*(2*np.random.random()-1), 0, 1),
-                                           im2 + delta_t*(2*np.random.random()-1),
-                                           em2 + delta_t*(2*np.random.random()-1),
-                                           np.clip(op2 + delta_opacity*(2*np.random.random()-1), 0, 1),
-                                           lc.lambda_0, lc.delta_lambda,
-                                           lc.dist, lc.vel, lc.exptime, lc.d_star,
-                                           npt_star=12, time_resolution_factor=10,
-                                           flux_min=flux_min, flux_max=flux_max)
-                    chi2[i] = np.sum(((lc.flux[mask] - mdl)**2) / (sigma[mask]**2 + sigma_model**2))
+                    mdl = DoubleSquareWellModel(
+                        self.lc.time[mask],
+                        t_i1, t_e2, op_1,
+                        t_i2, t_e2, op_2,                                           
+                        self.lc.lambda_0, self.lc.delta_lambda,
+                        self.lc.dist, self.lc.vel, 
+                        self.lc.exptime, self.lc.d_star,
+                        npt_star=12, time_resolution_factor=10,
+                        flux_min=flux_min, flux_max=flux_max
+                        )
+                    chi2[i] = np.sum(((lc.flux[mask] - mdl.compute(timeself.lc.time[mask]))**2) / (sigma[mask]**2 + sigma_model**2))
+
                 im1s = np.repeat(im1, loop); em1s = np.repeat(em1, loop)
                 op1s = np.repeat(op1, loop); im2s = np.repeat(im2, loop)
                 em2s = np.repeat(em2, loop); op2s = np.repeat(op2, loop)
 
             else:  # FASTCHI
                 per = int(np.ceil(loop / max(1, threads)))
-                args_common = (lc.time[mask], lc.flux[mask], sigma[mask], bestchi,
+                args_common = (self.lc.time[mask], self.lc.flux[mask], sigma[mask], bestchi,
                                im1, em1, op1, im2, em2, op2,
                                delta_t, delta_opacity,
-                               lc.lambda_0, lc.delta_lambda, lc.dist, lc.vel, lc.exptime, lc.d_star,
+                               self.lc.lambda_0, self.lc.delta_lambda, 
+                               self.lc.dist, self.lc.vel, self.lc.exptime, self.lc.d_star,
                                12, 10, flux_min, flux_max)
                 jobs = [(*args_common, per, verbose if i == 0 else False) for i in range(threads)]
                 with Pool(processes=threads) as pool:
@@ -232,7 +281,7 @@ class _FitDoubleHandler:
                 im2s, em2s, op2s = np.array(im2s[:loop]), np.array(em2s[:loop]), np.array(op2s[:loop])
 
         # Build ChiSquare and final model
-        chisquare = ChiSquare(chi2, len(lc.flux[mask]),
+        chisquare = ChiSquare(chi2, len(self.lc.flux[mask]),
                               immersion1=im1s, emersion1=em1s, opacity1=op1s,
                               immersion2=im2s, emersion2=em2s, opacity2=op2s)
 
@@ -241,41 +290,40 @@ class _FitDoubleHandler:
             if key in result_sigma:
                 locals()[key[:2] + (key[2:] if len(key)>2 else '')] = result_sigma[key][0]
 
-        from .model import DoubleSquareWellModel
         model = DoubleSquareWellModel(
-            lightcurve=lc,
+            lightcurve=self.lc,
             immersion1=im1, emersion1=em1, opacity1=op1,
             immersion2=im2, emersion2=em2, opacity2=op2
         )
-        model.compute(time=lc.time)
+        model.compute(time=self.lc.time)
 
-        lc.chisquare = chisquare
-        lc.double_best_params = dict(
+        self.lc.chisquare = chisquare
+        self.lc.double_best_params = dict(
             immersion1=im1, emersion1=em1, opacity1=op1,
             immersion2=im2, emersion2=em2, opacity2=op2
         )
 
         # Registro de resultados múltiplos no LightCurve
-        if not hasattr(lc, "models"):
-            lc.models = {}
-        if not hasattr(lc, "chi2_maps"):
-            lc.chi2_maps = {}
-        if not hasattr(lc, "_fit_results"):
-            lc._fit_results = {}
+        if not hasattr(self.lc, "models"):
+            self.lc.models = {}
+        if not hasattr(self.lc, "chi2_maps"):
+            self.lc.chi2_maps = {}
+        if not hasattr(self.lc, "_fit_results"):
+            self.lc._fit_results = {}
 
-        label = f"fit{len(lc.models) + 1}"
+        label = f"fit{len(self.lc.models) + 1}"
 
-        lc.models[label] = model
-        lc.chi2_maps[label] = chisquare
+        self.lc.models[label] = model
+        self.lc.chi2_maps[label] = chisquare
 
         try:
             lc._fit_results[label] = {
                 "type": "DoubleSquareWell",
-                "immersion1_time": lc.tref + im1 * u.s,
-                "emersion1_time": lc.tref + em1 * u.s,
+                "immersion1_time": self.lc.tref + im1 * u.s,
+                "emersion1_time": self.lc.tref + em1 * u.s,
                 "opacity1": op1,
-                "immersion2_time": lc.tref + im2 * u.s,
-                "emersion2_time": lc.tref + em2 * u.s,
+                "immersion2_time": self.lc.tref + im2 * u.s,
+                "emersion2_time": self.lc.tref + em2 * u.s,
                 "opacity2": op2,
             }
         except Exception:

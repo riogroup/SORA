@@ -781,12 +781,6 @@ def attach_to_lightcurve_class(LightCurveClass):
 def occ_model(time, immersion, emersion, opacity,
               lambda_0, delta_lambda, distance, vel, exptime, d_star,
               npt_star=12, time_resolution_factor=10, flux_min=0.0, flux_max=1.0):
-    """
-    Fast, allocation-light model (no class instantiation).
-    Physics: average of Fresnel patterns at λ0 ± Δλ/2 (SORA classic),
-    finite stellar diameter (npt_star), and exposure-time integration.
-    """
-
     model = SquareWellModel(
             lightcurve=None,
             immersion=immersion,
@@ -809,61 +803,30 @@ def occ_model_double(time, immersion1, emersion1, opacity1,
                      immersion2, emersion2, opacity2,
                      lambda_0, delta_lambda, distance, vel, exptime, d_star,
                      npt_star=12, time_resolution_factor=10,
-                     flux_min=0.0, flux_max=1.0):
+                     flux_min=0.0, flux_max=1.0):    
+    model = DoubleSquareWellModel(
+        lightcurve=None, 
+        immersion1=immersion1,
+        emersion1=emersion1,
+        opacity1=opacity1,
+        immersion2=immersion2,
+        emersion2=emersion2,
+        opacity2=opacity2,        
+        npt_star=npt_star,
+        lambda_0=lambda_0,
+        delta_lambda=delta_lambda,
+        distance=distance, 
+        vel=vel, 
+        exptime=exptime,
+        d_star=d_star,
+        time_resolution_factor=time_resolution_factor,
+        flux_min=flux_min,
+        flux_max=flux_max,
+        )
+    return model.compute(time=time)
 
 
-    lamb_center = float(lambda_0) * u.micrometer.to("km")
-    dlamb = float(delta_lambda) * u.micrometer.to("km")
-    dist = distance * u.au.to('km')
-    vel = np.abs(vel)
-    exptime = exptime
-    d_star = d_star
-
-    time_obs = time
-    fresnel_scale_1 = calc_fresnel(dist, lamb_center - dlamb / 2.0)
-    fresnel_scale_2 = calc_fresnel(dist, lamb_center + dlamb / 2.0)
-    fresnel_scale = 0.5 * (fresnel_scale_1 + fresnel_scale_2)
-
-    time_res = np.min([fresnel_scale / vel, exptime]) / time_resolution_factor
-    time_model = np.arange(time_obs.min() - 5 * exptime,
-                           time_obs.max() + 5 * exptime,
-                           time_res)
-
-    x = time_model * vel
-    x01, x02 = immersion1 * vel, emersion1 * vel
-    x03, x04 = immersion2 * vel, emersion2 * vel
-
-    flux_f1 = bar_fresnel_double(x, x01, x02, x03, x04, fresnel_scale_1, opacity1, opacity2)
-    flux_f2 = bar_fresnel_double(x, x01, x02, x03, x04, fresnel_scale_2, opacity1, opacity2)
-    flux_fresnel = 0.5 * (flux_f1 + flux_f2)
-    flux_star = flux_fresnel.copy()
-
-    if d_star > 0:
-        step = (d_star / 2.0) / npt_star
-        p = np.arange(-npt_star, npt_star) * step
-        coeff = np.sqrt(np.abs((d_star / 2.0) ** 2 - p ** 2))
-        csum = coeff.sum() if coeff.sum() != 0 else 1.0
-
-        mask_region = ((np.abs(x - x01) < 3 * d_star) |
-                       (np.abs(x - x02) < 3 * d_star) |
-                       (np.abs(x - x03) < 3 * d_star) |
-                       (np.abs(x - x04) < 3 * d_star))
-        for ii in np.where(mask_region)[0]:
-            xx = x[ii] + p
-            f1c = bar_fresnel_double(xx, x01, x02, x03, x04, fresnel_scale_1, opacity1, opacity2)
-            f2c = bar_fresnel_double(xx, x01, x02, x03, x04, fresnel_scale_2, opacity1, opacity2)
-            flux_star[ii] = 0.5 * ((coeff @ f1c) / csum + (coeff @ f2c) / csum)
-
-    flux_inst = np.zeros(len(time_obs))
-    half = exptime / 2.0
-    for i, t in enumerate(time_obs):
-        window = (time_model > (t - half)) & (time_model < (t + half))
-        if np.any(window):
-            flux_inst[i] = flux_star[window].mean()
-        else:
-            flux_inst[i] = flux_star[np.argmin(np.abs(time_model - t))]
-
-    return flux_inst * (flux_max - flux_min) + flux_min
+    
 
 def _lambda_weights(lambda_0, delta_lambda, n_lambda, response):
     """

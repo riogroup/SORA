@@ -10,7 +10,7 @@ a modern, concise interface:
 Methods supported:
     - 'chisqr'  : classic Monte Carlo (single-process)
     - 'fastchi' : Monte Carlo parallelizado (multiprocessing)
-    - 'least_squares'/'ls' : Levenberg–Marquardt
+    - 'least_squares'/'ls' : Levenberg-Marquardt
     - 'differential_evolution'/'de' : DE global
 
 Returns:
@@ -181,12 +181,13 @@ class _FitHandler:
             sig_m = sigma[mask]
 
             for i in rng:
-                mdl = occ_model(time_m, t_i[i], t_e[i], opas[i],
-                                self.lc.lambda_0, self.lc.delta_lambda,
-                                self.lc.dist, self.lc.vel, self.lc.exptime, self.lc.d_star,
-                                npt_star=12, time_resolution_factor=10,
-                                flux_min=flux_min, flux_max=flux_max)
-                chi2[i] = np.sum(((flux_m - mdl)**2) / (sig_m**2 + sigma_model**2))
+                mdl = SquareWellModel(
+                                    t_i[i], t_e[i], opas[i],
+                                    self.lc.lambda_0, self.lc.delta_lambda,
+                                    self.lc.dist, self.lc.vel, self.lc.exptime, self.lc.d_star,
+                                    npt_star=12, time_resolution_factor=10,
+                                    flux_min=flux_min, flux_max=flux_max)
+                chi2[i] = np.sum(((flux_m - mdl.compute(time=time_m))**2) / (sig_m**2 + sigma_model**2))
 
         else:
             threads = int(kwargs.get('threads', 1))
@@ -376,11 +377,6 @@ def _fit_error(parameters, time, flux, dflux, flux_min, flux_max,
                lambda_0, delta_lambda, distance, vel, exptime, d_star,
                time_resolution_factor, npt_star):
     v = parameters.valuesdict()
-    #mdl = occ_model(time, v['immersion_time'], v['emersion_time'], v['opacity'],
-    #                lambda_0, delta_lambda, distance, velocity, exptime, d_star,
-    #                npt_star=npt_star, time_resolution_factor=time_resolution_factor,
-    #                flux_min=flux_min, flux_max=flux_max)
-    
     model = SquareWellModel(
             lightcurve=None,
             immersion=v['immersion_time'],
