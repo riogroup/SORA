@@ -351,7 +351,7 @@ class _FitHandler:
 
         label = f"fit{len(self.lc.models) + 1}"
 
-        nsig1 = chisquare.get_nsigma(sigma=1)
+        nsig1 = chisquare.get_nsigma(sigma=sigma_result)
         model.immersion_err = nsig1["immersion"][1] if 'immersion' in nsig1.keys() else None
         model.emersion_err = nsig1["emersion"][1] if 'emersion' in nsig1.keys() else None
         model.opacity_err = nsig1["opacity"][1] if 'opacity' in nsig1.keys() else None
@@ -402,9 +402,115 @@ def _fit_error(parameters, time, flux, dflux, flux_min, flux_max,
     mdl=model.compute(time)
     return (flux - mdl)**2 / (dflux**2)
 
-
-# -----------------------------------------------------------
-# Public interface to be bound into LightCurve
-# -----------------------------------------------------------
 def fit(self, clear_fits=True, **kwargs):
+    """ Fit the LightCurve using a square-well occultation model.
+    The method returns a tuple:
+
+        (model, ChiSquare)
+
+    where `model` is a `SquareWellModel` instance evaluated with the best-fit
+    parameters, and `ChiSquare` contains the sampled chi-square distribution
+    and uncertainties.
+
+    Parameters
+    ----------
+    clear_fits : bool, optional, default=True
+        If True, all stored models and chi-square maps attached to the
+        LightCurve are cleared before performing the new fit. Set to False
+        to accumulate multiple labelled fits (`fit1`, `fit2`, ...).
+
+    tmin : int, float, optional
+        Minimum time (seconds relative to `tref`) to consider in the fit.
+        Defaults to the earliest timestamp in the LightCurve.
+
+    tmax : int, float, optional
+        Maximum time (seconds relative to `tref`) to consider in the fit.
+        Defaults to the latest timestamp in the LightCurve.
+
+    flux_min : int, float, optional
+        Bottom flux level used by the square-well model.
+        If not provided, the routine estimates it from the preliminary
+        occultation detection.
+
+    flux_max : int, float, optional
+        Baseline flux level. If not provided, it is estimated from the
+        preliminary detection.
+
+    immersion_time : int, float, optional
+        Initial guess for immersion time (seconds from `tref`).
+        If not given, a preliminary detection (`occ_detect`) is used.
+
+    emersion_time : int, float, optional
+        Initial guess for emersion time (seconds from `tref`).
+        If not given, a preliminary detection is used.
+
+    opacity : int, float, default=1.0
+        Initial opacity. 1 = opaque, 0 = transparent.
+        The opacity implicitly includes Fresnel diffraction effects and
+        the cross-sectional attenuation expected from ring particles.
+
+    delta_t : int, float, optional
+        Half-range used to vary immersion and emersion during the Monte Carlo
+        sampling. If not provided, defaults to twice the light-curve cycle or
+        the preliminary-detection time uncertainty.
+
+    dopacity : int, float, optional
+        Half-range used to vary opacity during Monte Carlo sampling.
+
+    sigma : int, float, array_like, or 'auto', optional
+        Flux uncertainties. If None, uses `self.dflux`.
+        If 'auto', sigma is estimated from regions outside the occultation.
+
+    sigma_model : int, float, optional, default=0
+        Additional model uncertainty (in flux units) added in quadrature to
+        `sigma`. Used only with `chisqr`.
+
+    loop : int, optional, default=10000
+        Number of Monte Carlo trials.
+
+    verbose : bool, optional, default=True
+        If True, displays progress bars and diagnostics during sampling.
+
+    sigma_result : int, float, optional
+        Sigma level used to compute final parameter uncertainties from the
+        ChiSquare object (e.g. sigma_result=1 for 1sigma errors).
+
+    method : str, optional, default='chisqr'
+        Fitting method. Accepted values are:
+        - `chisqr`  : classic Monte Carlo chi-square sampling (single process)
+        - `fastchi` : parallel Monte Carlo accelerated with multiprocessing
+        - `least_squares` / `ls` :
+              Levenberg-Marquardt minimization followed by a MC refinement
+        - `differential_evolution` / `de` :
+              global genetic optimization followed by a MC refinement
+
+    threads : int, optional, default=1
+        Number of worker processes used by the `fastchi` or DE refinement.
+        Ignored for `chisqr`.
+
+    Returns
+    -------
+    model : `SquareWellModel`
+        Square-well model computed with the best-fit immersion, emersion
+        and opacity.
+
+    chi2 : `sora.extra.ChiSquare`
+        ChiSquare object containing the Monte Carlo distribution, best-fit
+        values, and parameter uncertainties.
+
+    Notes
+    -----
+    - If neither `immersion_time` nor `emersion_time` is given, a preliminary
+      detection is performed to estimate their initial values.
+
+    - The fitting region (`tmin`, `tmax`) is automatically expanded around the
+      event if the preliminary occultation duration is short.
+
+    - All results are stored inside the LightCurve under labelled entries
+      (`lc.models['fit1']`, `lc.chi2_maps['fit1']`, etc.).
+
+    - The final model and uncertainties follow the same conventions as the
+      original SORA `occ_lcfit()` routine, ensuring backward compatibility.
+    """
+
     return _FitHandler(self).run(clear_fits=clear_fits, **kwargs)
