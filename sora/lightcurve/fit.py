@@ -66,16 +66,11 @@ def _mc_worker(time, flux, sigma, bestchi,
     return [chi, im, em, op]
 
 
-# LightCurve-facing handler
 class _FitHandler:
     def __init__(self, lc):
         self.lc = lc
 
     def run(self, clear_fits=True, **kwargs):
-        """
-        Execute the fit preserving the occ_lcfit philosophy & args.
-        Returns (model, ChiSquare).
-        """
         allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max',
                           'immersion_time', 'emersion_time', 'opacity',
                           'delta_t', 'dopacity', 'sigma', 'loop', 'verbose',
@@ -152,26 +147,21 @@ class _FitHandler:
             sig = self.lc.flux[mask_sigma].std(ddof=1)
             sigma = np.repeat(sig, len(self.lc.flux))
 
-        # opacidades para MC
         opas = opacity + delta_opacity*(2*np.random.random(loop) - 1)
         opas = np.clip(opas, 0.0, 1.0)
 
-        # baseline e bottom (iguais à heurística do occ_lcfit)
         flux_min = kwargs.get('flux_min', 1 - prelim['depth'])
         flux_max = kwargs.get('flux_max', prelim['baseline'])
         sigma_result = kwargs.get('sigma_result', 1)
 
-        # garantir ordem (t_i <= t_e)
         swap = t_i > t_e
         t_i[swap], t_e[swap] = t_e[swap], t_i[swap]
 
-        # método
         method = str(kwargs.get('method') or 'chisqr').lower()
         if method not in ['chisqr', 'least_squares', 'ls', 'fastchi', 'differential_evolution', 'de']:
             warnings.warn(f'Invalid method `{method}` provided. Setting to default.')
             method = 'chisqr'
 
-        # Dispatch
         if method == 'chisqr':
             chi2 = 999999*np.ones(loop)
             if verbose:
@@ -222,7 +212,6 @@ class _FitHandler:
 
             set_bestchi = False
 
-            # LS
             if method in ['least_squares', 'ls']:
                 res = least_squares(_fit_error, initial,
                                     args=(self.lc.time[mask], self.lc.flux[mask], sigma[mask],
@@ -236,9 +225,8 @@ class _FitHandler:
                 emersion_time  = res.params['emersion_time'].value
                 opacity        = res.params['opacity'].value
                 bestchi, set_bestchi = res.chisqr, True
-                method = 'fastchi'   # refina via MC paralelo
+                method = 'fastchi'   
 
-            # DE
             if method in ['differential_evolution', 'de']:
                 res = differential_evolution(_fit_error, initial,
                                              args=(self.lc.time[mask], self.lc.flux[mask], sigma[mask],
@@ -252,16 +240,14 @@ class _FitHandler:
                 emersion_time  = res.params['emersion_time'].value
                 opacity        = res.params['opacity'].value
                 bestchi, set_bestchi = res.chisqr, True
-                method = 'fastchi'   # refina via MC paralelo
+                method = 'fastchi'
 
-            # FASTCHI
             if method == 'fastchi':
                 bestchi = bestchi if set_bestchi else None
                 time_m = self.lc.time[mask]
                 flux_m = self.lc.flux[mask]
                 sig_m  = sigma[mask]
 
-                # distribuir carga por processos
                 per = int(np.ceil(loop/max(1, threads)))
                 args_common = (time_m, flux_m, sig_m, bestchi,
                                immersion_time, emersion_time, delta_t,
@@ -270,7 +256,6 @@ class _FitHandler:
                                self.lc.exptime, self.lc.d_star, 12, 10, flux_min, flux_max)
 
                 if verbose:
-                    # 1 processo verboso + (threads-1) silenciosos
                     jobs = [( *args_common, per, True )]
                     for _ in range(max(0, threads-1)):
                         jobs.append( (*args_common, per, False) )
@@ -280,7 +265,6 @@ class _FitHandler:
                 with Pool(processes=threads) as pool:
                     results = pool.starmap(_mc_worker, jobs)
 
-                # concatenar
                 chi2, ti, te, oo = [], [], [], []
                 for r in results:
                     chi2.extend(r[0]); ti.extend(r[1]); te.extend(r[2]); oo.extend(r[3])
@@ -290,7 +274,6 @@ class _FitHandler:
                 t_e  = np.array(te [:loop])
                 opas = np.array(oo [:loop])
 
-        # construir ChiSquare
         kkwargs = {}
         if (do_immersion) and (delta_t > 0):
             kkwargs['immersion'] = t_i
@@ -301,7 +284,6 @@ class _FitHandler:
 
         chisquare = ChiSquare(chi2, len(self.lc.flux[mask]), **kkwargs)
 
-        # melhores valores (como no occ_lcfit)
         result_sigma = chisquare.get_nsigma(sigma=sigma_result)
 
         if 'immersion' in result_sigma:
@@ -327,7 +309,6 @@ class _FitHandler:
         if 'opacity' in result_sigma:
             opacity = result_sigma['opacity'][0]
 
-        # roda o modelo final e salva no objeto
         model = self.lc.occ_model(
             immersion_time, emersion_time, opacity,
             flux_min=flux_min, flux_max=flux_max
@@ -336,11 +317,6 @@ class _FitHandler:
         self.lc.lc_sigma = sigma
         self.lc.chisquare = chisquare
         self.lc.opacity = opacity
-
-        # Registro de resultados múltiplos no LightCurve
-        # TODO [future feature]:
-        # Integrar parâmetro `target` (Body, Ring, Satellite, etc.) aos métodos fit()
-        # para vincular cada ajuste ao objeto físico correspondente.
 
         if not hasattr(self.lc, "models"):
             self.lc.models = {}
@@ -374,11 +350,6 @@ class _FitHandler:
 
         return model, chisquare
 
-
-
-# -----------------------------------------------------------
-# Error function used by LS/DE (idêntico à filosofia do original)
-# -----------------------------------------------------------
 def _fit_error(parameters, time, flux, dflux, flux_min, flux_max,
                lambda_0, delta_lambda, distance, vel, exptime, d_star,
                time_resolution_factor, npt_star):
