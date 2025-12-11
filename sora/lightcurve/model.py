@@ -468,6 +468,71 @@ class DoubleSquareWellModel(BaseModel):
         self.model_star = None
         self.model_geometric = None
 
+        self.immersion1_err = None
+        self.emersion1_err  = None
+        self.opacity1_err   = None
+        self.immersion2_err = None
+        self.emersion2_err  = None
+        self.opacity2_err   = None
+
+
+    @property
+    def immersion1(self):
+        """
+        Immersion as absolute Time if lightcurve.tref exists,
+        otherwise returns the relative immersion (float, s).
+        """
+        t_rel = self.params.get("immersion1")
+        if t_rel is None:
+            return None
+        tref = getattr(self.lightcurve, "tref", None)
+        return tref + t_rel * u.s
+
+    @property
+    def emersion1(self):
+        """
+        Emersion as absolute Time if lightcurve.tref exists,
+        otherwise returns the relative emersion (float, s).
+        """
+        t_rel = self.params.get("emersion1")
+        if t_rel is None:
+            return None
+        tref = getattr(self.lightcurve, "tref", None)
+        return tref + t_rel * u.s
+    
+    @property
+    def opacity1(self):
+        return self.params.get("opacity1")
+    
+    @property
+    def immersion2(self):
+        """
+        Immersion as absolute Time if lightcurve.tref exists,
+        otherwise returns the relative immersion (float, s).
+        """
+        t_rel = self.params.get("immersion2")
+        if t_rel is None:
+            return None
+        tref = getattr(self.lightcurve, "tref", None)
+        return tref + t_rel * u.s
+
+    @property
+    def emersion2(self):
+        """
+        Emersion as absolute Time if lightcurve.tref exists,
+        otherwise returns the relative emersion (float, s).
+        """
+        t_rel = self.params.get("emersion2")
+        if t_rel is None:
+            return None
+        tref = getattr(self.lightcurve, "tref", None)
+        return tref + t_rel * u.s
+    
+    @property
+    def opacity2(self):
+        return self.params.get("opacity2")
+
+
     def compute(self, time: Optional[np.ndarray] = None) -> np.ndarray:
         """
         Compute model flux using either the LightCurve time array or a custom one.
@@ -614,15 +679,66 @@ class DoubleSquareWellModel(BaseModel):
             title=f"{self.lightcurve.name}: {self.name}",
         )
     
+    def to_file(self, namefile=None, overwrite=False):
+        """
+        Saves the modeled light curve to an ASCII file with metadata.
+        """
+        if namefile is None:
+            namefile = f'{self.lightcurve.tref.iso[:10].replace("-", "")}_{self.lightcurve.name.replace(" ", "_").replace("-", "_")}_model.dat'
+
+        if os.path.exists(namefile) and not overwrite:
+            raise FileExistsError(f"File '{namefile}' already exists. Use overwrite=True to replace it.")
+                
+        header_lines = [f"SORA Model export",
+                        f"Light curve name: {self.lightcurve.name}"]
+
+        if hasattr(self, "tref"):
+            header_lines.append(f"Reference time (UTC): {self.tref.isot}")
+        if hasattr(self, 'immersion1'):
+            imm_err = getattr(self, 'immersion1_err') or 0.0
+            header_lines.append(f"Immersion1:     {self.immersion1.iso} +/- {imm_err:.3f} s")
+        if hasattr(self, 'emersion1'):
+            eme_err = getattr(self, 'emersion1_err') or 0.0
+            header_lines.append(f"Emersion1:     {self.emersion1.iso} +/- {eme_err:.3f} s ")
+        if hasattr(self, 'opacity1'):
+            opa_err = getattr(self, 'opacity1_err') or 0.0
+            header_lines.append(f"Opacity1:     {self.opacity1:.3f} +/- {opa_err:.3f}")
+        if hasattr(self, 'immersion2'):
+            imm_err = getattr(self, 'immersion2_err') or 0.0
+            header_lines.append(f"Immersion2:     {self.immersion2.iso} +/- {imm_err:.3f} s")
+        if hasattr(self, 'emersion1'):
+            eme_err = getattr(self, 'emersion2_err') or 0.0
+            header_lines.append(f"Emersion2:     {self.emersion2.iso} +/- {eme_err:.3f} s ")
+        if hasattr(self, 'opacity1'):
+            opa_err = getattr(self, 'opacity2_err') or 0.0
+            header_lines.append(f"Opacity1:     {self.opacity2:.3f} +/- {opa_err:.3f}")
+
+        header_lines.append("")
+        header_lines.append("Columns: jd, sec from tref, Fresnel model, star model, geometric model")
+        header = "\n".join(header_lines)
+
+        # --- Data ---
+        time_sec = self.time_model
+        time_iso = Time(self.lightcurve.tref) + time_sec*u.s
+        time_jd = time_iso.jd
+        data = np.column_stack((time_jd, time_sec, self.model_fresnel, self.model_star, self.model_geometric))
+
+        np.savetxt(namefile, data, header=header, fmt="%.6f")
+
+        return namefile
+    
     def __str__(self):
-        """String summary of SquareWellModel parameters."""
+        """String summary of DoubleSquareWellModel parameters."""
         p = self.params
 
-        lines = [f"SquareWellModel:"]
+        lines = [f"DoubleSquareWellModel:"]
 
-        lines.append(f"  immersion = {self.lightcurve.tref+ p['immersion']*u.s}")
-        lines.append(f"  emersion  = {self.lightcurve.tref + p['emersion']*u.s}")
-        lines.append(f"  opacity        = {p['opacity']}")
+        lines.append(f"  immersion1 = {self.lightcurve.tref+ p['immersion1']*u.s}")
+        lines.append(f"  emersion1  = {self.lightcurve.tref + p['emersion1']*u.s}")
+        lines.append(f"  opacity1   = {p['opacity1']:.3f}")
+        lines.append(f"  immersion2 = {self.lightcurve.tref+ p['immersion2']*u.s}")
+        lines.append(f"  emersion2  = {self.lightcurve.tref + p['emersion2']*u.s}")
+        lines.append(f"  opacity2   = {p['opacity2']:.3f}")
         return "\n".join(lines)
 
 
