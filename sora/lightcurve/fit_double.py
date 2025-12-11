@@ -141,7 +141,6 @@ class _FitDoubleHandler:
         tmin = kwargs.get('tmin', self.lc.time.min())
         tmax = kwargs.get('tmax', self.lc.time.max())
 
-        # occ_detect não implementado no ajuste de caixa dupla
         required = ['immersion1','emersion1','opacity1','immersion2','emersion2','opacity2']
         missing = [r for r in required if r not in kwargs]
         if missing:
@@ -197,11 +196,9 @@ class _FitDoubleHandler:
 
         bestchi, set_bestchi = None, False
 
-        # LS / DE phase
         if method in ['least_squares', 'ls', 'differential_evolution', 'de']:
             initial = Parameters()
 
-            # ranges
             for tag, val in zip(
                 ['immersion1','emersion1','immersion2','emersion2'],
                 [im1, em1, im2, em2]
@@ -237,7 +234,6 @@ class _FitDoubleHandler:
             bestchi, set_bestchi = res.chisqr, True
             method = 'fastchi'  # refinement
 
-        # Monte Carlo (chisqr / fastchi)
         if method in ['chisqr', 'fastchi']:
             if method == 'chisqr':
                 chi2 = np.empty(loop, float)
@@ -259,7 +255,7 @@ class _FitDoubleHandler:
                 op1s = np.repeat(op1, loop); im2s = np.repeat(im2, loop)
                 em2s = np.repeat(em2, loop); op2s = np.repeat(op2, loop)
 
-            else:  # FASTCHI
+            else: 
                 per = int(np.ceil(loop / max(1, threads)))
                 args_common = (self.lc.time[mask], self.lc.flux[mask], sigma[mask], bestchi,
                                im1, em1, op1, im2, em2, op2,
@@ -280,7 +276,6 @@ class _FitDoubleHandler:
                 im1s, em1s, op1s = np.array(im1s[:loop]), np.array(em1s[:loop]), np.array(op1s[:loop])
                 im2s, em2s, op2s = np.array(im2s[:loop]), np.array(em2s[:loop]), np.array(op2s[:loop])
 
-        # Build ChiSquare and final model
         chisquare = ChiSquare(chi2, len(self.lc.flux[mask]),
                               immersion1=im1s, emersion1=em1s, opacity1=op1s,
                               immersion2=im2s, emersion2=em2s, opacity2=op2s)
@@ -303,7 +298,6 @@ class _FitDoubleHandler:
             immersion2=im2, emersion2=em2, opacity2=op2
         )
 
-        # Registro de resultados múltiplos no LightCurve
         if not hasattr(self.lc, "models"):
             self.lc.models = {}
         if not hasattr(self.lc, "chi2_maps"):
@@ -331,8 +325,5 @@ class _FitDoubleHandler:
 
         return model, chisquare
 
-
-
-# Public interface
 def fit_double(self, **kwargs):
     return _FitDoubleHandler(self).run(**kwargs)
