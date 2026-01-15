@@ -786,7 +786,7 @@ class Chord:
         time = self._shared_with["chordlist"]["time"]
 
         P, B = ring.get_ring_orientation(time=time)
-        sinB = abs(np.sin(B))
+        sinB = abs(np.sin(B).value)
 
         t = Time(self.lightcurve.tref) + self.lightcurve.time * u.s
         f, g = self.get_fg(time=t)
@@ -849,7 +849,7 @@ class Chord:
         time = self._shared_with["chordlist"]["time"]
 
         P, B = ring.get_ring_orientation(time=time)
-        sinB = abs(np.sin(B))
+        sinB = abs(np.sin(B).value)
 
         t = Time(self.lightcurve.tref) + self.lightcurve.time * u.s
         f, g = self.get_fg(time=t)
