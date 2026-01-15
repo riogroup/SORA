@@ -92,9 +92,9 @@ class RingContact:
             return None
         return self.chord.lightcurve.tref + (0.5*(i+e))*u.s
 
-    def plot_contact(self, *, segment='central_point', plot_ring=False, 
-                      ring_radius=None, ax=None, time_direction=False, 
-                      **kwargs):    
+    def plot_contact(self, *, segment='central_point', 
+                     center_f=0, center_g=0, plot_ring=False, 
+                     ring_radius=None, ax=None, time_direction=False, **kwargs):    
     
         ax = ax or plt.gca()
         ax.set_xlabel('f (km)')
@@ -131,7 +131,8 @@ class RingContact:
                 from sora.extra import draw_ellipse
                 P, B = self.ring.get_ring_orientation(time=self.chord.lightcurve.tref)
                 draw_ellipse(equatorial_radius=ring_radius, 
-                            position_angle=P.value, 
+                            position_angle=P.value,
+                            center_f=center_f, center_g=center_g,
                             oblateness=1-abs(np.sin(B)),
                             ax=ax, zorder=0, lw=1
                             )
@@ -233,12 +234,14 @@ class RingContactList(OrderedDict):
         out.append(">")
         return "\n".join(out)
 
-    def plot_contacts(self, *, segment='central_point', plot_ring=False, 
+    def plot_contacts(self, *, segment='central_point', 
+                      center_f=0, center_g=0, plot_ring=False, 
                       ring_radius=None, ax=None, time_direction=False, 
                       **kwargs):
         for i, occ in enumerate(self.values()):
             self[i].plot_contact(segment=segment, 
-                                 plot_ring=plot_ring, 
+                                 plot_ring=plot_ring,
+                                 center_f=center_f, center_g=center_g,
                                  ring_radius=ring_radius, ax=ax, 
                                  time_direction=time_direction, 
                                  **kwargs)
