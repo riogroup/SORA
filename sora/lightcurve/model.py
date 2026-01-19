@@ -50,7 +50,8 @@ __all__ = [
     "DoubleSquareWellModel",
     "attach_to_lightcurve_class",
     "occ_model", 
-    "occ_model_double"
+    "occ_model_double",
+    "LorentzianModel"
 ]
 
 # Base class
@@ -740,6 +741,248 @@ class DoubleSquareWellModel(BaseModel):
         lines.append(f"  emersion2  = {self.lightcurve.tref + p['emersion2']*u.s}")
         lines.append(f"  opacity2   = {p['opacity2']:.3f}")
         return "\n".join(lines)
+
+def lorentz_peak(t: np.ndarray, center: float, fwhm: float) -> np.ndarray:
+    t = np.asarray(t, dtype=float)
+    fwhm = float(fwhm)
+    if fwhm <= 0:
+        raise ValueError("fwhm must be > 0")
+    hw = 0.5 * fwhm
+    u = (t - float(center)) / hw
+    return 1.0 / (1.0 + u*u)
+
+class LorentzianModel(BaseModel):
+    """
+    """
+
+
+    def __init__(
+        self,
+        center: float,
+        fwhm: float,
+        depth: float,
+        exptime: Optional[float] = None,
+        lightcurve=None,
+        time_resolution_factor: float = 10.0,
+        flux_min: float = 0.0,
+        flux_max: float = 1.0,
+    ):
+        if lightcurve is not None:
+            exptime = getattr(lightcurve, "exptime", exptime)
+
+        if exptime is None:
+            raise ValueError(
+                "Missing required parameter: exptime.\n"
+                "Provide it explicitly or pass a LightCurve via 'lightcurve'."
+            )
+
+        super().__init__(name="LorentzianModel")
+        self.lightcurve = lightcurve
+        self.params = dict(
+            center=float(center),
+            fwhm=float(fwhm),
+            depth=float(depth),
+            exptime=float(exptime),
+            time_resolution_factor=float(time_resolution_factor),
+            flux_min=float(flux_min),
+            flux_max=float(flux_max),
+        )
+
+        self.model_flux = None          # model sampled at 'time' (obs grid)
+        self.time_model = None          # high-res model time grid
+        self.model_profile = None       # high-res model profile (pre-integration)
+
+        self.center_err = None
+        self.fwhm_err = None
+        self.depth_err = None
+
+        self._validate_params()
+
+    def _validate_params(self):
+        p = self.params
+        if p["fwhm"] <= 0:
+            raise ValueError("fwhm must be > 0")
+        if p["exptime"] <= 0:
+            raise ValueError("exptime must be > 0")
+        if not np.isfinite(p["depth"]):
+            raise ValueError("depth must be finite")
+        # keep permissive (some users may fit depth slightly >1); clamp only in compute if desired
+        if p["flux_max"] <= p["flux_min"]:
+            raise ValueError("flux_max must be > flux_min")
+
+    @property
+    def center(self):
+        """
+        Center as absolute Time if lightcurve.tref exists,
+        otherwise returns the relative center (float, s).
+        """
+        t_rel = self.params.get("center")
+        if t_rel is None:
+            return None
+        tref = getattr(self.lightcurve, "tref", None)
+        return (tref + t_rel * u.s) if tref is not None else t_rel
+
+    @property
+    def fwhm(self):
+        return self.params.get("fwhm")
+
+    @property
+    def depth(self):
+        return self.params.get("depth")
+
+    def compute(self, time: Optional[np.ndarray] = None) -> np.ndarray:
+        p = self.params
+
+        if time is None:
+            if self.lightcurve is None:
+                raise ValueError("Provide 'time' or pass a LightCurve with a 'time' attribute.")
+            time = np.asarray(self.lightcurve.time, dtype=float)
+        else:
+            time = np.asarray(time, dtype=float)
+
+        center = float(p["center"])
+        fwhm = float(p["fwhm"])
+        exptime = float(p["exptime"])
+        depth = float(p["depth"])
+        flux_min = float(p["flux_min"])
+        flux_max = float(p["flux_max"])
+
+        # --- High-res grid ---
+        # Pick a dt tied to both feature width (fwhm) and exposure time.
+        # Ensure it's not absurdly small/large.
+        dt0 = min(fwhm / 30.0, exptime / 20.0)
+        dt0 = max(dt0, min(fwhm, exptime) / 1000.0)
+        dt = dt0 / max(float(p["time_resolution_factor"]), 1.0)
+
+        # Cover requested time range + padding around the feature and exposure
+        pad = 6.0 * max(fwhm, exptime)
+        tmin = min(time.min(), center) - pad
+        tmax = max(time.max(), center) + pad
+        time_model = np.arange(tmin, tmax + dt, dt)
+
+        # --- Intrinsic profile on high-res grid ---
+        P = lorentz_peak(time_model, center=center, fwhm=fwhm)
+        amp = depth * (flux_max - flux_min)
+        flux_profile = flux_max - amp * P
+
+        # --- Instrumental integration (boxcar over exptime) onto observation times ---
+        flux_inst = np.empty_like(time, dtype=float)
+        half = 0.5 * exptime
+
+        for i, t in enumerate(time):
+            m = (time_model > (t - half)) & (time_model < (t + half))
+            if m.any():
+                flux_inst[i] = flux_profile[m].mean()
+            else:
+                # fallback (should be rare): interpolate high-res profile
+                flux_inst[i] = np.interp(t, time_model, flux_profile, left=flux_max, right=flux_max)
+
+        # Store
+        self.time_model = time_model
+        self.model_profile = flux_profile
+        self.model_flux = flux_inst
+        return flux_inst
+
+    def plot(self, show_components=False, ax=None):
+        """
+        Plot observed light curve and the Lorentzian model.
+        """
+        if self.model_flux is None:
+            self.compute()
+
+        return _plot_model(
+            ax=ax,
+            lightcurve=self.lightcurve,
+            flux_model=self.model_flux if self.model_flux is not None else self(),
+            model_geometric=self.model_profile,
+            model_fresnel=None,
+            model_star=None,
+            time_model=self.time_model,
+            show_components=show_components,
+            title=f"{self.lightcurve.name}: {self.name}",
+        )
+
+    def to_file(self, namefile=None, overwrite=False):
+        """
+        Saves the modeled curve to an ASCII file with metadata.
+
+        Columns:
+          jd, sec from tref, profile_model (hi-res), integrated_model (interpolated to hi-res)
+        """
+        if self.model_profile is None or self.time_model is None:
+            self.compute()
+
+        if namefile is None:
+            if self.lightcurve is not None and getattr(self.lightcurve, "tref", None) is not None:
+                date = self.lightcurve.tref.iso[:10].replace("-", "")
+                obj = getattr(self.lightcurve, "name", "lightcurve").replace(" ", "_").replace("-", "_")
+                namefile = f"{date}_{obj}_lorentz_model.dat"
+            else:
+                namefile = "lorentz_model.dat"
+
+        if os.path.exists(namefile) and not overwrite:
+            raise FileExistsError(f"File '{namefile}' already exists. Use overwrite=True to replace it.")
+
+        header_lines = [
+            "SORA Model export",
+            f"Model: {self.name}",
+        ]
+
+        if self.lightcurve is not None:
+            header_lines.append(f"Light curve name: {getattr(self.lightcurve, 'name', 'LightCurve')}")
+
+        tref = getattr(self.lightcurve, "tref", None) if self.lightcurve is not None else None
+        if tref is not None:
+            header_lines.append(f"Reference time (UTC): {tref.isot}")
+
+        c_err = getattr(self, "center_err") or 0.0
+        f_err = getattr(self, "fwhm_err") or 0.0
+        d_err = getattr(self, "depth_err") or 0.0
+
+        header_lines += [
+            f"Center:  {self.params['center']:.6f} s  +/- {c_err:.6f} s",
+            f"FWHM:    {self.params['fwhm']:.6f} s  +/- {f_err:.6f} s",
+            f"Depth:   {self.params['depth']:.6f}     +/- {d_err:.6f}",
+            f"Exptime: {self.params['exptime']:.6f} s",
+            "",
+            "Columns: jd, sec from tref, profile_model, integrated_model",
+        ]
+        header = "\n".join(header_lines)
+
+        # Integrated model mapped onto time_model (for a single consistent export grid)
+        if self.lightcurve is not None:
+            t_obs = np.asarray(self.lightcurve.time, dtype=float)
+            y_model_obs = np.asarray(self.model_flux, dtype=float)
+            y_model_hi = np.interp(self.time_model, t_obs, y_model_obs, left=y_model_obs[0], right=y_model_obs[-1])
+        else:
+            y_model_hi = self.model_profile.copy()
+
+        # Time columns
+        time_sec = self.time_model
+        if tref is not None:
+            time_iso = Time(tref) + time_sec * u.s
+            time_jd = time_iso.jd
+        else:
+            # If no tref, export NaNs for jd to keep the column count stable
+            time_jd = np.full_like(time_sec, np.nan, dtype=float)
+
+        data = np.column_stack((time_jd, time_sec, self.model_profile, y_model_hi))
+        np.savetxt(namefile, data, header=header, fmt="%.10f")
+        return namefile
+
+    def __str__(self):
+        c_str = f"+/- {self.center_err:.6f}" if self.center_err is not None else ""
+        f_str = f"+/- {self.fwhm_err:.6f}" if self.fwhm_err is not None else ""
+        d_str = f"+/- {self.depth_err:.6f}" if self.depth_err is not None else ""
+        return "\n".join([
+            "-" * 79,
+            f"{self.name}",
+            f"  center = {self.center} {c_str}",
+            f"  fwhm   = {self.fwhm:.6f} s {f_str}",
+            f"  depth  = {self.depth:.6f} {d_str}",
+            f"  exptime= {self.params['exptime']:.6f} s",
+            "",
+        ])
 
 
 # Composite (non-coherent) model

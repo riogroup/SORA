@@ -12,6 +12,8 @@ from .occdetect import occ_detect
 from .model import *
 from .fit import fit
 from .fit_double import fit_double
+from .fit_lorentzian import fit_lorentzian
+
 
 warnings.simplefilter('always', UserWarning)
 
@@ -790,15 +792,14 @@ class LightCurve:
             raise ValueError("LightCurve must have time and flux defined to plot.")
 
         ax = ax or plt.gca()
-
-        ax.plot(self.time, self.flux, 'k.-', label='Observed', zorder=0)
         
-        if not hasattr(self, 'model') or not self.model.any():
+        if not hasattr(self, 'models') or not self.models:
+            ax.plot(self.time, self.flux, 'k.-', label='Observed', zorder=0)
             ax.plot(self.time, np.ones(len(self.time)), 'r-', label='Model', zorder=0)
             ax.scatter(self.time, np.ones(len(self.time)), edgecolor='r', facecolor='none', zorder=0)   
         else:
-            ax.plot(self.time, self.model, 'r.-', label='Model', zorder=0)
-            ax.scatter(self.time, self.model, edgecolor='r', facecolor='none', zorder=0) 
+            for mod in self.models:
+                self.models[mod].plot()
             
         ax.set_xlabel('Time [seconds]', fontsize=20)
         ax.set_ylabel('Relative Flux', fontsize=20)
@@ -1020,6 +1021,12 @@ class LightCurve:
                             f"    Emersion 1:  {res['emersion1_time'].iso}\n"
                             f"    Immersion 2: {res['immersion2_time'].iso}  Op2={res['opacity2']:.3f}\n"
                             f"    Emersion 2:  {res['emersion2_time'].iso}\n\n")
+                if kind == "Lorentzian":
+                    output += (
+                        f"    Center: {res['center_time'].iso} ± {res.get('center_err', 0):.3f} s\n"
+                        f"    FWHM:   {res['fwhm']:.6f} s\n"
+                        f"    Depth:  {res['depth']:.6f}\n\n"
+                    )
                 else:
                     output += (f"    Immersion: {res['immersion_time'].iso} ± {res.get('immersion_err', 0):.3f} s\n"
                             f"    Emersion:  {res['emersion_time'].iso} ± {res.get('emersion_err', 0):.3f} s\n"
@@ -1042,4 +1049,5 @@ class LightCurve:
 
 LightCurve.fit = fit
 LightCurve.fit_double = fit_double
+LightCurve.fit_lorentzian = fit_lorentzian
 attach_to_lightcurve_class(LightCurve)
