@@ -232,7 +232,7 @@ class _FitHandlerLorentz:
 
             # depth bounds
             dmin = max(0.0, depth - delta_depth)
-            dmax = min(1.5, depth + delta_depth)
+            dmax = min(1.0, depth + delta_depth)
             initial.add(
                 name="depth",
                 value=depth,
@@ -307,28 +307,28 @@ class _FitHandlerLorentz:
             depth=dd if "dd" in locals() else None,
         )
 
-        nsig = chisquare.get_nsigma(sigma=sigma_result)
+        result_sigma = chisquare.get_nsigma(sigma=sigma_result)
 
-        # Best-fit from nsigma (if available)
-        if "center" in nsig:
-            center_time = nsig["center"][0]
-            center_err = nsig["center"][1]
+        # Best-fit from nsigma
+        if "center" in result_sigma:
+            self.lc.center_time = result_sigma["center"][0]
+            self.lc.center_err = result_sigma["center"][1]
         else:
-            center_err = None
+            self.lc.center_err = None
 
-        if "fwhm" in nsig:
-            fwhm = nsig["fwhm"][0]
-            fwhm_err = nsig["fwhm"][1]
+        if "fwhm" in result_sigma:
+            self.lc.fwhm = result_sigma["fwhm"][0]
+            self.lc.fwhm_err = result_sigma["fwhm"][1]
         else:
-            fwhm_err = None
+            self.lc.fwhm_err = None
 
-        if "depth" in nsig:
-            depth = nsig["depth"][0]
-            depth_err = nsig["depth"][1]
+        if "depth" in result_sigma:
+            self.lc.depth = result_sigma["depth"][0]
+            self.lc.depth_err = result_sigma["depth"][1]
         else:
-            depth_err = None
+            self.lc.depth_err = None
 
-        # Final model instance (attached to LC, like fit.py does)
+        # Final model instance
         model = LorentzianModel(
             lightcurve=self.lc,
             center=center_time,
@@ -338,11 +338,12 @@ class _FitHandlerLorentz:
             flux_min=flux_min,
             flux_max=flux_max,
         )
-        model.center_err = center_err
-        model.fwhm_err = fwhm_err
-        model.depth_err = depth_err
 
-        # Store results (same storage scheme as fit.py)
+        model.center_err = self.lc.center_err
+        model.fwhm_err = self.lc.fwhm_err
+        model.depth_err = self.lc.depth_err
+
+        # Store results
         if not hasattr(self.lc, "models"):
             self.lc.models = {}
         if not hasattr(self.lc, "chi2_maps"):
@@ -355,17 +356,16 @@ class _FitHandlerLorentz:
         self.lc.models[label] = model
         self.lc.chi2_maps[label] = chisquare
 
-        # store as Time too
         center_time_abs = self.lc.tref + center_time * u.s if hasattr(self.lc, "tref") else center_time
 
         self.lc._fit_results[label] = {
-            "type": "LorentzianDip",
+            "type": "Lorentzian",
             "center_time": center_time_abs,
-            "center_err": center_err,
-            "fwhm": fwhm,
-            "fwhm_err": fwhm_err,
-            "depth": depth,
-            "depth_err": depth_err,
+            "center_err": self.lc.center_err,
+            "fwhm": self.lc.fwhm,
+            "fwhm_err": self.lc.fwhm_err,
+            "depth": self.lc.depth,
+            "depth_err": self.lc.depth_err,
             "baseflux": flux_max,
             "bottomflux": flux_min,
             "curve_sigma": float(np.mean(sigma[mask])),
