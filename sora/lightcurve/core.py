@@ -241,7 +241,7 @@ class LightCurve:
                 delta_bandpass=kwargs.get('delta_bandpass', 0.40)
             )
 
-        self.dt = 0.0
+        self.time_offset = 0.0
         self.n_lambda = kwargs.get('n_lambda', 2)
 
     @property
@@ -286,7 +286,7 @@ class LightCurve:
     @property
     def immersion(self):
         if hasattr(self, '_immersion'):
-            return self._immersion + self.dt*u.s
+            return self._immersion + self.time_offset*u.s
         else:
             raise AttributeError('The immersion time was not fitted or instantiated.')
 
@@ -308,7 +308,7 @@ class LightCurve:
     @property
     def emersion(self):
         if hasattr(self, '_emersion'):
-            return self._emersion + self.dt*u.s
+            return self._emersion + self.time_offset*u.s
         else:
             raise AttributeError('The emersion time was not fitted or instanciated.')
 
@@ -381,7 +381,7 @@ class LightCurve:
     @property
     def time(self):
         try:
-            return (self._time - self.tref).sec + self.dt
+            return (self._time - self.tref).sec + self.time_offset
         except:
             raise AttributeError("'LightCurve' object has no attribute 'time'")
         
@@ -954,7 +954,7 @@ class LightCurve:
                     )
         except:
             pass
-        output += 'Time offset:  {:.3f} seconds\n\n'.format(self.dt)
+        output += 'Time offset:  {:.3f} seconds\n\n'.format(self.time_offset)
         try:
             output += 'Exposure time:    {:.4f} seconds\n'.format(self.exptime)
             output += 'Cycle time:       {:.4f} seconds\n'.format(self.cycle)
