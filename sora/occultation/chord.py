@@ -58,12 +58,18 @@ class Chord:
     def status(self):
         """Returns if the chord is positive or negative
         """
-        im = getattr(self.lightcurve, 'immersion', None)
-        em = getattr(self.lightcurve, 'emersion', None)
-        if im is None and em is None:
-            return 'negative'
-        else:
-            return 'positive'
+        im = getattr(self.lightcurve, "immersion", None)
+        em = getattr(self.lightcurve, "emersion", None)
+
+        has_squarewell = (im is not None) and (em is not None)
+
+        has_lorentz = False
+        fr = getattr(self.lightcurve, "_fit_results", None)
+        if isinstance(fr, dict) and fr:
+            last = fr[list(fr.keys())[-1]]
+            has_lorentz = last.get("type") in ("Lorentzian", "LorentzianDip")
+
+        return "positive" if (has_squarewell or has_lorentz) else "negative"    
 
     @property
     def is_able(self):
