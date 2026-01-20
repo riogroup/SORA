@@ -56,7 +56,18 @@ class Chord:
         return self._lightcurve
 
     def status(self):
-        """Returns if the chord is positive or negative
+        """Return the chord classification: 'positive' or 'negative'.
+
+        A chord is considered positive if it contains a detected event time:
+        - Square-well case: both `lightcurve.immersion` and `lightcurve.emersion`
+        are defined.
+        - Lorentzian case: `lightcurve.center_time` is defined (as set by
+        `LightCurve.fit_lorentzian()`).
+
+        Returns
+        -------
+        str
+            'positive' or 'negative'
         """
         im = getattr(self.lightcurve, "immersion", None)
         em = getattr(self.lightcurve, "emersion", None)

@@ -6,6 +6,7 @@ Features
 --------
 - SquareWellModel : Fresnel-aware square-well occultation model with optional spectral integration.
 - CompositeModel : multiplicative (non-coherent) combination of independent structures.
+- LorentzianModel : Symmetric Lorentzian dip model with instrumental integration.
 
 Design goals
 ------------
@@ -743,6 +744,28 @@ class DoubleSquareWellModel(BaseModel):
         return "\n".join(lines)
 
 def lorentz_peak(t: np.ndarray, center: float, fwhm: float) -> np.ndarray:
+    """Peak-normalized Lorentzian profile.
+
+    Parameters
+    ----------
+    t : array_like
+        Time array (seconds).
+    center : float
+        Center time (seconds). The profile has its maximum at `center`.
+    fwhm : float
+        Full width at half maximum (seconds). Must be > 0.
+
+    Returns
+    -------
+    ndarray
+        Lorentzian profile values with max=1 at `center`.
+
+    Notes
+    -----
+    The returned function is:
+        P(t) = 1 / (1 + ((t-center)/hw)^2)
+    where hw = fwhm/2 is the half-width at half maximum.
+    """
     t = np.asarray(t, dtype=float)
     fwhm = float(fwhm)
     if fwhm <= 0:
@@ -752,9 +775,53 @@ def lorentz_peak(t: np.ndarray, center: float, fwhm: float) -> np.ndarray:
     return 1.0 / (1.0 + u*u)
 
 class LorentzianModel(BaseModel):
-    """
-    """
+    """Lorentzian dip light-curve model.
 
+    This is a phenomenological (non-Fresnel) model that represents a symmetric
+    flux attenuation described by a Lorentzian profile, including instrumental
+    integration over the exposure time.
+
+    Parameters
+    ----------
+    center : float
+        Center time of the dip (seconds relative to `tref`).
+    fwhm : float
+        Full width at half maximum (seconds). Must be > 0.
+    depth : float
+        Dimensionless depth of the dip, expressed as a fraction of
+        (flux_max - flux_min). A depth of 1 produces a central flux equal to
+        `flux_min` (in the absence of exposure-time smoothing).
+    exptime : float, optional
+        Exposure time in seconds. Required if `lightcurve` is not provided.
+    lightcurve : `sora.lightcurve.core.LightCurve`, optional
+        If provided, inherits `exptime` and uses `lightcurve.time` as default
+        evaluation grid.
+    time_resolution_factor : float, optional, default=10
+        Internal high-resolution sampling factor used to evaluate the
+        exposure-time integrated model.
+    flux_min, flux_max : float, optional, default=0, 1
+        Flux scaling limits for the model.
+
+    Attributes
+    ----------
+    model_flux : ndarray
+        Model evaluated at the observation time grid.
+    time_model : ndarray
+        High-resolution internal time grid used for integration.
+    model_profile : ndarray
+        High-resolution intrinsic profile (before boxcar integration).
+    center_err, fwhm_err, depth_err : float or None
+        Uncertainties (1-sigma by default) attached by the fit routine.
+    contact_in, contact_out : `astropy.time.Time` or None
+        Optional “contact” times used internally by occultation/chord utilities.
+        These are not automatically computed by the model; they are intended to
+        be assigned by the fitting/analysis layer.
+
+    Notes
+    -----
+    This model does not include Fresnel diffraction or finite stellar diameter (TODO).
+    It is intended for quick characterization of isolated symmetric dips.
+    """
 
     def __init__(
         self,
@@ -831,6 +898,28 @@ class LorentzianModel(BaseModel):
         return self.params.get("depth")
 
     def compute(self, time: Optional[np.ndarray] = None) -> np.ndarray:
+        """Compute the Lorentzian model evaluated at a given time grid.
+
+        Parameters
+        ----------
+        time : array_like, optional
+            Time array (seconds relative to `tref`). If not provided, uses
+            `lightcurve.time`.
+
+        Returns
+        -------
+        ndarray
+            Modeled relative flux evaluated at `time`.
+
+        Notes
+        -----
+        The computation proceeds as:
+        1) Evaluate the intrinsic Lorentzian profile on a high-resolution grid.
+        2) Apply instrumental integration by averaging the profile over the
+           exposure window around each observation timestamp.
+        3) Store both high-resolution and observation-grid products in the model.
+        """
+
         p = self.params
 
         if time is None:
@@ -856,7 +945,7 @@ class LorentzianModel(BaseModel):
 
         # Cover requested time range + padding around the feature and exposure
         pad = 6.0 * max(fwhm, exptime)
-        tmin = min(time.min(), center) - pad
+        tmin = min(time.min(), center) - pad    
         tmax = max(time.max(), center) + pad
         time_model = np.arange(tmin, tmax + dt, dt)
 
@@ -884,8 +973,22 @@ class LorentzianModel(BaseModel):
         return flux_inst
 
     def plot(self, show_components=False, ax=None):
-        """
-        Plot observed light curve and the Lorentzian model.
+        """Plot observed light curve and Lorentzian model.
+
+        Parameters
+        ----------
+        ax : `matplotlib.axes.Axes`, optional
+            Axes to draw on. If None, a new axes is created.
+        show_profile : bool, optional, default=True
+            If True, also plots the high-resolution intrinsic profile.
+        title : str, optional
+            Plot title. If None, uses "<LightCurve name>: <Model name>" when a
+            LightCurve is attached.
+
+        Returns
+        -------
+        `matplotlib.axes.Axes`
+            The axes used for plotting.
         """
         if self.model_flux is None:
             self.compute()
@@ -903,11 +1006,25 @@ class LorentzianModel(BaseModel):
         )
 
     def to_file(self, namefile=None, overwrite=False):
-        """
-        Saves the modeled curve to an ASCII file with metadata.
+        """Save the Lorentzian model to an ASCII file with metadata.
 
-        Columns:
-          jd, sec from tref, profile_model (hi-res), integrated_model (interpolated to hi-res)
+        Parameters
+        ----------
+        namefile : str, optional
+            Output filename. If None, an automatic name is generated.
+        overwrite : bool, optional, default=False
+            If True, overwrites existing files.
+
+        Returns
+        -------
+        str
+            The filename written to disk.
+
+        Notes
+        -----
+        The output contains a high-resolution time grid and two model columns:
+        - intrinsic profile (pre-integration)
+        - integrated model mapped onto the high-resolution grid
         """
         if self.model_profile is None or self.time_model is None:
             self.compute()

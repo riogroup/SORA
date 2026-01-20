@@ -41,6 +41,59 @@ def _mc_worker_lorentz(time, flux, sigma, bestchi,
                        depth, delta_depth,
                        exptime, time_resolution_factor, flux_min, flux_max,
                        loop, verbose):
+    
+    """Internal worker for parallel Monte Carlo sampling (Lorentzian model).
+
+    This function is intended to be called by multiprocessing in the `fastchi`
+    method of `LightCurve.fit_lorentzian()`.
+
+    Parameters
+    ----------
+    time : array_like
+        Time array (seconds relative to `tref`) used in the fit region.
+    flux : array_like
+        Observed relative flux values for the fit region.
+    sigma : array_like
+        Flux uncertainties for the fit region (same length as `flux`).
+    bestchi : float or None
+        If not None, the first sample is forced to the provided initial values.
+        Used to ensure the best (or initial) solution is included in the output.
+    center_time : float
+        Initial guess for the Lorentzian center time (seconds).
+    fwhm : float
+        Initial guess for the Lorentzian full width at half maximum (seconds).
+    delta_t : float
+        Half-range for uniform sampling of center_time: center_time ± delta_t.
+    delta_fwhm : float
+        Half-range for uniform sampling of fwhm: fwhm ± delta_fwhm.
+    depth : float
+        Initial guess for the Lorentzian depth (dimensionless).
+    delta_depth : float
+        Half-range for uniform sampling of depth: depth ± delta_depth.
+    exptime : float
+        Exposure time (seconds). Used for boxcar integration of the model.
+    time_resolution_factor : float
+        Controls internal high-resolution sampling of the model.
+    flux_min, flux_max : float
+        Flux scaling limits used by the model.
+    loop : int
+        Number of Monte Carlo trials performed by this worker.
+    verbose : bool
+        If True, show a progress bar (only recommended for a single worker).
+
+    Returns
+    -------
+    list
+        A list with four arrays:
+        [chi2, center_samples, fwhm_samples, depth_samples]
+        where chi2 is the chi-square value for each sample.
+
+    Notes
+    -----
+    - Sampling is uniform within the provided half-ranges.
+    - Depth is clipped to a permissive range during sampling to avoid
+      non-physical or unstable values.
+    """
 
     rng = np.random.RandomState()
 
@@ -80,6 +133,32 @@ def _mc_worker_lorentz(time, flux, sigma, bestchi,
 
 def _fit_error_lorentz(parameters, time, flux, dflux,
                       exptime, time_resolution_factor, flux_min, flux_max):
+    
+    """Objective function used by least-squares and differential evolution.
+
+    Parameters
+    ----------
+    parameters : `sora.stats.Parameters`
+        Parameter container holding (center_time, fwhm, depth).
+    time : array_like
+        Time array (seconds relative to `tref`) used in the fit region.
+    flux : array_like
+        Observed relative flux values in the fit region.
+    dflux : array_like
+        Flux uncertainties in the fit region.
+    exptime : float
+        Exposure time (seconds).
+    time_resolution_factor : float
+        Internal sampling factor for model evaluation.
+    flux_min, flux_max : float
+        Flux scaling limits used by the model.
+
+    Returns
+    -------
+    ndarray
+        Residuals array in chi-square form:
+            (flux - model)**2 / dflux**2
+    """
     v = parameters.valuesdict()
 
     mdl = LorentzianModel(
@@ -101,6 +180,79 @@ class _FitHandlerLorentz:
         self.lc = lc
 
     def run(self, clear_fits=True, **kwargs):
+
+        """Run a Lorentzian fit for a given `LightCurve`.
+
+        This is the engine behind `LightCurve.fit_lorentzian()` and follows the
+        conventions of the legacy SORA `occ_lcfit()`/`fit()` routine:
+        - A preliminary detection is used when initial guesses are not provided.
+        - A Monte Carlo chi-square distribution is built to estimate uncertainties.
+        - Results are stored inside the `LightCurve` under labelled entries
+          (`lc.models['fit1']`, `lc.chi2_maps['fit1']`, etc.).
+
+        Parameters
+        ----------
+        clear_fits : bool, optional, default=True
+            If True, clears any previously stored fits before running the new fit.
+
+        Other Parameters
+        ----------------
+        tmin, tmax : float, optional
+            Time limits (seconds from `tref`) used in the fit.
+        flux_min, flux_max : float, optional
+            Bottom and baseline flux levels used by the Lorentzian model.
+        center_time : float, optional
+            Initial guess for the Lorentzian center time (seconds from `tref`).
+        fwhm : float, optional
+            Initial guess for the Lorentzian FWHM (seconds).
+        depth : float, optional
+            Initial guess for the Lorentzian depth (dimensionless).
+        delta_t : float, optional
+            Half-range used to vary center_time in Monte Carlo sampling.
+        delta_fwhm : float, optional
+            Half-range used to vary fwhm in Monte Carlo sampling.
+        ddepth : float, optional
+            Half-range used to vary depth in Monte Carlo sampling.
+        sigma : float, array_like, or 'auto', optional
+            Flux uncertainties. If 'auto', sigma is estimated outside the event.
+        sigma_model : float, optional, default=0
+            Additional model uncertainty (flux units) added in quadrature to sigma.
+            Used only in the single-process 'chisqr' method.
+        loop : int, optional, default=10000
+            Number of Monte Carlo trials.
+        verbose : bool, optional, default=True
+            If True, show progress bars during sampling.
+        sigma_result : float, optional, default=1
+            Sigma level used to compute uncertainties from the ChiSquare object.
+        method : str, optional, default='chisqr'
+            Fitting method:
+                - 'chisqr' : single-process Monte Carlo sampling
+                - 'fastchi': multiprocessing Monte Carlo sampling
+                - 'ls'/'least_squares' : local minimization followed by fastchi
+                - 'de'/'differential_evolution' : global minimization followed by fastchi
+        threads : int, optional, default=1
+            Number of processes used by 'fastchi' (ignored by 'chisqr').
+        time_resolution_factor : float, optional, default=10
+            Controls internal model sampling resolution.
+
+        Returns
+        -------
+        model : `sora.lightcurve.model.LorentzianModel`
+            Model instance evaluated with the best-fit parameters.
+        chisquare : `sora.extra.ChiSquare`
+            ChiSquare object containing the sampled distribution and uncertainties.
+
+        Notes
+        -----
+        - The fitted parameters are stored on the LightCurve as:
+              lc.center_time, lc.center_err,
+              lc.fwhm,        lc.fwhm_err,
+              lc.depth,       lc.depth_err
+          to support downstream occultation/chord utilities.
+        - The absolute center time is stored in `lc._fit_results[label]['center_time']`
+          as an `astropy.time.Time` when `lc.tref` exists.
+        """
+
         allowed_kwargs = [
             "tmin", "tmax", "flux_min", "flux_max",
             "center_time", "fwhm", "depth",
@@ -375,9 +527,34 @@ class _FitHandlerLorentz:
 
 
 def fit_lorentzian(self, clear_fits=True, **kwargs):
-    """
-    Fit the LightCurve using a Lorentzian dip model.
+    """Fit the LightCurve using a Lorentzian dip model.
 
-    Returns (model, ChiSquare).
+    The fitted model is a symmetric Lorentzian attenuation integrated over the
+    exposure time, scaled between `flux_min` and `flux_max`:
+
+        F(t) = flux_max - depth * (flux_max - flux_min) * P(t)
+
+    where P(t) is a peak-normalized Lorentzian profile with max(P)=1 at the center.
+
+    Parameters
+    ----------
+    clear_fits : bool, optional, default=True
+        If True, clears previously stored fits before performing the new fit.
+
+    Other Parameters
+    ----------------
+    See `_FitHandlerLorentz.run()`.
+
+    Returns
+    -------
+    model : `sora.lightcurve.model.LorentzianModel`
+        Best-fit model instance.
+    chisquare : `sora.extra.ChiSquare`
+        ChiSquare distribution and uncertainties.
+
+    Notes
+    -----
+    Results are stored inside the LightCurve under labelled entries
+    (`lc.models['fit1']`, `lc.chi2_maps['fit1']`, and `lc._fit_results['fit1']`).
     """
     return _FitHandlerLorentz(self).run(clear_fits=clear_fits, **kwargs)
