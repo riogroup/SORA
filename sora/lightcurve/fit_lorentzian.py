@@ -291,14 +291,12 @@ class _FitHandlerLorentz:
 
         center_time = kwargs.get("center_time", 0.5 * (imm0 + eme0))
         fwhm = kwargs.get("fwhm", max(dur0, self.lc.exptime))
-        # Depth as fraction of (flux_max - flux_min)
-        # If prelim['depth'] is already a fractional drop (common in SORA), this is reasonable.
         depth = kwargs.get("depth", np.clip(prelim["depth"], 0.0, 1.0))
 
         # Ranges for MC sampling
         delta_t = kwargs.get("delta_t", 5 * prelim["time_err"])
         delta_fwhm = kwargs.get("delta_fwhm", 0.5 * fwhm)
-        delta_depth = kwargs.get("ddepth", 0.1)
+        delta_depth = kwargs.get("ddepth", 0.2)
 
         loop = int(kwargs.get("loop", 10000))
         verbose = bool(kwargs.get("verbose", True))
@@ -483,9 +481,9 @@ class _FitHandlerLorentz:
         # Final model instance
         model = LorentzianModel(
             lightcurve=self.lc,
-            center=center_time,
-            fwhm=fwhm,
-            depth=depth,
+            center=self.lc.center_time,
+            fwhm=self.lc.fwhm,
+            depth=self.lc.depth,
             time_resolution_factor=trf,
             flux_min=flux_min,
             flux_max=flux_max,
@@ -508,7 +506,7 @@ class _FitHandlerLorentz:
         self.lc.models[label] = model
         self.lc.chi2_maps[label] = chisquare
 
-        center_time_abs = self.lc.tref + center_time * u.s if hasattr(self.lc, "tref") else center_time
+        center_time_abs = self.lc.tref + self.lc.center_time * u.s if hasattr(self.lc, "tref") else self.lc.center_time
 
         self.lc._fit_results[label] = {
             "type": "Lorentzian",
