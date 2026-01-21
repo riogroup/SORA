@@ -245,6 +245,26 @@ class LightCurve:
         self.n_lambda = kwargs.get('n_lambda', 2)
 
     @property
+    def dt(self):
+        warnings.warn(
+            "`LightCurve.dt` is deprecated and will be removed in a future release. "
+            "Use `LightCurve.time_offset` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.time_offset
+
+    @dt.setter
+    def dt(self, value):
+        warnings.warn(
+            "`LightCurve.dt` is deprecated and will be removed in a future release. "
+            "Set `LightCurve.time_offset` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.time_offset = float(value)
+
+    @property
     def fresnel_scale(self):
         lamb = self.lambda_0*u.micrometer.to('km')
         dlamb = self.delta_lambda*u.micrometer.to('km')
@@ -729,13 +749,78 @@ class LightCurve:
         self.normalizer_mask = mask
 
     def reset_flux(self):
-        """ Resets flux for original values
-        """
+        """Resets flux (and time, if stored) to original values."""
         try:
             self.flux = self.flux_obs
-        except:
+        except AttributeError:
             raise ValueError('Reset is only possible when a LightCurve is instantiated with time and flux.')
+
+        if hasattr(self, "time_obs"):
+            self._time = self.tref + self.time_obs
         return
+    
+        
+    def _set_time(self, tsec):
+        """
+        Internal: set time from seconds relative to tref.
+        """
+        from astropy.time import TimeDelta
+
+        tsec = np.asarray(tsec, dtype=float)
+        self._time = self.tref + TimeDelta(tsec, format="sec") + self.time_offset
+    
+    def downsample(self, n=10, offset=0):
+        """
+        Downsamples the light curve by averaging consecutive blocks of points.
+
+        This method updates both ``time`` and ``flux`` in-place. 
+
+        Parameters
+        ----------
+        n : int, optional
+            Number of samples per bin. Default is 10.
+        offset : int, optional
+            Starting index for binning. Samples before ``offset`` are ignored.
+            Default is 0.
+
+        Notes
+        -----
+        - Only complete bins are kept. Any remaining points at the end that do not
+        fill a full bin are discarded.
+        - This operation modifies the light curve in-place.
+        - Use `reset_flux` to restore the original arrays (``flux_obs`` and ``time_obs``).
+
+        Examples
+        --------
+        Binning is useful for cameras that deliver data in acquisition/integration
+        blocks, such as WATEC systems, where consecutive samples may correspond to 
+        the same effective exposure time.
+
+        >>> lc.downsample(n=10)
+        >>> # or, if the first five samples should be skipped:
+        >>> lc.downsample(n=10, offset=5)
+        >>> # restore original sampling:
+        >>> lc.reset_flux()
+        """
+
+        self.reset_flux()
+
+        if not hasattr(self, "time_obs"):
+            self.time_obs = np.array((self._time - self.tref).sec, copy=True)
+
+        tsec = (self._time - self.tref).sec
+        flux = np.asarray(self.flux)
+
+        m = (len(flux) - offset) // n
+        if m <= 0:
+            raise ValueError("Not enough points for downsample with given n/offset")
+
+        sl = slice(offset, offset + m*n)
+        f_new = np.mean(flux[sl].reshape(m, n), axis=1)
+        t_new = np.mean(np.asarray(tsec)[sl].reshape(m, n), axis=1)
+
+        self.flux = f_new
+        self._set_time(t_new)
 
     def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None,
                n_detections=None, tmin=None, tmax=None, plot=False):
