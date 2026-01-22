@@ -775,6 +775,46 @@ class Occultation:
         g, the Julian Date of the observation, light curve name of the
         corresponding position.
         """
+        import astropy.units as u
+
+        def _append_event(pos, err, chord, t, terr, label):
+            """Append one (t) projection to pos and (t±terr) to err."""
+            f, g, vf, vg = chord.get_fg(time=t, vel=True)
+            pos.append([f, g, vf, vg, t.jd, label])
+
+            if terr is None:
+                return
+
+            t1 = t - terr *u.s
+            t2 = t + terr *u.s
+            f1, g1, vf1, vg1 = chord.get_fg(time=t1, vel=True)
+            f2, g2, vf2, vg2 = chord.get_fg(time=t2, vel=True)
+            err.append([f1, g1, vf1, vg1, t1.jd, label + '_err-'])
+            err.append([f2, g2, vf2, vg2, t2.jd, label + '_err+'])
+
+        def _events_from_fit(lc, fit, l_name):
+            """Return list of (time, terr, label) for a single model fit entry."""
+            ftype = fit.get('type', None)
+            out = []
+            
+            if ftype == 'SquareWell':
+                out.append((fit['immersion_time'], fit['immersion_err'], f"{l_name}_{ftype}_immersion"))
+                out.append((fit['emersion_time'], fit['emersion_err'], f"{l_name}_{ftype}_emersion"))
+                
+            elif ftype == 'DoubleSquareWell':
+                out.append((fit['immersion1_time'], None, f"{l_name}_{ftype}_immersion1"))
+                out.append((fit['emersion1_time'],  None, f"{l_name}_{ftype}_emersion1"))
+                out.append((fit['immersion2_time'], None, f"{l_name}_{ftype}_immersion2"))
+                out.append((fit['emersion2_time'],  None, f"{l_name}_{ftype}_emersion2"))
+
+            elif ftype == 'Lorentzian':
+                ct = fit['center_time']
+                cterr = fit['center_err']
+
+                out.append((ct, cterr, f"{l_name}_{ftype}_center"))
+
+            return out
+
         pos = []
         neg = []
         err = []
@@ -782,32 +822,22 @@ class Occultation:
             status = chord.status()
             l_name = name.replace(' ', '_')
             if status == 'positive':
-                im = chord.lightcurve.immersion
-                ime = chord.lightcurve.immersion_err
-                f, g, vf, vg = chord.get_fg(time=im, vel=True)
-                f1, g1 = chord.get_fg(time=im-ime*u.s)
-                f2, g2 = chord.get_fg(time=im+ime*u.s)
-                pos.append([f, g, vf, vg, im.jd, l_name+'_immersion'])
-                err.append([f1, g1, vf, vg, (im-ime*u.s).jd, l_name+'_immersion_err-'])
-                err.append([f2, g2, vf, vg, (im+ime*u.s).jd, l_name+'_immersion_err+'])
-
-                em = chord.lightcurve.emersion
-                eme = chord.lightcurve.emersion_err
-                f, g, vf, vg = chord.get_fg(time=em, vel=True)
-                f1, g1 = chord.get_fg(time=em-eme*u.s)
-                f2, g2 = chord.get_fg(time=em+eme*u.s)
-                pos.append([f, g, vf, vg, em.jd, l_name+'_emersion'])
-                err.append([f1, g1, vf, vg, (em-eme*u.s).jd, l_name+'_emersion_err-'])
-                err.append([f2, g2, vf, vg, (em+eme*u.s).jd, l_name+'_emersion_err+'])
+                fr = getattr(chord.lightcurve, '_fit_results', {}) or {}
+                for _, fit in fr.items():
+                    if not isinstance(fit, dict) or 'type' not in fit:
+                        continue
+                    for t, terr, label in _events_from_fit(chord.lightcurve, fit, l_name):
+                        _append_event(pos, err, chord, t, terr, label)
 
             if status == 'negative':
                 ini = chord.lightcurve.initial_time
                 f, g, vf, vg = chord.get_fg(time=ini, vel=True)
-                neg.append([f, g, vf, vg, ini.jd, l_name+'_start'])
+                neg.append([f, g, vf, vg, ini.jd, l_name + '_start'])
 
                 end = chord.lightcurve.end_time
                 f, g, vf, vg = chord.get_fg(time=end, vel=True)
-                neg.append([f, g, vf, vg, end.jd, l_name+'_end'])
+                neg.append([f, g, vf, vg, end.jd, l_name + '_end'])
+
         if len(pos) > 0:
             f = open('occ_{}_pos.txt'.format(self.body.shortname.replace(' ', '_')), 'w')
             for line in pos:
