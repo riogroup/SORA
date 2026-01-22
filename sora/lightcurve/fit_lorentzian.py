@@ -215,9 +215,6 @@ class _FitHandlerLorentz:
             Half-range used to vary depth in Monte Carlo sampling.
         sigma : float, array_like, or 'auto', optional
             Flux uncertainties. If 'auto', sigma is estimated outside the event.
-        sigma_model : float, optional, default=0
-            Additional model uncertainty (flux units) added in quadrature to sigma.
-            Used only in the single-process 'chisqr' method.
         loop : int, optional, default=10000
             Number of Monte Carlo trials.
         verbose : bool, optional, default=True
@@ -258,7 +255,7 @@ class _FitHandlerLorentz:
             "center_time", "fwhm", "depth",
             "delta_t", "delta_fwhm", "ddepth",
             "sigma", "loop", "verbose",
-            "sigma_result", "method", "threads", "sigma_model",
+            "sigma_result", "method", "threads",
             "time_resolution_factor",
         ]
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
@@ -301,7 +298,6 @@ class _FitHandlerLorentz:
         loop = int(kwargs.get("loop", 10000))
         verbose = bool(kwargs.get("verbose", True))
         sigma_result = kwargs.get("sigma_result", 1.0)
-        sigma_model = float(kwargs.get("sigma_model", 0.0))
         trf = float(kwargs.get("time_resolution_factor", 10.0))
 
         # Sigma handling (same behavior as fit.py)
@@ -352,7 +348,7 @@ class _FitHandlerLorentz:
                     flux_max=flux_max,
                 )
                 m = mdl.compute(time=time_m)
-                chi2[i] = np.sum(((flux_m - m) ** 2) / (sig_m ** 2 + sigma_model ** 2))
+                chi2[i] = np.sum(((flux_m - m) ** 2) / (sig_m ** 2))
 
         # --- METHODS: ls / de / fastchi ---
         else:
@@ -509,7 +505,7 @@ class _FitHandlerLorentz:
         center_time_abs = self.lc.tref + self.lc.center_time * u.s if hasattr(self.lc, "tref") else self.lc.center_time
 
         self.lc._fit_results[label] = {
-            "type": "Lorentzian",
+            "type": "Lorentzian",   
             "center_time": center_time_abs,
             "center_err": self.lc.center_err,
             "fwhm": self.lc.fwhm,
