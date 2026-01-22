@@ -311,7 +311,7 @@ class _FitDoubleHandler:
         self.lc.chi2_maps[label] = chisquare
 
         try:
-            lc._fit_results[label] = {
+            self.lc._fit_results[label] = {
                 "type": "DoubleSquareWell",
                 "immersion1_time": self.lc.tref + im1 * u.s,
                 "emersion1_time": self.lc.tref + em1 * u.s,
