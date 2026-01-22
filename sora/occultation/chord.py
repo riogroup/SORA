@@ -75,12 +75,15 @@ class Chord:
         has_squarewell = (im is not None) and (em is not None)
 
         has_lorentz = False
+        has_double = False
+
         fr = getattr(self.lightcurve, "_fit_results", None)
         if isinstance(fr, dict) and fr:
             last = fr[list(fr.keys())[-1]]
-            has_lorentz = last.get("type") in ("Lorentzian", "LorentzianDip")
+            has_lorentz = last.get("type") in ("Lorentzian")
+            has_double = last.get("type") in ("DoubleSquareWell")
 
-        return "positive" if (has_squarewell or has_lorentz) else "negative"    
+        return "positive" if (has_squarewell or has_lorentz or has_double) else "negative"    
 
     @property
     def is_able(self):
