@@ -42,7 +42,7 @@ import os
 
 
 
-from .utils import calc_fresnel, bar_fresnel
+from .utils import calc_fresnel, bar_fresnel, _boxcar_mean_on_grid
 
 __all__ = [
     "BaseModel",
@@ -52,6 +52,7 @@ __all__ = [
     "attach_to_lightcurve_class",
     "occ_model", 
     "occ_model_double",
+    "occ_model_lorentzian",
     "LorentzianModel"
 ]
 
@@ -266,10 +267,9 @@ class SquareWellModel(BaseModel):
                 flux_local = np.interp(xx, x, flux_star, left=1.0, right=1.0)
                 flux_star[ii] = np.sum(coeff * flux_local)
 
-        flux_inst = np.zeros_like(time)
-        for i, t in enumerate(time):
-            mask_event = (time_model > (t - p["exptime"]/2.)) & (time_model < (t + p["exptime"]/2.))
-            flux_inst[i] = flux_star[mask_event].mean() if mask_event.any() else flux_star[np.argmin(np.abs(time_model - t))]
+        # Performance: compute the exposure-time boxcar mean using cumulative sums + searchsorted (O(N)),
+        # avoiding a per-sample boolean mask over the high-res grid (O(N_obs*N_hi)) in model integration.
+        flux_inst = _boxcar_mean_on_grid(time, time_model, flux_star, p["exptime"]) 
 
         flux_inst = flux_inst * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
 
@@ -644,11 +644,9 @@ class DoubleSquareWellModel(BaseModel):
 
                 flux_star[ii] = acc
 
-        flux_inst = np.zeros_like(time)
-        half = p["exptime"]/2.0
-        for i, t in enumerate(time):
-            m = (time_model > (t - half)) & (time_model < (t + half))
-            flux_inst[i] = flux_star[m].mean() if m.any() else flux_star[np.argmin(np.abs(time_model - t))]
+        # Performance: compute the exposure-time boxcar mean using cumulative sums + searchsorted (O(N)),
+        # avoiding a per-sample boolean mask over the high-res grid (O(N_obs*N_hi)) in model integration.
+        flux_inst = _boxcar_mean_on_grid(time, time_model, flux_star, p["exptime"]) 
 
         flux_inst = flux_inst * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
 
@@ -954,17 +952,9 @@ class LorentzianModel(BaseModel):
         amp = depth * (flux_max - flux_min)
         flux_profile = flux_max - amp * P
 
-        # --- Instrumental integration (boxcar over exptime) onto observation times ---
-        flux_inst = np.empty_like(time, dtype=float)
-        half = 0.5 * exptime
-
-        for i, t in enumerate(time):
-            m = (time_model > (t - half)) & (time_model < (t + half))
-            if m.any():
-                flux_inst[i] = flux_profile[m].mean()
-            else:
-                # fallback (should be rare): interpolate high-res profile
-                flux_inst[i] = np.interp(t, time_model, flux_profile, left=flux_max, right=flux_max)
+        # Performance: compute the exposure-time boxcar mean using cumulative sums + searchsorted (O(N)),
+        # avoiding a per-sample boolean mask over the high-res grid (O(N_obs*N_hi)) in model integration.
+        flux_inst = _boxcar_mean_on_grid(time, time_model, flux_profile, exptime)
 
         # Store
         self.time_model = time_model
@@ -1335,8 +1325,6 @@ def occ_model_double(time, immersion1, emersion1, opacity1,
         flux_max=flux_max,
         )
     return model.compute(time=time)
-
-
     
 
 def _lambda_weights(lambda_0, delta_lambda, n_lambda, response):
