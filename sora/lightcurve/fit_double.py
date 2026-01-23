@@ -132,7 +132,8 @@ class _FitDoubleHandler:
                           'immersion1', 'emersion1', 'opacity1',
                           'immersion2', 'emersion2', 'opacity2',
                           'delta_t', 'dopacity', 'sigma', 'loop', 'verbose',
-                          'sigma_result', 'method', 'threads', 'sigma_model']
+                          'sigma_result', 'method', 'threads', 'sigma_model', 
+                          'feature']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if not hasattr(self.lc, 'flux'):
@@ -161,6 +162,11 @@ class _FitDoubleHandler:
         t_e2 = em2 + delta_t*(2*np.random.random(loop)-1)
         op_2 = np.clip(op2 + delta_opacity*(2*np.random.random(loop)-1), 0, 1)
 
+        feature = str(kwargs.get('feature', 'body')).lower().strip()
+        if feature in ('main', 'primary', 'object', 'limb'):
+            feature = 'body'
+        if feature in ('ring', 'rings'):
+            feature = 'ring'
         
         verbose = bool(kwargs.get('verbose', True))
         sigma_result = kwargs.get('sigma_result', 1)
@@ -319,7 +325,11 @@ class _FitDoubleHandler:
                 "immersion2_time": self.lc.tref + im2 * u.s,
                 "emersion2_time": self.lc.tref + em2 * u.s,
                 "opacity2": op2,
-            }
+                "baseflux": flux_max,
+                "bottomflux": flux_min,
+                "curve_sigma": sigma.mean(),
+                "feature": feature
+                }
         except Exception:
             pass
 

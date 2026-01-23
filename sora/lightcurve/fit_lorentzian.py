@@ -256,7 +256,7 @@ class _FitHandlerLorentz:
             "delta_t", "delta_fwhm", "ddepth",
             "sigma", "loop", "verbose",
             "sigma_result", "method", "threads",
-            "time_resolution_factor",
+            "time_resolution_factor", "feature"
         ]
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
@@ -270,6 +270,10 @@ class _FitHandlerLorentz:
         if method not in ["chisqr", "least_squares", "ls", "fastchi", "differential_evolution", "de"]:
             warnings.warn(f"Invalid method `{method}` provided. Setting to default.")
             method = "chisqr"
+
+        feature = str(kwargs.get('feature', 'ring')).lower().strip()
+        if feature in ('ring', 'rings'):
+            feature = 'ring'
 
         tmax = kwargs.get("tmax", self.lc.time.max())
         tmin = kwargs.get("tmin", self.lc.time.min())
@@ -515,6 +519,7 @@ class _FitHandlerLorentz:
             "baseflux": flux_max,
             "bottomflux": flux_min,
             "curve_sigma": float(np.mean(sigma[mask])),
+            "feature": feature
         }
 
         return model, chisquare

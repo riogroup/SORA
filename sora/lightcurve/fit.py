@@ -74,7 +74,7 @@ class _FitHandler:
         allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max',
                           'immersion_time', 'emersion_time', 'opacity',
                           'delta_t', 'dopacity', 'sigma', 'loop', 'verbose',
-                          'sigma_result', 'method', 'threads', 'sigma_model']
+                          'sigma_result', 'method', 'threads', 'sigma_model', 'feature']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
         if clear_fits and hasattr(self.lc, "clear_fits"):
@@ -99,6 +99,12 @@ class _FitHandler:
         opacity = kwargs.get('opacity', 1.0)
         delta_opacity = kwargs.get('dopacity', 0.0)
         do_opacity = ('dopacity' in kwargs)
+
+        feature = str(kwargs.get('feature', 'body')).lower().strip()
+        if feature in ('main', 'primary', 'object', 'limb'):
+            feature = 'body'
+        if feature in ('ring', 'rings'):
+            feature = 'ring'
 
         if ('immersion_time' not in kwargs) and ('emersion_time' not in kwargs):
             immersion_time = prelim['immersion_time']
@@ -346,6 +352,7 @@ class _FitHandler:
             "baseflux": flux_max,
             "bottomflux": flux_min,
             "curve_sigma": sigma.mean(),
+            "feature": feature
         }
 
         return model, chisquare

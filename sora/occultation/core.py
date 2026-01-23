@@ -766,91 +766,145 @@ class Occultation:
             raise ValueError('A shape must have been fitted to the chords')
 
     def to_file(self):
-        """Saves the occultation data to a file.
+        """Write chord projections (f, g) to text files.
 
-        Three files are saved containing the positions and velocities for the
-        observations. They are for the positive, negative and error bars positions.
+        Creates up to three files:
+        - ``occ_<BODY>_pos.txt``: projected points for positive detections
+        - ``occ_<BODY>_err.txt``: projected points for timing error bounds
+        - ``occ_<BODY>_neg.txt``: start/end points for negative chords
 
-        The format of the files are: positions in f and g, velocities in f and
-        g, the Julian Date of the observation, light curve name of the
-        corresponding position.
+        Each row is: ``f g vf vg JD label feature`` where feature is ``main`` or ``ring``
+        (and ``neg`` for negative chords).
         """
+        import numpy as np
         import astropy.units as u
 
-        def _append_event(pos, err, chord, t, terr, label):
-            """Append one (t) projection to pos and (t±terr) to err."""
+        def _append_event(pos, err, chord, t, terr, label, feature):
             f, g, vf, vg = chord.get_fg(time=t, vel=True)
-            pos.append([f, g, vf, vg, t.jd, label])
+            pos.append([f, g, vf, vg, t.jd, label, feature])
 
             if terr is None:
                 return
 
-            t1 = t - terr *u.s
-            t2 = t + terr *u.s
-            f1, g1, vf1, vg1 = chord.get_fg(time=t1, vel=True)
-            f2, g2, vf2, vg2 = chord.get_fg(time=t2, vel=True)
-            err.append([f1, g1, vf1, vg1, t1.jd, label + '_err-'])
-            err.append([f2, g2, vf2, vg2, t2.jd, label + '_err+'])
+            # Asymmetric errors: (terr_minus, terr_plus)
+            if isinstance(terr, (tuple, list)) and len(terr) == 2:
+                terr_m, terr_p = terr
+                if terr_m is not None:
+                    t1 = t - terr_m
+                    f1, g1 = chord.get_fg(time=t1)
+                    err.append([f1, g1, vf, vg, t1.jd, label + '_err-', feature])
+                if terr_p is not None:
+                    t2 = t + terr_p
+                    f2, g2 = chord.get_fg(time=t2)
+                    err.append([f2, g2, vf, vg, t2.jd, label + '_err+', feature])
+                return
 
-        def _events_from_fit(lc, fit, l_name):
-            """Return list of (time, terr, label) for a single model fit entry."""
+            # Symmetric error
+            t1 = t - terr
+            t2 = t + terr
+            f1, g1 = chord.get_fg(time=t1)
+            f2, g2 = chord.get_fg(time=t2)
+            err.append([f1, g1, vf, vg, t1.jd, label + '_err-', feature])
+            err.append([f2, g2, vf, vg, t2.jd, label + '_err+', feature])
+
+        def _err_sec(fit, key):
+            v = fit.get(key, None)
+            if v is None:
+                return None
+            try:
+                v = float(v)
+            except Exception:
+                return None
+            return None if v <= 0 else v * u.s
+
+        def _events_from_fit(fit, l_name):
             ftype = fit.get('type', None)
+            if ftype is None:
+                return []
+
             out = []
-            
+
             if ftype == 'SquareWell':
-                out.append((fit['immersion_time'], fit['immersion_err'], f"{l_name}_{ftype}_immersion"))
-                out.append((fit['emersion_time'], fit['emersion_err'], f"{l_name}_{ftype}_emersion"))
-                
+                im  = fit.get('immersion_time', None)
+                em  = fit.get('emersion_time', None)
+                ime = _err_sec(fit, 'immersion_err')
+                eme = _err_sec(fit, 'emersion_err')
+
+                if (im is None) or (em is None):
+                    return out
+
+                feat = str(fit.get('feature', 'body')).lower().strip()
+                is_ring = (feat == 'ring')
+                feat_out = 'ring' if is_ring else 'main'
+
+                if is_ring:
+                    tc = im + 0.5 * (em - im)
+                    halfw = 0.5 * (em - im)
+                    terr_minus = halfw + (ime if ime is not None else 0.0 * u.s)
+                    terr_plus  = halfw + (eme if eme is not None else 0.0 * u.s)
+                    out.append((tc, (terr_minus, terr_plus), f"{l_name}_{ftype}_center", feat_out))
+                else:
+                    out.append((im, ime, f"{l_name}_{ftype}_immersion", feat_out))
+                    out.append((em, eme, f"{l_name}_{ftype}_emersion",  feat_out))
+
             elif ftype == 'DoubleSquareWell':
-                out.append((fit['immersion1_time'], None, f"{l_name}_{ftype}_immersion1"))
-                out.append((fit['emersion1_time'],  None, f"{l_name}_{ftype}_emersion1"))
-                out.append((fit['immersion2_time'], None, f"{l_name}_{ftype}_immersion2"))
-                out.append((fit['emersion2_time'],  None, f"{l_name}_{ftype}_emersion2"))
+                # default: ring (unless you later add fit['feature'])
+                feat = str(fit.get('feature', 'ring')).lower().strip()
+                feat_out = 'ring' if feat == 'ring' else 'main'
+                out.append((fit['immersion1_time'], None, f"{l_name}_{ftype}_immersion1", feat_out))
+                out.append((fit['emersion1_time'],  None, f"{l_name}_{ftype}_emersion1",  feat_out))
+                out.append((fit['immersion2_time'], None, f"{l_name}_{ftype}_immersion2", feat_out))
+                out.append((fit['emersion2_time'],  None, f"{l_name}_{ftype}_emersion2",  feat_out))
 
             elif ftype == 'Lorentzian':
+                # ring by default
                 ct = fit['center_time']
-                cterr = fit['center_err']
-
-                out.append((ct, cterr, f"{l_name}_{ftype}_center"))
+                terr = _err_sec(fit, 'center_err')
+                out.append((ct, terr, f"{l_name}_{ftype}_center", 'ring'))
 
             return out
 
         pos = []
         neg = []
         err = []
+
         for name, chord in self.chords.items():
             status = chord.status()
             l_name = name.replace(' ', '_')
+            lc = chord.lightcurve
+
             if status == 'positive':
-                fr = getattr(chord.lightcurve, '_fit_results', {}) or {}
+                fr = getattr(lc, '_fit_results', {}) or {}
                 for _, fit in fr.items():
                     if not isinstance(fit, dict) or 'type' not in fit:
                         continue
-                    for t, terr, label in _events_from_fit(chord.lightcurve, fit, l_name):
-                        _append_event(pos, err, chord, t, terr, label)
+                    for t, terr, label, feat_out in _events_from_fit(fit, l_name):
+                        _append_event(pos, err, chord, t, terr, label, feat_out)
 
             if status == 'negative':
-                ini = chord.lightcurve.initial_time
+                ini = lc.initial_time
                 f, g, vf, vg = chord.get_fg(time=ini, vel=True)
-                neg.append([f, g, vf, vg, ini.jd, l_name + '_start'])
+                neg.append([f, g, vf, vg, ini.jd, l_name + '_start', 'neg'])
 
-                end = chord.lightcurve.end_time
+                end = lc.end_time
                 f, g, vf, vg = chord.get_fg(time=end, vel=True)
-                neg.append([f, g, vf, vg, end.jd, l_name + '_end'])
+                neg.append([f, g, vf, vg, end.jd, l_name + '_end', 'neg'])
 
         if len(pos) > 0:
             f = open('occ_{}_pos.txt'.format(self.body.shortname.replace(' ', '_')), 'w')
             for line in pos:
-                f.write('{:10.3f} {:10.3f} {:-6.2f} {:-6.2f} {:16.8f} {}\n'.format(*line))
+                f.write('{:10.3f} {:10.3f} {:-6.2f} {:-6.2f} {:16.8f} {} {}\n'.format(*line))
             f.close()
+
             f = open('occ_{}_err.txt'.format(self.body.shortname.replace(' ', '_')), 'w')
             for line in err:
-                f.write('{:10.3f} {:10.3f} {:-6.2f} {:-6.2f} {:16.8f} {}\n'.format(*line))
+                f.write('{:10.3f} {:10.3f} {:-6.2f} {:-6.2f} {:16.8f} {} {}\n'.format(*line))
             f.close()
+
         if len(neg) > 0:
             f = open('occ_{}_neg.txt'.format(self.body.shortname.replace(' ', '_')), 'w')
             for line in neg:
-                f.write('{:10.3f} {:10.3f} {:-6.2f} {:-6.2f} {:16.8f} {}\n'.format(*line))
+                f.write('{:10.3f} {:10.3f} {:-6.2f} {:-6.2f} {:16.8f} {} {}\n'.format(*line))
             f.close()
 
     def __str__(self):
