@@ -805,22 +805,44 @@ class LightCurve:
 
         self.reset_flux()
 
+        if not hasattr(self, "_downsample_backup"):
+            self._downsample_backup = {
+                "exptime": getattr(self, "exptime", None),
+                "cycle": getattr(self, "cycle", None),
+                "initial_time": getattr(self, "initial_time", None),
+                "end_time": getattr(self, "end_time", None),
+                "npts": getattr(self, "npts", None) or (len(self.flux) if hasattr(self, "flux") else None),
+            }
+
         if not hasattr(self, "time_obs"):
             self.time_obs = np.array((self._time - self.tref).sec, copy=True)
 
-        tsec = (self._time - self.tref).sec
+        tsec = np.asarray((self._time - self.tref).sec)
         flux = np.asarray(self.flux)
 
         m = (len(flux) - offset) // n
         if m <= 0:
             raise ValueError("Not enough points for downsample with given n/offset")
 
-        sl = slice(offset, offset + m*n)
+        sl = slice(offset, offset + m * n)
         f_new = np.mean(flux[sl].reshape(m, n), axis=1)
-        t_new = np.mean(np.asarray(tsec)[sl].reshape(m, n), axis=1)
+        t_new = np.mean(tsec[sl].reshape(m, n), axis=1)
 
         self.flux = f_new
-        self._set_time(t_new)
+        self._set_time(t_new) 
+        
+        if getattr(self, "exptime", None) is not None:
+            self.exptime = self._downsample_backup["exptime"] * n
+        if getattr(self, "cycle", None) is not None:
+            self.cycle = self._downsample_backup["cycle"] * n
+
+
+        if hasattr(self, "_time") and len(self._time) > 0:
+            self.initial_time = self._time[0]
+            self.end_time = self._time[-1]
+
+        if hasattr(self, "npts"):
+            self.npts = len(self.flux)
 
     def occ_detect(self, maximum_duration=None, dur_step=None, snr_limit=None,
                n_detections=None, tmin=None, tmax=None, plot=False):
@@ -1046,6 +1068,25 @@ class LightCurve:
             output += 'Num. data points: {}\n\n'.format(len(self.time))
         except:
             output += 'Object LightCurve was not instantiated with time and flux.\n\n'
+        
+        try:
+            bkp = getattr(self, "_downsample_backup", None)
+            if bkp is not None:
+                output += 'Original sampling (before downsample):\n'
+                if bkp.get("initial_time") is not None and hasattr(bkp["initial_time"], "iso"):
+                    output += f"  Initial time: {bkp['initial_time'].iso} UTC\n"
+                if bkp.get("end_time") is not None and hasattr(bkp["end_time"], "iso"):
+                    output += f"  End time:     {bkp['end_time'].iso} UTC\n"
+
+                if bkp.get("exptime") is not None:
+                    output += f"  Exposure time: {bkp['exptime']:.4f} seconds\n"
+                if bkp.get("cycle") is not None:
+                    output += f"  Cycle time:    {bkp['cycle']:.4f} seconds\n"
+                if bkp.get("npts") is not None:
+                    output += f"  Num. points:   {bkp['npts']}\n"
+                output += "\n"
+        except Exception:
+            pass
 
         try:
             if getattr(self, "response", None) is not None:
