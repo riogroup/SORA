@@ -42,7 +42,7 @@ import os
 
 
 
-from .utils import calc_fresnel, bar_fresnel, _boxcar_mean_on_grid
+from .utils import calc_fresnel, bar_fresnel, boxcar_mean_on_grid
 
 __all__ = [
     "BaseModel",
@@ -269,7 +269,7 @@ class SquareWellModel(BaseModel):
 
         # Performance: compute the exposure-time boxcar mean using cumulative sums + searchsorted (O(N)),
         # avoiding a per-sample boolean mask over the high-res grid (O(N_obs*N_hi)) in model integration.
-        flux_inst = _boxcar_mean_on_grid(time, time_model, flux_star, p["exptime"]) 
+        flux_inst = boxcar_mean_on_grid(time, time_model, flux_star, p["exptime"]) 
 
         flux_inst = flux_inst * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
 
@@ -646,7 +646,7 @@ class DoubleSquareWellModel(BaseModel):
 
         # Performance: compute the exposure-time boxcar mean using cumulative sums + searchsorted (O(N)),
         # avoiding a per-sample boolean mask over the high-res grid (O(N_obs*N_hi)) in model integration.
-        flux_inst = _boxcar_mean_on_grid(time, time_model, flux_star, p["exptime"]) 
+        flux_inst = boxcar_mean_on_grid(time, time_model, flux_star, p["exptime"]) 
 
         flux_inst = flux_inst * (p["flux_max"] - p["flux_min"]) + p["flux_min"]
 
@@ -810,14 +810,10 @@ class LorentzianModel(BaseModel):
         High-resolution intrinsic profile (before boxcar integration).
     center_err, fwhm_err, depth_err : float or None
         Uncertainties (1-sigma by default) attached by the fit routine.
-    contact_in, contact_out : `astropy.time.Time` or None
-        Optional “contact” times used internally by occultation/chord utilities.
-        These are not automatically computed by the model; they are intended to
-        be assigned by the fitting/analysis layer.
 
     Notes
     -----
-    This model does not include Fresnel diffraction or finite stellar diameter (TODO).
+    This model does not include Fresnel diffraction or finite stellar diameter.
     It is intended for quick characterization of isolated symmetric dips.
     """
 
@@ -954,7 +950,7 @@ class LorentzianModel(BaseModel):
 
         # Performance: compute the exposure-time boxcar mean using cumulative sums + searchsorted (O(N)),
         # avoiding a per-sample boolean mask over the high-res grid (O(N_obs*N_hi)) in model integration.
-        flux_inst = _boxcar_mean_on_grid(time, time_model, flux_profile, exptime)
+        flux_inst = boxcar_mean_on_grid(time, time_model, flux_profile, exptime)
 
         # Store
         self.time_model = time_model
@@ -969,17 +965,17 @@ class LorentzianModel(BaseModel):
         ----------
         ax : `matplotlib.axes.Axes`, optional
             Axes to draw on. If None, a new axes is created.
-        show_profile : bool, optional, default=True
+        show_components : bool, optional, default=True
             If True, also plots the high-resolution intrinsic profile.
-        title : str, optional
-            Plot title. If None, uses "<LightCurve name>: <Model name>" when a
-            LightCurve is attached.
 
         Returns
         -------
         `matplotlib.axes.Axes`
             The axes used for plotting.
         """
+        if self.lightcurve is None:
+            raise ValueError("LorentzianModel.plot() requires a linked LightCurve.")
+        
         if self.model_flux is None:
             self.compute()
 
@@ -987,7 +983,7 @@ class LorentzianModel(BaseModel):
             ax=ax,
             lightcurve=self.lightcurve,
             flux_model=self.model_flux if self.model_flux is not None else self(),
-            model_geometric=self.model_profile,
+            model_geometric=None,
             model_fresnel=None,
             model_star=None,
             time_model=self.time_model,
@@ -1130,19 +1126,6 @@ class CompositeModel(BaseModel):
             self.lightcurve = model.lightcurve
 
     def compute(self, time: Optional[np.ndarray] = None) -> np.ndarray:
-        """Compute the combined model from all components.
-
-        Parameters
-        ----------
-        time : array-like, optional
-            Custom time array (in seconds relative to tref).
-            If not given, uses the lightcurve time from the first component.
-
-        Returns
-        -------
-        flux_inst : ndarray
-            Combined modeled flux evaluated at the specified time array.
-        """
         if not self.components:
             raise ValueError("No components added to CompositeModel.")
 
@@ -1157,8 +1140,12 @@ class CompositeModel(BaseModel):
         finest_dt = min([
             (m.params["exptime"] / m.params["time_resolution_factor"])
             for _, m in self.components
+            if "exptime" in getattr(m, "params", {})
         ])
-        exptime_ref = min([m.params["exptime"] for _, m in self.components])
+        exptime_ref = min([
+            m.params["exptime"] for _, m in self.components
+            if "exptime" in getattr(m, "params", {})
+        ])
 
         tmin = time.min() - 5 * exptime_ref
         tmax = time.max() + 5 * exptime_ref
@@ -1169,18 +1156,38 @@ class CompositeModel(BaseModel):
         star_total = np.ones_like(time_model)
 
         for _, model in self.components:
-            if model.model_fresnel is None:
+            # Ensure component is computed
+            if getattr(model, "model_flux", None) is None:
                 model.compute()
 
-            fres_total *= np.interp(time_model, model.time_model, model.model_fresnel)
-            star_total *= np.interp(time_model, model.time_model, model.model_star)
-            geom_total *= np.interp(time_model, model.time_model, model.model_geometric)
+            # Fresnel-aware models: multiply their components
+            has_fresnel = hasattr(model, "model_fresnel") and (getattr(model, "model_fresnel", None) is not None)
+            has_star    = hasattr(model, "model_star") and (getattr(model, "model_star", None) is not None)
+            has_geom    = hasattr(model, "model_geometric") and (getattr(model, "model_geometric", None) is not None)
 
+            if has_fresnel and has_star and has_geom and getattr(model, "time_model", None) is not None:
+                fres_total *= np.interp(time_model, model.time_model, model.model_fresnel)
+                star_total *= np.interp(time_model, model.time_model, model.model_star)
+                geom_total *= np.interp(time_model, model.time_model, model.model_geometric)
+
+            # Intensity-only models (e.g., Lorentzian): multiply their final flux
+            else:
+                # If model has its own time_model, interpolate its (integrated) flux to the composite grid.
+                # Otherwise, fall back to evaluating on lc.time and interpolating.
+                if getattr(model, "time_model", None) is not None and getattr(model, "model_flux", None) is not None:
+                    y = np.interp(time_model, model.time_model, model.model_profile
+                                if getattr(model, "model_profile", None) is not None else model.model_flux)
+                else:
+                    # Evaluate on observation grid then interpolate
+                    y_obs = model.compute(time=time)
+                    y = np.interp(time_model, time, y_obs)
+
+                star_total *= y
+                # keep geom_total/fres_total unchanged for intensity-only components
+
+        # Final instrumental integration on observation grid
         exptime = lc.exptime
-        flux_inst = np.zeros_like(time)
-        for i, t in enumerate(time):
-            m = (time_model > (t - exptime/2)) & (time_model < (t + exptime/2))
-            flux_inst[i] = star_total[m].mean() if np.any(m) else star_total[np.argmin(np.abs(time_model - t))]
+        flux_inst = boxcar_mean_on_grid(time, time_model, star_total, exptime)
 
         self.time_model = time_model
         self.model_geometric = geom_total
