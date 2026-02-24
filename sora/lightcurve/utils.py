@@ -6,7 +6,7 @@ from sora.config.decorators import deprecated_alias
 import scipy.special as scsp
 
 
-__all__ = ['calc_fresnel', 'calc_magnitude_drop', '_boxcar_mean_on_grid']
+__all__ = ['calc_fresnel', 'calc_magnitude_drop', 'boxcar_mean_on_grid']
 
 
 @deprecated_alias(lambida='bandpass')  # remove this line for v1.0
@@ -268,7 +268,7 @@ def read_lc_file(lc_file, usecols=None, skiprows=0):
         raise ValueError('An error has occurred in reading the {}'.format(lc_file))
     
 
-def _boxcar_mean_on_grid(time, time_model, y_model, width):
+def boxcar_mean_on_grid(time, time_model, y_model, width):
     half = 0.5 * width
     csum = np.concatenate(([0.0], np.cumsum(y_model)))
     left = np.searchsorted(time_model, time - half, side="left")
