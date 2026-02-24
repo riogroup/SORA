@@ -875,11 +875,30 @@ class Occultation:
 
             if status == 'positive':
                 fr = getattr(lc, '_fit_results', {}) or {}
-                for _, fit in fr.items():
-                    if not isinstance(fit, dict) or 'type' not in fit:
-                        continue
-                    for t, terr, label, feat_out in _events_from_fit(fit, l_name):
-                        _append_event(pos, err, chord, t, terr, label, feat_out)
+                if fr:
+                    for _, fit in fr.items():
+                        if not isinstance(fit, dict) or 'type' not in fit:
+                            continue
+                        for t, terr, label, feat_out in _events_from_fit(fit, l_name):
+                            _append_event(pos, err, chord, t, terr, label, feat_out)
+                else:
+                    im = chord.lightcurve.immersion
+                    ime = chord.lightcurve.immersion_err
+                    f, g, vf, vg = chord.get_fg(time=im, vel=True)
+                    f1, g1 = chord.get_fg(time=im-ime*u.s)
+                    f2, g2 = chord.get_fg(time=im+ime*u.s)
+                    pos.append([f, g, vf, vg, im.jd, l_name+'_immersion', 'None'])
+                    err.append([f1, g1, vf, vg, (im-ime*u.s).jd, l_name+'_immersion_err-', 'None'])
+                    err.append([f2, g2, vf, vg, (im+ime*u.s).jd, l_name+'_immersion_err+', 'None'])
+
+                    em = chord.lightcurve.emersion
+                    eme = chord.lightcurve.emersion_err
+                    f, g, vf, vg = chord.get_fg(time=em, vel=True)
+                    f1, g1 = chord.get_fg(time=em-eme*u.s)
+                    f2, g2 = chord.get_fg(time=em+eme*u.s)
+                    pos.append([f, g, vf, vg, em.jd, l_name+'_emersion', 'None'])
+                    err.append([f1, g1, vf, vg, (em-eme*u.s).jd, l_name+'_emersion_err-', 'None'])
+                    err.append([f2, g2, vf, vg, (em+eme*u.s).jd, l_name+'_emersion_err+', 'None'])
 
             if status == 'negative':
                 ini = lc.initial_time
