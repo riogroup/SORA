@@ -1325,6 +1325,46 @@ def occ_model_double(time, immersion1, emersion1, opacity1,
         flux_max=flux_max,
         )
     return model.compute(time=time)
+
+def occ_model_lorentzian(time, center, fwhm, depth,
+                         exptime,
+                         time_resolution_factor=10,
+                         flux_min=0.0, flux_max=1.0):
+    """Fast Lorentzian dip model evaluated at `time`.
+
+    Parameters
+    ----------
+    time : array_like
+        Time array (s).
+    center : float
+        Dip center time (s).
+    fwhm : float
+        Full width at half maximum (s).
+    depth : float
+        Dimensionless depth (fraction of (flux_max-flux_min)).
+    exptime : float
+        Exposure time (s), used for boxcar integration.
+    time_resolution_factor : float, optional
+        Internal sampling factor for integration.
+    flux_min, flux_max : float, optional
+        Flux scaling limits.
+
+    Returns
+    -------
+    ndarray
+        Model flux evaluated at `time`.
+    """
+    model = LorentzianModel(
+        lightcurve=None,
+        center=center,
+        fwhm=fwhm,
+        depth=depth,
+        exptime=exptime,
+        time_resolution_factor=time_resolution_factor,
+        flux_min=flux_min,
+        flux_max=flux_max,
+    )
+    return model.compute(time=time)
     
 
 def _lambda_weights(lambda_0, delta_lambda, n_lambda, response):
