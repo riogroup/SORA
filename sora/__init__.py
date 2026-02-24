@@ -6,6 +6,5 @@ from .star import Star
 from .occultation import Occultation
 from .rings import Ring
 
-__version__ = '0.3.2'
-
+__version__ = "0.3.2.post1+sora_dev_lc"
 print(f'SORA version: {__version__}')
