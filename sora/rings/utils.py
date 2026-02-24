@@ -2,6 +2,8 @@
 
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import SkyCoord
+
 
 __all__ = ['project_to_ring_plane','to_sky_plane','calc_longitude','calc_equatorial_vel', 'calc_coef_projecao']
 
