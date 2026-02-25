@@ -32,6 +32,8 @@ from sora.config.visuals import progressbar
 from sora.config import input_tests
 from .model import *
 
+import warnings
+
 
 # Internal worker for parallel fastchi
 def _mc_worker(time, flux, sigma, bestchi,
@@ -69,13 +71,13 @@ def _mc_worker(time, flux, sigma, bestchi,
 
     for i in iterator:
         mdl = DoubleSquareWellModel(
-            lightcurve=None, 
-            immersion1=immersion1,
-            emersion1=emersion1,
-            opacity1=opacity1,
-            immersion2=immersion2,
-            emersion2=emersion2,
-            opacity2=opacity2,        
+            lightcurve=None,
+            immersion1=im1[i],
+            emersion1=em1[i],
+            opacity1=op1[i],
+            immersion2=im2[i],
+            emersion2=em2[i],
+            opacity2=op2[i],   
             npt_star=npt_star,
             lambda_0=lambda_0,
             delta_lambda=delta_lambda,
@@ -127,7 +129,7 @@ class _FitDoubleHandler:
     def __init__(self, lc):
         self.lc = lc
 
-    def run(self, **kwargs):
+    def run(self, clear_fits=True, **kwargs):
         allowed_kwargs = ['tmin', 'tmax', 'flux_min', 'flux_max',
                           'immersion1', 'emersion1', 'opacity1',
                           'immersion2', 'emersion2', 'opacity2',
@@ -135,6 +137,9 @@ class _FitDoubleHandler:
                           'sigma_result', 'method', 'threads', 'sigma_model', 
                           'feature']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
+
+        if clear_fits and hasattr(self.lc, "clear_fits"):
+            self.lc.clear_fits()
 
         if not hasattr(self.lc, 'flux'):
             raise ValueError("LightCurve must have 'time' and 'flux' for fitting.")
@@ -156,8 +161,9 @@ class _FitDoubleHandler:
         loop = int(kwargs.get('loop', 10000))
 
         t_i1 = im1 + delta_t*(2*np.random.random(loop)-1)
-        t_e2 = em1 + delta_t*(2*np.random.random(loop)-1)
+        t_e1 = em1 + delta_t*(2*np.random.random(loop)-1)
         op_1 = np.clip(op1 + delta_opacity*(2*np.random.random(loop)-1), 0, 1)
+
         t_i2 = im2 + delta_t*(2*np.random.random(loop)-1)
         t_e2 = em2 + delta_t*(2*np.random.random(loop)-1)
         op_2 = np.clip(op2 + delta_opacity*(2*np.random.random(loop)-1), 0, 1)
@@ -244,22 +250,26 @@ class _FitDoubleHandler:
             if method == 'chisqr':
                 chi2 = np.empty(loop, float)
                 rng = progressbar(range(loop), 'LightCurve double fit:') if verbose else range(loop)
+
+                time_m = self.lc.time[mask]
+                flux_m = self.lc.flux[mask]
+                sig_m  = sigma[mask]
+
                 for i in rng:
                     mdl = DoubleSquareWellModel(
-                        self.lc.time[mask],
-                        t_i1, t_e2, op_1,
-                        t_i2, t_e2, op_2,                                           
-                        self.lc.lambda_0, self.lc.delta_lambda,
-                        self.lc.dist, self.lc.vel, 
-                        self.lc.exptime, self.lc.d_star,
+                        immersion1=t_i1[i], emersion1=t_e1[i], opacity1=op_1[i],
+                        immersion2=t_i2[i], emersion2=t_e2[i], opacity2=op_2[i],
+                        lambda_0=self.lc.lambda_0, delta_lambda=self.lc.delta_lambda,
+                        distance=self.lc.dist, vel=self.lc.vel,
+                        exptime=self.lc.exptime, d_star=self.lc.d_star,
                         npt_star=12, time_resolution_factor=10,
-                        flux_min=flux_min, flux_max=flux_max
-                        )
-                    chi2[i] = np.sum(((lc.flux[mask] - mdl.compute(timeself.lc.time[mask]))**2) / (sigma[mask]**2 + sigma_model**2))
+                        flux_min=flux_min, flux_max=flux_max,
+                        lightcurve=None,
+                    )
+                    chi2[i] = np.sum(((flux_m - mdl.compute(time=time_m))**2) / (sig_m**2 + sigma_model**2))
 
-                im1s = np.repeat(im1, loop); em1s = np.repeat(em1, loop)
-                op1s = np.repeat(op1, loop); im2s = np.repeat(im2, loop)
-                em2s = np.repeat(em2, loop); op2s = np.repeat(op2, loop)
+                im1s, em1s, op1s = t_i1, t_e1, op_1
+                im2s, em2s, op2s = t_i2, t_e2, op_2
 
             else: 
                 per = int(np.ceil(loop / max(1, threads)))
@@ -287,15 +297,50 @@ class _FitDoubleHandler:
                               immersion2=im2s, emersion2=em2s, opacity2=op2s)
 
         result_sigma = chisquare.get_nsigma(sigma=sigma_result)
-        for key in ['immersion1','emersion1','opacity1','immersion2','emersion2','opacity2']:
-            if key in result_sigma:
-                locals()[key[:2] + (key[2:] if len(key)>2 else '')] = result_sigma[key][0]
+
+        # Best-fit values (seconds relative to tref)
+        if 'immersion1' in result_sigma: im1 = result_sigma['immersion1'][0]
+        if 'emersion1'  in result_sigma: em1 = result_sigma['emersion1'][0]
+        if 'opacity1'   in result_sigma: op1 = result_sigma['opacity1'][0]
+        if 'immersion2' in result_sigma: im2 = result_sigma['immersion2'][0]
+        if 'emersion2'  in result_sigma: em2 = result_sigma['emersion2'][0]
+        if 'opacity2'   in result_sigma: op2 = result_sigma['opacity2'][0]
+
+        # Uncertainties (seconds)
+        im1_err = result_sigma['immersion1'][1] if 'immersion1' in result_sigma else None
+        em1_err = result_sigma['emersion1'][1]  if 'emersion1'  in result_sigma else None
+        op1_err = result_sigma['opacity1'][1]   if 'opacity1'   in result_sigma else None
+        im2_err = result_sigma['immersion2'][1] if 'immersion2' in result_sigma else None
+        em2_err = result_sigma['emersion2'][1]  if 'emersion2'  in result_sigma else None
+        op2_err = result_sigma['opacity2'][1]   if 'opacity2'   in result_sigma else None
+
+        self.lc.immersion1 = self.lc.tref + im1 * u.s
+        self.lc.emersion1  = self.lc.tref + em1 * u.s
+        self.lc.immersion2 = self.lc.tref + im2 * u.s
+        self.lc.emersion2  = self.lc.tref + em2 * u.s
+        self.lc.opacity1  = op1
+        self.lc.opacity2  = op2
+
+        self.lc.immersion1_err = im1_err
+        self.lc.emersion1_err  = em1_err
+        self.lc.immersion2_err = im2_err
+        self.lc.emersion2_err  = em2_err
+        self.lc.opacity1_err   = op1_err
+        self.lc.opacity2_err   = op2_err
 
         model = DoubleSquareWellModel(
             lightcurve=self.lc,
             immersion1=im1, emersion1=em1, opacity1=op1,
             immersion2=im2, emersion2=em2, opacity2=op2
         )
+
+        model.immersion1_err = im1_err
+        model.emersion1_err  = em1_err
+        model.opacity1_err   = op1_err
+        model.immersion2_err = im2_err
+        model.emersion2_err  = em2_err
+        model.opacity2_err   = op2_err
+
         model.compute(time=self.lc.time)
 
         self.lc.chisquare = chisquare
@@ -320,20 +365,28 @@ class _FitDoubleHandler:
             self.lc._fit_results[label] = {
                 "type": "DoubleSquareWell",
                 "immersion1_time": self.lc.tref + im1 * u.s,
-                "emersion1_time": self.lc.tref + em1 * u.s,
+                "immersion1_err": im1_err,
+                "emersion1_time":  self.lc.tref + em1 * u.s,
+                "emersion1_err":  em1_err,
                 "opacity1": op1,
+                "opacity1_err": op1_err,
+
                 "immersion2_time": self.lc.tref + im2 * u.s,
-                "emersion2_time": self.lc.tref + em2 * u.s,
+                "immersion2_err": im2_err,
+                "emersion2_time":  self.lc.tref + em2 * u.s,
+                "emersion2_err":  em2_err,
                 "opacity2": op2,
+                "opacity2_err": op2_err,
+
                 "baseflux": flux_max,
                 "bottomflux": flux_min,
                 "curve_sigma": sigma.mean(),
-                "feature": feature
-                }
+                "feature": feature,
+            }
         except Exception:
             pass
 
         return model, chisquare
 
-def fit_double(self, **kwargs):
-    return _FitDoubleHandler(self).run(**kwargs)
+def fit_double(self, clear_fits=True, **kwargs):
+    return _FitDoubleHandler(self).run(clear_fits=clear_fits, **kwargs)
