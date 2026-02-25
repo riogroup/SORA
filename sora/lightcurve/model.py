@@ -345,7 +345,7 @@ class SquareWellModel(BaseModel):
         opa_str = f"+/- {self.opacity_err:.3f}" if self.opacity_err is not None else ''
         string.append(f"  immersion = {self.immersion} {imm_str}")
         string.append(f"  emersion  = {self.emersion} {eme_str}")
-        string.append(f"  opacity   = {self.opacity} {opa_str}")
+        string.append(f"  opacity   = {self.opacity:.3f} {opa_str}")
         string.append('')
         return '\n'.join(string)
 
@@ -728,18 +728,16 @@ class DoubleSquareWellModel(BaseModel):
         return namefile
     
     def __str__(self):
-        """String summary of DoubleSquareWellModel parameters."""
-        p = self.params
-
-        lines = [f"DoubleSquareWellModel:"]
-
-        lines.append(f"  immersion1 = {self.lightcurve.tref+ p['immersion1']*u.s}")
-        lines.append(f"  emersion1  = {self.lightcurve.tref + p['emersion1']*u.s}")
-        lines.append(f"  opacity1   = {p['opacity1']:.3f}")
-        lines.append(f"  immersion2 = {self.lightcurve.tref+ p['immersion2']*u.s}")
-        lines.append(f"  emersion2  = {self.lightcurve.tref + p['emersion2']*u.s}")
-        lines.append(f"  opacity2   = {p['opacity2']:.3f}")
-        return "\n".join(lines)
+        """String summary of DoubleSquareWellModel parameters."""        
+        return "\n".join([
+            "-" * 79,
+            f"  Immersion 1 = {self.immersion1} +/- {self.immersion1_err:.3f} s",
+            f"  Emersion 1  = {self.emersion1} +/- {self.emersion1_err:.3f} s",
+            f"  Opacity 1   = {self.opacity1:.3f} +/- {self.opacity1_err:.3f}",
+            f"  Immersion 2 = {self.immersion2} +/- {self.immersion2_err:.3f} s",
+            f"  Emersion 2  = {self.emersion2} +/- {self.emersion2_err:.3f} s",
+            f"  Opacity 2   = {self.opacity2:.3f} +/- {self.opacity2_err:.3f}",
+        ])
 
 def lorentz_peak(t: np.ndarray, center: float, fwhm: float) -> np.ndarray:
     """Peak-normalized Lorentzian profile.
