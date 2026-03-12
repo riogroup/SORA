@@ -72,6 +72,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
 # pyenv
 .python-version
@@ -106,3 +107,15 @@ venv.bak/
 
 # PyCharm
 .idea/
+
+# local data
+*.dat
+*.txt
+*.lightcurve
+
+# temporary analysis files
+occ_*.txt
+curve_*.dat
+
+# local scripts
+ring_properties_external.py
