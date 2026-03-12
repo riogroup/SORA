@@ -282,6 +282,14 @@ class SquareWellModel(BaseModel):
         self.model_flux = flux_inst
         return flux_inst
 
+    def get_physical_properties(self, ring=None, chord=None, center_f=0, center_g=0, pole_orientation=None, particle_size=0.01):
+        from sora.rings.properties import squarewell_properties
+        return squarewell_properties(
+            model=self, chord=chord, ring=ring,
+            center_f=center_f, center_g=center_g, 
+            pole_orientation=pole_orientation, particle_size=particle_size
+        )
+
     def plot(self, show_components=False, ax=None):
         if self.model_fresnel is None:
             self.compute()
@@ -955,6 +963,14 @@ class LorentzianModel(BaseModel):
         self.model_profile = flux_profile
         self.model_flux = flux_inst
         return flux_inst
+    
+
+    def get_physical_properties(self, ring=None, chord=None, center_f=0, center_g=0):
+        from sora.rings.properties import lorentzian_properties
+        return lorentzian_properties(
+            model=self, chord=chord, ring=ring,
+            center_f=center_f, center_g=center_g
+    )
 
     def plot(self, show_components=False, ax=None):
         """Plot observed light curve and Lorentzian model.
