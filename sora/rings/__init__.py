@@ -17,7 +17,7 @@ Public classes and functions:
 from .core import Ring
 from .meta import BaseRing
 from .geometry import RingGeometry
-from .properties import compute_local_properties
+#from .properties import compute_local_properties
 from .utils import *
 from .contacts import RingContact, RingContactList
 
@@ -25,7 +25,7 @@ __all__ = [
     "Ring",
     "BaseRing",
     "RingGeometry",
-    "compute_local_properties",
+    #"compute_local_properties",
     "RingContact", 
     "RingContactList"
 ]

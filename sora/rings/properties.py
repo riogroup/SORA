@@ -341,58 +341,29 @@ def normal_optical_depth(opacity, pole_orientation, ephem, tref):
     return normal_opt_depth, dnormal_opt_depth 
 
 
-def compute_local_properties(immersion, emersion, opacity, chord, center_f=0, center_g=0, pole_orientation=None):
-    """Compute physical properties of a feature detected in an occultation light curve.
-
-    Parameters
-    ----------
-    immersion : float or array-like
-        Immersion time(s) in seconds relative to the chord reference time.
-
-    emersion : float or array-like
-        Emersion time(s) in seconds relative to the chord reference time.
-
-    opacity : float or array-like
-        Apparent opacity from the light curve model.
-
-    chord : sora.occultation.chords.Chord
-        Chord object containing light curve and geometry data.
-
-    center_f : float, optional
-        f-coordinate of the ring center [km]. Default is 0.
-
-    center_g : float, optional
-        g-coordinate of the ring center [km]. Default is 0.
-
-    pole_orientation : astropy.coordinates.SkyCoord, optional
-        Ring pole orientation in ICRS. If provided, computes equatorial-plane properties.
-
-    Returns
-    -------
-    properties : dict
-        Dictionary of computed properties including:
-        - central_time, dcentral_time
-        - sky_distance, dsky_distance
-        - sky_width, dsky_width
-        - transmittance, dtransmittance
-        - equatorial_distance, dequatorial_distance (if pole_orientation is given)
-        - equatorial_width, dequatorial_width (if pole_orientation is given)
-        - normal_opacity, dnormal_opacity (if pole_orientation is given)
-        - normal_optical_depth, dnormal_optical_depth (if pole_orientation is given)
-    """
+def squarewell_properties(model, chord, sigma=1, center_f=0, center_g=0, ring=None, pole_orientation=None, particle_size=0.01):
+    # inserir kwargs immersion, emersion, opacity, outros?
+    # o que acontece se imm, eme e opa não forem arrays?
+    
     properties = {}
-
-    immersion = np.array(immersion, ndmin=1)
-    emersion = np.array(emersion, ndmin=1)
-    opacity = np.array(opacity, ndmin=1)
-
-    airy_scale = (chord.lightcurve.central_bandpass * u.micrometer.to('km') /
-                  (2 * 0.001)) * chord.lightcurve.dist * u.au.to('km')  # assumed particle size = 0.001 km
-
+    
+    label = model.fit_meta['label']    
+    chisquare = model.lightcurve.chi2_maps[label]
+    samples = chisquare.get_values(sigma=sigma)
+    
+    imm = np.array(samples['immersion'], ndmin=1)
+    eme = np.array(samples['emersion'], ndmin=1)
+    opa = np.array(samples['opacity'], ndmin=1)       # p = 1 - sqrt(T)
+    
+    transmittance = (1 - opa)**2
+    apparent_opacity = 1 - transmittance
+    
+    airy_scale = (chord.lightcurve.central_bandpass * u.micrometer.to('km') / (2 * particle_size)) * chord.lightcurve.dist * u.au.to('km')  # assumed particle size = 0.1 km
+    properties['airy_scale'] = airy_scale
+    
     tref = Time(chord.lightcurve.tref)
-
-    ti = tref + immersion * u.s
-    te = tref + emersion * u.s
+    ti = tref + imm * u.s
+    te = tref + eme * u.s
     tc = ti + (te - ti) * 0.5
     tc_sec = (tc - tref).sec
 
@@ -409,13 +380,27 @@ def compute_local_properties(immersion, emersion, opacity, chord, center_f=0, ce
 
     skywidth, dskywidth = sky_width(fi=fi, gi=gi, fe=fe, ge=ge,
                                     center_f=center_f, center_g=center_g)
+    
     properties['sky_width'], properties['dsky_width'] = skywidth, dskywidth
 
-    properties['transmittance'] = (1 - opacity).mean()
-    properties['dtransmittance'] = (1 - opacity).std(ddof=1)
-
-    if pole_orientation:
-        pole_orientation = SkyCoord(pole_orientation)
+    properties['transmittance'] = np.median(transmittance)
+    properties['dtransmittance'] = (transmittance.max() - transmittance.min()) / 2
+    properties['apparent_opacity'] = np.median(apparent_opacity)
+    properties['dapparent_opacity'] = (apparent_opacity.max() - apparent_opacity.min()) / 2
+    
+    
+    if airy_scale > skywidth:
+        opacity = opa
+    else:
+        opacity = apparent_opacity
+    
+    properties['opacity'] = np.median(opacity)
+    properties['dopacity'] = (opacity.max() - opacity.min()) / 2 
+    
+    pole = pole_orientation if pole_orientation is not None else (getattr(ring, "pole_orientation", None) if ring is not None else None)
+    
+    if pole is not None:
+        pole_orientation = SkyCoord(pole).icrs
         equat_distance, dequat_distance = equatorial_distance(
             f=f, g=g,
             pole_orientation=pole_orientation.icrs,
@@ -437,13 +422,13 @@ def compute_local_properties(immersion, emersion, opacity, chord, center_f=0, ce
 
         if airy_scale > skywidth:
             n_opacity, dn_opacity = corrected_normal_opacity(
-                opacity=opacity,
+                opacity=opa,
                 pole_orientation=pole_orientation.icrs,
                 ephem=ephem,
                 tref=tref)
 
             normal_opt_depth, dnormal_opt_depth = corrected_normal_optical_depth(
-                opacity=opacity,
+                opacity=opa,
                 pole_orientation=pole_orientation.icrs,
                 ephem=ephem,
                 tref=tref)
@@ -453,13 +438,13 @@ def compute_local_properties(immersion, emersion, opacity, chord, center_f=0, ce
 
         else:
             n_opacity, dn_opacity = normal_opacity(
-                opacity=opacity,
+                opacity=opa,
                 pole_orientation=pole_orientation.icrs,
                 ephem=ephem,
                 tref=tref)
 
             normal_opt_depth, dnormal_opt_depth = normal_optical_depth(
-                opacity=opacity,
+                opacity=opa,
                 pole_orientation=pole_orientation.icrs,
                 ephem=ephem,
                 tref=tref)
@@ -468,3 +453,114 @@ def compute_local_properties(immersion, emersion, opacity, chord, center_f=0, ce
             properties['normal_optical_depth'], properties['dnormal_optical_depth'] = normal_opt_depth, dnormal_opt_depth
 
     return properties
+
+def _signed_radius(r):
+    r = np.asarray(r, dtype=float)
+    i0 = int(np.argmin(r))
+    sign = np.ones_like(r)
+    sign[:i0] = -1.0
+    return sign * r, sign
+
+def _center_fwhm_km(r, y, sign=None):
+    r = np.asarray(r, dtype=float)
+    y = np.asarray(y, dtype=float)
+    s = r if sign is None else np.asarray(sign, dtype=float) * r
+
+    idx = np.argsort(s)
+    s = s[idx]
+    y = y[idx]
+
+    if len(s) < 3 or not np.isfinite(y).any():
+        return np.nan, np.nan
+
+    i0 = int(np.nanargmax(y))
+    y0 = y[i0]
+    if not np.isfinite(y0) or y0 <= 0:
+        return np.nan, np.nan
+
+    half = 0.5 * y0
+
+    left = np.where(y[:i0] <= half)[0]
+    right = np.where(y[i0:] <= half)[0] + i0
+    if len(left) == 0 or len(right) == 0:
+        return s[i0], np.nan
+
+    iL = left[-1]
+    iR = right[0]
+
+    def interp_x(i_a, i_b):
+        x1, x2 = s[i_a], s[i_b]
+        y1, y2 = y[i_a], y[i_b]
+        if y2 == y1:
+            return 0.5 * (x1 + x2)
+        return x1 + (half - y1) * (x2 - x1) / (y2 - y1)
+
+    xL = interp_x(iL, iL + 1)
+    xR = interp_x(iR - 1, iR)
+
+    return s[i0], (xR - xL)
+
+def lorentzian_properties(*, model, chord, ring=None, center_f=0, center_g=0):
+    if chord is None:
+        raise ValueError("Chord must be provided.")
+
+    lc = chord.lightcurve
+    tref = Time(lc.tref)
+    t_sec = np.asarray(lc.time, dtype=float)
+
+    if t_sec.size < 3:
+        raise ValueError("Not enough samples in the selected time window.")
+
+    t_time = tref + t_sec * u.s
+
+    F = np.asarray(model.compute(time=t_sec), dtype=float)
+    tau_app = -np.log(F)
+    ew_app_integrand = 1.0 - F
+
+    f, g = chord.get_fg(time=t_time)  
+    r_sky = np.sqrt((f - center_f)**2 + (g - center_g)**2)
+
+    rsky_signed, sign_sky = _signed_radius(r_sky)
+
+    idx = np.argsort(rsky_signed)
+    x = rsky_signed[idx]
+    tau_x = tau_app[idx]
+    ew_x = ew_app_integrand[idx]
+
+    out = {}
+    out["apparent_equivalent_width_model"] = float(np.trapz(ew_x, x))
+    out["apparent_optical_depth_integral_model"] = float(np.trapz(tau_x, x))
+
+    i_peak = int(np.argmax(tau_x))
+    out["peak_distance_sky_model"] = float(x[i_peak])
+    c_sky, w_sky = _center_fwhm_km(np.abs(x), tau_x, sign=np.sign(x))
+    out["fwhm_sky_km_model"] = float(w_sky)
+
+    if ring is not None:
+        time_evt = chord._shared_with["chordlist"]["time"]
+        _, B = ring.get_ring_orientation(time=time_evt)
+        sinB = abs(np.sin(B).value)
+
+        x_ring, y_ring = ring.to_ring_plane(
+            f=f, g=g,
+            time=time_evt,
+            center_f=center_f,
+            center_g=center_g
+        )
+        r_ring = np.sqrt(x_ring**2 + y_ring**2)
+        rring_signed, sign_ring = _signed_radius(r_ring)
+
+        idx = np.argsort(rring_signed)
+        xr = rring_signed[idx]
+        tauN = tau_app[idx] * 0.5 * sinB
+        pN = ew_app_integrand[idx] * 0.5 * sinB
+
+        out["normal_equivalent_width_model"] = float(np.trapz(pN, xr))
+        out["normal_optical_depth_integral_model"] = float(np.trapz(tauN, xr))
+
+        i_peak_r = int(np.argmax(tauN))
+        out["peak_distance_ring_model"] = float(xr[i_peak_r])
+        c_ring, w_ring = _center_fwhm_km(np.abs(xr), tauN, sign=np.sign(xr))
+        out["fwhm_ring_km_model"] = float(w_ring)
+
+    return out
