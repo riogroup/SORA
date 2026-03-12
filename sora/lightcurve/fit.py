@@ -340,6 +340,7 @@ class _FitHandler:
 
         self.lc.models[label] = model
         self.lc.chi2_maps[label] = chisquare
+        model.fit_meta = {"label": label}
 
         self.lc._fit_results[label] = {
             "type": "SquareWell",

@@ -360,6 +360,7 @@ class _FitDoubleHandler:
 
         self.lc.models[label] = model
         self.lc.chi2_maps[label] = chisquare
+        model.fit_meta = {"label": label}
 
         try:
             self.lc._fit_results[label] = {

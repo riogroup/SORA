@@ -505,6 +505,8 @@ class _FitHandlerLorentz:
 
         self.lc.models[label] = model
         self.lc.chi2_maps[label] = chisquare
+        model.fit_meta = {"label": label}
+
 
         center_time_abs = self.lc.tref + self.lc.center_time * u.s if hasattr(self.lc, "tref") else self.lc.center_time
 
