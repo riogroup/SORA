@@ -69,18 +69,14 @@ class Observer:
     """
 
     def __init__(self, **kwargs):
-
         input_tests.check_kwargs(kwargs, allowed_kwargs=['code', 'height', 'lat', 'lon', 'name', 'site', 'ephem'])
         self.__name = kwargs.get('name', '')
         if 'code' in kwargs and any(i in kwargs for i in ['lon', 'lat', 'height']):
             raise ValueError("The Observer object is instantiated with IAU code or coordinates, not both.")
         if 'code' in kwargs:
-            self.code = kwargs['code']
-            try:
-                name, self.site = search_code_mpc()[self.code]
-                self.__name = kwargs.get('name', name)
-            except:
-                raise ValueError('code {} could not be located in MPC database'.format(self.code))
+            self.code = str(kwargs['code']).strip()
+            name, self.site = search_code_mpc(self.code)
+            self.__name = kwargs.get('name', name)
         elif 'site' in kwargs:
             self.site = input_tests.test_attr(kwargs['site'], EarthLocation, 'site')
         elif all(i in kwargs for i in ['lon', 'lat']):

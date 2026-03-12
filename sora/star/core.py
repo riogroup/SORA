@@ -471,13 +471,7 @@ class Star(MetaStar):
             return apply_offset(bar_star)
 
         if observer == "geocenter":
-            from astropy.coordinates import EarthLocation
-            #observer = Observer(code='500', ephem='horizons')
-            observer = Observer(
-                name="geocenter",
-                site=EarthLocation.from_geocentric(0*u.m, 0*u.m, 0*u.m),
-                ephem="horizons")
-
+            observer = Observer(code='500', ephem='horizons')
 
         bar_obs = observer.get_vector(time=time, origin='barycenter')
 
