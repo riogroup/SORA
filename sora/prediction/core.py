@@ -117,7 +117,7 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None, reference_cent
 
 @deprecated_alias(log='verbose')  # remove this line in v1.0
 def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='gaiadr3', step=60, divs=1, sigma=1,
-               radius=None, verbose=True, reference_center='geocenter'):
+               radius=None, rings=None, verbose=True, reference_center='geocenter'):
     """Predicts stellar occultations.
 
     Parameters
@@ -228,6 +228,14 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         if isinstance(mag_lim, dict):
             kwds['column_filters'] = {catalog.band[band]: f"<{value}" for band, value in mag_lim.items()
                                       if band in catalog.band}
+            
+    # definig passed rings
+    if rings is None:
+        rings = []
+    elif not isinstance(rings, (list, tuple)):
+        rings = [rings]
+    else:
+        rings = list(rings)
 
     # determine suitable divisions for star search
     if radius is None:
@@ -297,11 +305,8 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
             except:
                 pass
 
-    if body is not None and hasattr(body, 'rings'):
-        rings = list(body.rings.values())
-
     meta = {'name': ephem.name or getattr(body, 'shortname', ''), 'time_beg': time_beg, 'time_end': time_end,
-            'maglim': mag_lim, 'max_ca': mindist, 'radius': radius.to(u.km).value, 'rings': rings,
+            'maglim': mag_lim, 'max_ca': mindist, 'radius': radius.to(u.km).value,
             'error_ra': ephem.error_ra.to(u.mas).value, 'error_dec': ephem.error_dec.to(u.mas).value,
             'ephem': ephem.meta['kernels'], 'catalogue': catalog.name}
     if not occs:

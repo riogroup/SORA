@@ -102,9 +102,6 @@ class Occultation:
         except ValueError:
             self.star_diam = 0*u.km
 
-        if hasattr(self.body, 'rings'):
-            rings = self.body.rings.values()
-
         meta = {
             'name': self.body.shortname, 'radius': self.body.radius.to(u.km).value,
             'error_ra': self.body.ephem.error_ra.to(u.mas).value, 'error_dec': self.body.ephem.error_dec.to(u.mas).value}
@@ -571,29 +568,41 @@ class Occultation:
             sites[name] = [obs.lon.deg, obs.lat.deg, 10, 10, color[chord.status()], 'o']
         return sites
 
-    def plot_occ_map(self, **kwargs):
+    def plot_occ_map(self, rings=None, **kwargs):
         if 'radius' not in kwargs and hasattr(self, 'fitted_params'):
             r_equa = self.fitted_params['equatorial_radius'][0]
             obla = self.fitted_params['oblateness'][0]
             pos_ang = self.fitted_params['position_angle'][0]
             theta = np.linspace(-np.pi, np.pi, 1800)
             map_pa = self.predict['P/A'][0]
-            circle_x = r_equa*np.cos(theta)
-            circle_y = r_equa*(1.0-obla)*np.sin(theta)
-            ellipse_y = -circle_x*np.sin((pos_ang-map_pa)*u.deg) + circle_y*np.cos((pos_ang-map_pa)*u.deg)
+            circle_x = r_equa * np.cos(theta)
+            circle_y = r_equa * (1.0 - obla) * np.sin(theta)
+            ellipse_y = -circle_x * np.sin((pos_ang - map_pa) * u.deg) + circle_y * np.cos((pos_ang - map_pa) * u.deg)
             kwargs['radius'] = ellipse_y.max()
-            print('Projected shadow radius = {:.1f} km'.format(kwargs['radius']))
+            print(f'Projected shadow radius = {kwargs["radius"]:.1f} km')
+
         kwargs['sites'] = kwargs.get('sites', self.get_map_sites())
+
         if 'offset' not in kwargs and hasattr(self, 'fitted_params'):
-            off_ra = self.fitted_params['center_f'][0]*u.km
-            off_dec = self.fitted_params['center_g'][0]*u.km
+            off_ra = self.fitted_params['center_f'][0] * u.km
+            off_dec = self.fitted_params['center_g'][0] * u.km
             off_ra = np.arctan2(off_ra, self.dist)
             off_dec = np.arctan2(off_dec, self.dist)
             kwargs['offset'] = [off_ra, off_dec]
-        if 'rings' not in kwargs:
-            kwargs['rings'] = list(self.body.rings.values())
+
+        if rings is None:
+            rings = kwargs.pop('rings', None)
+
+        if rings is None:
+            rings = []
+        elif not isinstance(rings, (list, tuple)):
+            rings = [rings]
+
+        kwargs['rings'] = list(rings)
+
         for row in self.predict:
             row.meta['rings'] = kwargs['rings']
+
         self.predict.plot_occ_map(**kwargs)
     plot_occ_map.__doc__ = PredictionTable.plot_occ_map.__doc__
 
