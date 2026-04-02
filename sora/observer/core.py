@@ -77,7 +77,7 @@ class Observer:
         if 'code' in kwargs:
             self.code = kwargs['code']
             try:
-                name, self.site = search_code_mpc()[self.code]
+                name, self.site = search_code_mpc(self.code)[self.code]
                 self.__name = kwargs.get('name', name)
             except:
                 raise ValueError('code {} could not be located in MPC database'.format(self.code))
