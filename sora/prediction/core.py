@@ -115,7 +115,7 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None, reference_cent
 
 
 @deprecated_alias(log='verbose')  # remove this line in v1.0
-def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='gaiadr3', step=60, divs=1, sigma=1,
+def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='TapLinea', step=60, divs=1, sigma=1,
                radius=None, verbose=True, reference_center='geocenter'):
     """Predicts stellar occultations.
 
@@ -143,9 +143,9 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         which will only download stars with V<=15 or ``mag_lim={'V': 15, 'B': 14}``
         which will download stars with V<=15 AND B<=14.
 
-    catalogue : `str`, `VizierCatalogue`
+    catalogue : `str`, `Catalogue`
         The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
-        ``'gaiadr3'``, or a VizierCatalogue object. default='gaiadr3'
+        ``'gaiadr3'``, ``'TapLinea'``, or a Catalogue object. default='TapLinea'
 
     step : `int`, `float`, default=60
         Step, in seconds, of ephem times for search
@@ -191,7 +191,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         PredictionTable with the occultation params for each event.
     """
     from sora.observer import Observer, Spacecraft
-    from sora.star.catalog import allowed_catalogues
+    from sora.star.catalog import allowed_catalogues, gaiadr3, should_fallback_to_gaiadr3
     from .table import PredictionTable
 
     if reference_center != 'geocenter' and not isinstance(reference_center, (Observer, Spacecraft)):
@@ -217,16 +217,22 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
 
     # define catalogue parameters
     catalog = allowed_catalogues.get_default(catalogue)
-    kwds = {'columns': 'simple', 'row_limit': 10000000, 'timeout': 600}
-    if mag_lim is not None:
-        if isinstance(mag_lim, (int, float)):
-            if len(catalog.band) == 0:
-                warnings.warn(f"Catalogue '{catalog.name}' does not have any band defined.")
-            else:
-                mag_lim = {next(iter(catalog.band)): mag_lim}
-        if isinstance(mag_lim, dict):
-            kwds['column_filters'] = {catalog.band[band]: f"<{value}" for band, value in mag_lim.items()
-                                      if band in catalog.band}
+
+    def build_query_kwargs(active_catalog):
+        kwds = {'columns': 'simple', 'row_limit': 10000000, 'timeout': 600}
+        active_mag_lim = mag_lim
+        if active_mag_lim is not None:
+            if isinstance(active_mag_lim, (int, float)):
+                if len(active_catalog.band) == 0:
+                    warnings.warn(f"Catalogue '{active_catalog.name}' does not have any band defined.")
+                else:
+                    active_mag_lim = {next(iter(active_catalog.band)): active_mag_lim}
+            if isinstance(active_mag_lim, dict):
+                kwds['column_filters'] = {
+                    active_catalog.band[band]: f"<{value}"
+                    for band, value in active_mag_lim.items() if band in active_catalog.band
+                }
+        return kwds
 
     # determine suitable divisions for star search
     if radius is None:
@@ -265,7 +271,17 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
 
         if verbose:
             print('Downloading stars ...')
-        catalogue = catalog.search_region(pos_search, width=width, height=height, **kwds)
+        kwds = build_query_kwargs(catalog)
+        try:
+            catalogue = catalog.search_region(pos_search, width=width, height=height, **kwds)
+        except Exception as e:
+            if should_fallback_to_gaiadr3(catalog, e):
+                warnings.warn('TapLinea timed out. Retrying Gaia DR3 search on VizieR.')
+                catalog = gaiadr3
+                kwds = build_query_kwargs(catalog)
+                catalogue = catalog.search_region(pos_search, width=width, height=height, **kwds)
+            else:
+                raise
         if len(catalogue) == 0:
             print('    No star found. The region is too small or VizieR is out.')
             continue

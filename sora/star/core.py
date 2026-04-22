@@ -9,7 +9,7 @@ from sora.config import input_tests
 from sora.config.decorators import deprecated_alias, deprecated_function
 from .meta import MetaStar
 from .utils import search_star, van_belle, kervella, spatial_motion, choice_star
-from .catalog import allowed_catalogues
+from .catalog import allowed_catalogues, gaiadr3, should_fallback_to_gaiadr3
 
 warnings.simplefilter('always', UserWarning)
 
@@ -21,9 +21,9 @@ class Star(MetaStar):
 
     Parameters
     ----------
-    catalogue : `str`, `VizierCatalogue`
+    catalogue : `str`, `Catalogue`
         The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
-        ``'gaiadr3'``, or a VizierCatalogue object.. default='gaiadr3'
+        ``'gaiadr3'``, ``'TapLinea'``, or a Catalogue object.. default='TapLinea'
 
     code : `str`
         Gaia Source code for searching in VizieR.
@@ -81,14 +81,14 @@ class Star(MetaStar):
     """
 
     @deprecated_alias(log='verbose')  # remove this line in v1.0
-    def __init__(self, catalogue='gaiadr3', **kwargs):
+    def __init__(self, catalogue='TapLinea', **kwargs):
 
         self._attributes = {}
         self.mag = {}
         self.errors = {'ra': 0*u.mas, 'dec': 0*u.mas, 'parallax': 0*u.mas, 'pmra': 0*u.mas/u.year,
                        'pmdec': 0*u.mas/u.year, 'rad_vel': 0*u.km/u.year}
-        allowed_kwargs = ['bjones', 'cgaudin', 'code', 'coord', 'dec', 'epoch', 'local', 'verbose', 'nomad', 'parallax', 'pmdec', 'pmra',
-                          'ra', 'rad_vel']
+        allowed_kwargs = ['bjones', 'cgaudin', 'code', 'coord', 'dec', 'epoch', 'local', 'verbose', 'nomad', 'parallax',
+                          'pmdec', 'pmra', 'ra', 'rad_vel']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         catalogue = allowed_catalogues.get_default(catalogue)
         self._catalogue = catalogue.name
@@ -288,8 +288,9 @@ class Star(MetaStar):
 
         Parameters
         ----------
-        catalog : `VizierCatalogue`
-            The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'`` or ``'gaiadr3'``.
+        catalog : `Catalogue`
+            The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
+            ``'gaiadr3'`` or ``'TapLinea'``.
         """
         catalogue = None
 
@@ -297,6 +298,9 @@ class Star(MetaStar):
             try:
                 catalogue = catalog.search_star(code=self.code)
             except Exception as e:
+                if should_fallback_to_gaiadr3(catalog, e):
+                    warnings.warn('TapLinea timed out. Retrying Gaia DR3 search on VizieR.')
+                    return self.__searchgaia(catalog=gaiadr3)
                 raise ValueError(f"Search by code failed: {e}")
         elif hasattr(self, 'coord') and self.coord:
             search_radii = [1, 2, 4, 8, 16, 32] * u.arcsec
@@ -309,10 +313,13 @@ class Star(MetaStar):
                     if radius < max(search_radii):
                         print(f"Retrying search with a larger radius: {radius * 2}", end="\r")
                 except Exception as e:
+                    if should_fallback_to_gaiadr3(catalog, e):
+                        warnings.warn('TapLinea timed out. Retrying Gaia DR3 search on VizieR.')
+                        return self.__searchgaia(catalog=gaiadr3)
                     warnings.warn(f"Search failed at radius {radius}: {e}")
                 
             if not catalogue or len(catalogue) == 0:
-                raise ValueError('No star was found. It does not exist or VizieR is out.')
+                raise ValueError('No star was found. It does not exist or the catalogue service is unavailable.')
         else:
             raise ValueError('No `code` or `coord` attribute provided on the object.')
 
@@ -321,7 +328,7 @@ class Star(MetaStar):
             if self._verbose:
                 print('{} stars were found within {} arcsec from given coordinate.'.format(len(catalogue), int(radius.value)))
                 print('The list below is sorted by distance. Please select the correct star')
-            catalogue = choice_star(catalogue, self.coord, ['RA_ICRS', 'DE_ICRS', 'Gmag'], source='gaia')
+            catalogue = choice_star(catalogue, self.coord, catalog.get_choice_columns(), source='gaia')
         cat_data = catalog.parse_catalogue(catalogue)
         keys = ['ra', 'dec', 'pmra', 'pmdec', 'parallax', 'rad_vel']
         for key in keys:
@@ -345,10 +352,12 @@ class Star(MetaStar):
             else:
                 self.errors[key] = 0 * unit
 
-        if getattr(self.meta_catalogue, 'RUWE', 0) > 1.4:
-            warnings.warn('This star has a RUWE of {:.2f}. '.format(self.meta_catalogue['RUWE']) +
+        ruwe_col = getattr(catalog, 'ruwe', None)
+        if ruwe_col is not None and ruwe_col in self.meta_catalogue and self.meta_catalogue[ruwe_col] > 1.4:
+            warnings.warn('This star has a RUWE of {:.2f}. '.format(self.meta_catalogue[ruwe_col]) +
                           'Please be aware that its positions must be handled with care.')
-        if getattr(self.meta_catalogue, 'Dup', 0) == 1:
+        duplicated_col = getattr(catalog, 'duplicated_source', None)
+        if duplicated_col is not None and duplicated_col in self.meta_catalogue and self.meta_catalogue[duplicated_col] == 1:
             warnings.warn('This star was indicated as an source with duplicate sources ' +
                           'Please be aware that its positions must be handled with care.')
         A = (1*u.AU).to(u.km).value
@@ -358,26 +367,27 @@ class Star(MetaStar):
         x = cov[2, 2] * (self.rad_vel.value ** 2 + self.errors['rad_vel'].value ** 2) / (
             A ** 2) + (self.parallax.to(u.rad).value * self.errors['rad_vel'].value / A) ** 2
         cov[5, 5] = x
-        if catalog.name in ['GaiaDR2', 'GaiaEDR3', 'GaiaDR3']:
-            a = ['RA', 'DE', 'Plx', 'pmRA', 'pmDE']
-            for i in np.arange(5):
-                v1 = 'e_' + a[i]
-                if i in [0, 1]:
-                    v1 += '_ICRS'
-                for j in np.arange(i, 5):
-                    v2 = 'e_' + a[j]
-                    if j in [0, 1]:
-                        v2 += '_ICRS'
-                    if i != j:
-                        x = self.meta_catalogue[a[i]+a[j]+'cor']*self.meta_catalogue[v1]*self.meta_catalogue[v2]
-                        if not np.ma.core.is_masked(x):
-                            cov[i, j] = x
-                            cov[j, i] = cov[i, j]
-                x = cov[i, 2]*(self.rad_vel.value/A)
-                if not np.ma.core.is_masked(x):
-                    cov[i, 5] = x
-                    cov[5, i] = cov[i, 5]
-            cov[np.where(np.isnan(cov))] = 0.0
+        correlations = getattr(catalog, 'correlations', {}) or {}
+        error_columns = dict(zip(keys, catalog.errors or [None]*len(keys)))
+        index_map = {'ra': 0, 'dec': 1, 'parallax': 2, 'pmra': 3, 'pmdec': 4}
+
+        for (key1, key2), corr_column in correlations.items():
+            err1_column = error_columns.get(key1)
+            err2_column = error_columns.get(key2)
+            if corr_column not in self.meta_catalogue or err1_column not in self.meta_catalogue or err2_column not in self.meta_catalogue:
+                continue
+            x = self.meta_catalogue[corr_column] * self.meta_catalogue[err1_column] * self.meta_catalogue[err2_column]
+            if np.ma.core.is_masked(x):
+                continue
+            cov[index_map[key1], index_map[key2]] = x
+            cov[index_map[key2], index_map[key1]] = x
+
+        for i in np.arange(5):
+            x = cov[i, 2]*(self.rad_vel.value/A)
+            if not np.ma.core.is_masked(x):
+                cov[i, 5] = x
+                cov[5, i] = cov[i, 5]
+        cov[np.where(np.isnan(cov))] = 0.0
         self.cov = cov
 
         if self._verbose:
@@ -389,32 +399,54 @@ class Star(MetaStar):
     def __getcolors(self):
         """ Searches for the B,V,K magnitudes of the star in the NOMAD catalogue on VizieR.
         """
+        nomad_coord = SkyCoord(self.ra, self.dec, frame='icrs')
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
-        catalogue = search_star(coord=self.coord, columns=columns, radius=2*u.arcsec,
+        catalogue = search_star(coord=nomad_coord, columns=columns, radius=3*u.arcsec,
                                 catalog='I/297/out', verbose=self._verbose)
         if len(catalogue) == 0:
             if self._verbose:
                 warnings.warn('No star was found on NOMAD that matches the star')
             return
         catalogue = catalogue[0]
+        tstars = SkyCoord(catalogue['RAJ2000'], catalogue['DEJ2000'])
+        sep = tstars.separation(nomad_coord).arcsec
+
+        # NOMAD occasionally has multiple nearly coincident matches or a nearest
+        # match with fewer valid magnitudes. Prefer the closest source, but give
+        # a slight advantage to entries with more usable photometry.
+        best = 0
         if len(catalogue) > 1:
-            print('{} stars were found within 2 arcsec from given coordinate.'.format(len(catalogue)))
-            print('The list below is sorted by distance. Please select the correct star')
-            if hasattr(self.mag, 'G'):
-                print('Star G mag: {}'.format(self.mag['G']))
-            catalogue = choice_star(catalogue, self.coord, ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag',
-                                                            'Rmag', 'Jmag', 'Hmag', 'Kmag'], source='nomad')
-            if catalogue is None:
-                return
+            def score_row(i):
+                valid_count = 0
+                v_valid = 0
+                for mag in ['B', 'V', 'R', 'J', 'H', 'K']:
+                    value = catalogue[mag + 'mag'][i]
+                    if not np.ma.core.is_masked(value):
+                        valid_count += 1
+                        if mag == 'V':
+                            v_valid = 1
+                return (-v_valid, -valid_count, sep[i])
+
+            best = min(range(len(catalogue)), key=score_row)
+
+        if len(catalogue) > 1:
+            catalogue = catalogue[[best]]
         errors = []
         for mag in ['B', 'V', 'R', 'J', 'H', 'K']:
             name = mag + 'mag'
             if np.ma.core.is_masked(catalogue[name][0]):
+                # TODO: If decides to support photometric fallbacks,
+                # this is the place to estimate missing NOMAD/2MASS-like
+                # magnitudes from Gaia photometry (for example using G, BP, RP
+                # empirical relations) and mark them as estimated values.
                 errors.append(mag)
                 continue
             self.set_magnitude(**{mag: catalogue[name][0]})
         if len(errors) > 0 and self._verbose:
             print('Magnitudes in {} were not located in NOMAD'.format(errors))
+            if 'V' in errors and {'G', 'BP', 'RP'}.issubset(self.mag):
+                print('Gaia DR3 provides G, BP and RP magnitudes, but not Johnson V; '
+                      'V remains undefined when NOMAD does not return it.')
 
     # remove this block for v1.0
     @deprecated_function(message="Please use get_position(time=time, observer='geocenter')")
