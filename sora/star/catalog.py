@@ -272,7 +272,7 @@ class VizierCatalogue(Catalogue):
 class LineaGaiaCatalogue(Catalogue):
     """Gaia catalogue served by LIneA TAP."""
 
-    def __init__(self, tap_url='https://userquery.linea.org.br/tap', language='PostgreSQL', **kwargs):
+    def __init__(self, tap_url='https://userquery.linea.org.br/tap', language=None, **kwargs):
         self.tap_url = tap_url
         self.language = language
         super(LineaGaiaCatalogue, self).__init__(**kwargs)
@@ -287,7 +287,13 @@ class LineaGaiaCatalogue(Catalogue):
     def _run_query(self, query):
         session = requests.Session()
         tap = pyvo.dal.TAPService(self.tap_url, session=session)
+        if self.language is None:
+            return tap.run_sync(query).to_table()
         return tap.run_sync(query, language=self.language).to_table()
+
+    @staticmethod
+    def _format_float(value):
+        return f'{float(value):.16f}'
 
     def _format_columns(self, columns):
         if columns == 'simple':
@@ -323,36 +329,29 @@ class LineaGaiaCatalogue(Catalogue):
         if not isinstance(coord, SkyCoord):
             coord = SkyCoord(coord, unit=('hourangle', 'deg'))
         coord = coord.icrs
+        ra_deg = self._format_float(coord.ra.deg)
+        dec_deg = self._format_float(coord.dec.deg)
 
         if radius is not None:
-            radius = u.Quantity(radius).to(u.deg)
-            region_filter = f'q3c_radial_query({self.ra}, {self.dec}, {coord.ra.deg}, {coord.dec.deg}, {radius.value})'
-        elif width is not None:
-            width = u.Quantity(width).to(u.deg)
-            height = u.Quantity(height if height is not None else width).to(u.deg)
-            half_width = width.value / 2.0
-            half_height = height.value / 2.0
-            ra0 = coord.ra.wrap_at(360 * u.deg).deg
-            dec0 = coord.dec.deg
-            ra_min = (ra0 - half_width) % 360.0
-            ra_max = (ra0 + half_width) % 360.0
-            vertices = [
-                ra_min, dec0 - half_height,
-                ra_max, dec0 - half_height,
-                ra_max, dec0 + half_height,
-                ra_min, dec0 + half_height,
-            ]
-            vertex_string = ', '.join(f'{value:.16f}' for value in vertices)
+            radius_deg = self._format_float(u.Quantity(radius).to_value(u.deg))
             region_filter = (
-                f'q3c_poly_query({self.ra}, {self.dec}, ARRAY[{vertex_string}]::double precision[])'
+                f"1=CONTAINS(POINT('ICRS', {self.ra}, {self.dec}), "
+                f"CIRCLE('ICRS', {ra_deg}, {dec_deg}, {radius_deg}))"
+            )
+        elif width is not None:
+            width_deg = self._format_float(u.Quantity(width).to_value(u.deg))
+            height_deg = self._format_float(u.Quantity(height if height is not None else width).to_value(u.deg))
+            region_filter = (
+                f"1=CONTAINS(POINT('ICRS', {self.ra}, {self.dec}), "
+                f"BOX('ICRS', {ra_deg}, {dec_deg}, {width_deg}, {height_deg}))"
             )
         else:
             raise ValueError('At least a radius or width should be given as input')
 
         query_filters = [region_filter]
         query_filters.extend(self._format_column_filters(column_filters))
-        limit = f' LIMIT {int(row_limit)}' if row_limit and row_limit > 0 else ''
-        query = f"SELECT {self._format_columns(columns)} FROM {self.cat_path} WHERE {' AND '.join(query_filters)}{limit}"
+        top = f'TOP {int(row_limit)} ' if row_limit and row_limit > 0 else ''
+        query = f"SELECT {top}{self._format_columns(columns)} FROM {self.cat_path} WHERE {' AND '.join(query_filters)}"
         catalogue = self._run_query(query)
         return [] if len(catalogue) == 0 else [catalogue]
 
@@ -407,10 +406,10 @@ gaiadr3 = VizierCatalogue(name='GaiaDR3', cat_path='I/355/gaiadr3', code='Source
                                         ('parallax', 'pmdec'): 'PlxpmDEcor', ('pmra', 'pmdec'): 'pmRApmDEcor'},
                           ruwe='RUWE', duplicated_source='Dup')
 
-taplinea = LineaGaiaCatalogue(name='GaiaDR3', cat_path='gaia_dr3.source', code='source_id', ra='ra', dec='dec',
+gaiadr3_linea = LineaGaiaCatalogue(name='GaiaDR3', cat_path='gaia_dr3.source', code='source_id', ra='ra', dec='dec',
                               pmra='pmra', pmdec='pmdec', epoch='ref_epoch', parallax='parallax',
                               rad_vel='radial_velocity',
-                              band={'G': 'phot_g_mean_mag', 'BP': 'phot_bp_mean_mag', 'RP': 'phot_rp_mean_mag'},
+                              band={'G': 'phot_g_mean_mag'},
                               errors=['ra_error', 'dec_error', 'pmra_error', 'pmdec_error',
                                       'parallax_error', 'radial_velocity_error'],
                               correlations={('ra', 'dec'): 'ra_dec_corr', ('ra', 'parallax'): 'ra_parallax_corr',
@@ -421,7 +420,6 @@ taplinea = LineaGaiaCatalogue(name='GaiaDR3', cat_path='gaia_dr3.source', code='
                                             ('parallax', 'pmdec'): 'parallax_pmdec_corr',
                                             ('pmra', 'pmdec'): 'pmra_pmdec_corr'},
                               ruwe='ruwe', duplicated_source='duplicated_source')
-lineagaia = taplinea
 
 epoch_ubsc = Time('J1991.25', scale='tdb')
 ubsc = VizierCatalogue(name='UBSC', cat_path='J/AJ/164/36/table2', code='HIP', ra='RA_ICRS', dec='DE_ICRS',
@@ -429,6 +427,8 @@ ubsc = VizierCatalogue(name='UBSC', cat_path='J/AJ/164/36/table2', code='HIP', r
                        errors=['e_RA_ICRS', 'e_DE_ICRS', 'e_pmRA', 'e_pmDE', 'e_plx', None])
 
 allowed_catalogues = SelectDefault(instance=Catalogue,
-                                   defaults={'TapLinea': taplinea, 'taplinea': taplinea, 'lineagaia': taplinea,
-                                             'lineagaiadr3': taplinea, 'gaiadr2': gaiadr2, 'gaiaedr3': gaiaedr3,
-                                             'gaiadr3': gaiadr3, 'ubsc': ubsc})
+                                   defaults={'gaiadr3_linea': gaiadr3_linea, 
+                                             'gaiadr2': gaiadr2, 
+                                             'gaiaedr3': gaiaedr3,
+                                             'gaiadr3': gaiadr3, 
+                                             'ubsc': ubsc})

@@ -23,13 +23,13 @@ class Star(MetaStar):
     ----------
     catalogue : `str`, `Catalogue`
         The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
-        ``'gaiadr3'``, ``'TapLinea'``, or a Catalogue object.. default='TapLinea'
+        ``'gaiadr3'``, ``'gaiadr3_linea'``, or a Catalogue object.. default='gaiadr3_linea'
 
     code : `str`
         Gaia Source code for searching in VizieR.
 
     coord : `str`, `astropy.coordinates.SkyCoord`
-        If code is not given, coord nust have the coordinates RA and DEC of the
+        If code is not given, coord must have the coordinates RA and DEC of the
         star to search in VizieR: ``'hh mm ss.ss +dd mm ss.ss'``.
 
     ra : `int`, `float`
@@ -81,7 +81,7 @@ class Star(MetaStar):
     """
 
     @deprecated_alias(log='verbose')  # remove this line in v1.0
-    def __init__(self, catalogue='TapLinea', **kwargs):
+    def __init__(self, catalogue='gaiadr3_linea', **kwargs):
 
         self._attributes = {}
         self.mag = {}
@@ -91,7 +91,12 @@ class Star(MetaStar):
                           'pmdec', 'pmra', 'ra', 'rad_vel']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
         catalogue = allowed_catalogues.get_default(catalogue)
+        self.catalogue = catalogue
         self._catalogue = catalogue.name
+        self.catalogue_name = catalogue.name
+        self.catalogue_service = self._get_catalogue_service(catalogue)
+        self.catalogue_ref = self._get_catalogue_reference(catalogue)
+        self.catalogue_description = self._format_catalogue_description(catalogue)
         self._verbose = kwargs.get('verbose', True)
         local = kwargs.get('local', False)
         self.bjones = False
@@ -128,6 +133,22 @@ class Star(MetaStar):
             self.bjones = kwargs.get('bjones', False)
         except ValueError:
             pass
+
+    @staticmethod
+    def _get_catalogue_service(catalogue):
+        if hasattr(catalogue, 'tap_url'):
+            return 'LIneA TAP'
+        return 'VizieR'
+
+    @staticmethod
+    def _get_catalogue_reference(catalogue):
+        if hasattr(catalogue, 'tap_url'):
+            return catalogue.cat_path
+        return catalogue.cat_path
+
+    @classmethod
+    def _format_catalogue_description(cls, catalogue):
+        return f'{catalogue.name} ({cls._get_catalogue_service(catalogue)}: {cls._get_catalogue_reference(catalogue)})'
 
     def set_magnitude(self, **kwargs):
         """Sets the magnitudes of a star.
@@ -290,7 +311,7 @@ class Star(MetaStar):
         ----------
         catalog : `Catalogue`
             The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
-            ``'gaiadr3'`` or ``'TapLinea'``.
+            ``'gaiadr3'`` or ``'gaiadr3_linea'``.
         """
         catalogue = None
 
@@ -391,7 +412,7 @@ class Star(MetaStar):
         self.cov = cov
 
         if self._verbose:
-            print('1 {} star found band={}'.format(catalog.name, self.mag))
+            print('1 {} star found band={}'.format(self.catalogue_description, self.mag))
             print('star coordinate at J{}: RA={} +/- {}, DEC={} +/- {}'.format(self.epoch.jyear,
                   self.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['ra'],
                   self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['dec']))
@@ -444,9 +465,6 @@ class Star(MetaStar):
             self.set_magnitude(**{mag: catalogue[name][0]})
         if len(errors) > 0 and self._verbose:
             print('Magnitudes in {} were not located in NOMAD'.format(errors))
-            if 'V' in errors and {'G', 'BP', 'RP'}.issubset(self.mag):
-                print('Gaia DR3 provides G, BP and RP magnitudes, but not Johnson V; '
-                      'V remains undefined when NOMAD does not return it.')
 
     # remove this block for v1.0
     @deprecated_function(message="Please use get_position(time=time, observer='geocenter')")
@@ -590,12 +608,12 @@ class Star(MetaStar):
         """
         out = ''
         if hasattr(self, 'code'):
-            out += '{} star Source ID: {}\n'.format(self._catalogue, self.code)
+            out += '{} star Source ID: {}\n'.format(self.catalogue_description, self.code)
         else:
             out += 'User coordinates\n'
         text_cgaudin = ''
         if self.__cgaudin:
-            text_cgaudin = f'{self._catalogue} Proper motion corrected as suggested by Cantat-Gaudin & Brandt (2021) \n'
+            text_cgaudin = f'{self.catalogue_description} Proper motion corrected as suggested by Cantat-Gaudin & Brandt (2021) \n'
         out += ('ICRS star coordinate at J{}:\n'
                 'RA={} +/- {:.4f}, DEC={} +/- {:.4f}\n'
                 'pmRA={:.3f} +/- {:.3f} mas/yr, pmDEC={:.3f} +/- {:.3f} mas/yr\n{}'
