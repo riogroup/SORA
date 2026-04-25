@@ -153,7 +153,7 @@ class PredictRow(Row):
             Changes the color of the lines that represents the limits of the shadow
             outside Earth.
 
-        scale : `int`, `float`
+        nscale : `int`, `float`
             Arbitrary scale for the size of the name of the site.
 
         cscale : `int`, `float`

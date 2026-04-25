@@ -290,7 +290,7 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         Changes the color of the lines that represents the limits of the shadow
         outside Earth.
 
-    scale : `int`, `float`
+    nscale : `int`, `float`
         Arbitrary scale for the size of the name of the site.
 
     cscale : `int`, `float`

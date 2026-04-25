@@ -115,7 +115,7 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None, reference_cent
 
 
 @deprecated_alias(log='verbose')  # remove this line in v1.0
-def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='TapLinea', step=60, divs=1, sigma=1,
+def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='gaiadr3_linea', step=60, divs=1, sigma=1,
                radius=None, verbose=True, reference_center='geocenter'):
     """Predicts stellar occultations.
 
@@ -145,7 +145,7 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
 
     catalogue : `str`, `Catalogue`
         The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
-        ``'gaiadr3'``, ``'TapLinea'``, or a Catalogue object. default='TapLinea'
+        ``'gaiadr3'``, ``'gaiadr3_linea'``, or a Catalogue object. default='gaiadr3_linea'
 
     step : `int`, `float`, default=60
         Step, in seconds, of ephem times for search
