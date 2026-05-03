@@ -77,13 +77,13 @@ SORA Team
    |        |                                                                       |
    |        | LIneA and INCT do e-Universo/Brazil                                   |
    +--------+-----------------------------------------------------------------------+
-   | |pic7| | **MSc. Chrystian Luciano Pereira**                                    |
+   | |pic7| | **Dr. Chrystian Luciano Pereira**                                     |
    |        |                                                                       |
-   |        | Ph.D. Student                                                         |
+   |        | Postdoctoral Researcher                                               |
    |        |                                                                       |
    |        | Observatório Nacional/Brazil                                          |
    +--------+-----------------------------------------------------------------------+
-   | |pic8| | **Giuliano Margoti**                                                  |
+   | |pic8| | **MSc. Giuliano Margoti**                                             |
    |        |                                                                       |
    |        | Ph.D. Student                                                         |
    |        |                                                                       |
