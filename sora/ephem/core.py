@@ -1,3 +1,5 @@
+"""Ephemeris classes backed by files, Horizons, and SPICE kernels."""
+
 import warnings
 
 import astropy.units as u
@@ -15,36 +17,56 @@ class EphemPlanete(BaseEphem):
     """Class used to simulate former Fortran programs `ephem_planete` and
     `fit_d2_ksi_eta`.
 
-    Attributes
+    Parameters
     ----------
     ephem : `file`, required
         Input file with JD (UTC), geocentric RA (deg), DEC (deg), and
         distance (AU).
 
     name : `str`, optional, default=None
-        Name of the object to search in the JPL database.
+        Name of the object.
 
-    radius : `int`, `float`, optional, default: online database
+    spkid : `str`, `int`, optional
+        SPK identifier of the object.
+
+    radius : `int`, `float`, optional
         Object radius, in km.
 
-    error_ra : `int`, `float`, optional, default: online database
+    error_ra : `int`, `float`, optional, default=0
         Ephemeris RA*cosDEC error, in arcsec.
 
-    error_dec : `int`, `float`, optional, default: online database
+    error_dec : `int`, `float`, optional, default=0
         Ephemeris DEC error, in arcsec.
 
-    mass : `int`, `float`, optional. default=0
+    mass : `int`, `float`, optional, default=0
         Object mass, in kg.
 
-    H : `int`, `float`, optional, default=NaN
+    H : `int`, `float`, optional
         Object absolute magnitude.
 
-    G : `int`, `float`, optional, default=NaN
+    G : `int`, `float`, optional
         Object phase slope.
 
     """
 
     def __init__(self, ephem, name=None, spkid=None, **kwargs):
+        """Initialize an ephemeris from a local ephemeris table.
+
+        Parameters
+        ----------
+        ephem : `str`, `file`
+            Path or readable object with JD (UTC), geocentric RA (deg),
+            DEC (deg), and distance (AU).
+
+        name : `str`, optional
+            Name of the object.
+
+        spkid : `str`, `int`, optional
+            SPK identifier of the object.
+
+        **kwargs
+            Optional parameters accepted by `sora.ephem.meta.BaseEphem`.
+        """
 
         super().__init__(name=name, spkid=spkid, **kwargs)
         data = np.loadtxt(ephem, unpack=True)
@@ -56,7 +78,10 @@ class EphemPlanete(BaseEphem):
         self.meta = {'kernels': str(ephem)}
 
     def get_position(self, time, observer='geocenter'):
-        """Returns the object's geocentric position.
+        """Returns the object's ICRS position from the fitted ephemeris.
+
+        The fit must be initialized with `fit_d2_ksi_eta` before this method is
+        called.
 
         Parameters
         ----------
@@ -66,8 +91,8 @@ class EphemPlanete(BaseEphem):
 
         observer : `any`
             This parameter is present in EphemPlanete for compatibility with the
-            remaining ephem classes. The returned positions are based on the given
-            ephemeris despite the observer.
+            remaining ephem classes. The returned positions are based on the
+            local ephemeris regardless of the observer.
 
         Returns
         -------
@@ -149,8 +174,8 @@ class EphemPlanete(BaseEphem):
         ksi, eta : `float` array
             Projected position (orthographic projection) of the object in the
             tangent sky plane relative to a star.
-            ``ksi`` is in the North-South direction (North positive).
-            ``eta`` is in the East-West direction (East positive).
+            ``ksi`` is in the East-West direction (East positive).
+            ``eta`` is in the North-South direction (North positive).
         """
         if star:
             self.fit_d2_ksi_eta(star)
@@ -218,38 +243,56 @@ class EphemHorizons(BaseEphem):
     Web tool URL: https://ssd.jpl.nasa.gov/horizons.cgi
 
 
-    Attributes
+    Parameters
     ----------
     name : `str`, required
         Name of the object to search in the JPL database.
 
-    id_type: `str`, default='smallbody'
+    id_type : `str`, optional, default='smallbody'
         Type of object options: ``smallbody``, ``majorbody`` (planets but
         also anything that is not a small body), ``designation``, ``name``,
-        ``asteroid_name``, ``comet_name``, ``id`` (Horizons id number), or
-        ``smallbody`` (find the closest match under any id_type).
+        ``asteroid_name``, ``comet_name``, or ``id`` (Horizons id number).
 
-    radius : `int`, `float`, default: online database
+    spkid : `str`, `int`, optional
+        SPK identifier of the object.
+
+    radius : `int`, `float`, optional
         Object radius, in km.
 
-    error_ra : `int`, `float`, default: online database
+    error_ra : `int`, `float`, optional, default=0
         Ephemeris RA*cosDEC error, in arcsec.
 
-    error_dec : `int`, `float`, default: online database
+    error_dec : `int`, `float`, optional, default=0
         Ephemeris DEC error, in arcsec.
 
-    mass : `int`, `float`, default=0
+    mass : `int`, `float`, optional, default=0
         Object mass, in kg.
 
-    H : `int`, `float`, default=NaN
+    H : `int`, `float`, optional
         Object absolute magnitude.
 
-    G : `int`, `float`, default=NaN
+    G : `int`, `float`, optional
         Object phase slope.
 
     """
 
     def __init__(self, name, id_type='smallbody', spkid=None, **kwargs):
+        """Initialize an ephemeris queried from Horizons.
+
+        Parameters
+        ----------
+        name : `str`
+            Name or identifier of the target in Horizons.
+
+        id_type : `str`, optional, default='smallbody'
+            Horizons identifier type.
+
+        spkid : `str`, `int`, optional
+            SPK identifier of the object.
+
+        **kwargs
+            Optional parameters accepted by `sora.ephem.meta.BaseEphem`.
+        """
 
         super().__init__(name=name, spkid=spkid, **kwargs)
         self.id_type = id_type
@@ -266,8 +309,8 @@ class EphemHorizons(BaseEphem):
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
         observer : `str`, `sora.Observer`, `sora.Spacecraft`
-            IAU code of the observer (must be present in given list of kernels),
-            a SORA observer object or a string: ['geocenter', 'barycenter']
+            Horizons observer code, a SORA observer object, a SORA spacecraft
+            object, or one of ``'geocenter'`` and ``'barycenter'``.
 
         Returns
         -------
@@ -295,7 +338,25 @@ class EphemHorizons(BaseEphem):
 
 # remove this block for v1.0
 class EphemJPL(EphemHorizons):
+    """Deprecated alias for `EphemHorizons`."""
+
     def __init__(self, name, id_type='smallbody', spkid=None, **kwargs):
+        """Initialize the deprecated `EphemJPL` alias.
+
+        Parameters
+        ----------
+        name : `str`
+            Name or identifier of the target in Horizons.
+
+        id_type : `str`, optional, default='smallbody'
+            Horizons identifier type.
+
+        spkid : `str`, `int`, optional
+            SPK identifier of the object.
+
+        **kwargs
+            Optional parameters accepted by `sora.ephem.meta.BaseEphem`.
+        """
         warnings.warn('EphemJPL is deprecated and will be removed in v1.0. Please use EphemHorizons.')
         super().__init__(name=name, id_type=id_type, spkid=spkid, **kwargs)
 
@@ -308,37 +369,53 @@ class EphemKernel(BaseEphem):
 
     Parameters
     ----------
-    name : `str`,  optional, default=None
-        Name of the object to search in the JPL database.
+    kernels : `list`, required
+        List of paths for kernel files.
 
     spkid : `str`, required
-        `spkid` of the targeting object. Former 'code' (v0.1).
+        `spkid` of the target object. Former 'code' (v0.1).
 
-    kernels : `list`, required
-        List of paths for kernels files.
+    name : `str`, optional, default=None
+        Name of the object.
 
-    radius : `int`, `float`, optional, default: online database
+    radius : `int`, `float`, optional
         Object radius, in km.
 
-    error_ra : `int`, `float`, optional, default: online database
-        Ephemeris RA*cosDEC error, in arcsec .
+    error_ra : `int`, `float`, optional, default=0
+        Ephemeris RA*cosDEC error, in arcsec.
 
-    error_dec : `int`, `float`, optional, default: online database
+    error_dec : `int`, `float`, optional, default=0
         Ephemeris DEC error, in arcsec.
 
     mass : `int`, `float`, optional, default=0
-        Object Mass, in kg.
+        Object mass, in kg.
 
-    H : `int`, `float`, optional, default=NaN
-        Object Absolute Magnitude.
+    H : `int`, `float`, optional
+        Object absolute magnitude.
 
-    G : `int`, `float`, optional, default=NaN
-        Object Phase slope.
+    G : `int`, `float`, optional
+        Object phase slope.
 
     """
 
     @deprecated_alias(code='spkid')  # remove this line for v1.0
     def __init__(self, kernels, spkid, name=None, **kwargs):
+        """Initialize an ephemeris from SPICE kernel files.
+
+        Parameters
+        ----------
+        kernels : `list`
+            List of paths for kernel files.
+
+        spkid : `str`, `int`
+            SPK identifier of the target object.
+
+        name : `str`, optional
+            Name of the object.
+
+        **kwargs
+            Optional parameters accepted by `sora.ephem.meta.BaseEphem`.
+        """
         import spiceypy as spice
 
         super().__init__(name=name, spkid=spkid, **kwargs)
@@ -352,7 +429,7 @@ class EphemKernel(BaseEphem):
         self.__kernels = kernels
 
     def get_position(self, time, observer='geocenter'):
-        """Returns the object geocentric position.
+        """Returns the object ICRS position for an observer.
 
         Parameters
         ----------
@@ -361,8 +438,9 @@ class EphemKernel(BaseEphem):
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
         observer : `str`, `sora.Observer`, `sora.Spacecraft`
-            IAU code of the observer (must be present in given list of kernels),
-            a SORA observer object or a string: ['geocenter', 'barycenter']
+            IAU code of the observer, a SORA observer object, a SORA spacecraft
+            object, or one of ``'geocenter'`` and ``'barycenter'``. String IAU
+            codes must be present in the loaded kernels.
 
         Returns
         -------

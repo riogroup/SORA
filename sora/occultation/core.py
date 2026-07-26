@@ -16,35 +16,35 @@ class Occultation:
     """Instantiates the Occultation object and performs the reduction of the
     occultation.
 
-    Attributes
+    Parameters
     ----------
-    star : `sora.Star`, `str`, required
-        the coordinate of the star in the same reference frame as the ephemeris.
+    star : `sora.Star`, `str`
+        The coordinate of the star in the same reference frame as the ephemeris.
         It must be a Star object or a string with the coordinates of the object
         to search on Vizier.
 
-    body : `sora.Body`, `str`
+    body : `sora.Body`, `str`, optional
         Object that will occult the star. It must be a Body object or its name
         to search in the Small Body Database.
 
-    ephem : `sora.Ephem`, `list`
+    ephem : `sora.Ephem`, `list`, optional
         Object ephemeris. It must be an Ephemeris object or a list.
 
-    time : `str`, `astropy.time.Time`, required
+    time : `str`, `astropy.time.Time`
         Reference time of the occultation. Time does not need to be exact, but
         needs to be within approximately 50 minutes of the occultation closest
         approach to calculate occultation parameters.
 
-    reference_center : `str`, `sora.Observer`, `sora.Spacecraft`
-        A SORA observer object or a string 'geocenter'.
-        The occultation parameters will be calculated in respect
-        to this reference as center of projection.
+    reference_center : `str`, `sora.Observer`, `sora.Spacecraft`, optional, default='geocenter'
+        A SORA observer object, spacecraft object, or a string such as
+        ``'geocenter'``. The occultation parameters are calculated with respect
+        to this reference as the center of projection.
 
 
-    Important
-    ---------
+    Notes
+    -----
     When instantiating with "body" and "ephem", the user may define the
-    Occultation in 3 ways:
+    Occultation in three ways:
 
     1. With `body` and `ephem`.
 
@@ -175,9 +175,7 @@ class Occultation:
 
     @deprecated_function(message="Please use chords.")
     def observations(self):
-        """ Print all the observations added to the Occultation object
-        Pair (`Observer`, `LightCurve`)
-        """
+        """Prints all observations added to the Occultation object."""
         print(self.chords.__repr__())
 
     # end of block removal
@@ -198,8 +196,13 @@ class Occultation:
     @property
     @deprecated_function(message="Please use chords.summary()")
     def positions(self):
-        """ Calculates the position and velocity for all chords.
-        Saves it into an `_PositionDict` object.
+        """Calculates position and velocity for all chords.
+
+        Returns
+        -------
+        position : `_PositionDict`
+            Dictionary with projected positions, velocities, and timing errors
+            for all chords.
         """
         from functools import partial
         from .meta import _PositionDict
@@ -328,10 +331,11 @@ class Occultation:
 
     @positions.setter
     def positions(self, value):
-        """
+        """Sets all chord contact points as enabled or disabled.
+
         Note
         ----
-        If the users tries to set a value to position, it must be `on` or
+        If the user tries to set a value to position, it must be `on` or
         `off`, and it will be assigned to all chords.
         """
         if value not in ['on', 'off']:
@@ -343,8 +347,7 @@ class Occultation:
     # end of block removal
 
     def check_velocities(self):
-        """Prints the current velocity used by the LightCurves and its radial velocity.
-        """
+        """Prints the velocity used by each LightCurve and its radial velocity."""
         if hasattr(self, 'fitted_params'):
             center = np.array([self.fitted_params['center_f'][0], self.fitted_params['center_g'][0]])
             major_axis = self.fitted_params["equatorial_radius"][0]
@@ -383,12 +386,13 @@ class Occultation:
 
         Parameters
         ----------
-        time : `str`, `astropy.time.Time`
+        time : `str`, `astropy.time.Time`, optional
             Reference time to calculate the position. If not given, it uses the
-            instant of the occultation Closest Approach. It can be a string
-            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+            instant of the occultation Closest Approach. It must be a scalar
+            instant and can be a string in the ISO format (yyyy-mm-dd hh:mm:ss.s)
+            or an astropy Time object.
 
-        offset : `list`
+        offset : `list`, optional
             Offset to apply to the position. If not given, uses the parameters
             from the fitted ellipse.
 
@@ -400,10 +404,10 @@ class Occultation:
             If Distance units for X and Y:
             Ex: [100, -200, 'km'], [0.001, 0.002, 'AU']
 
-            If Angular units fox X [d*a*cos(dec)] and Y [d*dec]:
+            If Angular units for X [d*a*cos(dec)] and Y [d*dec]:
             Ex: [30.6, 20, 'mas'], or [-15, 2, 'arcsec']
 
-        error : `list`
+        error : `list`, optional
             Error bar of the given offset. If not given, it uses the 1-sigma
             value of the fitted ellipse.
 
@@ -412,16 +416,22 @@ class Occultation:
             Error must be a list of 3 values being [dX, dY, 'unit'], similar to
             offset. It does not need to be in the same unit as offset.
 
-        verbose : `bool`
-            If true, it Prints text, else it Returns text.
+        verbose : `bool`, optional, default=True
+            If True, prints text. If False, returns text.
 
-        observer : `str`, `sora.Observer`, `sora.Spacecraft`
+        observer : `str`, `sora.Observer`, `sora.Spacecraft`, optional
             IAU code of the observer (must be present in given list of kernels),
             a SORA observer object or a string: ['geocenter', 'barycenter']
 
-        sun_ld : `bool`
-            If true, it computes the differential light deflection caused by the Sun
+        sun_ld : `bool`, optional, default=False
+            If True, computes the differential light deflection caused by the Sun
             in the starlight before being occulted.
+
+        Returns
+        -------
+        out : `str` or None
+            Text with the updated astrometric position when ``verbose=False``.
+            Otherwise, prints the text and returns None.
         """
         from astropy.coordinates import SkyCoord, SkyOffsetFrame
 
@@ -429,6 +439,8 @@ class Occultation:
             time = Time(time)
         else:
             time = self.tca
+        if not time.isscalar:
+            raise ValueError('time must be a scalar instant.')
 
         tca_diff = np.absolute(time-self.tca)
         if tca_diff > 1*u.day:
@@ -499,7 +511,7 @@ class Occultation:
         new_pos = SkyCoord(lon=off_ra, lat=off_dec, frame=coord_frame)
         new_pos = new_pos.icrs
 
-        error_star = self.star.error_at(self.tca)
+        error_star = self.star.error_at(time)
         error_ra = np.sqrt(error_star[0]**2 + e_off_ra**2)
         error_dec = np.sqrt(error_star[1]**2 + e_off_dec**2)
 
@@ -539,8 +551,8 @@ class Occultation:
         error_color : `str`, default='red'
             Color for the error bars of the chords.
 
-        ax : `maptlotlib.pyplot.Axes`, default=None
-            Axis where to plot chords (default: Uses matplotlib pool).
+        ax : `matplotlib.pyplot.Axes`, default=None
+            Axis where to plot chords. If None, uses the current matplotlib axes.
 
         lw : `int`, `float`, default=2
             Linewidth of the chords.
@@ -553,7 +565,7 @@ class Occultation:
     # end of block removal
 
     def get_map_sites(self):
-        """Returns Dictionary with sites in the format required by plot_occ_map function.
+        """Returns sites in the format required by the `plot_occ_map` function.
 
         Returns
         -------
@@ -596,8 +608,9 @@ class Occultation:
 
         Parameters
         ----------
-        namefile : `str`
-            Filename to save the log.
+        namefile : `str`, optional
+            Filename to save the log. If not given, a name is generated from the
+            body and closest-approach time.
         """
         if namefile is None:
             namefile = 'occ_{}_{}.log'.format(self.body.shortname.replace(' ', '_'), self.tca.isot[:16])
@@ -607,24 +620,24 @@ class Occultation:
 
     def check_time_shift(self, time_interval=30, time_resolution=0.001, verbose=False, plot=False, use_error=True, delta_plot=100,
                          ignore_chords=None):
-        """Check the needed time offset, so all chords have their center aligned.
+        """Checks the time offset needed to align chord centers.
 
         Parameters
         ----------
-        time_interval : `int`, `float`
-            Time interval to check, default is 30 seconds.
+        time_interval : `int`, `float`, optional, default=30
+            Time interval to check, in seconds.
 
-        time_resolution : `int`, `float`
-            Time resolution of the search, default is 0.001 seconds.
+        time_resolution : `int`, `float`, optional, default=0.001
+            Time resolution of the search, in seconds.
 
-        verbose : `bool`
-            If True, it prints text, default is False.
+        verbose : `bool`, optional, default=False
+            If True, prints fit information.
 
         plot : `bool`, default=False
             If True, it plots figures as a visual aid.
 
         use_error : `bool`, default=True
-            if True, the linear fit considers the time uncertainty.
+            If True, the linear fit considers the time uncertainty.
 
         delta_plot : `int`, `float`, default=100
             Value to be added to increase the plot limit, in km.
@@ -725,18 +738,19 @@ class Occultation:
         return out_dic
 
     def plot_radial_dispersion(self, ax=None, **kwargs):
-        """ Plots the radial dispersion
+        """Plots the radial dispersion.
 
-        A shape must have been fitted to the chords
+        A shape must have been fitted to the chords.
 
         Parameters
         ----------
         ax : `matplotlib.pyplot.Axes`
             The axes where to make the plot. If None, it will use the default axes.
+
         **kwargs
-            Any other kwarg will be parsed directly by `maplotlip.pyplot.plot`.
+            Any other kwarg will be parsed directly by `matplotlib.pyplot.plot`.
             The only difference is that the default linewidth `lw=1` and marker
-            is `marker=o`.
+            is ``marker='o'``.
 
         """
         import matplotlib.pyplot as plt
@@ -818,8 +832,7 @@ class Occultation:
             f.close()
 
     def __str__(self):
-        """ String representation of the Occultation class
-        """
+        """Returns the string representation of the Occultation object."""
         out = ('Stellar occultation of star {} {} by {}.\n\n'
                'Geocentric Closest Approach: {:.3f}\n'
                'Instant of CA: {}\n'
@@ -898,14 +911,12 @@ class Occultation:
         return out
 
     def __func_line_decalage(self, p, x):
-        """ Private function returns a linear function, intended for fitting inside the self.check_decalage().
-        """
+        """Returns a linear function for `check_time_shift`."""
         a, b = p
         return a*x + b
 
     def __linear_fit_error(self, x, y, sx, sy, verbose=False, use_error=True):
-        """ Private function returns a linear fit, intended for fitting inside the self.check_decalage().
-        """
+        """Returns a linear fit for `check_time_shift`."""
         import scipy.odr as odr
 
         model = odr.Model(self.__func_line_decalage)

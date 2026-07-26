@@ -5,42 +5,43 @@ __all__ = ['get_ellipse_points']
 
 def get_ellipse_points(theta, equatorial_radius, oblateness=0.0, center_f=0.0, center_g=0.0,
                        position_angle=0.0):
-    """Get points for the ellipse with the given input parameters.
+    """Calculate points on an ellipse for the given input parameters.
 
     Parameters
     ----------
-    theta : `float` array
-        Angular coordinate, in degrees, to return the ellipse points.
+    theta : `float`, array-like
+        Angular coordinate, in radians, where the ellipse points are
+        calculated.
 
     equatorial_radius : `float`, `int`
-        Semi-major axis of the ellipse.
+        Semi-major axis of the ellipse, in km.
 
-    oblateness : `float`, `int`, default=0
+    oblateness : `float`, `int`, optional
         Oblateness of the ellipse.
 
-    center_f : `float`, `int`, default=0
-        Coordinate of the ellipse (abscissa).
+    center_f : `float`, `int`, optional
+        Coordinate of the ellipse center in the f direction, in km.
 
-    center_g : `float`, `int`, default=0
-        Coordinate of the ellipse (ordinate).
+    center_g : `float`, `int`, optional
+        Coordinate of the ellipse center in the g direction, in km.
 
-    position_angle : `float`, `int`, default=0
+    position_angle : `float`, `int`, optional
         The pole position angle of the ellipse in degrees.
         Zero is in the North direction ('g-positive'). Positive clockwise.
 
     Returns
     -------
-    x_model : `float`, array
-        Cartesian x-component, in km
+    x_model : `float`, `numpy.array`
+        Cartesian x-component, in km.
 
-    y_model : `float`, array
-            Cartesian y-component, in km
+    y_model : `float`, `numpy.array`
+        Cartesian y-component, in km.
 
-    r_model : `float`, array
-            Radial distance, in km
+    r_model : `float`, `numpy.array`
+        Radial distance, in km.
 
-    theta : `float` array
-            Angular coordinate, in degrees, to return the ellipse points.
+    theta : `float`, array-like
+        Input angular coordinate, in radians.
     """
     a = equatorial_radius
     b = equatorial_radius - equatorial_radius * oblateness

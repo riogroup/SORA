@@ -15,27 +15,26 @@ __all__ = ['PredictionTable']
 
 
 class PredictRow(Row):
-    """An Astropy Row object modified for Prediction purposes.
-    """
+    """Astropy Row object modified for prediction purposes."""
 
     def plot_occ_map(self, **kwargs):
-        """
+        """Plots an occultation map for this prediction row.
+
         Parameters
         ----------
-        radius : `int`, `float`
+        radius : `int`, `float`, optional
             The radius of the shadow. If not given it uses saved value.
 
-        nameimg : `str`
+        nameimg : `str`, optional
             Change the name of the image saved.
 
-        path : `str`
+        path : `str`, default='.'
             Path to a directory where to save map.
 
         resolution : `int`, default=2
-        Cartopy feature resolution.\n
-        - ``1`` means a resolution of "10m";\n
-        - ``2`` a resolution of "50m";\n
-        - ``3`` a resolution of "100m".
+            Cartopy feature resolution.
+            ``1`` means a resolution of "10m"; ``2`` means "50m"; and ``3``
+            means "100m".
 
         states : `bool`
             If True, plots the states borders of the countries. The states
@@ -49,10 +48,10 @@ class PredictRow(Row):
             a list with two numbers.
 
         centermap_delta : `list`, default=None
-            Displace the center of the map given displacement in X and Y, in km.
+            Displace the center of the map by a displacement in X and Y, in km.
             It must be a list with two numbers.
 
-        centerproj : `list`
+        centerproj : `list`, optional
             Rotates the Earth to show occultation with the center projected at a
             given longitude and latitude. It must be a list with two numbers.
 
@@ -65,29 +64,30 @@ class PredictRow(Row):
         parallels : `int`, default=30
             Plots lines representing the parallels for given interval, in degrees.
 
-        sites : `dict`
+        sites : `dict`, `str`, optional
             Plots site positions in map. It must be a python dictionary where the
-            key is  the `name` of the site, and the value is a list with `longitude`,
-            `latitude`, `delta_x`, `delta_y`, `color` and `marker`. `delta_x` and 
-            `delta_y` are displacement, in km, from the point position of the site 
+            key is the `name` of the site, and the value is a list with `longitude`,
+            `latitude`, `delta_x`, `delta_y`, `color` and `marker`. `delta_x` and
+            `delta_y` are displacement, in km, from the point position of the site
             in the map and the `name`. `color` is the color of the point. `marker` is
-            the symbols used for each stations following matplotlib.pyplot properties. 
+            the symbols used for each station following matplotlib.pyplot properties.
 
         site_name : `bool`
-            If True, it prints the name of the sites given, else it plots only the points.
+            If True, plots the names of the given sites. Otherwise, plots only
+            the points.
 
-        countries : `dict`
+        countries : `dict`, `str`, optional
             Plots the names of countries. It must be a python dictionary where the
             key is the name of the country and the value is a list with longitude
             and latitude of the lower left part of the text.
 
-        offset : `list`
+        offset : `list`, default=[0.0, 0.0]
             Applies an offset to the ephemeris, calculating new CA and instant of
             CA. It is a pair of `delta_RA*cosDEC` and `delta_DEC`.
 
         mapstyle : `int`, default=1
-            Define the color style of the map. ``'1'`` is the default black
-            and white scale. ``'2'`` is a colored map.
+            Define the color style of the map. ``1`` is the default black and
+            white scale. ``2`` is a colored map.
 
         error : `int`, `float`
             Ephemeris error in mas. It plots a dashed line representing radius + error.
@@ -118,7 +118,7 @@ class PredictRow(Row):
         chcolor : `str`, default='grey'
             Color of the line of the chords.
 
-        heights : `list`
+        heights : `list`, optional
             It plots a circular dashed line showing the locations where the observer
             would observe the occultation at a given height above the horizons.
             This must be a list.
@@ -139,7 +139,7 @@ class PredictRow(Row):
             The transparency of the night shade, where 0.0 is full transparency and
             1.0 is full black.
 
-        fmt : `str`, default:'png'
+        fmt : `str`, default='png'
             The format to save the image. It is parsed directly by `matplotlib.pyplot`.
 
         dpi : `int`, default=100
@@ -149,11 +149,11 @@ class PredictRow(Row):
             Changes the color of the line that represents the limits of the shadow
             over Earth.
 
-        outcolor :`str`
+        outcolor : `str`
             Changes the color of the lines that represents the limits of the shadow
             outside Earth.
 
-        scale : `int`, `float`
+        nscale : `int`, `float`
             Arbitrary scale for the size of the name of the site.
 
         cscale : `int`, `float`
@@ -166,12 +166,12 @@ class PredictRow(Row):
             Arbitrary scale for the size of the points that represent the center of
             the shadow.
 
-        arrow : `bool`
+        arrow : `bool`, default=True
             If True, it plots the arrow with the occultation direction.
 
 
-        Note
-        ----
+        Notes
+        -----
         Only one of centermap_geo and centermap_delta can be given.
         """
         from .occmap import plot_occ_map
@@ -189,8 +189,7 @@ class PredictRow(Row):
 
 
 class PredictionTable(Table):
-    """ An Astropy Table object modified for Prediction purposes.
-    """
+    """Astropy Table object modified for prediction purposes."""
     Row = PredictRow
 
     def __init__(self, *args, **kwargs):
@@ -255,25 +254,24 @@ class PredictionTable(Table):
             super().__init__(*args, **kwargs)
 
     def __itens_by_epoch(self, date):
-        """ Gets item list for all occultations that matches the given date
+        """Gets the item list for all occultations that match the given date.
 
         Parameters
         ----------
         date : `str`
-            Date to match
+            Date to match.
 
         Returns
         -------
         item : `list`
-            The list of occultations that matches the date.
+            The list of occultations that match the date.
         """
         col = self['Epoch']
         arr = list([i for i, c in enumerate(col) if c.iso.startswith(date)])
         return arr
 
     def __getitem__(self, item):
-        """ The redefinition of __getitem__ allows for selecting prediction based on the ISO date of the event
-        """
+        """Selects predictions by column, row, or ISO date prefix."""
         if isinstance(item, str) and item not in self.colnames:
             arr = self.__itens_by_epoch(item)
             if len(arr) == 0:
@@ -286,7 +284,7 @@ class PredictionTable(Table):
 
     @classmethod
     def from_praia(cls, filename, name, **kwargs):
-        """Creates a PredictionTable Table reading from a PRAIA table.
+        """Creates a PredictionTable by reading a PRAIA table.
 
         Parameters
         ----------
@@ -294,16 +292,16 @@ class PredictionTable(Table):
             Path to the PRAIA table file.
 
         name : `str`
-            Name of the Object of the prediction.
+            Name of the object of the prediction.
 
         radius : `int`, `float`, optional
             Object radius, in km.
-            If not given it's searched in online database.
+            If not given, it is searched in online database.
             When not found online, the default is set to zero.
 
         Returns
         -------
-         : `sora.prediction.PredictionTable`
+        table : `sora.prediction.PredictionTable`
             A PredictionTable object.
         """
         from sora.body.utils import search_satdb, search_sbdb
@@ -376,7 +374,7 @@ class PredictionTable(Table):
         Parameters
         ----------
         filename : `str`
-            Name of the file to save table.
+            Name of the file where the table will be saved.
         """
         from .values import praia_occ_head
         f = open(filename, 'w')
@@ -394,7 +392,8 @@ class PredictionTable(Table):
 
     def to_ow(self, ow_des, mode='append'):
         """Writes PredictionTable to OccultWatcher feeder update file format.
-        Tables will be saved in two files: "tableOccult_update.txt" and "LOG.dat"
+
+        Tables will be saved in two files: "tableOccult_update.txt" and "LOG.dat".
 
         Parameters
         ----------
@@ -461,8 +460,8 @@ class PredictionTable(Table):
         ----------
         date : `str`, `list`
             Date or list of dates of the occultation to be removed.
-            The dates mut be as shown in the 'Epoch' column. If the date is not
-            complete, the function will select all occultations that matches the
+            The dates must be as shown in the 'Epoch' column. If the date is not
+            complete, the function will select all occultations that match the
             given string. For instance, ``date='2020-06'`` will remove all
             occultations from the month of June 2020.
         """
@@ -472,14 +471,15 @@ class PredictionTable(Table):
         self.remove_rows(itens)
 
     def keep_from_selected_images(self, path='.'):
-        """Keeps predictions which images were not deleted in given path.
+        """Keeps predictions whose images were not deleted in a given path.
+
         This function uses the name of the images to identify predictions.
         The name must be the automatic one generated by plot_occ_map().
         The format of the image is not relevant.
 
         Parameters
         ----------
-        path : `str`
+        path : `str`, default='.'
             Path where images are located.
         """
         itens = []

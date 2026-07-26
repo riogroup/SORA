@@ -1,5 +1,5 @@
 from functools import lru_cache
-import pkg_resources
+from importlib.resources import as_file, files
 
 import numpy as np
 import astropy.units as u
@@ -15,19 +15,20 @@ __all__ = ['Shape3D', 'Ellipsoid']
 
 
 class Shape3D(BaseShape):
-    """Defines a class to handle a 3D shape object.
+    """Represent a 3D shape model loaded from a Wavefront OBJ file.
 
     Parameters
     ----------
     obj_file : `str`
         Path to the Wavefront OBJ file.
-    texture : `str`
+    texture : `str`, optional
         Path to the image that contains the surface texture of the object.
-        If None, then a gray color will be defined.
-    scale : `float`
-        Scale factor for the shape model
-    right_hand : `bool`
-        Defines de orientation which to compute the longitude
+        If `None`, a gray color is used.
+    scale : `float`, optional
+        Scale factor applied to the shape model vertices. Default is 1.
+    right_hand : `bool`, optional
+        If `True`, use a right-handed longitude convention. Default is
+        `False`.
     """
 
     def __init__(self, obj_file, texture=None, scale=1, right_hand=False) -> None:
@@ -45,10 +46,12 @@ class Shape3D(BaseShape):
 
     @property
     def faces(self):
+        """`numpy.array` : Vertex indices that define each face of the shape."""
         return self._faces
 
     @property
     def texture(self):
+        """`numpy.array` : RGB colors assigned to each face of the shape."""
         texture = 0.5 * np.ones((len(self.faces), 3))
         texture = getattr(self, '_texture', texture)
         return texture
@@ -78,7 +81,8 @@ class Shape3D(BaseShape):
 
     @property
     def vertices(self):
-        """
+        """Return the scaled vertices of the shape.
+
         Returns
         -------
         vertices : `astropy.coordinates.CartesianRepresentation`
@@ -88,6 +92,7 @@ class Shape3D(BaseShape):
 
     @property
     def scale(self):
+        """`float` : Scale factor applied to the shape model vertices."""
         return self._scale
 
     @scale.setter
@@ -120,15 +125,16 @@ class Shape3D(BaseShape):
         return np.sqrt(self.surface_area / (4 * np.pi))
 
     def rotated_vertices(self, sub_observer="00 00 00 +00 00 00", pole_position_angle=0):
-        """Returns the vertices rotated as viewed by a given observer,
+        """Return the vertices rotated as viewed by a given observer,
         with 'x' in the direction of the observer.
 
         Parameters
         ----------
         sub_observer : `astropy.coordinates.SkyCoord`, `str`
             Planetocentric coordinates of the center of the object as seen by the observer.
-            It can be an astropy SkyCoord object or a string with the bodycentric longitude
-            latitude in degrees. Ex: "30.0 -20.0", or "30 00 00 -20 00 00".
+            It can be an astropy `SkyCoord` object or a string with the
+            bodycentric longitude and latitude in degrees. For example:
+            ``"30.0 -20.0"`` or ``"30 00 00 -20 00 00"``.
 
         pole_position_angle : `float`, `int`
             Body's North Pole position angle with respect to direction of the ICRS
@@ -138,7 +144,7 @@ class Shape3D(BaseShape):
         -------
         rotated_vertices : `astropy.coordinates.CartesianRepresentation`
             An astropy object with the rotated vertices as viewed by the observer.
-            The 'x' coordinate are in the direction of the observer, the 'z' coordinate
+            The 'x' coordinate is in the direction of the observer, the 'z' coordinate
             in the direction of the projected ICRS North Pole, and the 'y' coordinate
             complementing the right-hand rule.
         """
@@ -148,33 +154,34 @@ class Shape3D(BaseShape):
 
     @lru_cache(maxsize=128)
     def get_limb(self, sub_observer="00 00 00 +00 00 00", pole_position_angle=0, center_f=0, center_g=0, **kwargs):
-        """Returns the limb rotated as viewed by a given observer,
+        """Return the projected limb as viewed by a given observer,
         with 'x' in the direction of the observer.
 
         Parameters
         ----------
         sub_observer : `astropy.coordinates.SkyCoord`, `str`
             Planetocentric coordinates of the center of the object as seen by the observer.
-            It can be an astropy SkyCoord object or a string with the bodycentric longitude
-            latitude in degrees. Ex: "30.0 -20.0", or "30 00 00 -20 00 00".
+            It can be an astropy `SkyCoord` object or a string with the
+            bodycentric longitude and latitude in degrees. For example:
+            ``"30.0 -20.0"`` or ``"30 00 00 -20 00 00"``.
 
         pole_position_angle : `float`, `int`
             Body's North Pole position angle with respect to direction of the ICRS
             North Pole, i.e. N-E-S-W.
 
         center_f : `int`, `float`
-            Offset of the center of the body in the East direction, in km
+            Offset of the center of the body in the East direction, in km.
 
-        center_g  : `int`, `float`
-            Offset of the center of the body in the North direction, in km
+        center_g : `int`, `float`
+            Offset of the center of the body in the North direction, in km.
 
         **kwargs
-            Any other keyword argument is discarded
+            Any other keyword argument is discarded.
 
         Returns
         -------
         limb : `sora.body.shape.Limb`
-            The Limb corresponding to the 3D shape projected view
+            The limb corresponding to the projected view of the 3D shape.
         """
         vertices = self.rotated_vertices(sub_observer=sub_observer, pole_position_angle=pole_position_angle)
         faced_vertices = vertices[self.faces.T]
@@ -198,32 +205,34 @@ class Shape3D(BaseShape):
 
     def plot(self, sub_observer="00 00 00 +00 00 00", sub_solar=None, pole_position_angle=0, center_f=0, center_g=0,
              scale=1, ax=None, plot_pole=True, **kwargs):
-        """
+        """Plot the projected 3D shape on the tangent plane.
 
         Parameters
         ----------
         sub_observer : `astropy.coordinates.SkyCoord`, `str`
             Planetocentric coordinates of the center of the object in the direction of the observer.
-            It can be an astropy SkyCoord object or a string with the bodycentric longitude
-            latitude in degrees. Ex: "30.0 -20.0", or "30 00 00 -20 00 00".
+            It can be an astropy `SkyCoord` object or a string with the
+            bodycentric longitude and latitude in degrees. For example:
+            ``"30.0 -20.0"`` or ``"30 00 00 -20 00 00"``.
 
         sub_solar : `astropy.coordinates.SkyCoord`, `str`
             Planetocentric coordinates of the center of the object in the direction of the Sun.
-            It can be an astropy SkyCoord object or a string with the bodycentric longitude
-            latitude in degrees. Ex: "30.0 -20.0", or "30 00 00 -20 00 00".
+            It can be an astropy `SkyCoord` object or a string with the
+            bodycentric longitude and latitude in degrees. For example:
+            ``"30.0 -20.0"`` or ``"30 00 00 -20 00 00"``.
 
         pole_position_angle : `float`, `int`
             Body's North Pole position angle with respect to direction of the ICRS
             North Pole, i.e. N-E-S-W.
 
         center_f : `int`, `float`
-            Offset of the center of the body in the East direction, in km
+            Offset of the center of the body in the East direction, in km.
 
-        center_g  : `int`, `float`
-            Offset of the center of the body in the North direction, in km
+        center_g : `int`, `float`
+            Offset of the center of the body in the North direction, in km.
 
         scale : `float`
-            Multiply the shape vertices by a value. Default=1
+            Factor applied to the plotted shape vertices. Default is 1.
 
         ax : `matplotlib.pyplot.Axes`
             The axes where to make the plot. If None, it will use the default axes.
@@ -232,7 +241,7 @@ class Shape3D(BaseShape):
             If True, the direction of the pole is plotted.
 
         **kwargs
-            Any other keyword argument is discarded
+            Any other keyword argument is discarded.
         """
         import matplotlib.pyplot as plt
 
@@ -293,10 +302,28 @@ class Shape3D(BaseShape):
 
 
 class Ellipsoid(Shape3D):
+    """Represent a triaxial ellipsoid as a 3D shape model.
+
+    Parameters
+    ----------
+    a : `float`
+        Semi-axis along the x direction, in km.
+    b : `float`, optional
+        Semi-axis along the y direction, in km. If `None`, it is set to `a`.
+    c : `float`, optional
+        Semi-axis along the z direction, in km. If `None`, it is set to `b`.
+    texture : `str`, optional
+        Path to the image that contains the surface texture of the object.
+        If `None`, a gray color is used.
+    right_hand : `bool`, optional
+        If `True`, use a right-handed longitude convention. Default is
+        `False`.
+    """
 
     def __init__(self, a, b=None, c=None, texture=None, right_hand=False):
-        obj_file = pkg_resources.resource_filename('sora', 'data/sphere.obj')
-        super().__init__(obj_file=obj_file, texture=texture, right_hand=right_hand)
+        sphere = files('sora').joinpath('data/sphere.obj')
+        with as_file(sphere) as obj_file:
+            super().__init__(obj_file=str(obj_file), texture=texture, right_hand=right_hand)
         self.a = a
         self.b = b or self.a
         self.c = c or self.b

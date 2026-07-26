@@ -3,50 +3,46 @@ import numpy as np
 from astropy.time import Time
 
 
-# noinspection PyUnresolvedReferences
 class MetaStar:
-    """Docstring for MetaStar"""
+    """Mixin with astrometric properties used by `sora.star.Star`."""
 
     @property
     def ra(self):
-        """Return the Right Ascension of the star
-        """
+        """Returns the right ascension of the star."""
         return self._attributes['RA']
 
     @ra.setter
     def ra(self, value):
-        """Defines the Right Ascension.
+        """Defines the right ascension.
 
         Parameters
         ----------
-        value : `int`, `float`, `astropy.unit`
-            RA, in deg.
+        value : `int`, `float`, `astropy.units.Quantity`
+            Right ascension. Numeric values are interpreted as hour angle.
         """
         from astropy.coordinates import Longitude
         self._attributes['RA'] = Longitude(value, unit=u.hourangle)
 
     @property
     def dec(self):
-        """Return the Declination of the star
-        """
+        """Returns the declination of the star."""
         return self._attributes['DEC']
 
     @dec.setter
     def dec(self, value):
-        """Defines the Declination.
+        """Defines the declination.
 
         Parameters
         ----------
-        value : `int`, `float`, `astropy.unit`
-            DEC, in deg.
+        value : `int`, `float`, `astropy.units.Quantity`
+            Declination, in degrees when unitless.
         """
         from astropy.coordinates import Latitude
         self._attributes['DEC'] = Latitude(value, unit=u.deg)
 
     @property
     def parallax(self):
-        """Return the Parallax of the star
-        """
+        """Returns the parallax of the star."""
         if self.bjones:
             return self._attributes['bjones_par']
         else:
@@ -54,12 +50,12 @@ class MetaStar:
 
     @parallax.setter
     def parallax(self, value):
-        """Defines the Parallax.
+        """Defines the parallax.
 
         Parameters
         ----------
-        value : `int`, `float`, `astropy.unit`
-            Parallax, in mas.
+        value : `int`, `float`, `astropy.units.Quantity`
+            Parallax, in mas when unitless.
         """
         par = u.Quantity(value, unit=u.mas)
         if par <= 0*u.mas:
@@ -68,8 +64,7 @@ class MetaStar:
 
     @property
     def distance(self):
-        """Return the Distance of the star
-        """
+        """Returns the stellar distance inferred from parallax."""
         from astropy.coordinates import Distance
         if self.parallax > 0*u.mas:
             return Distance(parallax=self.parallax, allow_negative=False)
@@ -78,6 +73,7 @@ class MetaStar:
 
     @property
     def coord(self):
+        """Returns the ICRS coordinate of the star."""
         from astropy.coordinates import SkyCoord
         try:
             return SkyCoord(self.ra, self.dec, self.distance)
@@ -86,78 +82,83 @@ class MetaStar:
 
     @property
     def pmra(self):
-        """Return the Proper Motion in Right Ascension of the star
-        """
+        """Returns the proper motion in right ascension of the star."""
         return self._attributes.get('PMRA', 0*u.mas/u.year)
 
     @pmra.setter
     def pmra(self, value):
-        """Defines the Proper Motion in RA*.
+        """Defines the proper motion in RA*cos(DEC).
 
         Parameters
         ----------
-        value : `int`, `float`, `astropy.unit`
-            RA Proper Motion, in mas/year.
+        value : `int`, `float`, `astropy.units.Quantity`
+            Proper motion in RA*cos(DEC), in mas/year when unitless.
         """
         self._attributes['PMRA'] = u.Quantity(value, unit=u.mas/u.year)
 
     @property
     def pmdec(self):
-        """ Return the Proper Motion in Declination of the star
-        """
+        """Returns the proper motion in declination of the star."""
         return self._attributes.get('PMDEC', 0*u.mas/u.year)
 
     @pmdec.setter
     def pmdec(self, value):
-        """Defines the Proper Motion in DEC.
+        """Defines the proper motion in declination.
 
         Parameters
         ----------
-        value : `int`, `float`, `astropy.unit`
-            DEC Proper Motion, in mas/year.
+        value : `int`, `float`, `astropy.units.Quantity`
+            Proper motion in declination, in mas/year when unitless.
         """
         self._attributes['PMDEC'] = u.Quantity(value, unit=u.mas/u.year)
 
     @property
     def rad_vel(self):
-        """Return the Radial Velocity of the star
-        """
+        """Returns the radial velocity of the star."""
         return self._attributes.get('RAD_VEL', 0*u.km/u.s)
 
     @rad_vel.setter
     def rad_vel(self, value):
-        """Defines the Radial Velocity.
+        """Defines the radial velocity.
 
         Parameters
         ----------
-        value : `int`, `float`, `astropy.unit`
-            Radial Velocity, in km/s.
+        value : `int`, `float`, `astropy.units.Quantity`
+            Radial velocity, in km/s when unitless.
         """
         self._attributes['RAD_VEL'] = u.Quantity(value, unit=u.km/u.s)
 
     @property
     def epoch(self):
-        """Return the Epoch of the position of the star
-        """
+        """Returns the epoch of the star position."""
         return self._attributes['EPOCH']
 
     @epoch.setter
     def epoch(self, value):
-        """Defines the Epoch of the position.
+        """Defines the epoch of the star position.
 
         Parameters
         ----------
-        value : `int`, `float`, `astropy.unit`
-            Radial Velocity, in km/s.
+        value : `str`, `int`, `float`, `astropy.time.Time`
+            Epoch value accepted by `astropy.time.Time`.
         """
         self._attributes['EPOCH'] = Time(value)
 
     @property
     def bjones(self):
+        """Returns whether the Bailer-Jones distance is used."""
         return self._bjones
 
     @bjones.setter
     def bjones(self, value):
+        """Enables or disables use of Bailer-Jones distance estimates.
+
+        Parameters
+        ----------
+        value : `bool`
+            If True, searches the Bailer-Jones catalogue and stores its
+            parallax equivalent.
+        """
         from .utils import search_star, choice_star
         if value not in [True, False]:
             raise AttributeError('bjones attribute must be True or False')
@@ -184,6 +185,7 @@ class MetaStar:
 
     @property
     def diameter_gaia(self):
+        """Returns the Gaia angular diameter estimate when available."""
         try:
             rad = self.meta_catalogue.get('Rad')
             if rad is not None and not np.ma.core.is_masked(rad):

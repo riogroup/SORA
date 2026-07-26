@@ -1,3 +1,10 @@
+"""Reference values and descriptions used by `sora.body`.
+
+This module stores SBDB response messages and taxonomic class descriptions used
+to describe body spectral types.
+
+"""
+
 not_found_message = 'specified object was not found'
 many_objects_message = 'specified query matched more than one object'
 

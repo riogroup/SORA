@@ -17,7 +17,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
                 dcenter_g=0, oblateness=0, doblateness=0, position_angle=0, dposition_angle=0,
                 loop=10000, number_chi=10000, dchi_min=None, verbose=True, ellipse_error=0, sigma_result=1,
                 method='least_squares', threads=1):
-    """Fits an ellipse to given occultation using given parameters.
+    """Fits an ellipse to one or more occultations using given parameters.
 
     Parameters
     ----------
@@ -28,7 +28,7 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         The coordinate in g of the ellipse center.
 
     equatorial_radius : `int`, `float`
-        The Equatorial radius (semi-major axis) of the ellipse.
+        The equatorial radius (semi-major axis) of the ellipse.
 
     oblateness : `int`, `float`, default=0
         The oblateness of the ellipse.
@@ -37,28 +37,27 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         The pole position angle of the ellipse in degrees.
         Zero is in the North direction ('g-positive'). Positive clockwise.
 
-    dcenter_f : `int`, `float`
+    dcenter_f : `int`, `float`, default=0
         Interval for coordinate f of the ellipse center.
 
-    dcenter_g : `int`, `float`
+    dcenter_g : `int`, `float`, default=0
         Interval for coordinate g of the ellipse center.
 
-    dequatorial_radius `int`, `float`
-        Interval for the Equatorial radius (semi-major axis) of the ellipse.
+    dequatorial_radius : `int`, `float`, default=0
+        Interval for the equatorial radius (semi-major axis) of the ellipse.
 
-    doblateness : `int`, `float`
-        Interval for the oblateness of the ellipse
+    doblateness : `int`, `float`, default=0
+        Interval for the oblateness of the ellipse.
 
-    dposition_angle : `int`, `float`
+    dposition_angle : `int`, `float`, default=0
         Interval for the pole position angle of the ellipse in degrees.
 
-    loop : `int`, default=10000000
+    loop : `int`, default=10000
         The number of ellipses to attempt fitting.
 
-    dchi_min : `int`, `float`
-        If given, it will only save ellipsis which chi square are smaller than
-        chi_min + dchi_min. By default `None` when used with `method='chisqr'`, and
-        `3` for other methods.
+    dchi_min : `int`, `float`, optional
+        If given, it will only save ellipses whose chi-square values are smaller than
+        chi_min + dchi_min. By default, all generated values are kept.
 
     number_chi : `int`, default=10000
         In the `chisqr` method if `dchi_min` is given, the procedure is repeated until
@@ -67,36 +66,36 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
         the provided `sigma_result`.
 
     verbose : `bool`, default=True
-        If True, it prints information while fitting.
+        If True, prints information while fitting.
 
-    ellipse_error : `int`, `float`
+    ellipse_error : `int`, `float`, default=0
         Model uncertainty to be considered in the fit, in km.
 
-    sigma_result : `int`, `float`
+    sigma_result : `int`, `float`, default=1
         Sigma value to be considered as result.
 
-    method : `str`, `default='least_squares'`
+    method : `str`, default='least_squares'
         Method used to perform the fit. Available methods are:
-        `chisqr` : monte carlo computation method used in versions of SORA <= 0.2.1.
-        `fastchi` : monte carlo computation method, allows multithreading .
-        `least_squares` or `ls`: best fit done used levenberg marquardt convergence algorithm.
-        `differential_evolution` or `de`: best fit done using genetic algorithms.
-        All methods return a Chisquare object.
+        `chisqr` : Monte Carlo computation method used in versions of SORA <= 0.2.1.
+        `fastchi` : Monte Carlo computation method, allows multithreading.
+        `least_squares` or `ls`: best fit using a convergence algorithm.
+        `differential_evolution` or `de`: best fit using genetic algorithms.
+        All methods return a ChiSquare object.
 
-    threads : `int`
+    threads : `int`, default=1
         Number of threads/workers used to perform parallel computations of the chi square
-        object. It works with all methods except `chisqr`, by default 1.
+        object. It works with all methods except `chisqr`.
 
     Returns
     -------
-    chisquare : `sora.ChiSquare`
+    chisquare : `sora.extra.ChiSquare`
         A ChiSquare object with all parameters.
 
-    Important
-    ---------
+    Notes
+    -----
     Each occultation is added as the first argument(s) directly.
 
-    Mandatory input parameters: 'center_f', 'center_g', 'equatorial_radius',
+    Main ellipse parameters: 'center_f', 'center_g', 'equatorial_radius',
     'oblateness', and 'position_angle'.
 
     Parameters fitting interval: 'dcenter_f', 'dcenter_g', 'dequatorial_radius',
@@ -347,23 +346,24 @@ def fit_ellipse(*args, equatorial_radius, dequatorial_radius=0, center_f=0, dcen
 
 
 def ellipse(parameters, x_values, y_values):
-    '''
-    Returns an ellipse give a set of parameters.
+    """Returns an ellipse for a set of parameters.
 
     Parameters
     ----------
     parameters : `stats.Parameters`
-        Parameters object that describe the ellipse
+        Parameters object that describes the ellipse.
+
     x_values : `np.ndarray`, `list`
-        X axis array of values
+        X-axis array of values.
+
     y_values : `np.ndarray`, `list`
-        Y axis array of values
+        Y-axis array of values.
 
     Returns
     -------
     [x_model, y_model] : `list`
         Array containing the ellipse data points.
-    '''
+    """
     p = parameters.valuesdict()
 
     b = p['equatorial_radius'] - p['equatorial_radius']*p['oblateness']
@@ -378,28 +378,33 @@ def ellipse(parameters, x_values, y_values):
 
 
 def ellipseError(parameters, f, g, uncertainty, ellipse_error=0):
-    '''
-    Returns an array of residuals of an ellipse. Depends on the
-    ellipse() fuction.
+    """Returns an array of residuals of an ellipse.
+
+    Depends on the
+    ellipse() function.
 
     Parameters
     ----------
     parameters : `stats.Parameters`
-        Object containing parameters information
+        Object containing parameters information.
+
     f : `float`
         f measurements.
+
     g : `float`
         g measurements.
+
     uncertainty : `float`
         Uncertainty of the measurements.
-    ellipse_error : int, optional
+
+    ellipse_error : `int`, `float`, optional
         Ellipse additional uncertainty, by default 0.
 
     Returns
     -------
-    [array] : float
-        Array containing the residuals
-    '''
+    residuals : array
+        Array containing the residuals.
+    """
     f_model, g_model = ellipse(parameters, f, g)
     return (( (f - f_model)**2 + (g - g_model)**2 )/(uncertainty**2 + ellipse_error**2) )
 
@@ -408,16 +413,16 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
                  center_g, dcenter_g, oblateness, doblateness, position_angle, dposition_angle,
                 loop, number, dchi_min, ellipse_error, verbose):
 
-    """Private function that fits an ellipse to given occultation using given parameters.
+    """Runs Monte Carlo ellipse fitting in one worker.
 
     Parameters
     ----------
-    values : `float`
-        Array containing the data to be fitted [f, g, uncertainty]
+    values : `float` array
+        Array containing the data to be fitted: [f, g, uncertainty].
 
-    bestchi : `bool` or None
-        Variable used to allow passing bestfit restults found with
-        convergence methods to the chisqr maps.
+    bestchi : `float` or None
+        Best chi-square value found by a convergence method. If not None, the
+        first sample uses the provided ellipse parameters.
 
     center_f : `int`, `float`, default=0
         The coordinate in f of the ellipse center.
@@ -426,7 +431,7 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
         The coordinate in g of the ellipse center.
 
     equatorial_radius : `int`, `float`
-        The Equatorial radius (semi-major axis) of the ellipse.
+        The equatorial radius (semi-major axis) of the ellipse.
 
     oblateness : `int`, `float`, default=0
         The oblateness of the ellipse.
@@ -441,11 +446,11 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
     dcenter_g : `int`, `float`
         Interval for coordinate g of the ellipse center.
 
-    dequatorial_radius `int`, `float`
-        Interval for the Equatorial radius (semi-major axis) of the ellipse.
+    dequatorial_radius : `int`, `float`
+        Interval for the equatorial radius (semi-major axis) of the ellipse.
 
     doblateness : `int`, `float`
-        Interval for the oblateness of the ellipse
+        Interval for the oblateness of the ellipse.
 
     dposition_angle : `int`, `float`
         Interval for the pole position angle of the ellipse in degrees.
@@ -454,24 +459,23 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
         The number of ellipses to attempt fitting.
 
     dchi_min : `int`, `float`
-        If given, it will only save ellipsis which chi square are smaller than
-        chi_min + dchi_min. By default `None` when used with `method='chisqr`, and
-        `3` for other methods.
+        If given, it will only save ellipses whose chi-square values are smaller than
+        chi_min + dchi_min.
 
-    number_chi : `int`, default=10000
-        In the `chisqr` method if `dchi_min` is given, the procedure is repeated until
-        `number_chi` is reached.
-        In other methods it is the number of values (simulations) that should lie within
-        the provided `sigma_result`.
+    number : `int`
+        Number of accepted simulations to compute in this worker.
 
     verbose : `bool`, default=False
-        If True, it prints information while fitting.
+        If True, prints information while fitting.
 
     ellipse_error : `int`, `float`
         Model uncertainty to be considered in the fit, in km.
 
-    sigma_result : `int`, `float`
-        Sigma value to be considered as result.
+    Returns
+    -------
+    result : list
+        List with chi-square values, center_f, center_g, equatorial radius,
+        oblateness, and position angle sampled by this worker.
     """
 
     f0_chi = np.array([]) if bestchi is None else np.array([center_f])
@@ -529,7 +533,7 @@ def __fit_ellipse_parallel(values, bestchi, equatorial_radius, dequatorial_radiu
 
 def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, dscale=0, loop=150000,
                 model_error=0):
-    """
+    """Fits a limb model to projected occultation points.
 
     Parameters
     ----------
@@ -558,30 +562,30 @@ def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=
         Interval for coordinate g of the ellipse center.
 
     scale : `number`
-        Scale factor of the limb
+        Scale factor of the limb.
 
     dscale : `number`
-        Interval for scale
+        Interval for scale.
 
     loop : `int`, default=150000
         The number of centers to attempt fitting.
 
-     model_error :  `int`, `float`, default=0
+    model_error : `int`, `float`, default=0
         Model uncertainty to be considered in the fit, in km.
 
     Returns
     -------
-
-    chisquare : `sora.ChiSquare`
+    chisquare : `sora.extra.ChiSquare`
         A ChiSquare object with all parameters.
 
     Examples
-    ________
+    --------
 
-    fg = np.array([[-107.3,   57.8],
-                   [ 103.7,   53.2],
-                   [ -20.9,  172.4],
-                   [   1.9,  171.9]])
+    >>> import numpy as np
+    >>> fg = np.array([[-107.3,   57.8],
+    ...                [ 103.7,   53.2],
+    ...                [ -20.9,  172.4],
+    ...                [   1.9,  171.9]])
     """
     if scale - np.absolute(dscale) <= 0:
         raise ValueError('Scale can not be 0 or negative. Please provide proper scale and dscale')
@@ -607,36 +611,44 @@ def fit_to_limb(limb, fg, error, center_f=0, dcenter_f=0, center_g=0, dcenter_g=
 
 def fit_shape(occ, center_f=0, dcenter_f=0, center_g=0, dcenter_g=0, scale=1, dscale=0, loop=150000, sigma_result=1,
               model_error=0):
-    """
+    """Fits the occulting body's shape to the occultation chords.
+
     Parameters
     ----------
     occ : `sora.Occultation`
-        The Occultation object with information to fit
+        The Occultation object with information to fit.
+
     center_f : `int`, `float`, default=0
         The coordinate in f of the ellipse center.
+
     center_g : `int`, `float`, default=0
         The coordinate in g of the ellipse center.
+
     dcenter_f : `int`, `float`
         Interval for coordinate f of the ellipse center.
+
     dcenter_g : `int`, `float`
         Interval for coordinate g of the ellipse center.
+
     scale : `number`
-        Scale factor of the limb
+        Scale factor of the limb.
+
     dscale : `number`
-        Interval for scale
+        Interval for scale.
+
     loop : `int`, default=150000
         The number of centers to attempt fitting.
+
     sigma_result : `int`, `float`
         Sigma value to be considered as result.
-    model_error :  `int`, `float`, default=0
+
+    model_error : `int`, `float`, default=0
         Model uncertainty to be considered in the fit, in km.
 
     Returns
     -------
-
-    chisquare : `sora.ChiSquare`
+    chisquare : `sora.extra.ChiSquare`
         A ChiSquare object with all parameters.
-
     """
     orientation = occ.body.get_orientation(time=occ.tca)
     limb = occ.body.shape.get_limb(**orientation)

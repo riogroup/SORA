@@ -1,13 +1,16 @@
 # remove this block for v1.0
 class _PositionDict(dict):
-    """This is a modified Dictionary object to allow switching on/off of data points.
-    It also avoids user to change data.
+    """Dictionary that allows switching occultation data points on or off.
+
+    It also prevents users from changing stored data directly.
     """
 
     def __setitem__(self, key, value):
-        """ Redefines how to set a value to a key in the dictionary.
-        It only sets a value if the key starts with '_occ_'. Otherwise, it only allows for the user to provide
-        'on' or 'off' which is passed only to change the 'on' keyword.
+        """Sets protected keys or toggles existing occultation entries.
+
+        Values are set directly only when the key starts with ``'_occ_'``.
+        Otherwise, users may only provide ``'on'`` or ``'off'`` to toggle
+        existing entries.
         """
         status = {'on': True, 'off': False}
         n = 0

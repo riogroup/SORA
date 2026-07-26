@@ -1,17 +1,28 @@
 def check_kwargs(input_kwargs, allowed_kwargs, raise_error=True):
-    """Tests if the input `**kwargs` are allowed.
+    """Test whether input keyword names are allowed.
 
     Parameters
     ----------
     input_kwargs : `dict`, `list`
-        Dictionary or list with the input values.
+        Dictionary or list with the input keyword names.
 
     allowed_kwargs : `list`
         List with the allowed keys.
 
     raise_error : `bool`
-        Raises error if ``True``. If ``False``, it will raise the error listing
-        the not allowed keys.
+        If `True`, raise an error when unexpected keyword names are found. If
+        `False`, return the unexpected keyword names instead.
+
+    Returns
+    -------
+    not_allowed : `list`
+        List with unexpected keyword names. Returned only when
+        ``raise_error=False``.
+
+    Raises
+    ------
+    TypeError
+        If ``raise_error=True`` and at least one keyword name is not allowed.
     """
     not_allowed = [i for i in input_kwargs if i not in allowed_kwargs]
     if raise_error:
@@ -24,10 +35,26 @@ def check_kwargs(input_kwargs, allowed_kwargs, raise_error=True):
 
 
 def test_attr(attr, typ, name):
-    """Tests attribute.
+    """Test and convert an attribute to an expected type.
 
-    This function tests if the attribute ``attr`` belongs to the type ``typ``,
-    if not it gives an error message informing the name of the variable.
+    Parameters
+    ----------
+    attr
+        Attribute value to test.
+    typ : `type`
+        Expected type or callable used to convert `attr`.
+    name : `str`
+        Name of the variable used in the error message.
+
+    Returns
+    -------
+    attr
+        `attr` converted by `typ`.
+
+    Raises
+    ------
+    TypeError
+        If `attr` cannot be converted by `typ`.
     """
     try:
         return typ(attr)
@@ -36,21 +63,28 @@ def test_attr(attr, typ, name):
 
 
 class SelectDefault:
-    def __init__(self, instance, defaults: dict):
-        """ This class is not meant to be used by the user.
+    """Validate parameters against explicit values and named defaults."""
 
-        The goal of this class is to facilitate testing parameters
-        that have default values. So when using, the class will test if
-        the user passed a string with the key for a default parameter,
-        or a parameter with an allowed type.
+    def __init__(self, instance, defaults: dict):
+        """Initialize the selector.
+
+        This class is not meant to be used directly by users. It facilitates
+        testing parameters that have default values. It accepts either a string
+        key for a default parameter or a parameter with an allowed type.
 
         Parameters
         ----------
-        instance : type
-            The instance of the allowed parameters
+        instance : `type`
+            Allowed type for explicit parameter values.
 
-        defaults: dict
-            A dictionary with the keys and values for default parameters.
+        defaults : `dict`
+            Dictionary with the keys and values for default parameters.
+
+        Raises
+        ------
+        TypeError
+            If a default key is not a string or a default value does not have
+            the allowed type.
 
         """
         for key, value in defaults.items():
@@ -62,6 +96,24 @@ class SelectDefault:
         self.allowed_keys = defaults
 
     def get_default(self, value):
+        """Return a default or validate an explicit parameter value.
+
+        Parameters
+        ----------
+        value
+            Default key or explicit parameter value.
+
+        Returns
+        -------
+        value
+            The selected default value or the validated explicit value.
+
+        Raises
+        ------
+        ValueError
+            If `value` is neither a known default key nor an allowed explicit
+            value.
+        """
         if isinstance(value, str):
             value = self.allowed_keys.get(value, value)
         if not isinstance(value, self.instance):

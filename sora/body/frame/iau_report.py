@@ -1,8 +1,9 @@
-"""
-This submodule collects the orientations defined by Archinal et al. (2018)
-"Report of the IAU Working Group on Cartographic Coordinates and Rotational
-Elements: 2015". This file should be updated every report made by the
-Working Group, which is expected every 3 years.
+"""Orientation parameters from Archinal et al. (2018).
+
+This submodule collects orientations defined in "Report of the IAU Working
+Group on Cartographic Coordinates and Rotational Elements: 2015". This file
+should be updated with each report made by the Working Group, which is expected
+every three years.
 
 Important: Missing second order in W for Phobos (+12.72192797 T^2)
 """
@@ -443,17 +444,22 @@ precession = {
 
 
 def get_archinal_frame(spkid):
-    """
+    """Return the planetocentric frame defined by Archinal et al. (2018).
 
     Parameters
     ----------
-    spkid : `str`
-        Spkid of the object.
+    spkid : `str`, `int`
+        SPK-ID of the object.
 
     Returns
     -------
     frame : `sora.body.frame.PlanetocentricFrame`
-        A PlanetrocentricFrame with the parameters from Archinal et al. (2018)
+        Planetocentric frame with parameters from Archinal et al. (2018).
+
+    Raises
+    ------
+    ValueError
+        If `spkid` is not present in the Archinal et al. (2018) table.
 
     """
     parameters = archinal_2018.get(str(spkid))

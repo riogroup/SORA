@@ -7,7 +7,7 @@ __all__ = ['read_obj_file', 'rotated_matrix']
 
 
 def read_obj_file(filename):
-    """Reads a Wavefront OBJ file to get the vertices and faces.
+    """Read vertices and faces from a Wavefront OBJ file.
 
     Parameters
     ----------
@@ -17,10 +17,11 @@ def read_obj_file(filename):
     Returns
     -------
     vertices : `numpy.array`
-        2D array (n, 3) with the "n" vertices of the object
+        2D array (n, 3) with the `n` vertices of the object.
 
     faces : `numpy.array`
-        2D array (m, k) with the "k" vertices that makes each of the "m" faces of the object.
+        2D array (m, k) with the `k` vertices that define each of the
+        `m` faces of the object.
 
     """
     with open(filename, 'r') as f:
@@ -41,6 +42,25 @@ def read_obj_file(filename):
 
 
 def parse_coordinate(coordinate):
+    """Parse an input coordinate into spherical coordinates.
+
+    Parameters
+    ----------
+    coordinate : `astropy.coordinates.SkyCoord`, `str`
+        Coordinate to parse. Strings are interpreted as longitude and latitude
+        in degrees.
+
+    Returns
+    -------
+    coordinate : `astropy.coordinates.SphericalRepresentation`
+        Spherical representation of the coordinate.
+
+    Raises
+    ------
+    ValueError
+        If `coordinate` is not a `SkyCoord` object or a valid coordinate
+        string.
+    """
     if isinstance(coordinate, str):
         coordinate = SkyCoord(coordinate, unit=(u.deg, u.deg))
     if not isinstance(coordinate, SkyCoord):
@@ -49,26 +69,30 @@ def parse_coordinate(coordinate):
 
 
 def rotated_matrix(coordinate, sub_observer, pole_position_angle, right_hand=True):
-    """
+    """Rotate coordinates according to observer and pole geometry.
+
     Parameters
     ----------
-    coordinate : `astropy.coordinate.CartesianRepresentation`
-        Coordinate to be rotated by given orientation
+    coordinate : `astropy.coordinates.CartesianRepresentation`
+        Coordinate to be rotated by the given orientation.
+
     sub_observer : `astropy.coordinates.SkyCoord`, `str`
         Planetocentric coordinates of the center of the object as seen by the observer.
-        It can be an astropy SkyCoord object or a string with the bodycentric longitude
-        latitude in degrees. Ex: "30.0 -20.0", or "30 00 00 -20 00 00".
+        It can be an astropy `SkyCoord` object or a string with the
+        bodycentric longitude and latitude in degrees. For example:
+        ``"30.0 -20.0"`` or ``"30 00 00 -20 00 00"``.
+
     pole_position_angle : `float`, `int`
         Body's North Pole position angle with respect to direction of the ICRS
         North Pole, i.e. N-E-S-W.
+
     right_hand : `bool`
-        Defines de orientation which to compute the longitude
-        default: True
+        If `True`, use a right-handed longitude convention. Default is `True`.
 
     Returns
     -------
-    coordinate : `astropy.coordinate.CartesianRepresentation`
-        Coordinate rotated by given orientation
+    coordinate : `astropy.coordinates.CartesianRepresentation`
+        Coordinate rotated by the given orientation.
     """
     sub_observer = parse_coordinate(sub_observer)
     long_dir = {True: 1, False: -1}[right_hand]
