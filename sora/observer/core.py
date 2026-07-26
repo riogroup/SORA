@@ -14,34 +14,34 @@ __all__ = ['Observer', 'Spacecraft']
 class Observer:
     """Defines the observer object.
 
-    Attributes
+    Parameters
     ----------
-    name : `str`
-        Name for the Observer. Observer is uniquely defined (name must be
-        different for each observer).
+    name : `str`, optional
+        Name for the observer. Observer is uniquely defined and the name must
+        be different for each observer.
 
-    code : `str`
-        The IAU code for SORA to search for its coordinates in MPC database.
+    code : `str`, optional
+        IAU code used to search for the observer coordinates in the MPC database.
 
-    site : `astropy.coordinates.EarthLocation`
-        User provides an EarthLocation object.
+    site : `astropy.coordinates.EarthLocation`, optional
+        Observer location as an EarthLocation object.
 
-    lon : `str`, `float`
+    lon : `str`, `float`, optional
         The Longitude of the site in degrees.
         Positive to East. Range (0 to 360) or (-180 to +180).
-        User can provide in degrees (`float`) or hexadecimal (`string`).
+        User can provide in degrees (`float`) or sexagesimal (`string`).
 
-    lat : `str`, `float`
+    lat : `str`, `float`, optional
         The Latitude of the site in degrees.
-        Positive North. Range (+90 to -90).
-        User can provide in degrees (float) or hexadecimal (string).
+        Positive North. Range (-90 to +90).
+        User can provide in degrees (float) or sexagesimal (string).
 
-    height : `int`, `float`
-        The height of the site in meters above see level.
+    height : `int`, `float`, optional, default=0.0
+        The height of the site in meters above sea level.
 
-    ephem : `str`, `list`
-        The ephemeris used to locate the observer on space.
-        It can be "horizons" to use horizons or a list of kernels
+    ephem : `str`, `list`, optional, default='horizons'
+        The ephemeris used to locate the observer in space.
+        It can be ``'horizons'`` to use JPL Horizons or a list of SPICE kernels.
 
 
     Examples
@@ -50,21 +50,21 @@ class Observer:
 
     - If user will use the MPC name for the site:
 
-    >>> Observer(code)
+    >>> Observer(code='I11')
 
     - If user wants to use a different name from the MPC database:
 
-    >>> Observer(name, code)
+    >>> Observer(name='Site name', code='I11')
 
     - If user wants to use an EarthLocation value:
 
     >>> from astropy.coordinates import EarthLocation
-    >>> EarthLocation(lon, lat, height)
-    >>> Observer(name, site)
+    >>> site = EarthLocation(lon=lon, lat=lat, height=height)
+    >>> Observer(name='Site name', site=site)
 
     - If user wants to give site coordinates directly:
 
-    >>> Observer(name, lon, lat, height)
+    >>> Observer(name='Site name', lon=lon, lat=lat, height=height)
 
     """
 
@@ -77,7 +77,7 @@ class Observer:
         if 'code' in kwargs:
             self.code = kwargs['code']
             try:
-                name, self.site = search_code_mpc()[self.code]
+                name, self.site = search_code_mpc(self.code)
                 self.__name = kwargs.get('name', name)
             except:
                 raise ValueError('code {} could not be located in MPC database'.format(self.code))
@@ -103,13 +103,12 @@ class Observer:
             ephemeris. It can be a string in the format ``'hh mm ss.s +dd mm ss.ss'``
             or an astropy `SkyCoord` object.
 
-
         Returns
         -------
         ksi, eta : `float`
             On-sky orthographic projection of the observer relative to a star.
-            ``ksi`` is in the North-South direction (North positive).
-            ``eta`` is in the East-West direction (East positive).
+            ``ksi`` is in the East-West direction (East positive).
+            ``eta`` is in the North-South direction (North positive).
         """
         from astropy.coordinates.matrix_utilities import rotation_matrix
 
@@ -128,30 +127,28 @@ class Observer:
         return cp.y.to(u.km).value, cp.z.to(u.km).value
 
     def sidereal_time(self, time, mode='local'):
-        """Calculates the Apparent Sidereal Time at a reference time.
+        """Calculates the apparent sidereal time at a reference time.
 
         Parameters
         ----------
         time : `str`, `astropy.time.Time`
-            Reference time to calculate sidereal time.It can be a string
+            Reference time to calculate sidereal time. It can be a string
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-        mode : `str`
-            Local or greenwich time.
-            If mode set ``'local'`` calculates the sidereal time for the
+        mode : `str`, optional, default='local'
+            Local or Greenwich time.
+            If mode is ``'local'``, calculates the sidereal time for the
             coordinates of this object.
-            If mode set ``'greenwich'`` calculates the Greenwich Apparent
+            If mode is ``'greenwich'``, calculates the Greenwich apparent
             Sidereal Time.
-
 
         Returns
         -------
-        sidereal_time
-            An Astropy Longitude object with the Sidereal Time.
+        sidereal_time : `astropy.coordinates.Longitude`
+            Sidereal time as an Astropy Longitude object.
         """
         # return local or greenwich sidereal time
-        time = input_tests.test_attr(time, Time, 'time')
-        time.location = self.site
+        time = Time(input_tests.test_attr(time, Time, 'time'), location=self.site)
         if mode == 'local':
             return time.sidereal_time('apparent')
         elif mode == 'greenwich':
@@ -160,17 +157,16 @@ class Observer:
             raise ValueError('mode must be "local" or "greenwich"')
 
     def altaz(self, time, coord):
-        """Calculates the Altitude and Azimuth at a reference time for a coordinate.
+        """Calculates altitude and azimuth at a reference time for a coordinate.
 
         Parameters
         ----------
         time : `str`, `astropy.time.Time`
-            Reference time to calculate the sidereal time. It can be a string
+            Reference time to calculate altitude and azimuth. It can be a string
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
         coord : `str`, `astropy.coordinates.SkyCoord`
-            Coordinate of the target ICRS.
-
+            ICRS coordinate of the target.
 
         Returns
         -------
@@ -187,7 +183,7 @@ class Observer:
         return ephem_altaz.alt.deg, ephem_altaz.az.deg
 
     def get_vector(self, time, origin='barycenter'):
-        """Return the vector Origin -> Observer in the ICRS
+        """Returns the vector from the origin to the observer in the ICRS.
 
         Parameters
         ----------
@@ -195,15 +191,17 @@ class Observer:
             Reference time to calculate the object position. It can be a string
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-        origin : `str`
-            Origin of vector. It can be 'barycenter' or 'geocenter'.
+        origin : `str`, optional, default='barycenter'
+            Origin of the vector. It can be ``'barycenter'`` or ``'geocenter'``.
 
         Returns
         -------
         coord : `astropy.coordinates.SkyCoord`
-            Astropy SkyCoord object with the vector origin -> observer at the given time.
+            Astropy SkyCoord object with the vector from origin to observer at
+            the given time.
         """
         from sora.ephem.utils import ephem_horizons, ephem_kernel
+        from astropy.coordinates import get_body_barycentric
 
         itrs = self.site.get_itrs(obstime=time)
         with warnings.catch_warnings():
@@ -211,7 +209,10 @@ class Observer:
             gcrs = itrs.transform_to(GCRS(obstime=time))
 
         if self.ephem == 'horizons':
-            vector = ephem_horizons(time=time, target=self.spkid, observer=origin, id_type='majorbody', output='vector')
+            if origin == 'barycenter':
+                vector = SkyCoord(get_body_barycentric(body="earth", time=time, ephemeris="de440"))
+            else:
+                vector = ephem_horizons(time=time, target=self.spkid, observer=origin, id_type='majorbody', output='vector')
         else:
             vector = ephem_kernel(time=time, target=self.spkid, observer=origin, kernels=self.ephem, output='vector')
 
@@ -223,6 +224,10 @@ class Observer:
     @property
     def name(self):
         return self.__name
+
+    @name.setter
+    def name(self, value):
+        raise AttributeError("Observer.name cannot be changed after instantiation")
 
     @property
     def lon(self):
@@ -274,13 +279,11 @@ class Observer:
         f.close()
 
     def __repr__(self):
-        """String representation of the Observer Class
-        """
+        """Returns the short string representation of the Observer object."""
         return '<{}: {}>'.format(self.__class__.__name__, self.name)
 
     def __str__(self):
-        """ String representation of the Observer class
-        """
+        """Returns the string representation of the Observer object."""
         out = ('Site: {}\n'
                'Geodetic coordinates: Lon: {}, Lat: {}, height: {:.3f}'.format(
                    self.name, self.site.lon.__str__(), self.site.lat.__str__(),
@@ -292,18 +295,18 @@ class Observer:
 class Spacecraft:
     """Defines a spacecraft observer object.
 
-    Attributes
+    Parameters
     ----------
     name : `str`
-        Name for the Observer. Observer is uniquely defined (name must be
-        different for each observer).
+        Name for the spacecraft observer. Spacecraft is uniquely defined and
+        the name must be different for each observer.
 
-    spkid : `str`, required
-        `spkid` of the targeting object.
+    spkid : `str`
+        SPK-ID of the spacecraft.
 
-    ephem : `str`, `list`
-        The ephemeris used to locate the observer on space.
-        It can be "horizons" to use horizons or a list of kernels
+    ephem : `str`, `list`, optional, default='horizons'
+        The ephemeris used to locate the observer in space.
+        It can be ``'horizons'`` to use JPL Horizons or a list of SPICE kernels.
 
     """
 
@@ -325,7 +328,7 @@ class Spacecraft:
         return self._ephem
 
     def get_vector(self, time, origin='barycenter'):
-        """Return the vector Origin -> Observer in the ICRS
+        """Returns the vector from the origin to the spacecraft in the ICRS.
 
         Parameters
         ----------
@@ -333,13 +336,14 @@ class Spacecraft:
             Reference time to calculate the object position. It can be a string
             in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
-        origin : `str`
-            Origin of vector. It can be 'barycenter' or 'geocenter'.
+        origin : `str`, optional, default='barycenter'
+            Origin of the vector. It can be ``'barycenter'`` or ``'geocenter'``.
 
         Returns
         -------
         coord : `astropy.coordinates.SkyCoord`
-            Astropy SkyCoord object with the vector origin -> observer at the given time.
+            Astropy SkyCoord object with the vector from origin to spacecraft at
+            the given time.
         """
         from sora.ephem.utils import ephem_horizons, ephem_kernel
         time = Time(time)
@@ -363,13 +367,11 @@ class Spacecraft:
         f.close()
 
     def __repr__(self):
-        """String representation of the Spacecraft Class
-        """
+        """Returns the short string representation of the Spacecraft object."""
         return '<{}: {}>'.format(self.__class__.__name__, self.name)
 
     def __str__(self):
-        """ String representation of the Spacecraft class
-        """
+        """Returns the string representation of the Spacecraft object."""
         out = ['Spacecraft: {} (spkid={})'.format(self.name, self.spkid),
                'Positions from {}'.format(str(self.ephem))]
         return '\n'.join(out)

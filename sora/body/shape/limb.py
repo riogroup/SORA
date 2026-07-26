@@ -17,6 +17,7 @@ class Limb:
 
     @property
     def xy(self):
+        """`numpy.array` : Coordinates of the limb contour."""
         return np.array(self._contour.xy)
 
     @property
@@ -28,24 +29,24 @@ class Limb:
         return np.sqrt(self.shadow_area/np.pi)
 
     def plot(self, center_f=0, center_g=0, scale=1, ax=None, **kwargs):
-        """Plots the limb on the tangent plane
+        """Plot the limb on the tangent plane.
 
         Parameters
         ----------
         center_f : `int`, `float`
-            The center of the limb in the x direction. Default=0
+            The center of the limb in the f direction. Default is 0.
 
         center_g : `int`, `float`
-            The center of the limb in the y direction. Default=0
+            The center of the limb in the g direction. Default is 0.
 
         scale : `int`, `float`
-            Scale of the limb relative to the center. Default=1
+            Scale of the limb relative to the center. Default is 1.
 
         ax : `matplotlib.pyplot.Axes`
             The axes where to make the plot. If None, it will use the default axes.
 
         **kwargs
-            All other parameters will be parsed directly by matplotlib.pyplot.
+            All other parameters are passed directly to `matplotlib.pyplot`.
 
         """
         ax = ax or plt.gca()
@@ -56,30 +57,30 @@ class Limb:
 
     @property
     def maxdist(self):
-        """Computes the maximum distance of the limb from the origin"""
+        """`float` : Maximum distance of the limb from the origin."""
         return self._contour.hausdorff_distance(zero)
 
     def radial_residual_to(self, fg):
-        """Calculates radial residuals from points.
+        """Calculate radial residuals from points.
 
         Parameters
         ----------
         fg : `numpy.array`
-            Matrix nx2 with the `xy` coordinates of each of the `n` points
-            to fit the limb. See example below.
+            Matrix (n, 2) with the f and g coordinates of each of the `n`
+            points to compare with the limb.
 
         Returns
         -------
-        residuals: `numpy.array`
+        residuals : `numpy.array`
             Radial distances between limb and given points.
 
         Examples
-        ________
+        --------
 
-        fg = np.array([[-107.3,   57.8],
-                       [ 103.7,   53.2],
-                       [ -20.9,  172.4],
-                       [   1.9,  171.9]])
+        >>> fg = np.array([[-107.3, 57.8],
+        ...                [103.7, 53.2],
+        ...                [-20.9, 172.4],
+        ...                [1.9, 171.9]])
         """
         points = geometry.MultiPoint(fg)
         endlines = (fg.T * 1.1 * self.maxdist / np.linalg.norm(fg, axis=-1)).T
@@ -95,29 +96,34 @@ class Limb:
 
 
 def limb_radial_residual(limb, fg, center_f=0, center_g=0, scale=1, position_angle=0):
-    """
+    """Calculate radial residuals after applying limb fit parameters.
 
     Parameters
     ----------
     limb : `sora.body.shape.Limb`
         Generic limb to fit.
+
     fg : `numpy.array`
-        Matrix nx2 with the `xy` coordinates of each of the `n` points
-        to fit the limb. See example below.
+        Matrix (n, 2) with the f and g coordinates of each of the `n`
+        points to fit the limb.
+
     center_f : `int`, `float`, default=0
-        The coordinate in f of the ellipse center.
+        The coordinate in f of the limb center.
+
     center_g : `int`, `float`, default=0
-        The coordinate in g of the ellipse center.
+        The coordinate in g of the limb center.
+
     scale : `number`
-         Scale factor of the limb
+        Scale factor of the limb.
+
     position_angle : `number`
-        The pole position angle of the ellipse in degrees.
+        The pole position angle of the limb in degrees.
         Zero is in the North direction ('g-positive'). Positive clockwise.
 
     Returns
     -------
-    residuals: `numpy.array`
-            Radial distances between limb and given points.
+    residuals : `numpy.array`
+        Radial distances between limb and given points.
     """
     xy = fg - np.array([[center_f], [center_g]]).T
     xy /= scale

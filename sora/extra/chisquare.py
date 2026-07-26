@@ -4,25 +4,25 @@ __all__ = ['ChiSquare']
 
 
 class ChiSquare:
-    """Stores the arrays for all inputs and given chi-square.
+    """Store chi-square values and associated fitted parameters.
 
     Parameters
     ----------
-    chi2 : `array`
+    chi2 : `numpy.array`
         Array with all the chi-square values.
 
     npts : `int`
         Number of points used in the fit.
 
     **kwargs
-        Any other given input must be an array with the same size as chi2. The
-        keyword `name` will be associated as the variable `name` of the given data.
+        Additional inputs. Each value must be an array with the same size as
+        `chi2`. Each keyword is used as the parameter name in `data`.
 
-    Example
-    -------
-    >>> chisquare = ChiSquare(chi2, immersion=t1, emersion=t2)
+    Examples
+    --------
+    >>> chisquare = ChiSquare(chi2, npts=4, immersion=t1, emersion=t2)
 
-    ``t1`` and ``t2`` must be an array with the same size as chi2.
+    ``t1`` and ``t2`` must be arrays with the same size as ``chi2``.
 
     The data can be accessed as
 
@@ -47,29 +47,35 @@ class ChiSquare:
         self.nparam = nparam
 
     def get_nsigma(self, sigma=1, key=None):
-        """Determines the interval of the chi-square within the nth sigma.
+        """Return intervals for values within the requested sigma level.
 
         Parameters
         ----------
         sigma : `float`, `int`
-            Value of sigma to calculate.
+            Sigma level used to select values with
+            ``chi2 < chi2_min + sigma**2``.
 
         key : `str`, default=None
-            keyword the user desire to obtain results.
+            Parameter name for which to return the interval. If `None`,
+            intervals for all parameters are returned.
 
         Returns
         -------
-        dict
-            Dictionary with the average n-sigma value and bondaries.
+        result : `dict`, `list`
+            If `key` is `None`, a dictionary with the minimum chi-square,
+            sigma level, number of selected points, and intervals for all
+            parameters. If `key` is given, a list with the central value and
+            half-width for that parameter.
 
-        Note
-        ----
-        If a key value is given the mean value within the n-sigma and the error
-        bar within the n-sigma are returned.
+        Raises
+        ------
+        ValueError
+            If `key` is not one of the available parameter names.
 
-        If no key is given, a dictionary with: the minimum chi-square, the sigma
-        required, the number of points where :math:`chi2 < (chi2_min + sigma^2)`,
-        and the mean values and errors for all keys is returned.
+        Notes
+        -----
+        Parameter intervals are computed from the minimum and maximum values
+        selected within the requested sigma level.
         """
         values = np.where(self.data['chi2'] < self.data['chi2'].min() + sigma ** 2)[0]
         output = {'chi2_min': self.data['chi2'].min(), 'sigma': sigma, 'n_points': len(values)}
@@ -85,17 +91,22 @@ class ChiSquare:
         return output
 
     def plot_chi2(self, key=None, ax=None):
-        """Plots an ellipse using the input parameters.
+        """Plot chi-square values as a function of fitted parameters.
 
         Parameters
         ----------
-        key : `str`
-            Key (parameter) for which to plot the chi squares. If no key  is
-            given, it will plot for all parameters.
+        key : `str`, optional
+            Parameter name for which to plot the chi-square values. If `None`,
+            a plot is generated for each parameter.
 
-        ax : `maplotlib.pyplot.Axes`
-            Matplotlib plot axes. If none is given, it uses the matplotlib pool
-            to identify.
+        ax : `matplotlib.pyplot.Axes`, optional
+            Matplotlib axes where the plot is drawn. If `None`, the current
+            axes are used.
+
+        Raises
+        ------
+        ValueError
+            If `key` is not one of the available parameter names.
         """
         import matplotlib.pyplot as plt
 
@@ -124,12 +135,13 @@ class ChiSquare:
                 plt.show()
 
     def to_file(self, namefile):
-        """Saves the data to a file.
+        """Save chi-square data and column labels to files.
 
         Parameters
         ----------
         namefile : `str`
-            Filename to save the data.
+            Filename used to save the data. Column labels are written to
+            ``namefile + '.label'``.
         """
         data = np.vstack(([self.data[i] for i in self._names]))
         np.savetxt(namefile, data.T, fmt='%11.5f')
@@ -139,32 +151,30 @@ class ChiSquare:
         f.close()
 
     def get_values(self, sigma=0.0, key=None):
-        """Returns all values where the chi-square is within the nth sigma.
+        """Return values where chi-square is within the requested sigma level.
 
         Parameters
         ----------
         sigma : `float`, `int`
-            Value of sigma to cut values.
+            Sigma level used to select values with
+            ``chi2 < chi2_min + sigma**2``. If 0, only values at the minimum
+            chi-square are returned.
 
-        key : `str`
-            Keyword (parameter) that the user desires to obtain results of.
+        key : `str`, optional
+            Parameter name for which to return values. If `None`, values for
+            all parameters are returned.
 
         Returns
         -------
-        list or dict : `list`, `dict`
-            List or dictionary with chi-square values within the nth sigma, the
-            average n-sigma value, and bondaries.
+        values : `dict`, `numpy.array`
+            If `key` is `None`, a dictionary with selected values for all
+            parameters. If `key` is given, the selected values for that
+            parameter.
 
-        Note
-        ----
-        If a `key` is given, it returns a `list` with all the values that are within
-        the chosen n-sigma.
-
-        If no `key` is given, it returns a dictionary with the list with all the
-        values that are within the n-sigma for all keys.
-
-        If ``sigma=0``, it returns the parameters for the minimum chi-square
-        instead of a list.
+        Notes
+        -----
+        If ``sigma=0``, this returns the parameter values at the minimum
+        chi-square instead of arrays selected by a sigma threshold.
         """
         values = {}
         if sigma == 0.0:
@@ -177,7 +187,7 @@ class ChiSquare:
         return values
 
     def to_log(self, namefile):
-        """Saves the chi-squared log to a file.
+        """Save the chi-square summary log to a file.
 
         Parameters
         ----------
@@ -189,9 +199,31 @@ class ChiSquare:
         f.close()
 
     def __len__(self):
+        """Return the number of chi-square values stored."""
         return len(self.data['chi2'])
 
     def __add__(self, other):
+        """Concatenate two compatible `ChiSquare` objects.
+
+        Parameters
+        ----------
+        other : `ChiSquare`
+            Object to concatenate with this one.
+
+        Returns
+        -------
+        chisquare : `ChiSquare`
+            New object containing the concatenated chi-square and parameter
+            arrays.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a `ChiSquare` object.
+        ValueError
+            If the two objects have different parameter names or different
+            numbers of fitted points.
+        """
         if not isinstance(other, ChiSquare):
             raise TypeError(
                 f"unsupported operand type(s) for +: '{self.__class__.__name__}' and '{other.__class.__name}'")
@@ -205,8 +237,7 @@ class ChiSquare:
         return ChiSquare(chi2=chi2, npts=int((self.npts + other.npts) / 2), **params)
 
     def __str__(self):
-        """ String representation of the ChiSquare Object
-        """
+        """Return a printable summary of the chi-square fit."""
         sigma_1 = self.get_nsigma(sigma=1)
         sigma_3 = self.get_nsigma(sigma=3)
         output = ('Minimum chi-square: {:.3f}\n'

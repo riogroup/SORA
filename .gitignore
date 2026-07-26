@@ -90,6 +90,11 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.venv-py3.9/
+.venv-py3.10/
+.venv-py3.11/
+.venv-py3.12/   
+.venv-py3.13/
 
 # Spyder project settings
 .spyderproject
@@ -106,3 +111,18 @@ venv.bak/
 
 # PyCharm
 .idea/
+
+# Local test utilities (not versioned)
+local_tests/
+
+# Notebook test artifacts
+build/notebook-test-logs/
+build/notebook-test-output/
+build/notebook-full-test/
+
+# Manual download for body.ipynb tutorial (3D shape model)
+docs/guidelines/Phoebe*.obj
+
+
+
+

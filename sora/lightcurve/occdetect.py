@@ -218,16 +218,18 @@ def run_bls(flux, dflux, time, per_grid, dur_grid, mask=None, rank=None):
         model = mskmodel
 
     r = model.power(per_grid, dur_grid, objective='snr', method='fast')
+    period = r.period[0]
+    duration = r.duration[0]
+    transit_time = r.transit_time[0]
     # statistics of the BLS fit
-    stats = model.compute_stats(r.period, r.duration, r.transit_time)
+    stats = model.compute_stats(period, duration, transit_time)
     # occultation mask of the event with respect to all data
-    occ_mask = mskmodel.transit_mask(time, r.period, r.duration,
-                                     r.transit_time)
+    occ_mask = mskmodel.transit_mask(time, period, duration, transit_time)
     # parameters computation for clarity purposes
-    occultation_duration = r.duration[0]
+    occultation_duration = duration
     central_time = stats['transit_times'][0]
-    immersion_time = stats['transit_times'][0] - r.duration[0] / 2
-    emersion_time = stats['transit_times'][0] + r.duration[0] / 2
+    immersion_time = stats['transit_times'][0] - duration / 2
+    emersion_time = stats['transit_times'][0] + duration / 2
     time_err = np.median(time[1:-1] - time[0:-2]) / 2
     depth = np.mean(flux[~occ_mask]) - np.mean(flux[occ_mask])
     depth_err = np.std(flux[occ_mask], ddof=1)

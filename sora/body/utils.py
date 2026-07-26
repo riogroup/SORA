@@ -5,27 +5,27 @@ __all__ = ['search_sbdb', 'apparent_magnitude']
 
 
 def search_sbdb(name):
-    """Searches JPL Small-Body DataBase to search for object information.
+    """Search the JPL Small-Body Database for object information.
 
-    As the name implies, it searches only for Small Bodies. Planets and
-    satellites information are not retrieved by this function.
+    This function searches only for small bodies. Planet and satellite
+    information is not retrieved by this function.
 
     Parameters
     ----------
     name : `str`
-        The name of the object for the search. It can be the attributed `spkid`
-        or `designation number`. The name is case insensitive.
+        Name of the object to search for. It can also be the assigned `spkid`
+        or designation number. The name is case-insensitive.
 
     Returns
     -------
     sbdb : `dict`
-        An ordered dictionary with the object information.
+        Ordered dictionary with the object information.
 
     Important
     ---------
     The query is not an autocomplete search, so ``name='Charikl'`` will not find
-    Chariklo. If more than 1 object is found, the user is asked to select the
-    correct one (e.g: ``name='neowise'``).
+    Chariklo. If more than one object is found, the user is asked to select the
+    correct one, for example ``name='neowise'``.
     """
     from astroquery.jplsbdb import SBDB
     from . import values
@@ -41,20 +41,20 @@ def search_sbdb(name):
 
 
 def select_body(sbdb):
-    """Creates an object selection table.
+    """Create an object selection table.
 
-    A table to select object is created when the SBDB search returns more than
-    one object. This function is not supposed to be called by the user.
+    A table is created when the SBDB search returns more than one object. This
+    function is not intended to be called directly by users.
 
     Parameters
     ----------
     sbdb : `dict`
-        An ordered dictionary object returned by SBDB search.
+        Ordered dictionary returned by an SBDB search.
 
     Returns
     -------
     sbdb : `dict`
-        An ordered dictionary with the data of the selected object.
+        Ordered dictionary with the data of the selected object.
     """
     from astropy.table import Table
 
@@ -75,7 +75,7 @@ def select_body(sbdb):
 
 
 def apparent_magnitude(H, G, dist, sundist, phase=0.0):
-    """Calculates the object's apparent magnitude.
+    """Calculate the object's apparent magnitude.
 
     Parameters
     ----------
@@ -92,8 +92,7 @@ def apparent_magnitude(H, G, dist, sundist, phase=0.0):
         Sun-object distance, in AU.
 
     phase : `int`, `float`, default=0
-        Phase angle (Sun-Target-Observer), in degrees.
-
+        Phase angle (Sun-target-observer), in degrees.
 
     Returns
     -------
@@ -368,6 +367,26 @@ planets = {
 
 
 def search_satdb(name):
+    """Search the internal satellite and planet database.
+
+    Parameters
+    ----------
+    name : `str`
+        Name of the satellite or planet to search for. The name is
+        case-insensitive.
+
+    Returns
+    -------
+    body : `dict`
+        Dictionary with the physical parameters of the selected satellite or
+        planet.
+
+    Raises
+    ------
+    ValueError
+        If `name` is not present in the internal database.
+
+    """
     sat = satellites.get(name.lower())
     if sat is not None:
         sat['class'] = 'satellite'

@@ -1,3 +1,5 @@
+"""Base ephemeris support shared by SORA ephemeris classes."""
+
 import warnings
 
 import astropy.units as u
@@ -10,7 +12,52 @@ from sora.config.decorators import deprecated_function
 
 
 class BaseEphem:
+    """Base class with shared metadata and helper methods for ephemerides.
+
+    Parameters
+    ----------
+    name : `str`, optional
+        Name of the object.
+
+    spkid : `str`, `int`, optional
+        SPK identifier of the object.
+
+    error_ra : `int`, `float`, `astropy.units.Quantity`, optional
+        Ephemeris RA*cosDEC uncertainty. Values without units are interpreted
+        in arcsec.
+
+    error_dec : `int`, `float`, `astropy.units.Quantity`, optional
+        Ephemeris DEC uncertainty. Values without units are interpreted in
+        arcsec.
+
+    radius : `int`, `float`, `astropy.units.Quantity`, optional
+        Object radius. Values without units are interpreted in km.
+
+    mass : `int`, `float`, optional, default=0
+        Object mass, in kg.
+
+    H : `int`, `float`, optional
+        Object absolute magnitude.
+
+    G : `int`, `float`, optional
+        Object phase slope.
+    """
+
     def __init__(self, name=None, spkid=None, **kwargs):
+        """Initialize shared ephemeris attributes.
+
+        Parameters
+        ----------
+        name : `str`, optional
+            Name of the object.
+
+        spkid : `str`, `int`, optional
+            SPK identifier of the object.
+
+        **kwargs
+            Optional ephemeris uncertainty and physical parameters accepted by
+            `BaseEphem`.
+        """
         # remove 'H', 'G', 'mass' and 'radius' from allowed kwargs and docstring for v1.0
         input_tests.check_kwargs(kwargs, allowed_kwargs=['error_dec', 'error_ra', 'H', 'G', 'mass', 'radius'])
         #
@@ -40,6 +87,7 @@ class BaseEphem:
 
     @property
     def spkid(self):
+        """`str` : SPK identifier of the object."""
         if 'spkid' in self._shared_with['body']:
             return self._shared_with['body']['spkid']
         elif hasattr(self, '_spkid'):
@@ -49,6 +97,7 @@ class BaseEphem:
 
     @spkid.setter
     def spkid(self, value):
+        """Set the object's SPK identifier."""
         if 'spkid' in self._shared_with['body']:
             raise AttributeError('When {} is associated to a Body object, spkid must be given to the Body'
                                  ' object.'.format(self.__class__.__name__))
@@ -57,6 +106,7 @@ class BaseEphem:
     # Start of block removal for v1.0
     @property
     def radius(self):
+        """`astropy.units.Quantity` : Object radius, in km."""
         if 'radius' in self._shared_with['body']:
             return self._shared_with['body']['radius']
         elif hasattr(self, '_radius'):
@@ -66,6 +116,7 @@ class BaseEphem:
 
     @radius.setter
     def radius(self, value):
+        """Set the object radius."""
         if 'radius' in self._shared_with['body']:
             raise AttributeError('When {} is associated to a Body object, radius must be given to the Body'
                                  ' object.'.format(self.__class__.__name__))
@@ -73,6 +124,7 @@ class BaseEphem:
 
     @property
     def H(self):
+        """`float` : Object absolute magnitude."""
         if 'H' in self._shared_with['body']:
             return self._shared_with['body']['H'].value
         elif hasattr(self, '_H'):
@@ -82,6 +134,7 @@ class BaseEphem:
 
     @H.setter
     def H(self, value):
+        """Set the object absolute magnitude."""
         if 'H' in self._shared_with['body']:
             raise AttributeError('When {} is associated to a Body object, H must be given to the Body'
                                  ' object.'.format(self.__class__.__name__))
@@ -89,6 +142,7 @@ class BaseEphem:
 
     @property
     def G(self):
+        """`float` : Object phase slope."""
         if 'G' in self._shared_with['body']:
             return self._shared_with['body']['G']
         elif hasattr(self, '_G'):
@@ -98,6 +152,7 @@ class BaseEphem:
 
     @G.setter
     def G(self, value):
+        """Set the object phase slope."""
         if 'G' in self._shared_with['body']:
             raise AttributeError('When {} is associated to a Body object, G must be given to the Body'
                                  ' object.'.format(self.__class__.__name__))
@@ -114,8 +169,9 @@ class BaseEphem:
 
         Returns
         -------
-        ap_mag : `float`
-            Object apparent magnitude.
+        ap_mag : `float`, `list`
+            Object apparent magnitude. A list is returned when multiple times
+            are requested and the value is obtained from Horizons.
         """
         from sora.body.utils import apparent_magnitude
         from astroquery.jplhorizons import Horizons
@@ -154,7 +210,7 @@ class BaseEphem:
 
     @deprecated_function(message="Please use get_pole_position_angle from Body object")
     def get_pole_position_angle(self, pole, time):
-        """Returns the object's geocentric position.
+        """Returns the pole position and aperture angles.
 
         Parameters
         ----------
@@ -206,8 +262,8 @@ class BaseEphem:
         ksi, eta : `float`
             Projected position (orthographic projection) of the object in the
             tangent sky plane relative to a star.
-            ``ksi`` is in the North-South direction (North positive).
-            ``eta`` is in the East-West direction (East positive).
+            ``ksi`` is in the East-West direction (East positive).
+            ``eta`` is in the North-South direction (North positive).
         """
         from astropy.coordinates import SkyOffsetFrame
         time = Time(time)
@@ -220,7 +276,7 @@ class BaseEphem:
         return da.to(u.km).value, dd.to(u.km).value
 
     def add_offset(self, da_cosdec, ddec):
-        """Adds an offset to the Ephemeris.
+        """Sets the offset applied to the ephemeris.
 
         Parameters
         ----------
@@ -234,10 +290,12 @@ class BaseEphem:
 
     @property
     def offset(self):
+        """`astropy.coordinates.SphericalCosLatDifferential` : Ephemeris offset."""
         return self._offset
 
     @offset.setter
     def offset(self, value):
+        """Set the ephemeris offset from RA*cosDEC and DEC values."""
         from astropy.coordinates import SphericalCosLatDifferential
         dadc, dd = value
         self._offset = SphericalCosLatDifferential(dadc * u.mas, dd * u.mas, 0.0 * u.km)
@@ -246,7 +304,7 @@ class BaseEphem:
         """Saves the ephemerides to a file.
 
         Ephemeris will be saved starting one hour before the central time
-        untill one hour after it, with a step of one minute.
+        until one hour after it, with a step of one minute.
 
         Note
         ----
@@ -258,7 +316,8 @@ class BaseEphem:
             Central time to be saved.
 
         namefile : `str`
-            Filename to save.
+            Filename to save. If not given, a default filename is generated
+            from the object name.
         """
         if namefile is None:
             namefile = 'Ephem_' + self.name.replace(' ', '_') + '.dat'

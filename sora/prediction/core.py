@@ -15,7 +15,7 @@ __all__ = ['occ_params', 'prediction']
 
 
 def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None, reference_center='geocenter'):
-    """Calculates the parameters of the occultation, as instant, CA, PA.
+    """Calculates the main parameters of a stellar occultation.
 
     Parameters
     ----------
@@ -23,33 +23,30 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None, reference_cent
         The coordinate of the star in the same reference frame as the ephemeris.
         It must be a Star object.
 
-    ephem : `sora.Ephem*`
+    ephem : `sora.Ephem`
         Object ephemeris. It must be an Ephemeris object.
 
-    time : `astropy.time.Time`
+    time : `str`, `astropy.time.Time`
         Time close to occultation epoch to calculate occultation parameters.
 
     n_recursions : `int`, default=5
-        The number of attempts to try obtain prediction parameters in case the
+        The number of attempts to obtain prediction parameters in case the
         event is outside the previous range of time.
 
-    max_tdiff : `int`, default=None
+    max_tdiff : `int`, `float`, optional
         Maximum difference from given time it will attempt to identify the
         occultation, in minutes. If given, 'n_recursions' is ignored.
 
-    reference_center : `str`, `sora.Observer`, `sora.Spacecraft`
-            A SORA observer object or a string 'geocenter'.
-            The occultation parameters will be calculated in respect
-            to this reference as center of projection.
+    reference_center : `str`, `sora.Observer`, `sora.Spacecraft`, default='geocenter'
+        A SORA observer object, spacecraft object, or a string such as
+        ``'geocenter'``. The occultation parameters are calculated with respect
+        to this reference as the center of projection.
 
     Returns
     -------
-     Oredered list : `list`
-        - Instant of CA (Time): Instant of Closest Approach.\n
-        - CA (arcsec): Distance of Closest Approach.\n
-        - PA (deg): Position Angle at Closest Approach.\n
-        - vel (km/s): Velocity of the occultation.\n
-        - dist (AU): the object geocentric distance.\n
+    tca, ca, pa, vel, dist : `tuple`
+        Instant of closest approach, closest-approach distance, position angle,
+        shadow velocity, and object distance.
     """
     from sora.ephem import EphemPlanete
     from sora.observer import Observer, Spacecraft
@@ -115,40 +112,40 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None, reference_cent
 
 
 @deprecated_alias(log='verbose')  # remove this line in v1.0
-def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='gaiadr3', step=60, divs=1, sigma=1,
+def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='gaiadr3_linea', step=60, divs=1, sigma=1,
                radius=None, verbose=True, reference_center='geocenter'):
     """Predicts stellar occultations.
 
     Parameters
     ----------
-    time_beg : `str`, `astropy.time.Time`, required
+    time_beg : `str`, `astropy.time.Time`
         Initial time for prediction.
 
-    time_end : `str`, `astropy.time.Time`, required
+    time_end : `str`, `astropy.time.Time`
         Final time for prediction.
 
-    body : `sora.Body`, `str`, default=None
+    body : `sora.Body`, `str`, optional
         Object that will occult the stars. It must be a Body object or its name
         to search in the Small Body Database.
 
-    ephem : `sora.Ephem`, default=None
-        object ephemeris. It must be an Ephemeris object.
-        If using a EphemHorizons object, please use 'divs' to make division
+    ephem : `sora.Ephem`, optional
+        Object ephemeris. It must be an Ephemeris object.
+        If using an EphemHorizons object, please use 'divs' to make divisions
         at most a month, or a timeout error may be raised by the Horizon query.
 
     mag_lim : `int`, `float`, `dict`, default=None
         Faintest magnitude allowed in the search. If the catalogue has more
         than one band defined in the catalogue object, the magnitude limit can
-        be done for a specific band or a set of band. Ex: ``mag_lim={'V': 15}``,
+        be set for a specific band or a set of bands. Ex: ``mag_lim={'V': 15}``,
         which will only download stars with V<=15 or ``mag_lim={'V': 15, 'B': 14}``
         which will download stars with V<=15 AND B<=14.
 
-    catalogue : `str`, `VizierCatalogue`
+    catalogue : `str`, `Catalogue`, default='gaiadr3_linea'
         The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
-        ``'gaiadr3'``, or a VizierCatalogue object. default='gaiadr3'
+        ``'gaiadr3'``, ``'gaiadr3_linea'``, or a Catalogue object.
 
     step : `int`, `float`, default=60
-        Step, in seconds, of ephem times for search
+        Step, in seconds, of ephemeris times for search.
 
     divs : `int`, default=1
         Number of regions the ephemeris will be split for better search of
@@ -157,24 +154,24 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
     sigma : `int`, `float`, default=1
         Ephemeris error sigma for search off-Earth.
 
-    radius : `int`, `float`, default=None
+    radius : `int`, `float`, optional
         The radius of the body. It is important if not defined in body or ephem.
 
     verbose : `bool`, default=True
-        To show what is being done at the moment.
+        If True, prints progress information.
 
-    reference_center : `str`, `sora.Observer`, `sora.Spacecraft`
-        A SORA observer object or a string 'geocenter'.
-        The occultation parameters will be calculated in respect
-        to this reference as center of projection. If a Spacecraft
+    reference_center : `str`, `sora.Observer`, `sora.Spacecraft`, default='geocenter'
+        A SORA observer object, spacecraft object, or a string such as
+        ``'geocenter'``. The occultation parameters are calculated with respect
+        to this reference as the center of projection. If a Spacecraft
         is used, please use smaller step since the search will be based
         on the target size and ephemeris error only.
 
 
-    Important
-    ---------
+    Notes
+    -----
     When instantiating with "body" and "ephem", the user may call the function
-    in 3 ways:
+    in three ways:
 
     1 - With "body" and "ephem".
 
@@ -187,11 +184,11 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
 
     Returns
     -------
-     : `sora.prediction.PredictionTable`
+    prediction_table : `sora.prediction.PredictionTable`
         PredictionTable with the occultation params for each event.
     """
     from sora.observer import Observer, Spacecraft
-    from sora.star.catalog import allowed_catalogues
+    from sora.star.catalog import allowed_catalogues, gaiadr3, should_fallback_to_gaiadr3
     from .table import PredictionTable
 
     if reference_center != 'geocenter' and not isinstance(reference_center, (Observer, Spacecraft)):
@@ -217,16 +214,22 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
 
     # define catalogue parameters
     catalog = allowed_catalogues.get_default(catalogue)
-    kwds = {'columns': 'simple', 'row_limit': 10000000, 'timeout': 600}
-    if mag_lim is not None:
-        if isinstance(mag_lim, (int, float)):
-            if len(catalog.band) == 0:
-                warnings.warn(f"Catalogue '{catalog.name}' does not have any band defined.")
-            else:
-                mag_lim = {next(iter(catalog.band)): mag_lim}
-        if isinstance(mag_lim, dict):
-            kwds['column_filters'] = {catalog.band[band]: f"<{value}" for band, value in mag_lim.items()
-                                      if band in catalog.band}
+
+    def build_query_kwargs(active_catalog):
+        kwds = {'columns': 'simple', 'row_limit': 10000000, 'timeout': 600}
+        active_mag_lim = mag_lim
+        if active_mag_lim is not None:
+            if isinstance(active_mag_lim, (int, float)):
+                if len(active_catalog.band) == 0:
+                    warnings.warn(f"Catalogue '{active_catalog.name}' does not have any band defined.")
+                else:
+                    active_mag_lim = {next(iter(active_catalog.band)): active_mag_lim}
+            if isinstance(active_mag_lim, dict):
+                kwds['column_filters'] = {
+                    active_catalog.band[band]: f"<{value}"
+                    for band, value in active_mag_lim.items() if band in active_catalog.band
+                }
+        return kwds
 
     # determine suitable divisions for star search
     if radius is None:
@@ -265,7 +268,17 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
 
         if verbose:
             print('Downloading stars ...')
-        catalogue = catalog.search_region(pos_search, width=width, height=height, **kwds)
+        kwds = build_query_kwargs(catalog)
+        try:
+            catalogue = catalog.search_region(pos_search, width=width, height=height, **kwds)
+        except Exception as e:
+            if should_fallback_to_gaiadr3(catalog, e):
+                warnings.warn('TapLinea timed out. Retrying Gaia DR3 search on VizieR.')
+                catalog = gaiadr3
+                kwds = build_query_kwargs(catalog)
+                catalogue = catalog.search_region(pos_search, width=width, height=height, **kwds)
+            else:
+                raise
         if len(catalogue) == 0:
             print('    No star found. The region is too small or VizieR is out.')
             continue

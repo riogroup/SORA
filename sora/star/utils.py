@@ -10,7 +10,7 @@ __all__ = ['van_belle', 'kervella']
 
 @deprecated_alias(log='verbose')  # remove this line for v1.0
 def search_star(**kwargs):
-    """Searches position on VizieR and returns a catalogue.
+    """Searches a star position on VizieR and returns a catalogue result.
 
     Parameters
     ----------
@@ -18,22 +18,24 @@ def search_star(**kwargs):
         Coordinate to perform the search.
 
     code : `str`
-        Gaia Source_id of the star.
+        Gaia source identifier of the star.
 
     columns : `list`
         List of strings with the name of the columns to retrieve.
 
-    radius : `int`, `float`, `astropy.unit.quantity`
+    radius : `int`, `float`, `astropy.units.Quantity`
         Radius to search around coordinates.
 
     catalog : `str`
         VizieR catalogue to search.
 
+    verbose : `bool`
+        If True, prints the catalogue being queried.
 
     Returns
     -------
-    catalogue : `astropy.Table`
-        An astropy Table with the catalogue information.
+    catalogue : `astroquery.utils.commons.TableList`
+        Query result with catalogue information.
     """
     from astroquery.vizier import Vizier
 
@@ -54,7 +56,7 @@ def search_star(**kwargs):
 def van_belle(magB=None, magV=None, magK=None):
     """Determines the diameter of a star in mas using equations from van Belle (1999).
 
-    See: Publi. Astron. Soc. Pacific 111, 1515-1523:.
+    See: Publications of the Astronomical Society of the Pacific, 111, 1515-1523.
 
     Parameters
     ----------
@@ -68,8 +70,13 @@ def van_belle(magB=None, magV=None, magK=None):
         The magnitude K of the star.
 
 
-    Note
-    ----
+    Returns
+    -------
+    diameter : `dict`
+        Angular diameters by stellar type and band.
+
+    Notes
+    -----
     If any of those values is 'None', 'nan' or higher than 49, it is not considered.
     """
     if magB is None or np.isnan(magB) or magB > 49:
@@ -100,24 +107,28 @@ def van_belle(magB=None, magV=None, magK=None):
 
 
 def kervella(magB=None, magV=None, magK=None):
-    """Determines the diameter of a star in mas using equations from Kervella et. al (2004).
+    """Determines the diameter of a star in mas using equations from Kervella et al. (2004).
 
-    See: A&A Vol. 426, No.  1:.
+    See: Astronomy & Astrophysics, 426, 297-307.
 
     Parameters
     ----------
-    magB: `float`, default=None
+    magB : `float`, default=None
         The magnitude B of the star.
 
-    magV: `float`, default=None
+    magV : `float`, default=None
         The magnitude V of the star.
 
-    magK: `float`, default=None
-        The magnitudes K of the star.
+    magK : `float`, default=None
+        The magnitude K of the star.
 
+    Returns
+    -------
+    diameter : `dict`
+        Angular diameters by band.
 
-    Note
-    ----
+    Notes
+    -----
     If any of those values is 'None', 'nan' or higher than 49, it is not considered.
 
     """
@@ -140,102 +151,151 @@ def kervella(magB=None, magV=None, magK=None):
 
 
 def spatial_motion(ra, dec, pmra, pmdec, parallax=0, rad_vel=0,  dt=0, cov_matrix=None):
-    """Applies spatial motion to star coordinate.
+    """Applies spatial motion to a star coordinate.
+
+    This function supports either one star propagated to several ``dt`` values,
+    or several stars propagated to one shared ``dt`` value. Astrometric
+    parameter arrays are paired item by item and must all have the same shape;
+    no broadcast is performed between star parameters. If ``cov_matrix`` is
+    provided, only the one-star, one-or-many-``dt`` case is supported.
 
     Parameters
     ----------
-    ra `int`, `float`
+    ra : `int`, `float`, `astropy.units.Quantity`
         Right Ascension of the star at t=0 epoch, in deg.
 
-    dec : `int`, `float`
+    dec : `int`, `float`, `astropy.units.Quantity`
         Declination of the star at t=0 epoch, in deg.
 
-    pmra : `int`, `float`
-        Proper Motion in RA of the star at t=0 epoch, in mas/year.
+    pmra : `int`, `float`, `astropy.units.Quantity`
+        Proper motion in RA*cos(DEC) of the star at t=0 epoch, in mas/year.
 
-    pmdec : `int`, `float`
-        Proper Motion in DEC of the star at t=0 epoch, in mas/year.
+    pmdec : `int`, `float`, `astropy.units.Quantity`
+        Proper motion in DEC of the star at t=0 epoch, in mas/year.
 
-    parallax : `int`, `float`
+    parallax : `int`, `float`, `astropy.units.Quantity`, default=0
         Parallax of the star at t=0 epoch, in mas.
 
-    rad_vel : `int`, `float`
-        Radial Velocity of the star at t=0 epoch, in km/s.
+    rad_vel : `int`, `float`, `astropy.units.Quantity`, default=0
+        Radial velocity of the star at t=0 epoch, in km/s.
 
-    dt : `int`, `float`
+    dt : `int`, `float`, `astropy.units.Quantity`, default=0
         Variation of time from catalogue epoch, in days.
 
-    cov_matrix : `2D-array`
-        6x6 covariance matrix.
+    cov_matrix : `2D-array`, optional
+        6x6 covariance matrix. It can only be used with one star. When ``dt``
+        has multiple values, one propagated error is returned for each value.
+
+    Returns
+    -------
+    coord : `astropy.coordinates.SkyCoord`
+        Star coordinate propagated by spatial motion.
+    errors : `numpy.ndarray`
+        Returned only when ``cov_matrix`` is provided. Propagated coordinate
+        uncertainties.
     """
     import astropy.constants as const
 
     A = (1*u.AU).to(u.km).value  # Astronomical units in km
     c = const.c.to(u.km/u.year).value  # light velocity
 
-    par = True
-    # Eliminate negative or zero parallaxes
-    if parallax is None or parallax <= 0:
-        par = False
-        parallax = 1e-4
+    if parallax is None:
+        parallax = 0
 
-    if cov_matrix is not None and cov_matrix.shape != (6, 6):
-        raise ValueError('Covariance matrix must be a 6x6 matrix')
+    ra0 = np.asarray(u.Quantity(ra, unit=u.deg).to(u.rad).value, dtype=float)
+    dec0 = np.asarray(u.Quantity(dec, unit=u.deg).to(u.rad).value, dtype=float)
+    parallax_mas = np.asarray(u.Quantity(parallax, unit=u.mas).to(u.mas).value, dtype=float)
+    pmra0 = np.asarray(u.Quantity(pmra, unit=u.mas/u.year).to(u.rad/u.year).value, dtype=float)
+    pmdec0 = np.asarray(u.Quantity(pmdec, unit=u.mas/u.year).to(u.rad/u.year).value, dtype=float)
+    rad_vel0 = np.asarray(u.Quantity(rad_vel, unit=u.km/u.s).to(u.AU/u.year).value, dtype=float)
+    dt = np.asarray(u.Quantity(dt, unit=u.day).to(u.year).value, dtype=float)
 
-    ra0 = u.Quantity(ra, unit=u.deg).to(u.rad).value
-    dec0 = u.Quantity(dec, unit=u.deg).to(u.rad).value
-    parallax0 = u.Quantity(parallax, unit=u.mas).to(u.rad).value
-    pmra0 = u.Quantity(pmra, unit=u.mas/u.year).to(u.rad/u.year).value
-    pmdec0 = u.Quantity(pmdec, unit=u.mas/u.year).to(u.rad/u.year).value
-    rad_vel0 = u.Quantity(rad_vel, unit=u.km/u.s).to(u.AU/u.year).value
-    dt = u.Quantity(dt, unit=u.day).to(u.year).value
+    star_shapes = {
+        'ra': np.shape(ra0),
+        'dec': np.shape(dec0),
+        'pmra': np.shape(pmra0),
+        'pmdec': np.shape(pmdec0),
+        'parallax': np.shape(parallax_mas),
+        'rad_vel': np.shape(rad_vel0),
+    }
+    non_scalar_shapes = [shape for shape in star_shapes.values() if shape != ()]
+    star_shape = non_scalar_shapes[0] if non_scalar_shapes else ()
+    if any(shape != star_shape for shape in star_shapes.values()):
+        raise ValueError(
+            'Star astrometric parameters (ra, dec, pmra, pmdec, parallax, rad_vel) '
+            'must all be scalars or have exactly the same shape.'
+        )
+
+    star_size = int(np.prod(star_shape)) if star_shape else 1
+    dt_size = int(np.prod(dt.shape)) if dt.shape else 1
+    if star_size > 1 and dt_size > 1:
+        raise ValueError('spatial_motion accepts either several stars and one dt, or one star and several dt values.')
+
+    if cov_matrix is not None:
+        cov_matrix = np.asarray(cov_matrix, dtype=float)
+        if cov_matrix.shape != (6, 6):
+            raise ValueError('Covariance matrix must be a 6x6 matrix')
+        if star_size > 1:
+            raise ValueError('Covariance matrix propagation is only supported for one star.')
+
+    # Eliminate negative, zero, or invalid parallaxes for the propagation itself.
+    par = np.isfinite(parallax_mas) & (parallax_mas > 0)
+    parallax0 = u.Quantity(np.where(par, parallax_mas, 1e-4), unit=u.mas).to(u.rad).value
 
     # normal triad relative to the celestial sphere
     # p0 points to growing RA, q0 to growing DEC and r0 to growing distance.
-    p0 = np.array([-np.sin(ra0), np.cos(ra0), 0.0]).T
-    q0 = np.array([-np.sin(dec0)*np.cos(ra0), -np.sin(dec0)*np.sin(ra0), np.cos(dec0)])
-    r0 = np.array([np.cos(dec0)*np.cos(ra0), np.cos(dec0)*np.sin(ra0), np.sin(dec0)])
+    p0 = np.stack([-np.sin(ra0), np.cos(ra0), np.zeros_like(ra0)], axis=-1)
+    q0 = np.stack([-np.sin(dec0)*np.cos(ra0), -np.sin(dec0)*np.sin(ra0), np.cos(dec0)], axis=-1)
+    r0 = np.stack([np.cos(dec0)*np.cos(ra0), np.cos(dec0)*np.sin(ra0), np.sin(dec0)], axis=-1)
 
     b0 = A/parallax0
     tau_0 = b0/c
     tau_A = A/c
 
-    vec_b0 = b0*r0  # distance vector
-    vec_u0 = vec_b0/np.linalg.norm(vec_b0)
-    vec_mi0 = np.array(p0*pmra0 + q0*pmdec0)  # proper motion vector
+    vec_b0 = b0[..., None]*r0  # distance vector
+    vec_u0 = vec_b0/np.linalg.norm(vec_b0, axis=-1, keepdims=True)
+    vec_mi0 = p0*pmra0[..., None] + q0*pmdec0[..., None]  # proper motion vector
 
     mi_r0 = rad_vel0/b0
     mi0 = np.sqrt(pmra0**2+pmdec0**2)  # total proper motion
 
-    v0 = b0*(r0*mi_r0+vec_mi0)  # apparent space velocity
-    v_r0 = np.linalg.norm(v0)
+    v0 = b0[..., None]*(r0*mi_r0[..., None]+vec_mi0)  # apparent space velocity
+    v_r0 = np.linalg.norm(v0, axis=-1)
 
     # Scaling factors of time, distance and velocity due to light time
-    f_T = ((dt + 2*tau_0)/(tau_0+(1-v_r0/c)*dt + np.sqrt(np.linalg.norm((vec_b0+v0*dt))**2
-           + (2*dt/(c**2*tau_0))*np.linalg.norm(np.cross(v0, vec_b0))**2)/c))
+    v0_dt = vec_b0 + v0*dt[..., None]
+    cross_norm = np.linalg.norm(np.cross(v0, vec_b0), axis=-1)
+    f_T = ((dt + 2*tau_0)/(tau_0+(1-v_r0/c)*dt + np.sqrt(np.linalg.norm(v0_dt, axis=-1)**2
+           + (2*dt/(c**2*tau_0))*cross_norm**2)/c))
     f_D = np.sqrt(1+2*mi_r0*dt*f_T + (mi0**2 + mi_r0**2)*(dt*f_T)**2)
     f_V = (1 + (tau_A/parallax0)*(mi_r0*(f_D - 1) + f_D*(mi0**2 + mi_r0**2)*dt*f_T))
 
-    vec_u = (r0*(1 + mi_r0*dt*f_T) + vec_mi0*dt*f_T)*f_D
-    vec_mi = (vec_mi0*(1 + mi_r0*dt*f_T) - vec_u0*mi0**2*f_T)*f_D**3*f_V
+    vec_u = (r0*(1 + mi_r0*dt*f_T)[..., None] + vec_mi0*(dt*f_T)[..., None])*f_D[..., None]
+    vec_mi = (vec_mi0*(1 + mi_r0*dt*f_T)[..., None] - vec_u0*(mi0**2*f_T)[..., None])*(f_D**3*f_V)[..., None]
     mi_r = (mi_r0 + (mi0**2 + mi_r0**2)*dt*f_T)*f_D**2*f_V
 
-    dec = np.arcsin(vec_u[2])  # new dec
-    ra = np.arctan2(vec_u[1]/np.cos(dec), vec_u[0]/np.cos(dec))  # new ra
+    dec = np.arcsin(vec_u[..., 2])  # new dec
+    ra = np.arctan2(vec_u[..., 1]/np.cos(dec), vec_u[..., 0]/np.cos(dec))  # new ra
 
     parallax = parallax0*f_D  # new parallax
     new_dist = A/parallax  # new distance
 
-    if par:
+    par_out = np.broadcast_to(par, np.shape(ra))
+    if np.all(par_out):
         coord = SkyCoord(ra*u.rad, dec*u.rad, new_dist*u.km)
-    else:
+    elif not np.any(par_out):
         coord = SkyCoord(ra*u.rad, dec*u.rad)
+    else:
+        coord = SkyCoord(ra*u.rad, dec*u.rad, np.where(par_out, new_dist, np.nan)*u.km)
 
     if cov_matrix is None:
         return coord
 
-    p = np.array([-np.sin(ra), np.cos(ra), 0.0])
-    q = np.array([-np.sin(dec)*np.cos(ra), -np.sin(dec)*np.sin(ra), np.cos(dec)])
+    def dot_last(left, right):
+        return np.sum(left*right, axis=-1)
+
+    p = np.stack([-np.sin(ra), np.cos(ra), np.zeros_like(ra)], axis=-1)
+    q = np.stack([-np.sin(dec)*np.cos(ra), -np.sin(dec)*np.sin(ra), np.cos(dec)], axis=-1)
 
     Z = np.sqrt(1 + (dt + 2*tau_A/parallax0)*mi0**2*dt + (2 + mi_r0*dt)*mi_r0*dt)
     Y = parallax0*dt + tau_A*(1 + Z - mi_r0*dt)
@@ -252,81 +312,101 @@ def spatial_motion(ra, dec, pmra, pmdec, parallax=0, rad_vel=0,  dt=0, cov_matri
     psi_pm = -((dt*tau_A)/(Y*Z))*(dt + 2*tau_A/parallax0)
     psi_r = -(dt*tau_A/Y)*((1 + mi_r0*dt)/Z - 1)
 
-    ni = vec_mi*(1 - dt*f_T*(3*mi_r/f_V + (tau_A/parallax0)*mi0**2*f_D**3*f_V)) - vec_mi0*f_D**3*f_V
+    ni = vec_mi*(1 - dt*f_T*(3*mi_r/f_V + (tau_A/parallax0)*mi0**2*f_D**3*f_V))[..., None] - \
+        vec_mi0*(f_D**3*f_V)[..., None]
     eta = mi_r*(1 - dt*f_T*(2*mi_r/f_V + (tau_A/parallax0)*mi0**2*f_D**3*f_V)) - mi_r0*f_D**2*f_V
 
-    p_l = p/np.linalg.norm(p)
-    q_l = q/np.linalg.norm(q)
+    p_l = p/np.linalg.norm(p, axis=-1, keepdims=True)
+    q_l = q/np.linalg.norm(q, axis=-1, keepdims=True)
 
-    pmra = np.dot(p_l, vec_mi)  # new pmra
-    pmdec = np.dot(q_l, vec_mi)  # new pmdec
+    pmra = dot_last(p_l, vec_mi)  # new pmra
+    pmdec = dot_last(q_l, vec_mi)  # new pmdec
 
     # Jacobian matrix
-    J = np.zeros((6, 6))
+    J = np.zeros(np.shape(ra) + (6, 6))
 
     # d(alpha)/d(valores inicias)
-    J[0, 0] = np.dot(p_l, p0)*(1 + mi_r0*dt*f_T)*f_D - np.dot(p_l, r0)*pmra0*dt*f_T*f_D
-    J[0, 1] = np.dot(p_l, q0)*(1 + mi_r0*dt*f_T)*f_D - np.dot(p_l, r0)*pmdec0*dt*f_T*f_D
-    J[0, 2] = - np.dot(p_l, r0)*f_D*psi_parallax
-    J[0, 3] = np.dot(p_l, p0)*dt*f_T*f_D - np.dot(p_l, r0)*pmra0*f_D*psi_pm
-    J[0, 4] = np.dot(p_l, q0)*dt*f_T*f_D - np.dot(p_l, r0)*pmdec0*f_D*psi_pm
-    J[0, 5] = - pmra*(dt*f_T)**2/f_V - np.dot(p_l, r0)*f_D*psi_r
+    J[..., 0, 0] = dot_last(p_l, p0)*(1 + mi_r0*dt*f_T)*f_D - dot_last(p_l, r0)*pmra0*dt*f_T*f_D
+    J[..., 0, 1] = dot_last(p_l, q0)*(1 + mi_r0*dt*f_T)*f_D - dot_last(p_l, r0)*pmdec0*dt*f_T*f_D
+    J[..., 0, 2] = - dot_last(p_l, r0)*f_D*psi_parallax
+    J[..., 0, 3] = dot_last(p_l, p0)*dt*f_T*f_D - dot_last(p_l, r0)*pmra0*f_D*psi_pm
+    J[..., 0, 4] = dot_last(p_l, q0)*dt*f_T*f_D - dot_last(p_l, r0)*pmdec0*f_D*psi_pm
+    J[..., 0, 5] = - pmra*(dt*f_T)**2/f_V - dot_last(p_l, r0)*f_D*psi_r
 
     # d(delta)/d(valores inicias)
-    J[1, 0] = np.dot(q_l, p0)*(1 + mi_r0*dt*f_T)*f_D - np.dot(q_l, r0)*pmra0*dt*f_T*f_D
-    J[1, 1] = np.dot(q_l, q0)*(1 + mi_r0*dt*f_T)*f_D - np.dot(q_l, r0)*pmdec0*dt*f_T*f_D
-    J[1, 2] = - np.dot(q_l, r0)*f_D*psi_parallax
-    J[1, 3] = np.dot(q_l, p0)*dt*f_T*f_D - np.dot(q_l, r0)*pmra0*f_D*psi_pm
-    J[1, 4] = np.dot(q_l, q0)*dt*f_T*f_D - np.dot(q_l, r0)*pmdec0*f_D*psi_pm
-    J[1, 5] = - pmdec*(dt*f_T)**2/f_V - np.dot(q_l, r0)*f_D*psi_r
+    J[..., 1, 0] = dot_last(q_l, p0)*(1 + mi_r0*dt*f_T)*f_D - dot_last(q_l, r0)*pmra0*dt*f_T*f_D
+    J[..., 1, 1] = dot_last(q_l, q0)*(1 + mi_r0*dt*f_T)*f_D - dot_last(q_l, r0)*pmdec0*dt*f_T*f_D
+    J[..., 1, 2] = - dot_last(q_l, r0)*f_D*psi_parallax
+    J[..., 1, 3] = dot_last(q_l, p0)*dt*f_T*f_D - dot_last(q_l, r0)*pmra0*f_D*psi_pm
+    J[..., 1, 4] = dot_last(q_l, q0)*dt*f_T*f_D - dot_last(q_l, r0)*pmdec0*f_D*psi_pm
+    J[..., 1, 5] = - pmdec*(dt*f_T)**2/f_V - dot_last(q_l, r0)*f_D*psi_r
 
     # d(parallax)/d(valores inicias)
-    J[2, 0] = 0
-    J[2, 1] = 0
-    J[2, 2] = f_D - parallax*(mi_r*dt*f_T/f_V)*psi_parallax
-    J[2, 3] = - parallax*pmra0*((dt*f_T)**2*f_D**2 + (mi_r*dt*f_T/f_V)*psi_pm)
-    J[2, 4] = - parallax*pmdec0*((dt*f_T)**2*f_D**2 + (mi_r*dt*f_T/f_V)*psi_pm)
-    J[2, 5] = - parallax*((1 + mi_r0*dt*f_T)*dt*f_T*f_D**2 + (mi_r*dt*f_T/f_V)*psi_r)
+    J[..., 2, 0] = 0
+    J[..., 2, 1] = 0
+    J[..., 2, 2] = f_D - parallax*(mi_r*dt*f_T/f_V)*psi_parallax
+    J[..., 2, 3] = - parallax*pmra0*((dt*f_T)**2*f_D**2 + (mi_r*dt*f_T/f_V)*psi_pm)
+    J[..., 2, 4] = - parallax*pmdec0*((dt*f_T)**2*f_D**2 + (mi_r*dt*f_T/f_V)*psi_pm)
+    J[..., 2, 5] = - parallax*((1 + mi_r0*dt*f_T)*dt*f_T*f_D**2 + (mi_r*dt*f_T/f_V)*psi_r)
 
     # d(pmra)/d(valores inicias)
-    J[3, 0] = - np.dot(p_l, p0)*mi0**2*dt*f_T*f_D**3*f_V - np.dot(p_l, r0)*pmra0*(1+mi_r0*dt*f_T)*f_D**3*f_V
-    J[3, 1] = - np.dot(p_l, q0)*mi0**2*dt*f_T*f_D**3*f_V - np.dot(p_l, r0)*pmdec0*(1+mi_r0*dt*f_T)*f_D**3*f_V
-    J[3, 2] = np.dot(p_l, ni)*psi_parallax
-    J[3, 3] = np.dot(p_l, p0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*np.dot(p_l, r0)*pmra0*dt*f_T*f_D**3*f_V \
-        - 3*pmra*pmra0*(dt*f_T)**2*f_D**2*f_V + pmra*pmra0*chi_pm + np.dot(p_l, ni)*pmra0*psi_pm
-    J[3, 4] = np.dot(p_l, q0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*np.dot(p_l, r0)*pmdec0*dt*f_T*f_D**3*f_V \
-        - 3*pmra*pmdec0*(dt*f_T)**2*f_D**2*f_V + pmra*pmdec0*chi_pm + np.dot(p_l, ni)*pmdec0*psi_pm
-    J[3, 5] = np.dot(p_l, (vec_mi0*f_D - 3*vec_mi*(1 + mi_r0*dt*f_T)))*dt*f_T*f_D**2*f_V
+    J[..., 3, 0] = - dot_last(p_l, p0)*mi0**2*dt*f_T*f_D**3*f_V - dot_last(p_l, r0)*pmra0*(1+mi_r0*dt*f_T)*f_D**3*f_V
+    J[..., 3, 1] = - dot_last(p_l, q0)*mi0**2*dt*f_T*f_D**3*f_V - dot_last(p_l, r0)*pmdec0*(1+mi_r0*dt*f_T)*f_D**3*f_V
+    J[..., 3, 2] = dot_last(p_l, ni)*psi_parallax
+    J[..., 3, 3] = dot_last(p_l, p0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*dot_last(p_l, r0)*pmra0*dt*f_T*f_D**3*f_V \
+        - 3*pmra*pmra0*(dt*f_T)**2*f_D**2*f_V + pmra*pmra0*chi_pm + dot_last(p_l, ni)*pmra0*psi_pm
+    J[..., 3, 4] = dot_last(p_l, q0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*dot_last(p_l, r0)*pmdec0*dt*f_T*f_D**3*f_V \
+        - 3*pmra*pmdec0*(dt*f_T)**2*f_D**2*f_V + pmra*pmdec0*chi_pm + dot_last(p_l, ni)*pmdec0*psi_pm
+    J[..., 3, 5] = dot_last(p_l, (vec_mi0*f_D[..., None] - 3*vec_mi*(1 + mi_r0*dt*f_T)[..., None]))*dt*f_T*f_D**2*f_V
 
     # d(pmdec)/d(valores inicias)
-    J[4, 0] = - np.dot(q_l, p0)*mi0**2*dt*f_T*f_D**3*f_V - np.dot(q_l, r0)*pmra0*(1+mi_r0*dt*f_T)*f_D**3*f_V
-    J[4, 1] = - np.dot(q_l, q0)*mi0**2*dt*f_T*f_D**3*f_V - np.dot(q_l, r0)*pmdec0*(1+mi_r0*dt*f_T)*f_D**3*f_V
-    J[4, 2] = np.dot(q_l, ni)*psi_parallax
-    J[4, 3] = np.dot(q_l, p0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*np.dot(q_l, r0)*pmra0*dt*f_T*f_D**3*f_V \
-        - 3*pmdec*pmra0*(dt*f_T)**2*f_D**2*f_V + pmdec*pmra0*chi_pm + np.dot(q_l, ni)*pmra0*psi_pm
-    J[4, 4] = np.dot(q_l, q0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*np.dot(q_l, r0)*pmdec0*dt*f_T*f_D**3*f_V \
-        - 3*pmdec*pmdec0*(dt*f_T)**2*f_D**2*f_V + pmdec*pmdec0*chi_pm + np.dot(q_l, ni)*pmdec0*psi_pm
-    J[4, 5] = np.dot(q_l, (vec_mi0*f_D - 3*vec_mi*(1 + mi_r0*dt*f_T)))*dt*f_T*f_D**2*f_V
+    J[..., 4, 0] = - dot_last(q_l, p0)*mi0**2*dt*f_T*f_D**3*f_V - dot_last(q_l, r0)*pmra0*(1+mi_r0*dt*f_T)*f_D**3*f_V
+    J[..., 4, 1] = - dot_last(q_l, q0)*mi0**2*dt*f_T*f_D**3*f_V - dot_last(q_l, r0)*pmdec0*(1+mi_r0*dt*f_T)*f_D**3*f_V
+    J[..., 4, 2] = dot_last(q_l, ni)*psi_parallax
+    J[..., 4, 3] = dot_last(q_l, p0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*dot_last(q_l, r0)*pmra0*dt*f_T*f_D**3*f_V \
+        - 3*pmdec*pmra0*(dt*f_T)**2*f_D**2*f_V + pmdec*pmra0*chi_pm + dot_last(q_l, ni)*pmra0*psi_pm
+    J[..., 4, 4] = dot_last(q_l, q0)*(1 + mi_r0*dt*f_T)*f_D**3*f_V - 2*dot_last(q_l, r0)*pmdec0*dt*f_T*f_D**3*f_V \
+        - 3*pmdec*pmdec0*(dt*f_T)**2*f_D**2*f_V + pmdec*pmdec0*chi_pm + dot_last(q_l, ni)*pmdec0*psi_pm
+    J[..., 4, 5] = dot_last(q_l, (vec_mi0*f_D[..., None] - 3*vec_mi*(1 + mi_r0*dt*f_T)[..., None]))*dt*f_T*f_D**2*f_V
 
     # d(rad_vel)/d(valores inicias)
-    J[5, 0] = 0
-    J[5, 1] = 0
-    J[5, 2] = eta*psi_parallax
-    J[5, 3] = 2*pmra0*(1 + mi_r0*dt*f_T)*dt*f_T*f_D**4*f_V + pmra0*mi_r*chi_pm + pmra0*eta*psi_pm
-    J[5, 4] = 2*pmdec0*(1 + mi_r0*dt*f_T)*dt*f_T*f_D**4*f_V + pmdec0*mi_r*chi_pm + pmdec0*eta*psi_pm
-    J[5, 5] = ((1 + mi_r0*dt*f_T)**2 - mi0**2*(dt*f_T)**2)*f_D**4*f_V + mi_r*chi_r + eta*psi_r
+    J[..., 5, 0] = 0
+    J[..., 5, 1] = 0
+    J[..., 5, 2] = eta*psi_parallax
+    J[..., 5, 3] = 2*pmra0*(1 + mi_r0*dt*f_T)*dt*f_T*f_D**4*f_V + pmra0*mi_r*chi_pm + pmra0*eta*psi_pm
+    J[..., 5, 4] = 2*pmdec0*(1 + mi_r0*dt*f_T)*dt*f_T*f_D**4*f_V + pmdec0*mi_r*chi_pm + pmdec0*eta*psi_pm
+    J[..., 5, 5] = ((1 + mi_r0*dt*f_T)**2 - mi0**2*(dt*f_T)**2)*f_D**4*f_V + mi_r*chi_r + eta*psi_r
 
     # Propagated covariance matrix
-    C = np.matmul(J, np.matmul(cov_matrix, J.T))
+    C = np.matmul(np.matmul(J, cov_matrix), np.swapaxes(J, -1, -2))
 
-    err = np.array([np.sqrt(C[i, i]) for i in np.arange(3)])
-    if not par:
-        err = err[:2]
+    err = np.sqrt(np.stack([C[..., i, i] for i in np.arange(3)], axis=-1))
+    if not np.all(par_out):
+        err = err[..., :2]
 
     return coord, err
 
 
 def choice_star(catalogue, coord, columns, source):
+    """Prompts the user to choose one star from a catalogue table.
+
+    Parameters
+    ----------
+    catalogue : `astropy.table.Table`
+        Catalogue table with candidate sources.
+    coord : `astropy.coordinates.SkyCoord`
+        Reference coordinate used to sort sources by distance.
+    columns : `list`
+        Column names to display. The first two columns must contain RA and DEC.
+    source : `str`
+        Source context used to decide how cancellation is handled.
+
+    Returns
+    -------
+    catalogue : `astropy.table.Table`, `None`
+        Table row selected by the user, or None when selection is cancelled for
+        supported contexts.
+    """
     from astropy.table import Table
 
     tstars = SkyCoord(catalogue[columns[0]], catalogue[columns[1]])
@@ -360,30 +440,31 @@ def choice_star(catalogue, coord, columns, source):
 
 
 def edr3ToICRF(pmra, pmdec, ra, dec, G):
-    """ Function that corrects proper motion of Gaia-EDR3 stars brighter than G=13
-    Adapted from Cantat-Gaudin & Brandt, A&A, 2021
+    """Corrects Gaia EDR3 bright-star proper motions to the ICRF frame.
 
-    Parameters:
+    Adapted from Cantat-Gaudin & Brandt, A&A, 2021.
+
+    Parameters
     ----------
-        pmra : `float`, `int`
-            Proper Motion in Right Ascencion, in mas/yr.
+    pmra : `float`, `int`, `astropy.units.Quantity`
+        Proper motion in right ascension, in mas/yr when unitless.
 
-        pmdec : `float`, `int`
-            Proper Motion in Declination, in mas/yr.
+    pmdec : `float`, `int`, `astropy.units.Quantity`
+        Proper motion in declination, in mas/yr when unitless.
 
-        ra : `float`, `int`
-            Right Ascencion, in deg.
+    ra : `float`, `int`, `astropy.units.Quantity`
+        Right ascension, in deg when unitless.
 
-        dec : `float`, `int`
-            Declination, in deg.
+    dec : `float`, `int`, `astropy.units.Quantity`
+        Declination, in deg when unitless.
 
-        G: `float`, `int`
-            Gaia G magnitude.
+    G : `float`, `int`
+        Gaia G magnitude.
 
     Returns
-        -------
-        pmra_icrf, pmdec_icrf : `float`
-            pair of corrected proper motions.
+    -------
+    pmra_icrf, pmdec_icrf : `float`, `astropy.units.Quantity`
+        Pair of corrected proper motions.
     """
     if G >= 13:
         return pmra, pmdec

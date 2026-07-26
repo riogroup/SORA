@@ -10,8 +10,11 @@ __all__ = ['PlanetocentricFrame']
 
 
 class PlanetocentricFrame(BaseCoordinateFrame):
-    """
-    https://docs.astropy.org/en/stable/coordinates/frames.html
+    """Represent a planetocentric coordinate frame.
+
+    This frame stores the pole orientation, prime meridian angle, rotation
+    velocity, and optional precession terms needed to transform between ICRS and
+    body-fixed coordinates.
 
     Parameters
     ----------
@@ -20,38 +23,41 @@ class PlanetocentricFrame(BaseCoordinateFrame):
 
     pole : `str`, `astropy.coordinates.SkyCoord`
         ICRS coordinates of the pole at reference epoch.
-        If string, it must be 'hh.hhhh +dd.ddd' or 'hh hh hh.hhh +dd dd dd.ddd',
-        in hourangle and deg.
+        If a string is given, it must be in the format
+        ``'hh.hhhh +dd.ddd'`` or ``'hh hh hh.hhh +dd dd dd.ddd'``, in
+        hourangle and degrees.
 
     alphap : `float`, `astropy.units.Quantity`
-        Rate at which the right ascension of the pole changes, in deg/century
+        Rate at which the right ascension of the pole changes, in degrees per
+        century.
 
-    extra_alpha: `Precession`
-        A Precession object that accounts for the precession of the pole in right ascension
+    extra_alpha : `Precession`
+        Precession terms for the pole right ascension.
 
     deltap : `float`, `astropy.units.Quantity`
-        Rate at which the declination of the pole changes, in deg/century
+        Rate at which the declination of the pole changes, in degrees per
+        century.
 
     extra_delta : `Precession`
-        A Precession object that accounts for the precession of the pole in right ascension
+        Precession terms for the pole declination.
 
     prime_angle : `float`, `astropy.units.Quantity`
-        The angle of the prime meridian at reference epoch, in deg
+        Angle of the prime meridian at reference epoch, in degrees.
 
     rotation_velocity : `float`, `astropy.units.Quantity`
-        The rotation velocity of the body, in deg/day
+        Rotation velocity of the body, in degrees per day.
 
     extra_w : `Precession`
-        A Precession object that accounts for the precession of the pole in right ascension
+        Precession terms for the prime meridian angle.
 
     right_hand : `bool`
-        States if the orientation of the longitude of the body is counterclockwise.
-        In the Solar System, Earth, the Moon and the Sun have longitude counterclockwise.
-        The asteroids, planets and satellites must define to have an increasing longitude
-        from the Earth's point-of-view.
+        If True, the longitude orientation follows the right-hand rule. In the
+        Solar System, Earth, the Moon, and the Sun use counterclockwise
+        longitudes. Asteroids, planets, and satellites must be defined to have
+        increasing longitude from the Earth's point of view.
 
     reference : `str`
-        Includes a reference or citation for the given parameters
+        Reference or citation for the given parameters.
 
     """
     # Specify how coordinate values are represented when outputted
@@ -83,22 +89,22 @@ class PlanetocentricFrame(BaseCoordinateFrame):
         super().__init__(*args, **kwargs)
 
     def orientation_at(self, epoch):
-        """
+        """Return the pole and prime meridian orientation at an epoch.
 
         Parameters
         ----------
         epoch : `str`, `astropy.time.Time`
-            Time to which rotate the frame.
-            If string, the scale will be UTC.
+            Time at which to evaluate the frame orientation. If a string is
+            given, the scale is UTC.
 
         Returns
         -------
         pole : `astropy.coordinates.SkyCoord`
-            The pole of the object at given epoch.
+            Pole of the object at the given epoch.
 
         W : `astropy.coordinates.Angle`
-            The location of the prime meridian relative to the ascending node of the body's equator
-            at given epoch.
+            Location of the prime meridian relative to the ascending node of the
+            body's equator at the given epoch.
 
         """
         dt = Time(epoch) - self.epoch
@@ -110,18 +116,18 @@ class PlanetocentricFrame(BaseCoordinateFrame):
         return pole, W
 
     def frame_at(self, epoch):
-        """
+        """Return a frame propagated to a new epoch.
 
         Parameters
         ----------
         epoch : `str`, `astropy.time.Time`
-            Time to which rotate the frame.
-            If string, the scale will be UTC.
+            Time at which to evaluate the frame. If a string is given, the scale
+            is UTC.
 
         Returns
         -------
         frame : `PlanetocentricFrame`
-            A new PlanetocentricFrame with the parameters at given epoch.
+            New frame with parameters propagated to the given epoch.
 
         """
         dt = Time(epoch) - self.epoch
@@ -153,23 +159,23 @@ class PlanetocentricFrame(BaseCoordinateFrame):
 
 
 def get_matrix_vectors(planetocentric_frame, inverse=False):
-    """
+    """Return the transformation matrix and offset vector for a frame.
 
     Parameters
     ----------
     planetocentric_frame : `PlanetocentricFrame`
-        The PlanetocentricFrame object to convert from the ICRS
+        Planetocentric frame used to calculate the transform from ICRS.
 
     inverse : `bool`
-        If the parameters are to be calculated to the ICRS
+        If True, return the inverse transform to ICRS.
 
     Returns
     -------
-    : `numpy.array`
-        A matrix to convert between orientations
+    matrix : `numpy.ndarray`
+        Matrix used to convert between orientations.
 
-    : `CartesianRepresentation`
-        A vector to convert between origins
+    offset : `astropy.coordinates.CartesianRepresentation`
+        Vector used to convert between origins.
 
     """
     from astropy.coordinates.matrix_utilities import rotation_matrix, matrix_transpose
@@ -191,9 +197,11 @@ def get_matrix_vectors(planetocentric_frame, inverse=False):
 
 @frame_transform_graph.transform(AffineTransform, ICRS, PlanetocentricFrame)
 def icrs_to_planetocentric(icrs_coord, planetocentric_frame):
+    """Return the affine transform from ICRS to a planetocentric frame."""
     return get_matrix_vectors(planetocentric_frame)
 
 
 @frame_transform_graph.transform(AffineTransform, PlanetocentricFrame, ICRS)
 def planetocentric_to_icrs(planetocentric_coord, icrs_frame):
+    """Return the affine transform from a planetocentric frame to ICRS."""
     return get_matrix_vectors(planetocentric_coord, inverse=True)

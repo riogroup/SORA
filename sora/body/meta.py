@@ -10,45 +10,44 @@ __all__ = ['PhysicalData']
 
 
 class PhysicalData(u.Quantity):
-    """Defines PhysicalData with uncertainty, reference and notes.
+    """Represent a physical quantity with uncertainty, reference, and notes.
 
     Note
     ----
-    It inherits from astropy.units.quantity.Quantity().
+    This class inherits from `astropy.units.Quantity`.
 
     Parameters
     ----------
-    name :`str`
-        The name representing the corresponding physical parameter.
+    name : `str`
+        Name of the corresponding physical parameter.
 
     value : `int`, `float`, `str`, `~numpy.ndarray`, `astropy.quantity.Quantity`
-        The numerical value of this quantity in the units given by unit.  If
-        a `Quantity`  (or any other valid object with a ``unit`` attribute),
-        creates a new `Quantity` object, converting to `unit` units as needed.
-        If a string, it is converted to a number or `Quantity`, depending on
+        Numerical value of this quantity in the units given by `unit`. If a
+        `Quantity`, or any other valid object with a ``unit`` attribute, is
+        provided, the value is converted to `unit` as needed. If a string is
+        provided, it is converted to a number or `Quantity`, depending on
         whether a unit is present.
 
     uncertainty : `int`, `float`, `str`, `~numpy.ndarray`, `astropy.quantity.Quantity`, default=0
-        The numerical value of this quantity in the units given by unit.  If
-        a `Quantity` (or any other valid object with a ``unit`` attribute),
-        creates a new `Quantity` object, converting to `unit` units as needed.
-        If a string, it is converted to a number or `Quantity`, depending on
-        whether a unit is present.
+        Uncertainty associated with `value`, in units compatible with `unit`.
+        It accepts the same input types as `value`. A string ending in ``%`` is
+        interpreted as a relative uncertainty, and a string with values
+        separated by ``/`` uses the largest absolute value.
 
     reference : `str`, default='User'
-        A string stating the reference for the parameter value.
+        Reference for the parameter value.
 
     notes : `str`, default=''
-        Any other important information about the physical parameter.
+        Additional information about the physical parameter.
 
     unit : `str`, `~astropy.units.UnitBase` instance, default='dimensionless'
-        An object that represents the unit associated with the input value. Must
-        be an `~astropy.units.UnitBase` object or a string parsable by the
-        :mod:`~astropy.units` package.
+        Unit associated with the input value. It must be an
+        `~astropy.units.UnitBase` object or a string parsable by
+        :mod:`~astropy.units`.
 
     raise_error : `bool`, default=False
-        If ``value=None`` or ``raise_error=True`` the function raises an error,
-        else `value` is redefined to ``NaN``.
+        If ``True`` and ``value=None``, raise an error. Otherwise, ``None``
+        values are converted to ``NaN``.
 
     """
 
@@ -152,6 +151,14 @@ class PhysicalData(u.Quantity):
 
 
 class BaseBody():
+    """Provide validated physical, ephemeris, frame, and shape attributes.
+
+    This base class centralizes attribute validation and conversions used by
+    `sora.body.Body`. Numeric physical parameters are stored as `PhysicalData`
+    instances, and related values shared with ephemeris objects are kept in
+    ``_shared_with``.
+
+    """
 
     @property
     def albedo(self):

@@ -7,49 +7,47 @@ __all__ = ['Precession']
 
 
 class Precession:
-    """
+    """Represent sinusoidal precession terms.
 
     Parameters
     ----------
-    params: `float`, `list`, `numpy.array`
-        List of parameters to form the equation to be calculated.
-        It can be a list of list, where each list will be an independent equation.
-        For instance: params = [1, 2, 3] or params = [[1, 2],[3, 4]].
-        The first parameter of each sequence will be the amplitude of the sinusoidal function.
-        The second parameter will be the phase of the sinusoidal function. From the third
-        parameter onward, each parameter will be the argument of a linear function.
-        See Section "Examples" for more details.
+    params : `float`, `list`, `numpy.ndarray`
+        Parameters used to form the precession equation. It can be a list of
+        lists, where each nested list is an independent equation. For example:
+        ``params = [1, 2, 3]`` or ``params = [[1, 2], [3, 4]]``. The first
+        parameter of each sequence is the amplitude of the sinusoidal function,
+        the second parameter is the phase, and the remaining parameters are the
+        coefficients of a polynomial time argument.
 
-    func: `str`
-        Defines the function applied to the equation:
-        It can be `sin` for sine and `cos` for cosine.
-        Default: `sin`
+    func : `str`, default='sin'
+        Function applied to the equation. It can be ``'sin'`` for sine or
+        ``'cos'`` for cosine.
 
-    multiplier: `str`
-        Defines the time unit which the parameters are to be multiplied.
-        It can be `d` for day or `T` for centuries.
-        Default: `T`
+    multiplier : `str`, default='T'
+        Time unit used in the polynomial argument. It can be ``'d'`` for days or
+        ``'T'`` for centuries.
 
     Examples
     --------
+    Example with one equation:
 
-    1)
     >>> params = [1, 2, 3, 4]
     >>> p = Precession(params, 'sin', 'T')
 
-    The equation to be calculated will be
+    The equation to be calculated is:
 
     >>> val = 1*sin(2 + 3*T + 4*T**2)
 
-    2)
+    Example with two equations:
+
     >>> params = [[1, 2, 3, 4, 5], [10, 20, 30, 40, 50]]
     >>> p = Precession(params, 'cos', 'd')
 
     >>> val = 1*cos(2 + 3*d + 4*d**2 + 5*d**3) + 10*cos(20 + 30*d + 40*d**2 + 50*d**3)
 
     Notes
-    _____
-    To chech the real equation just print the Precession object.
+    -----
+    To inspect the equation, print the `Precession` object.
 
     """
     def __init__(self, params=0, func='sin', multiplier='T'):
@@ -67,18 +65,17 @@ class Precession:
         self.order = len(self.params[0] - 2)
 
     def compute_at(self, dt):
-        """
+        """Evaluate the precession terms at a time offset.
 
         Parameters
         ----------
-        dt: `float`, `astropy.time.TimeDelta`, `astropy.unit.Quantity`
-            Variation in time from the initial epoch.
+        dt : `float`, `astropy.time.TimeDelta`, `astropy.units.Quantity`
+            Time variation from the initial epoch.
 
         Returns
         -------
-        : `astropy.unit.Quantity`
-            The total value of the parameter propagated to the time required.
-            Units: degrees
+        value : `astropy.units.Quantity`
+            Total propagated value in degrees.
 
         """
         dt = TimeDelta(dt)
@@ -92,18 +89,17 @@ class Precession:
         return tot * u.deg
 
     def params_at(self, dt):
-        """
+        """Return precession parameters propagated to a time offset.
 
         Parameters
         ----------
-        dt: `float`, `astropy.time.TimeDelta`, `astropy.unit.Quantity`
-            Variation in time from the initial epoch.
+        dt : `float`, `astropy.time.TimeDelta`, `astropy.units.Quantity`
+            Time variation from the initial epoch.
 
         Returns
         -------
-        : `numpy.array`
-            The parameters input propagated to the time required.
-            Units: degrees
+        params : `list`
+            Input parameters propagated to the requested time.
 
         """
         dt = TimeDelta(dt)
@@ -117,14 +113,12 @@ class Precession:
         return p
 
     def _astropy_repr_in_frame(self):
-        """Astropy representation of the Precession
-        """
+        """Return the Astropy representation of the precession."""
         i, j = self.params.shape
         return "<Precession: {} equations of order {}>".format(i, j - 2)
 
     def __repr__(self):
-        """String representation of the Precession Class
-        """
+        """Return the string representation of the precession."""
         string = []
         m = self.multiplier
         for params in self.params:

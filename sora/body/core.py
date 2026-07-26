@@ -15,42 +15,42 @@ __all__ = ['Body']
 
 
 class Body(BaseBody):
-    """Class that contains and manages the information of the body.
+    """Represent and manage information for a Solar System body.
 
-    Attributes
+    Parameters
     ----------
     name : `str`, required
-        The name of the object. It can be the used `spkid` or `designation
-        number` to query the SBDB (Small-Body DataBase). In this case, the name
-        is case insensitive.
+        Name of the object. It can also be the `spkid` or designation number
+        used to query the SBDB (Small-Body DataBase). In this case, the name is
+        case-insensitive.
 
-    database : `str`, optional, default='auto'
-        The database to query the object. It can be ``satdb`` for our temporary
-        hardcoded satellite database, or ``'sbdb'`` to query on the SBDB. If
-        database is set as ``auto`` it will try first with ``satdb``,
-        then ``sbdb``. If the user wants to use their own information,
-        database must be given as ``None``. In this case, `spkid` parameter
-        must be given.
+    database : `str`, `None`, optional, default='auto'
+        Database used to query the object. It can be ``'satdb'`` for the
+        temporary hardcoded satellite database, ``'sbdb'`` to query the SBDB, or
+        ``'auto'`` to try ``'satdb'`` first and then ``'sbdb'``. If the user
+        wants to provide the object information locally, ``database`` must be
+        ``None`` and `spkid` must be given.
 
     ephem : `sora.EphemKernel`, `sora.EphemHorizons`, `sora.EphemJPL`, `sora.EphemPlanete`
-        An Ephem Class that contains information about the ephemeris. It can be
-        "horizons" to automatically defined an EphemHorizons object or a list of
-        kernels to automatically define an EphemKernel object.
+        Ephemeris object that contains information about the object's
+        ephemeris. It can also be ``'horizons'`` to automatically define an
+        `sora.EphemHorizons` object, or a list of kernels to automatically
+        define an `sora.EphemKernel` object.
 
     orbit_class : `str`
-        It defines the Orbital class of the body. It can be ``TNO``,
+        Orbital class of the body. It can be ``TNO``,
         ``Satellite``, ``Centaur``, ``comet``, ``asteroid``, ``trojan``, ``neo``,
-        and ``planet``. It is important for a better characterization of the
+        or ``planet``. It is important for a better characterization of the
         object. If a different value is given, it will be defined as
         ``unclassified``.
 
     spkid : `str`, `int`, `float`
-        If ``database=None``, the user must give a `spkid` or an `ephem`
-        which has the `spkid` parameter.
+        If ``database=None``, the user must give a `spkid` or an `ephem` object
+        that has a `spkid` parameter.
 
     shape : `str`, `sora.body.shape.Shape3D`
-        It defines the input shape of the body. It can be a body.shape object
-        or the path to OBJ file.
+        Input shape of the body. It can be a `sora.body.shape.Shape3D` object
+        or the path to an OBJ file.
 
     albedo : `float`, `int`
         The albedo of the object.
@@ -65,16 +65,16 @@ class Body(BaseBody):
         The diameter of the object, in km.
 
     density : `float`, `int`, `astropy.quantity.Quantity`
-        The density of the object, in g/cm³.
+        The density of the object, in g/cm3.
 
     GM : `float`, `int`, `astropy.quantity.Quantity`
-        The Standard Gravitational Parameter, in km³/s².
+        The standard gravitational parameter, in km3/s2.
 
     rotation : `float`, `int`, `astropy.quantity.Quantity`
-        The Rotation of the object, in hours.
+        The rotation period of the object, in hours.
 
     pole : `str`, `astropy.coordinates.SkyCoord`
-        The Pole coordinates of the object. It can be a `SkyCoord object` or a
+        The pole coordinates of the object. It can be a `SkyCoord` object or a
         string in the format ``'hh mm ss.ss +dd mm ss.ss'``.
 
     BV : `float`, `int`
@@ -91,16 +91,16 @@ class Body(BaseBody):
 
     Note
     ----
-    The following attributes are are returned from the Small-Body DataBase when
+    The following attributes are returned from the Small-Body DataBase when
     ``database='sbdb'`` or from our temporary hardcoded Satellite DataBase when
     ``database='satdb'``:
 
     `orbit_class`, `spkid`, `albedo`, `H`, `G`, `diameter`, `density`, `GM`,
     `rotation`, `pole`, `BV`, `UB`, `smass`, and `tholen`.
 
-    These are physical parameters the user can give to the object. If a query is
-    made and user gives a parameter, the parameter given by the user is defined
-    in the *Body* object.
+    These are physical parameters that the user can provide to the object. If a
+    query is made and the user provides one of these parameters, the user value
+    is used in the *Body* object.
 
     """
 
@@ -214,6 +214,14 @@ class Body(BaseBody):
                                                             sbdb['discovery'].get('location'))
 
     def __from_satdb(self, name):
+        """Search the object in the satellite database and define its parameters.
+
+        Parameters
+        ----------
+        name : `str`
+            Name of the satellite.
+
+        """
         satdb = search_satdb(name)
         self.name = name.capitalize()
         self.shortname = name.capitalize()
@@ -245,7 +253,16 @@ class Body(BaseBody):
         self.discovery = ""
 
     def __from_local(self, name, spkid):
-        """Defines Body object with default values for mode='local'.
+        """Define a Body object with local input values.
+
+        Parameters
+        ----------
+        name : `str`
+            Name of the object.
+
+        spkid : `str`, `int`, `float`
+            SPK-ID of the object. Required when ``database=None``.
+
         """
         self.name = name
         self.shortname = name
@@ -268,7 +285,7 @@ class Body(BaseBody):
         self.discovery = ""
 
     def get_position(self, time, observer='geocenter'):
-        """Returns the object position as seen by an observer
+        """Return the object position as seen by an observer.
 
         Parameters
         ----------
@@ -278,7 +295,8 @@ class Body(BaseBody):
 
         observer : `str`, `sora.Observer`, `sora.Spacecraft`
             IAU code of the observer (must be present in given list of kernels),
-            a SORA observer object or a string: ['geocenter', 'barycenter']
+            a SORA observer object, or one of ``'geocenter'`` or
+            ``'barycenter'``.
 
         Returns
         -------
@@ -288,23 +306,23 @@ class Body(BaseBody):
         return self.ephem.get_position(time=time, observer=observer)
 
     def get_pole_position_angle(self, time, observer='geocenter'):
-        """Returns the pole position angle and the aperture angle relative to
-        the geocenter.
+        """Return the pole position angle and aperture angle for an observer.
 
         Parameters
         ----------
         time : `str`, `astropy.time.Time`
-            Time from which to calculate the position.
-            It can be a string in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+            Time from which to calculate the position. It can be a string in the
+            ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
 
         observer : `str`, `sora.Observer`, `sora.Spacecraft`
             IAU code of the observer (must be present in given list of kernels),
-            a SORA observer object or a string: ['geocenter', 'barycenter']
+            a SORA observer object, or one of ``'geocenter'`` or
+            ``'barycenter'``.
 
         Returns
         -------
-        position_angle, aperture_angle : `float` array
-            Position angle and aperture angle of the object's pole, in degrees.
+        position_angle, aperture_angle : `astropy.units.Quantity`
+            Position angle and aperture angle of the object's pole in degrees.
         """
         time = Time(time)
         pole = self.pole
@@ -319,7 +337,7 @@ class Body(BaseBody):
         return position_angle.to('deg'), aperture_angle.to('deg')
 
     def apparent_magnitude(self, time, observer='geocenter'):
-        """Calculates the object's apparent magnitude.
+        """Calculate the object's apparent magnitude.
 
         Parameters
         ----------
@@ -329,12 +347,14 @@ class Body(BaseBody):
 
         observer : `str`, `sora.Observer`, `sora.Spacecraft`
             IAU code of the observer (must be present in given list of kernels),
-            a SORA observer object or a string: ['geocenter', 'barycenter']
+            a SORA observer object, or one of ``'geocenter'`` or
+            ``'barycenter'``.
 
         Returns
         -------
-        ap_mag : `float`
-            Object apparent magnitude.
+        ap_mag : `float`, `list` of `float`
+            Object apparent magnitude. A list is returned when multiple epochs
+            are provided and the value is obtained from JPL Horizons.
         """
         from astroquery.jplhorizons import Horizons
 
@@ -376,43 +396,39 @@ class Body(BaseBody):
                                       sun_obj.distance.to(u.AU).value, phase)
 
     def to_log(self, namefile):
-        """Saves the body log to a file.
+        """Save the body log to a file.
 
         Parameters
         ----------
         namefile : `str`
-            Filename to save the log.
+            Path of the output log file.
         """
         f = open(namefile, 'w')
         f.write(self.__str__())
         f.close()
 
     def get_orientation(self, time, observer='geocenter'):
-        """Returns the object orientation as seen by an observer.
+        """Return the object orientation as seen by an observer.
 
         Parameters
         ----------
         time : `str`, `astropy.time.Time`
-            Epoch of observation to calculate the object orientation. It can be a string
-            in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+            Epoch of observation to calculate the object orientation. It can be a
+            string in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time
+            object.
 
         observer : `str`, `sora.Observer`, `sora.Spacecraft`
             IAU code of the observer (must be present in given list of kernels),
-            a SORA observer object or a string: ['geocenter', 'barycenter']
-            to compute ephemeris.
+            a SORA observer object, or one of ``'geocenter'`` or
+            ``'barycenter'``.
 
         Returns
         -------
         orientation : `dict`
-            A dictionary with the following orientation parameters:
-            - `sub_observer`: `str`
-                the longitude and latitude of the body in the direction of the observer.
-            - `sub_solar` : `str`
-                The sub-solar coordinate.
-            - `pole_position_angle` : `astropy.coordinates.Angle`
-                Apparent position angle of the pole.
-            - `pole_aperture_angle` : `astropy.coordinates.Angle`
-                Apparent aperture angle of the pole.
+            Dictionary with the orientation parameters. Keys may include
+            ``'sub_observer'`` and ``'sub_solar'`` as decimal coordinate
+            strings, and ``'pole_position_angle'`` and
+            ``'pole_aperture_angle'`` as angles in degrees.
         """
         time = Time(time)
         pos = self.ephem.get_position(time=time, observer=observer)
@@ -443,19 +459,22 @@ class Body(BaseBody):
         return orientation
 
     def plot(self, time=None, observer='geocenter', center_f=0, center_g=0, contour=False, ax=None, plot_pole=True, **kwargs):
-        """Plots the body shape as viewed by observer at some time given the body orientation.
-        If the user wants to dictate the orientation, please use `shape.plot()` instead.
+        """Plot the body shape as viewed by an observer.
+
+        If the user wants to define the orientation directly, use
+        `shape.plot()` instead.
 
         Parameters
         ----------
         time :  `str`, `astropy.time.Time`
-            Reference time to calculate the object's apparent magnitude.
+            Reference time used to calculate the object's orientation.
             It can be a string in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
             It must be only one value.
 
         observer : `str`, `sora.Observer`, `sora.Spacecraft`
             IAU code of the observer (must be present in given list of kernels),
-            a SORA observer object or a string: ['geocenter', 'barycenter']
+            a SORA observer object, or one of ``'geocenter'`` or
+            ``'barycenter'``.
 
         center_f : `int`, `float`
             Offset of the center of the body in the East direction, in km
@@ -463,19 +482,21 @@ class Body(BaseBody):
         center_g  : `int`, `float`
             Offset of the center of the body in the North direction, in km
 
-        radial_offset : `int`, `float`
-            Offset of the center of the body in the direction of observation, in km
-
-        ax : `matplotlib.pyplot.Axes`
-            The axes where to make the plot. If None, it will use the default axes.
-
         contour : `bool`
             If True, it plots the limb of the projected shape.
             If False, it plots the 3D shape. Default: False.
 
+        ax : `matplotlib.pyplot.Axes`
+            Axes where the plot is drawn. If None, the default axes are used.
+
         plot_pole : `bool`
             If True, the direction of the pole is plotted.
-            Ignored if `contour=True`
+            Ignored if ``contour=True``.
+
+        **kwargs
+            Additional keyword arguments forwarded to the shape plotting method.
+            These may include ``radial_offset``, the offset of the center of the
+            body in the direction of observation, in km.
         """
         if not hasattr(self, 'shape'):
             raise ValueError('{} does not have a shape or size to be plotted'.format(self.__class__.__name__))

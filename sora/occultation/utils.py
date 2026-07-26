@@ -30,10 +30,11 @@ def positionv(star, ephem, observer, time):
 
     Returns
     -------
-    f, g, vf, vg : `list`
+    f, g, vf, vg : `float`
         The orthographic projection of the shadow relative to the observer.
         ``'f'`` is in the x-axis (East-West direction; East positive).
         ``'g'`` is in the y-axis (North-South direction; North positive).
+        ``vf`` and ``vg`` are the corresponding velocities, in km/s.
     """
     from sora.ephem import EphemPlanete, EphemJPL, EphemKernel, EphemHorizons
     from sora.observer import Observer
@@ -72,24 +73,30 @@ def positionv(star, ephem, observer, time):
 
 
 def filter_negative_chord(chord, chisquare, step=1, sigma=0):
-    """Get points for the ellipse with the given input parameters.
+    """Filters ellipse solutions that are incompatible with a negative chord.
 
     Parameters
     ----------
-    chord : `sora.observer.Chord`
+    chord : `sora.occultation.Chord`
         Chord object, must be associated to an Occultation to work.
 
     chisquare : `sora.extra.ChiSquare`
-        Resulted ChiSquare object of fit_ellipse.
-
-    sigma : `int`, `float`
-        Uncertainty of the expected ellipse, in km.
+        ChiSquare object returned by `fit_ellipse`.
 
     step : `int`, `float`, `str`
         If a number, it corresponds to the step, in seconds, for each point of
         the chord path. The step can also be equal to ``'exposure'``. In this
-        case, the chord path will consider the lightcurve individual times and
+        case, the chord path will consider the LightCurve individual times and
         exptime.
+
+    sigma : `int`, `float`, default=0
+        Uncertainty of the expected ellipse, in km.
+
+    Returns
+    -------
+    filtered_chisquare : `sora.extra.ChiSquare`
+        ChiSquare object containing only the ellipse solutions compatible with
+        the negative chord.
     """
     from sora.config.visuals import progressbar
     from sora.extra import ChiSquare
@@ -138,34 +145,35 @@ def filter_negative_chord(chord, chisquare, step=1, sigma=0):
     return filtered_chisquare
 
 def calc_geometric_albedo(equivalent_radius, H_obj, equivalent_radius_error=0, H_obj_error=0, H_sun=-26.74, verbose=True):
-    """ Calculate the geometric albedo.
+    """Calculates the geometric albedo.
 
-        Parameters
-        ----------
-        equivalent_radius : `float`, `int`
-            Equivalent radius of the occulting body, in km.
+    Parameters
+    ----------
+    equivalent_radius : `float`, `int`
+        Equivalent radius of the occulting body, in km.
 
-        H_obj : `float`, `int`
-            Occulting body's absolute magnitude.
-        
-        equivalent_radius_error : `float`, `int`, default=0
-            Equivalent radius uncertainty of the occulting body, in km.
+    H_obj : `float`, `int`
+        Occulting body's absolute magnitude.
 
-        H_obj_error : `float`, `int`, default=0
-            Occulting body's absolute magnitude uncertainty.
+    equivalent_radius_error : `float`, `int`, default=0
+        Equivalent radius uncertainty of the occulting body, in km.
 
-        H_sun : `float`, `int`, default=-26.74
-            Sun absolute magnitude.
+    H_obj_error : `float`, `int`, default=0
+        Occulting body's absolute magnitude uncertainty.
 
-        verbose : `bool`, default is True
-            If True, it prints text.
-     Returns
+    H_sun : `float`, `int`, default=-26.74
+        Sun absolute magnitude.
+
+    verbose : `bool`, default=True
+        If True, prints the calculated albedo.
+
+    Returns
     -------
-        geometric_albedo : `float`
-            Geometric albedo
+    geometric_albedo : `float`
+        Geometric albedo.
 
-        delta_albedo : `float`
-            Geometric albedo uncertainty
+    delta_albedo : `float`
+        Geometric albedo uncertainty.
     """
     geometric_albedo = (10**(0.4*(H_sun - H_obj))) * ((u.au.to('km')/equivalent_radius)**2)
     H_obj_error = np.absolute(H_obj_error)
@@ -182,28 +190,28 @@ def calc_geometric_albedo(equivalent_radius, H_obj, equivalent_radius_error=0, H
 
 
 def add_arrow(line, position=None, direction='right', size=15, color=None):
-    """ Add an arrow to a chord.
+    """Adds an arrow to a chord.
 
-        Parameters
-        ----------
-        line : `Line2D object`
-            Line2D object
+    Parameters
+    ----------
+    line : `matplotlib.lines.Line2D`
+        Line2D object that receives the arrow.
 
-        position : `float`, `int`
-            x-position of the arrow. If None, mean of xdata is taken.
+    position : `float`, `int`, optional
+        x-position of the arrow. If None, mean of xdata is taken.
 
-        direction : `string`, default='right'
-            'left' or 'right'
+    direction : `str`, default='right'
+        Arrow direction. It can be ``'left'`` or ``'right'``.
 
-        size : `float`, `int`, default=15
-            Size of the arrow in fontsize points.
+    size : `float`, `int`, default=15
+        Size of the arrow in font-size points.
 
-        color : `string`, default=None
-            If None, line color is taken.
+    color : `str`, optional
+        Arrow color. If None, the line color is used.
 
-        See Also
-        --------
-        https://stackoverflow.com/a/34018322/3137585
+    See Also
+    --------
+    https://stackoverflow.com/a/34018322/3137585
     """
 
     if color is None:
@@ -235,24 +243,22 @@ def calc_sun_dif_ld(body_coord, star_coord, time, observer="geocenter"):
     Parameters
     ----------
     body_coord : `astropy.coordinates.SkyCoord`
-        The astrometric coordinate of the body at given time
+        The astrometric coordinate of the body at the given time.
 
     star_coord : `astropy.coordinates.SkyCoord`
-        The astrometric coordinate of the star at given time
+        The astrometric coordinate of the star at the given time.
 
     time : `astropy.time.Time`
-        The time which to compute the light deflection.
-        Use to compute the position of the Sun
+        Time for computing the light deflection and the position of the Sun.
 
-    observer : `sora.observer.Observer`
-        The observer to compute the position of the Sun.
+    observer : `str`, `sora.Observer`, `sora.Spacecraft`, default='geocenter'
+        Observer used to compute the position of the Sun.
 
     Returns
     -------
     ld_ra, ld_dec : `astropy.coordinates.Angle`
-        The offsets in right ascension and declination of the object relative to the star,
-        considering the light deflection caused by the Sun.
-
+        The offsets in right ascension and declination of the object relative
+        to the star, considering the light deflection caused by the Sun.
     """
     import erfa
     from astropy.coordinates import SkyCoord

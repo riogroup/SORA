@@ -1,0 +1,134 @@
+SORA v0.3.3 (2026/Jul/03)
+=========================
+
+New Features
+------------
+
+sora.observer
+^^^^^^^^^^^^^
+
+- Migrated MPC observatory code lookup to the LIneA TAP service and added
+  in-memory caching for repeated observer-code queries. [:pr:`115`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Added support for Gaia DR3 catalogue searches through LIneA TAP in
+  `prediction()`, with automatic fallback to VizieR Gaia DR3 when the TAP
+  query times out. [:pr:`115`]
+
+sora.star
+^^^^^^^^^
+
+- Added the `LineaGaiaCatalogue` class and the `gaiadr3_linea` catalogue
+  definition to query Gaia DR3 through LIneA TAP. [:pr:`115`]
+
+- Added ADQL-compatible Gaia DR3 TAP queries, catalogue service descriptions,
+  simple-column helpers, and Gaia metadata for correlations, RUWE, and
+  duplicated-source flags. [:pr:`115`]
+
+- `spatial_motion()` now supports vectorized star position propagation for one
+  star at many epochs or many stars at one shared epoch. [:pr:`116`]
+
+API Changes
+-----------
+
+General
+^^^^^^^
+
+- SORA now supports Python >=3.11 instead of requiring Python >=3.12.
+
+- Added `jplephem` as an explicit dependency for barycentric vector
+  calculations.
+
+sora.observer
+^^^^^^^^^^^^^
+
+- `search_code_mpc()` now receives one MPC code and returns the matching
+  `(name, site)` tuple instead of downloading the complete observatory-code
+  dictionary. [:pr:`115`]
+
+- `Observer.name` is explicitly immutable after instantiation and assigning to
+  it now raises `AttributeError`. [:pr:`115`]
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- The default chord projection method in `Chord` and `ChordList` is now
+  `observer`, matching the observer-centered f/g calculation. [:pr:`116`]
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- The default `catalogue` in `prediction()` changed to `gaiadr3_linea`.
+  [:pr:`115`]
+
+sora.star
+^^^^^^^^^
+
+- The default `catalogue` in `Star` changed to `gaiadr3_linea`. [:pr:`115`]
+
+Bug Fixes
+---------
+
+sora.body
+^^^^^^^^^
+
+- Replaced deprecated `pkg_resources` usage when accessing package resources.
+  [:pr:`116`]
+
+sora.ephem
+^^^^^^^^^^
+
+- Fixed Horizons ephemeris queries when using a `Spacecraft` as observer.
+  [:issue:`102`]
+
+sora.lightcurve
+^^^^^^^^^^^^^^^
+
+- Fixed `occdetect` BLS statistics handling for Python 3.13. [:issue:`113`]
+
+sora.observer
+^^^^^^^^^^^^^
+
+- Fixed barycentric observer vectors by using Astropy barycentric Earth
+  coordinates for Horizons-based observer positions.
+
+- Fixed an Astropy `FutureWarning` raised when setting the location directly on
+  a `Time` object.
+
+- Reduced repeated observer-database requests by caching MPC code lookups.
+
+sora.occultation
+^^^^^^^^^^^^^^^^
+
+- Validated scalar occultation position times before computing projected
+  positions.
+
+- Optimized `Chord` and `ChordList` f/g calculations by batching position
+  requests for paths, exposure segments, and limb points.
+
+sora.prediction
+^^^^^^^^^^^^^^^
+
+- Fixed occultation map plotting when site coordinates are provided as
+  geographic coordinates.
+
+- Fixed the `plot_occ_map()` documentation for the `nscale` parameter.
+  [:issue:`112`]
+
+Documentation
+-------------
+
+- Added a bibliography of papers that cited SORA.
+
+- Updated module docstrings across the package.
+
+- Updated the observer guideline for immutable `Observer.name` behavior.
+
+- Updated the body guideline to document the required external download of the
+  PHOEBE 3D shape file and replaced the example Chariklo kernel to match the
+  updated SBDB SPK ID.
+
+- Updated ReadTheDocs requirements to Sphinx 8 and added
+  `sphinxcontrib.bibtex`.

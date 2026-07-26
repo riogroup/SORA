@@ -12,7 +12,7 @@ __all__ = ['Chord']
 class Chord:
     """Defines an Occultation Chord.
 
-    Attributes
+    Parameters
     ----------
     name : `str`
         The name of the Chord.
@@ -21,8 +21,7 @@ class Chord:
         The site of observation.
 
     lightcurve : `sora.LightCurve`
-        The lightcurve observed.
-
+        The observed light curve.
     """
 
     def __init__(self, *, name, observer, lightcurve):
@@ -39,7 +38,7 @@ class Chord:
         self._observer = observer
         self._lightcurve = lightcurve
         self._isable = {}
-        self._method = 'geocenter'
+        self._method = 'observer'
 
     @property
     def name(self):
@@ -54,8 +53,7 @@ class Chord:
         return self._lightcurve
 
     def status(self):
-        """Returns if the chord is positive or negative
-        """
+        """Returns whether the chord is positive or negative."""
         im = getattr(self.lightcurve, 'immersion', None)
         em = getattr(self.lightcurve, 'emersion', None)
         if im is None and em is None:
@@ -65,8 +63,7 @@ class Chord:
 
     @property
     def is_able(self):
-        """Return a dictionary with the references enabled and disabled for the fit.
-        """
+        """Returns a dictionary of contact points enabled or disabled for the fit."""
         im = getattr(self.lightcurve, 'immersion', None)
         if im is None and 'immersion' in self._isable:
             del(self._isable['immersion'])
@@ -86,7 +83,7 @@ class Chord:
         ----------
         time : `None`, `str`
             If ``None``, it will enable all contact points.
-            If ``'immersion'`` or ``'emersion'``, it will enable respective
+            If ``'immersion'`` or ``'emersion'``, it will enable the respective
             contact point.
         """
         if time not in [None, 'immersion', 'emersion']:
@@ -103,7 +100,7 @@ class Chord:
         ----------
         time : `None`, `str`
             If None, it will disable all contact points.
-            If ``'immersion'`` or ``'emersion'``, it will disable respective
+            If ``'immersion'`` or ``'emersion'``, it will disable the respective
             contact point.
         """
         if time not in [None, 'immersion', 'emersion']:
@@ -121,22 +118,22 @@ class Chord:
 
         Parameters
         ----------
-        time : `astropy.time.Time`, `str`
-            It must a time or a list of time to calculate the on-sky position.
+        time : `astropy.time.Time`, `str`, optional
+            Time or list of times used to calculate the on-sky position.
             If time is ``'immersion'``, ``'emersion'``, ``'start'`` or ``'end'``,
             it will get the respective on-sky position. If ``time=None``, it
             will return the on-sky position for the immersion and emersion times
             if positive or raise an error if negative.
 
-        vel : `bool`
+        vel : `bool`, default=False
             If True, it will return the on-sky velocity as well.
 
-        Return
-        ------
+        Returns
+        -------
         f, g, [vf, vg] : `float`, `float`, [`float`, `float`]
             The geocentric on-sky Orthographic projection of the object with `f`
-            pointing to the celestial North and `g` pointing to the celestial
-            East. The respective velocities (vf, vg) are returned if ``vel=True``.
+            pointing to the celestial East and `g` pointing to the celestial
+            North. The respective velocities (vf, vg) are returned if ``vel=True``.
         """
         from sora.observer import Spacecraft
 
@@ -144,7 +141,6 @@ class Chord:
             raise ValueError('{} must be associated to an Occultation to use this function'.format(self.__class__.__name__))
         occtime = self._shared_with['chordlist']['time']
         star = self._shared_with['chordlist']['star']
-        coord = star.get_position(time=occtime, observer='geocenter')
         ephem = self._shared_with['chordlist']['ephem']
 
         ref_times = {'immersion': 'immersion', 'emersion': 'emersion', 'start': 'initial_time', 'end': 'end_time'}
@@ -168,6 +164,7 @@ class Chord:
                           'This position could not have a physical meaning.'.format(tca_diff.max()))
 
         if self._method == 'geocenter' and not isinstance(self.observer, Spacecraft):
+            coord = star.get_position(time=occtime, observer='geocenter')
             ksio1, etao1 = self.observer.get_ksi_eta(time=time, star=coord)
             ksie1, etae1 = ephem.get_ksi_eta(time=time, star=coord)
             f = ksio1 - ksie1
@@ -212,8 +209,8 @@ class Chord:
             ``'standard'``: to get the 'positive' path if the chord is positive
             or 'negative' if the chord is negative.
 
-            ``'full'``: to get  the path between the start and end of observation
-            independent if the chord is positive or negative.
+            ``'full'``: to get the path between the start and end of observation
+            independently of whether the chord is positive or negative.
 
             ``'outer'``: to get the path outside the 'positive' path, for
             instance between the start and immersion times and between the
@@ -223,11 +220,11 @@ class Chord:
             that some of these segments may return more than 1 path, for example
             ``segment='error'``.
 
-        step : `int`, `float`, `str`
+        step : `int`, `float`, `str`, default=1
             If a number, it corresponds to the step, in seconds, for each point
             of the path.
 
-            This correspond to an approximate value if it is not a multiple of
+            This corresponds to an approximate value if it is not a multiple of
             the interval of the segment.
 
             The step can also be equal to ``'exposure'``. In this case, the path
@@ -235,11 +232,12 @@ class Chord:
             at the beginning of the exposure and the end of the exposure.
 
 
-        Return
-        ------
-        path f, path g : `array`, `array`
-            It will return the path separated by `f` and `g`. If ``step='exposure'``,
-            it will return f and g intercalated for each exposure.
+        Returns
+        -------
+        path : `list`
+            List with the path coordinates separated by `f` and `g`. Segments
+            such as ``'error'`` and exposure paths may return multiple
+            coordinate arrays.
         """
         if 'chordlist' not in self._shared_with:
             raise ValueError('{} must be associated to an Occultation to use this function'.format(self.__class__.__name__))
@@ -286,28 +284,49 @@ class Chord:
             raise ValueError("step must be a number or the string 'exposure'")
 
         vals = []
-        for interval in intervals:
-            if exposure:
+        if exposure:
+            exposure_jds = []
+            exposure_scale = None
+            for interval in intervals:
                 tref = self.lightcurve.tref
                 times = tref + self.lightcurve.time*u.s
                 times = times[np.where((times >= interval[0]) & (times <= interval[1]))]
+                if len(times) == 0:
+                    continue
                 time_beg = times - exptime/2.0*u.s
                 time_end = times + exptime/2.0*u.s
-                f1, g1 = self.get_fg(time=time_beg)
-                f2, g2 = self.get_fg(time=time_end)
-                v = np.array([f1, f2, g1, g2])
-                nv = v.T.reshape(2*len(f1), 2)
-                for i in nv:
-                    vals.append(i)
-            else:
+                exposure_scale = exposure_scale or time_beg.scale
+                exposure_jds.append(np.column_stack((time_beg.jd, time_end.jd)).reshape(-1))
+            if len(exposure_jds) > 0:
+                time = Time(np.concatenate(exposure_jds), format='jd', scale=exposure_scale)
+                f, g = self.get_fg(time=time)
+                coords = np.column_stack((np.array(f, ndmin=1), np.array(g, ndmin=1)))
+                for pair in coords.reshape(-1, 2, 2):
+                    vals.append(pair[:, 0])
+                    vals.append(pair[:, 1])
+        else:
+            times = []
+            sizes = []
+            scale = None
+            for interval in intervals:
                 dt = interval[1] - interval[0]
                 n = int(dt.sec/step)+1
                 if n < 2:
                     n = 2
                 time = interval[0] + np.linspace(0, dt.sec, n)*u.s
+                scale = scale or time.scale
+                times.append(time.jd)
+                sizes.append(n)
+            if len(times) > 0:
+                time = Time(np.concatenate(times), format='jd', scale=scale)
                 f, g = self.get_fg(time=time)
-                vals.append(f)
-                vals.append(g)
+                f = np.array(f, ndmin=1)
+                g = np.array(g, ndmin=1)
+                idx = 0
+                for size in sizes:
+                    vals.append(f[idx:idx+size])
+                    vals.append(g[idx:idx+size])
+                    idx += size
 
         return vals
 
@@ -332,8 +351,8 @@ class Chord:
             ``'standard'``: to get the 'positive' path if the chord is positive
                 or 'negative' if the chord is negative.
 
-            ``'full'``: to get  the path between the start and end of observation
-            independent if the chord is positive or negative.
+            ``'full'``: to get the path between the start and end of observation
+            independently of whether the chord is positive or negative.
 
             ``'outer'``: to get the path outside the 'positive' path, for
             instance between the start and immersion times and between the
@@ -341,26 +360,26 @@ class Chord:
 
             ``'error'``: to get the path corresponding to the error bars.
 
-        only_able : `bool`
+        only_able : `bool`, default=False
             Plot only the contact points that are able to be used in the fit.
             If ``segment='error'`` it will show only the contact points able. If
             segment is any other, the path will be plotted only if both
             immersion and emersion are able, or it is a negative chord.
 
-        ax : `matplotlib.pyplot.Axes`
+        ax : `matplotlib.pyplot.Axes`, optional
             The axes where to make the plot. If None, it will use the default axes.
 
-        linestyle : `str`
+        linestyle : `str`, default='-'
             Default linestyle used in `matplotlib.pyplot.plot`.
             The difference is that now it accepts ``linestyle='exposure'``, where
             the plot will be a dashed line corresponding to each exposure.
             The blank space between the lines can be interpreted as 'dead time'.
 
-        time_direction : `bool`
+        time_direction : `bool`, default=False
             If enabled, it draws the direction of time flow on the chord line.
 
         **kwargs
-            Any other kwarg will be parsed directly by `maplotlip.pyplot.plot`.
+            Any other kwarg will be parsed directly by `matplotlib.pyplot.plot`.
             The only difference is that the default linewidth ``lw=2``.
 
         """
@@ -435,9 +454,9 @@ class Chord:
 
         Returns
         -------
-        impact, sense : `list`
+        impact, sense : `float`, `str`
             The impact parameter (in km) and the direction of the chord relative
-            the ellipse center, North (N), South (S), East (E) and West (W).
+            to the ellipse center, North (N), South (S), East (E) and West (W).
         """
         f, g = self.path(segment='full')
         r = np.sqrt((f - center_f)**2 + (g - center_g)**2)
@@ -462,7 +481,7 @@ class Chord:
         Parameters
         ----------
         equatorial_radius : `int`, `float`
-            The Equatorial radius (semi-major axis) of the ellipse.
+            The equatorial radius (semi-major axis) of the ellipse.
 
         center_f : `int`, `float`, default=0
             The coordinate in f of the ellipse center
@@ -477,10 +496,10 @@ class Chord:
             The pole position angle of the ellipse in degrees.
             Zero is in the North direction ('g-positive'). Positive clockwise.
 
-        sigma : `int`, `float`
+        sigma : `int`, `float`, default=0
             Uncertainty of the expected ellipse, in km.
 
-        step : `int`, `float`
+        step : `int`, `float`, default=1
             Time resolution of the chord, in seconds.
 
         verbose : `bool`, default=True
@@ -489,7 +508,7 @@ class Chord:
 
         Returns
         -------
-        theory_immersion_time, theory_emersion_time, theory_chord_size : `list`
+        theory_immersion_time, theory_emersion_time, theory_chord_size : `astropy.time.Time`, `astropy.time.Time`, `float`
             The expected immersion time for the given ellipse, the expected
             emersion time for the given ellipse, and the expected chord size
             for the given ellipse.
@@ -543,15 +562,18 @@ class Chord:
         return theory_immersion_time, theory_emersion_time, theory_chord_size
 
     def get_limb_points(self, only_able=True):
-        """Computes the projected points and errors on the tangent plane
+        """Computes the projected points and errors on the tangent plane.
 
         Parameters
         ----------
-        only_able : `bool`
+        only_able : `bool`, default=True
             Get only the contact points that are able to be used in the fit.
 
         Returns
         -------
+        names : `list`
+            Names of the projected contact points.
+
         fg : `numpy.array`
             The projected points of occultation instants.
             Each line is a point on the projection with x and y respectively.
@@ -564,28 +586,30 @@ class Chord:
             raise ValueError('{} {} is negative. There is no limb_points'.format(self.__class__.__name__, self.name))
         time = ['immersion', 'emersion']
         names = []
-        val = []
-        err = []
+        val_times = []
+        err_times = []
         for t in time:
             if only_able and not self.is_able[t]:
                 continue
             names.append(f'{self.name}_{t}')
-            val.append(self.get_fg(time=t))
             tt = getattr(self.lightcurve, t)
             tt_err = getattr(self.lightcurve, t + '_err') * u.s
-            err.append(self.get_fg(time=tt+tt_err))
-        xy = np.array(val)
-        xy_err = np.array(err) - xy
+            val_times.append(tt)
+            err_times.append(tt + tt_err)
+        if len(names) == 0:
+            return names, np.array([]), np.array([])
+        f, g = self.get_fg(time=Time(val_times + err_times))
+        fg = np.array([f, g]).T
+        xy = fg[:len(val_times)]
+        xy_err = fg[len(val_times):] - xy
         return names, xy, xy_err
 
     def __repr__(self):
-        """String representation of the Chord Class
-        """
+        """Returns the short string representation of the Chord object."""
         return '<{}: {}>'.format(self.__class__.__name__, self.name)
 
     def __str__(self):
-        """String of the Chord Class used in str(obj) or print(obj)
-        """
+        """Returns the string representation of the Chord object."""
         from sora.observer import Observer
 
         string = ['-' * 79, self.observer.__str__()]

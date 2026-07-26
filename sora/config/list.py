@@ -4,36 +4,52 @@ __all__ = ['List']
 
 
 class List(OrderedDict):
-    """Abstract Class to handle SORA List Classes.
+    """Base class for SORA ordered list containers.
 
-    This Class inherits from OrderedDict, which is a dictionary that keeps the
-    order that the objects were added. With this, the user can access a item by
-    its order as well.
+    This class inherits from `collections.OrderedDict`, which keeps the order
+    in which objects were added. Items can be accessed by name or by insertion
+    order.
 
     """
     _allowed_types = None  # _allowed_types attribute must be defined for each class with the list of allowed types.
     _set_func = "_add_item"  # _set_func attribute must be defined for each class with the name of the function to add item.
 
     def __setitem__(self, name, item):
-        """Overwrites the default __setitem__ from OrderedDict.
+        """Forbid direct assignment with ``obj[name] = item``.
 
-        The reason is to forbid the user to define an item as ``obj[name] = item``
-        and force the use of the function 'add_item'.
+        Parameters
+        ----------
+        name : `str`
+            Name that would be assigned to the item.
+        item
+            Item that would be stored.
+
+        Raises
+        ------
+        ValueError
+            Always raised to force the use of the configured add method.
         """
         raise ValueError("{} cannot be set directly. Please use {}".format(self.__class__.__name__, self._set_func))
 
     # __add_item must be defined inside an add method of Child Class.
     def _add_item(self, name, item):
-        """Adds an item to the list with the name given.
+        """Add an item to the list with the given name.
 
         Parameters
         ----------
         name : `str`
-            The name of the item. It must be unique for a item in the list.
+            Name of the item. It must be unique in the list.
 
         item : `_allowed_types`
             The item to be added to the list. Its type must be one of the types
-            in the attribute ``self._allowed_type``.
+            in the attribute ``self._allowed_types``.
+
+        Raises
+        ------
+        TypeError
+            If `name` is not a string or `item` is not an allowed type.
+        ValueError
+            If `name` is empty or already exists in the list.
         """
         if not isinstance(name, str):
             raise TypeError("name must be a string")
@@ -46,14 +62,26 @@ class List(OrderedDict):
         super().__setitem__(name, item)
 
     def __getitem__(self, key):
-        """"Defines behaviour for ``obj[name]``.
+        """Return an item by name or insertion order.
 
         Parameters
         ----------
         key : `str`, `int`
-            The key used to find item in the list. It can the name given in
-            `_add_item` or the number corresponding to the order the item is
-            stored in the list.
+            Key used to find an item in the list. It can be the name given in
+            ``_add_item`` or the index corresponding to the order in which the
+            item is stored in the list.
+
+        Returns
+        -------
+        item
+            Stored item matching `key`.
+
+        Raises
+        ------
+        IndexError
+            If an integer key is outside the list bounds.
+        TypeError
+            If `key` is neither a string nor an integer.
         """
         if isinstance(key, int):
             try:
@@ -68,14 +96,21 @@ class List(OrderedDict):
                             "named keys and integers.".format(self.__class__.__name__))
 
     def __delitem__(self, key):
-        """Defines behaviour of ``del(obj[item])`` to delete only one item in the list.
+        """Delete one item from the list by name or insertion order.
 
         Parameters
         ----------
         key : `str`, `int`
-            The key used to find item in the list. It can the name given in
-            ``_add_item`` or the number corresponding to the order the item is
-            stored in the list.
+            Key used to find an item in the list. It can be the name given in
+            ``_add_item`` or the index corresponding to the order in which the
+            item is stored in the list.
+
+        Raises
+        ------
+        IndexError
+            If an integer key is outside the list bounds.
+        TypeError
+            If `key` is neither a string nor an integer.
         """
         if isinstance(key, int):
             try:
@@ -88,15 +123,14 @@ class List(OrderedDict):
         super().__delitem__(key)
 
     def __str__(self):
-        """Defines behaviour for str(obj) or print(obj)
-        """
+        """Return a printable representation of all items in the list."""
         strings = []
         for key in self.keys():
             strings.append(str(self[key]))
         return "\n".join(strings)
 
     def __repr__(self):
-        """Defines the object's string representation.
+        """Return the developer representation of the list.
 
         <ClassListName:
             0: Type of item0 (Name of item0)

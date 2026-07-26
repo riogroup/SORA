@@ -6,8 +6,20 @@ next_major_version = 'v1.0'
 warnings.simplefilter('always', FutureWarning)
 
 
-# This decorator gets an argument that is being deprecated
 def deprecated_alias(**aliases):
+    """Create a decorator that renames deprecated keyword arguments.
+
+    Parameters
+    ----------
+    **aliases
+        Mapping from deprecated keyword names to their replacement names.
+
+    Returns
+    -------
+    decorator : `function`
+        Decorator that updates deprecated keyword arguments and emits a
+        `FutureWarning` when an alias is used.
+    """
     def deco(f):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
@@ -20,6 +32,22 @@ def deprecated_alias(**aliases):
 
 
 def rename_kwargs(func_name, kwargs, aliases):
+    """Rename deprecated keyword arguments in place.
+
+    Parameters
+    ----------
+    func_name : `str`
+        Name of the function that received the keyword arguments.
+    kwargs : `dict`
+        Keyword arguments to inspect and update.
+    aliases : `dict`
+        Mapping from deprecated keyword names to their replacement names.
+
+    Raises
+    ------
+    TypeError
+        If both a deprecated keyword and its replacement are provided.
+    """
     for alias, new in aliases.items():
         if alias in kwargs:
             if new in kwargs:
@@ -31,11 +59,21 @@ def rename_kwargs(func_name, kwargs, aliases):
 
 
 def deprecated_function(message):
-    def deco(func):
-        """This is a decorator which can be used to mark functions
-        as deprecated. It will result in a warning being emitted
-        when the function is used."""
+    """Create a decorator that marks a function as deprecated.
 
+    Parameters
+    ----------
+    message : `str`
+        Additional deprecation message shown after the function name and
+        removal version.
+
+    Returns
+    -------
+    decorator : `function`
+        Decorator that emits a `FutureWarning` whenever the wrapped function is
+        called.
+    """
+    def deco(func):
         @functools.wraps(func)
         def new_func(*args, **kwargs):
             warnings.warn("{} is deprecated and will be removed in {}; {}".
