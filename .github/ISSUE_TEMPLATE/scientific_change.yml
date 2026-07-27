@@ -1,0 +1,63 @@
+name: Scientific model or method
+description: Propose or revise a scientific model, equation or numerical method
+title: "[Scientific]: "
+labels:
+  - scientific
+  - needs-triage
+
+body:
+  - type: textarea
+    id: scientific-problem
+    attributes:
+      label: Scientific problem
+      description: Describe the scientific problem or limitation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-method
+    attributes:
+      label: Current implementation
+      description: Explain how SORA currently handles this problem, if applicable.
+
+  - type: textarea
+    id: proposed-method
+    attributes:
+      label: Proposed model or method
+      description: Describe the equations, assumptions and numerical procedure.
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Provide the relevant papers, standards or technical documentation.
+      placeholder: |
+        Author et al. (year), journal, volume, page, DOI
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation strategy
+      description: Explain how the implementation should be tested or validated.
+      placeholder: Analytical cases, published results, comparison datasets, limiting cases, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-impact
+    attributes:
+      label: Impact on the public API
+      description: Indicate whether this change modifies classes, functions, parameters or returned values.
+
+  - type: checkboxes
+    id: implementation
+    attributes:
+      label: Contribution
+      options:
+        - label: I am interested in implementing this proposal.
+        - label: I can provide validation data.
+        - label: I can review the scientific implementation.

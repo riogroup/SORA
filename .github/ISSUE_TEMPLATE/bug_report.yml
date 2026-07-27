@@ -1,0 +1,105 @@
+name: Bug report
+description: Report an error or unexpected behavior in SORA
+title: "[Bug]: "
+labels:
+  - bug
+  - needs-triage
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a problem in SORA.
+
+        Before submitting this issue, please search the existing issues
+        to check whether the problem has already been reported.
+
+  - type: checkboxes
+    id: existing-issue
+    attributes:
+      label: Existing issue
+      options:
+        - label: I searched the existing issues and did not find this problem.
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Problem description
+      description: Describe clearly what went wrong.
+      placeholder: Explain the observed behavior and where it occurred.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: Describe what you expected SORA to do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproducible example
+      description: Provide the smallest code example that reproduces the problem.
+      render: python
+      placeholder: |
+        from sora import ...
+
+        # Code that reproduces the problem
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error message or traceback
+      description: Paste the complete error message or traceback, if available.
+      render: shell
+
+  - type: input
+    id: sora-version
+    attributes:
+      label: SORA version
+      description: Run `python -c "import sora; print(sora.__version__)"` if necessary.
+      placeholder: "0.3.3"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12.4"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - PyPI
+        - Conda
+        - GitHub main branch
+        - GitHub develop branch
+        - Local editable installation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system
+      placeholder: "Ubuntu 24.04, Windows 11, macOS 15, etc."
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add files, screenshots, references, data descriptions or other relevant information.

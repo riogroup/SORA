@@ -1,0 +1,88 @@
+name: Feature request
+description: Propose a new feature or improvement for SORA
+title: "[Feature]: "
+labels:
+  - enhancement
+  - needs-triage
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to propose a new feature or a significant improvement
+        to an existing SORA workflow.
+
+  - type: checkboxes
+    id: existing-issue
+    attributes:
+      label: Existing proposal
+      options:
+        - label: I searched the existing issues and did not find an equivalent proposal.
+          required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Explain the problem that this feature would solve.
+      placeholder: Describe the scientific or technical need.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: Describe the expected behavior or API.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example usage
+      description: Show how the proposed feature could be used.
+      render: python
+      placeholder: |
+        from sora import ...
+
+        result = ...
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area of SORA
+      options:
+        - Astrometry
+        - Occultation prediction
+        - Light curves
+        - Chords and observations
+        - Physical models
+        - Ephemerides
+        - Command-line interface
+        - Documentation
+        - Packaging or infrastructure
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe alternative implementations or workarounds.
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Scientific or technical references
+      description: Include papers, equations, standards or related software when applicable.
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I am interested in implementing this feature.
+        - label: I can help test this feature.
+        - label: I can help document this feature.
