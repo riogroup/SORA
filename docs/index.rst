@@ -26,6 +26,7 @@ From version 0.3.2, SORA is available with Python>=3.11
    overview
    license
    install
+   development
    releases
    team
 
