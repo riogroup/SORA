@@ -1,3 +1,5 @@
+# Pandoc is an external executable. Install it with conda-forge or the system
+# package manager; the PyPI package named "pandoc" is not a replacement.
 ipython
 Sphinx==8.*
 nbsphinx
