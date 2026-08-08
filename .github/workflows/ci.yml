@@ -1,0 +1,67 @@
+name: Continuous integration
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  detect_tests:
+    name: Detect tests
+    runs-on: ubuntu-latest
+    outputs:
+      found: ${{ steps.detect.outputs.found }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+
+      - name: Check for tracked test files
+        id: detect
+        shell: bash
+        run: |
+          if git ls-files | grep -Eq '^sora/(.*/)?tests/test_[^/]*\.py$'; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No tracked tests found; test jobs will be enabled automatically when test_*.py files are added."
+          fi
+
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository and tags
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install the build frontend
+        run: python -m pip install --upgrade build
+
+      - name: Build the source and wheel distributions
+        run: python -m build
+
+      - name: Store the distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+  tests:
+    name: Tests
+    needs: detect_tests
+    if: needs.detect_tests.outputs.found == 'true'
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v2
+    with:
+      envs: |
+        - linux: py311
+        - linux: py312
+        - linux: py313

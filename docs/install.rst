@@ -13,73 +13,76 @@ Installation
 ============
 
 
-Python package requirements
----------------------------
+Python and runtime dependencies
+-------------------------------
 
-Several SORA functionalities use other Python-based libraries. Below are 
-listed the library dependencies and their minimal version needed to use SORA. 
-Most of those packages are installed on the fly using the `pip install` 
-method, except for Cartopy.
+SORA requires Python 3.11 or later within the Python 3 series. The runtime
+dependencies and their minimum versions are declared in ``pyproject.toml`` and
+installed automatically with SORA:
 
+- `NumPy <https://numpy.org/>`_ 2.2 or later;
+- `PyERFA <https://pyerfa.readthedocs.io/en/latest/>`_ 2.0 or later;
+- `Astropy <https://www.astropy.org/>`_ 7.0 or later;
+- `jplephem <https://pypi.org/project/jplephem/>`_ 2.13 or later;
+- `Astroquery <https://astroquery.readthedocs.io/en/latest/>`_ 0.4.9 or later;
+- `SpiceyPy <https://spiceypy.readthedocs.io/en/main/>`_ 6.0.0 or later;
+- `Matplotlib <https://matplotlib.org/>`_ 3.10.0 or later;
+- `SciPy <https://scipy.org/>`_ 1.15 or later;
+- `Requests <https://requests.readthedocs.io/>`_;
+- `tqdm <https://tqdm.github.io/>`_ 4.66 or later;
+- `Shapely <https://shapely.readthedocs.io/en/stable/>`_ 2.0.7 or later;
+- `Cartopy <https://cartopy.readthedocs.io/stable/>`_ 0.24 or later.
 
--  `Astropy <https://www.astropy.org/>`_ (7.0): For astronomical related functions,
-   mainly coordinates and time.
-
--  `Astroquery <https://astroquery.readthedocs.io/en/latest/>`_ (0.4.9): To query
-   astronomical database as JPL and Vizier.
-
--  `Matplotlib <https://matplotlib.org/>`_ (3.10): For easy and beautiful plots.
-
--  `NumPy <https://numpy.org/>`_ (2.2): Otimized mathematical functions.
-
--  `SciPy <https://www.scipy.org/>`_ (1.15): Otimized functions for mathematics, science, and
-   engineering.
-
--  `SpiceyPy <https://spiceypy.readthedocs.io/en/main/>`_ (6.0): SPICE/NAIF functions in python.
-
--  `PyERFA <https://pyerfa.readthedocs.io/en/latest/>`_ (2.0): Python wrapper for the ERFA library based on the SOFA library.   
-
--  `Cartopy <https://scitools.org.uk/cartopy/docs/latest/>`_ (0.24): Geospatial data processing to produce maps.
-
--  `Shapely <https://shapely.readthedocs.io/en/stable/manual.html>`_ (2.0.7): Package for set-theoretic analysis and manipulation of planar features.
-
-
-
+Cartopy 0.22 and later provides binary wheels for the major operating systems,
+so it is normally installed directly by ``pip`` with the other dependencies.
+If a compatible wheel is unavailable for your platform, consult the
+`Cartopy installation guide <https://cartopy.readthedocs.io/stable/installing.html>`_.
 
 Installing SORA
 ---------------
 
-If you are new to Python or not familiar with Python virtual environments, we 
-recommend starting by installing the Anaconda Distribution.  This works on all 
-platforms (Linux, macOS, Windows) and installs a full-featured scientific Python 
-in a user directory without requiring root permissions. For a better experience 
-with SORA, we recommend the use of Jupyter. The creation of a dedicated Conda 
-environment for SORA is suggested to avoid requirement issues.
+Using a dedicated virtual environment is recommended to avoid dependency
+conflicts. Install the latest SORA release and all its runtime dependencies
+from PyPI with:
 
-The user can install SORA and most of its requirements using **pip**, only
-Cartopy should be installed by hand afterwards.
+.. code-block:: console
 
->>> user@path$> pip install sora-astro
->>> user@path$> conda install -c conda-forge cartopy
+   $ python -m pip install sora-astro
 
-If you are a |GitHub| user, you can also use:
+To update an existing installation:
 
->>> user@path$> git clone https://github.com/riogroup/SORA/sora.git
->>> user@path$> cd sora
->>> user@path$> pip install .
->>> user@path$> conda install -c conda-forge cartopy
+.. code-block:: console
 
-When new versions are available, the user can update it downloading the
-last release from the SORA package in the riogroup organisation on
-|GitHubRio|. If you want to be notified just follow the package.
+   $ python -m pip install --upgrade sora-astro
 
-.. |GitHubRio| raw:: html
+To install the current source from GitHub:
 
-   <a href="https://github.com/riogroup/SORA" target="_blank"> GitHub</a>
+.. code-block:: console
 
-.. |GitHub| raw:: html
+   $ git clone https://github.com/riogroup/SORA.git
+   $ cd SORA
+   $ python -m pip install .
 
-   <a href="https://github.com/" target="_blank"> GitHub</a>
+Development and documentation dependencies
+------------------------------------------
+
+The optional dependency groups defined in ``pyproject.toml`` can be installed
+with the source checkout. For an editable development installation with the
+future test suite and documentation tools, use:
+
+.. code-block:: console
+
+   $ python -m pip install -e ".[test,docs]"
+
+The ``docs`` extra installs the Python packages used by Sphinx, including
+``nbsphinx``, but the documentation build also requires the
+`Pandoc <https://pandoc.org/installing.html>`_ executable. After installing
+Pandoc and tox, build the documentation with:
+
+.. code-block:: console
+
+   $ python -m pip install tox
+   $ tox run -e build_docs
 
 Functionalities
 ---------------
@@ -97,4 +100,3 @@ With SORA, among other more advanced tasks, the user can easely:
    apparent size and projected shape.
 
 **All these steps can be found in our Jupyter-Notebooks Tutorials.**
-
