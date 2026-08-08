@@ -5,6 +5,6 @@ from .observer import Observer, Spacecraft
 from .star import Star
 from .occultation import Occultation
 
-__version__ = '0.3.3'
+from .version import version as __version__
 
 print(f'SORA version: {__version__}')

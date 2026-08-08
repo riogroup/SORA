@@ -68,46 +68,38 @@ of the Royal Astronomical Society.
 SYSTEM REQUIREMENTS AND INSTALLATION
 ------------------------------------
 
-SORA was developed in Python 3.7 and requires the following packages:
-
--  Astropy (4.3.1): For astronomical related functions, mainly coordinates and time.
-
--  Astroquery (0.4.6): To query astronomical database as JPL and Vizier.
-
--  Matplotlib (3.5.3): For easy and beautiful plots.
-
--  NumPy (1.21): Otimized mathematical functions.
-
--  SciPy (1.7.1): Otimized functions for mathematics, science, and engineering.
-
--  SpiceyPy (6.0.0): SPICE/NAIF functions in python.
-
--  PyERFA (2.0): Python wrapper for the ERFA library based on the SOFA library.
-
--  Cartopy (0.21): Geospatial data processing to produce maps.
-
--  Shapely (2.0.1): Package for set-theoretic analysis and manipulation of planar features.
-
--  Tqdm (4.64): Creates Progress bar.
-
-The user can install SORA and most of its requirements using **pip**, only
-Cartopy should be installed from conda afterwards.
+SORA requires Python 3.11 or later within the Python 3 series. Install SORA
+from PyPI with:
 
 ```shell
-pip install sora-astro
-conda install -c conda-forge cartopy
+python -m pip install sora-astro
 ```
 
-If you are a GitHub user, you can also use:
+This command installs all runtime dependencies declared in `pyproject.toml`,
+including Cartopy. Cartopy provides binary wheels for the major operating
+systems, so a separate Conda installation is not normally required. See the
+[Cartopy installation guide](https://cartopy.readthedocs.io/stable/installing.html)
+if a compatible wheel is unavailable for your platform.
+
+To install the current source from GitHub:
 
 ```shell
 git clone https://github.com/riogroup/SORA.git
 cd SORA
-pip install .
-conda install -c conda-forge cartopy
+python -m pip install .
 ```
 
-For a better experience with SORA, we recommend the use of [Jupyter]. The creation of a dedicated Conda environment for SORA is suggested to avoid requirement issues.
+For development, install the project in editable mode with the optional test
+and documentation dependencies:
+
+```shell
+python -m pip install -e ".[test,docs]"
+```
+
+Building the documentation also requires the
+[Pandoc](https://pandoc.org/installing.html) executable. Complete installation
+instructions are available in the
+[SORA documentation](https://sora.readthedocs.io/en/latest/install.html).
 
 Acknowledgements
 ----------------
