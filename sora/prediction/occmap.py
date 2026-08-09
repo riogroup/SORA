@@ -9,7 +9,7 @@ from astropy.coordinates import GCRS, ITRS, SkyOffsetFrame, SkyCoord, EarthLocat
 from astropy.time import Time
 from astropy.utils.exceptions import AstropyWarning
 
-from sora.config import input_tests
+from sora.config import get_config, input_tests
 
 __all__ = ['plot_occ_map']
 
@@ -167,13 +167,15 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     path : `str`, default='.'
         Path to a directory where to save map.
 
-    resolution : `int`, default=2
-        Cartopy feature resolution. ``1`` means a resolution of "10m"; ``2``
-        means "50m"; and ``3`` means "100m".
+    resolution : `int`, optional
+        Cartopy feature resolution. When omitted, uses the configured value.
+        ``1`` means a resolution of "10m"; ``2`` means "50m"; and ``3`` means
+        "100m".
 
-    states : `bool`
+    states : `bool`, optional
         If True, plots the states borders of the countries. The states
         of some countries will only be shown depending on the resolution.
+        When omitted, uses the configured value.
 
     zoom : `int`, `float`, default=1
         Zooms in or out of the map.
@@ -190,14 +192,17 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         Rotates the Earth to show occultation with the center projected at a
         given longitude and latitude. It must be a list with two numbers.
 
-    labels : `bool`, default=True
+    labels : `bool`, optional
         Plots text above and below the map with the occultation parameters.
+        When omitted, uses the configured value.
 
-    meridians : `int`, default=30
-        Plots lines representing the meridians for given interval, in degrees.
+    meridians : `int`, `float`, optional
+        Plots lines representing the meridians for the given interval, in
+        degrees. When omitted, uses the configured value.
 
-    parallels : `int`, default=30
-        Plots lines representing the parallels for given interval, in degrees.
+    parallels : `int`, `float`, optional
+        Plots lines representing the parallels for the given interval, in
+        degrees. When omitted, uses the configured value.
 
     sites : `dict`, `str`, optional
         Plots site positions in map. It must be a python dictionary where the
@@ -207,13 +212,14 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         in the map and the `name`. `color` is the color of the point. `marker` is
         the symbols used for each station following matplotlib.pyplot properties.
 
-    site_name : `bool`
+    site_name : `bool`, optional
         If True, plots the names of the given sites. Otherwise, plots only the
-        points.
+        points. When omitted, uses the configured value.
 
-    site_box_alpha : `int`, `float`, default=0
+    site_box_alpha : `int`, `float`, optional
         Sets the transparency of a box surrounding each station name. 0 equals to
-        transparent, and 1 equals to opaque.
+        transparent, and 1 equals to opaque. When omitted, uses the configured
+        value.
 
     countries : `dict`, `str`, optional
         Plots the names of countries. It must be a python dictionary where the
@@ -224,9 +230,9 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         Applies an offset to the ephemeris, calculating new CA and instant of
         CA. It is a pair of `delta_RA*cosDEC` and `delta_DEC`.
 
-    mapstyle : `int`, default=1
-        Define the color style of the map. ``1`` is the default black and
-        white scale. ``2`` is a colored map.
+    mapstyle : `int`, optional
+        Define the color style of the map. When omitted, uses the configured
+        value. ``1`` is the black and white scale; ``2`` is a colored map.
 
     error : `int`, `float`
         Ephemeris error in mas. It plots a dashed line representing radius + error.
@@ -265,24 +271,27 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     hcolor : `str`
         Changes the color of the height lines.
 
-    mapsize : `list`, default= [46.0, 38.0]
-        The size of figure, in cm. It must be a list with two values.
+    mapsize : `list`, optional
+        The size of the figure, in cm. When omitted, uses the configured value.
+        It must be a list with two values.
 
-    cpoints : `int`, `float`, default=60
+    cpoints : `int`, `float`, optional
         Interval for the small points marking the center of shadow, in seconds.
+        When omitted, uses the configured value.
 
     ptcolor : `str`
         Change the color of the center points.
 
-    alpha : `float`, default=0.2
+    alpha : `float`, optional
         The transparency of the night shade, where 0.0 is full transparency and
-        1.0 is full black.
+        1.0 is full black. When omitted, uses the configured value.
 
-    fmt : `str`, default='png'
-        The format to save the image. It is parsed directly by `matplotlib.pyplot`.
+    fmt : `str`, optional
+        The format used to save the image. When omitted, uses the configured
+        value. It is parsed directly by `matplotlib.pyplot`.
 
-    dpi : `int`, default=100
-        Resolution in "dots per inch". It defines the quality of the image.
+    dpi : `int`, optional
+        Resolution in "dots per inch". When omitted, uses the configured value.
 
     lncolor : `str`
         Changes the color of the line that represents the limits of the shadow
@@ -292,21 +301,25 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
         Changes the color of the lines that represents the limits of the shadow
         outside Earth.
 
-    nscale : `int`, `float`
-        Arbitrary scale for the size of the name of the site.
+    nscale : `int`, `float`, optional
+        Arbitrary scale for the size of the name of the site. When omitted,
+        uses the configured value.
 
-    cscale : `int`, `float`
-        Arbitrary scale for the name of the country.
+    cscale : `int`, `float`, optional
+        Arbitrary scale for the name of the country. When omitted, uses the
+        configured value.
 
-    sscale : `int`, `float`
-        Arbitrary scale for the size of point of the site.
+    sscale : `int`, `float`, optional
+        Arbitrary scale for the size of point of the site. When omitted, uses
+        the configured value.
 
-    pscale : `int`, `float`
+    pscale : `int`, `float`, optional
         Arbitrary scale for the size of the points that represent the center of
-        the shadow.
+        the shadow. When omitted, uses the configured value.
 
-    arrow : `bool`, default=True
-        If True, it plots the arrow with the occultation direction.
+    arrow : `bool`, optional
+        If True, it plots the arrow with the occultation direction. When
+        omitted, uses the configured value.
 
 
     Notes
@@ -333,6 +346,8 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
                       'site_box_alpha', 'band']
     input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
 
+    map_config = get_config().occ_map
+
     if not type(name) == str:
         raise TypeError('name keyword must be a string')
 
@@ -356,36 +371,36 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     band = str(kwargs.get('band', 'G'))
     occs['longi'] = longi
 
-    mapstyle = kwargs.get('mapstyle', 1)
+    mapstyle = kwargs.get('mapstyle', map_config.style)
     if mapstyle not in [1, 2]:
         raise ValueError('mapstyle must be 1 or 2]')
 
-    resolution = kwargs.get('resolution', 2)
+    resolution = kwargs.get('resolution', map_config.resolution)
     if resolution not in [1, 2, 3]:
         raise TypeError('resolution keyword must be one of these: [1, 2, 3] where 1=10m, 2=50m and 3=100m')
     res = ['10m', '50m', '110m']
     resolution = res[resolution-1]
 
     nameimg = kwargs.get('nameimg', '{}_{}'.format(name, occs['datas'].isot.replace(':', '_')))
-    fmt = kwargs.get('fmt', 'png')
-    dpi = kwargs.get('dpi', 100)
+    fmt = kwargs.get('fmt', map_config.format)
+    dpi = kwargs.get('dpi', map_config.dpi)
     step = kwargs.get('step', 1)
-    mapsize = kwargs.get('mapsize', [46.0, 38.0])*u.cm
+    mapsize = kwargs.get('mapsize', map_config.size_cm)*u.cm
     erro = kwargs.get('error', None)
     ring = kwargs.get('ring', None)
     atm = kwargs.get('atm', None)
-    cpoints = kwargs.get('cpoints', 60)
-    states = kwargs.get('states', True)
-    labels = kwargs.get('labels', True)
-    meridians = kwargs.get('meridians', 30)
-    parallels = kwargs.get('parallels', 30)
-    nscale = kwargs.get('nscale', 1)
-    cscale = kwargs.get('cscale', 1)
-    sscale = kwargs.get('sscale', 1)
-    pscale = kwargs.get('pscale', 1)
+    cpoints = kwargs.get('cpoints', map_config.center_point_interval)
+    states = kwargs.get('states', map_config.states)
+    labels = kwargs.get('labels', map_config.labels)
+    meridians = kwargs.get('meridians', map_config.meridian_interval)
+    parallels = kwargs.get('parallels', map_config.parallel_interval)
+    nscale = kwargs.get('nscale', map_config.site_name_scale)
+    cscale = kwargs.get('cscale', map_config.country_name_scale)
+    sscale = kwargs.get('sscale', map_config.site_marker_scale)
+    pscale = kwargs.get('pscale', map_config.center_marker_scale)
     heights = np.array(kwargs.get('heights'), None)
-    alpha = kwargs.get('alpha', 0.2)
-    site_box_alpha = kwargs.get('site_box_alpha', 0.0)
+    alpha = kwargs.get('alpha', map_config.night_alpha)
+    site_box_alpha = kwargs.get('site_box_alpha', map_config.site_box_alpha)
     centermap_geo = kwargs.get('centermap_geo', None)
     centermap_delta = kwargs.get('centermap_delta', None)
     if 'centermap_geo' in kwargs and 'centermap_delta' in kwargs:
@@ -394,8 +409,8 @@ def plot_occ_map(name, radius, coord, time, ca, pa, vel, dist, mag=0, longi=0, *
     if zoom <= 0:
         raise ValueError('zoom can not be equal or smaller than 0.')
     off_ra, off_de = kwargs.get('offset', [0.0, 0.0])*u.mas
-    arrow = kwargs.get('arrow', True)
-    site_name = kwargs.get('site_name', True)
+    arrow = kwargs.get('arrow', map_config.arrow)
+    site_name = kwargs.get('site_name', map_config.site_names)
     path = kwargs.get('path', '.')
     Path(path).mkdir(parents=True, exist_ok=True)
     chord_delta = np.array(kwargs.get('chord_delta', []), ndmin=1)*u.km

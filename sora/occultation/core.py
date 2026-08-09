@@ -4,6 +4,7 @@ import astropy.units as u
 import numpy as np
 from astropy.time import Time
 
+from sora.config import get_config
 from sora.config.decorators import deprecated_function, deprecated_alias
 from sora.prediction import occ_params, PredictionTable
 from . import fitting
@@ -574,10 +575,22 @@ class Occultation:
             function.
         """
         sites = {}
-        color = {'positive': 'blue', 'negative': 'red'}
+        map_config = get_config().occ_map
+        colors = {
+            'positive': map_config.positive_site_color,
+            'negative': map_config.negative_site_color,
+        }
+        offset_x, offset_y = map_config.site_name_offset_km
         for name, chord in self.chords.items():
             obs = chord.observer
-            sites[name] = [obs.lon.deg, obs.lat.deg, 10, 10, color[chord.status()], 'o']
+            sites[name] = [
+                obs.lon.deg,
+                obs.lat.deg,
+                offset_x,
+                offset_y,
+                colors[chord.status()],
+                map_config.site_marker,
+            ]
         return sites
 
     def plot_occ_map(self, **kwargs):
@@ -592,7 +605,8 @@ class Occultation:
             ellipse_y = -circle_x*np.sin((pos_ang-map_pa)*u.deg) + circle_y*np.cos((pos_ang-map_pa)*u.deg)
             kwargs['radius'] = ellipse_y.max()
             print('Projected shadow radius = {:.1f} km'.format(kwargs['radius']))
-        kwargs['sites'] = kwargs.get('sites', self.get_map_sites())
+        if 'sites' not in kwargs:
+            kwargs['sites'] = self.get_map_sites()
         if 'offset' not in kwargs and hasattr(self, 'fitted_params'):
             off_ra = self.fitted_params['center_f'][0]*u.km
             off_dec = self.fitted_params['center_g'][0]*u.km

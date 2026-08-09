@@ -11,6 +11,7 @@ import yaml
 from platformdirs import PlatformDirs
 
 from .meta import BaseConfigSection
+from .sections import DEFAULT_SECTION_TYPES
 
 __all__ = ['CONFIG_VERSION', 'Config', 'get_config', 'reload_config']
 
@@ -21,14 +22,16 @@ _VERSION_KEY = 'config_version'
 
 
 class Config:
-    """Load and persist SORA configuration without feature-specific sections.
+    """Load and persist registered SORA configuration sections.
 
-    Concrete configuration sections are intentionally registered separately.
+    Concrete configuration sections are implemented and registered separately.
     This class only owns paths, YAML loading, version checks, section
     construction, and persistence of explicit user overrides.
     """
 
-    SECTION_TYPES: ClassVar[Mapping[str, type[BaseConfigSection]]] = {}
+    SECTION_TYPES: ClassVar[Mapping[str, type[BaseConfigSection]]] = (
+        DEFAULT_SECTION_TYPES
+    )
 
     def __init__(
         self,

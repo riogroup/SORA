@@ -31,14 +31,15 @@ class PredictRow(Row):
         path : `str`, default='.'
             Path to a directory where to save map.
 
-        resolution : `int`, default=2
-            Cartopy feature resolution.
+        resolution : `int`, optional
+            Cartopy feature resolution. When omitted, uses the configured value.
             ``1`` means a resolution of "10m"; ``2`` means "50m"; and ``3``
             means "100m".
 
-        states : `bool`
+        states : `bool`, optional
             If True, plots the states borders of the countries. The states
             of some countries will only be shown depending on the resolution.
+            When omitted, uses the configured value.
 
         zoom : `int`, `float`
             Zooms in or out of the map.
@@ -55,14 +56,17 @@ class PredictRow(Row):
             Rotates the Earth to show occultation with the center projected at a
             given longitude and latitude. It must be a list with two numbers.
 
-        labels : `bool`, default=True
+        labels : `bool`, optional
             Plots text above and below the map with the occultation parameters.
+            When omitted, uses the configured value.
 
-        meridians : `int`, default=30
-            Plots lines representing the meridians for given interval, in degrees.
+        meridians : `int`, `float`, optional
+            Plots lines representing the meridians for the given interval, in
+            degrees. When omitted, uses the configured value.
 
-        parallels : `int`, default=30
-            Plots lines representing the parallels for given interval, in degrees.
+        parallels : `int`, `float`, optional
+            Plots lines representing the parallels for the given interval, in
+            degrees. When omitted, uses the configured value.
 
         sites : `dict`, `str`, optional
             Plots site positions in map. It must be a python dictionary where the
@@ -72,9 +76,14 @@ class PredictRow(Row):
             in the map and the `name`. `color` is the color of the point. `marker` is
             the symbols used for each station following matplotlib.pyplot properties.
 
-        site_name : `bool`
+        site_name : `bool`, optional
             If True, plots the names of the given sites. Otherwise, plots only
-            the points.
+            the points. When omitted, uses the configured value.
+
+        site_box_alpha : `int`, `float`, optional
+            Sets the transparency of a box surrounding each station name. 0 is
+            transparent and 1 is opaque. When omitted, uses the configured
+            value.
 
         countries : `dict`, `str`, optional
             Plots the names of countries. It must be a python dictionary where the
@@ -85,9 +94,9 @@ class PredictRow(Row):
             Applies an offset to the ephemeris, calculating new CA and instant of
             CA. It is a pair of `delta_RA*cosDEC` and `delta_DEC`.
 
-        mapstyle : `int`, default=1
-            Define the color style of the map. ``1`` is the default black and
-            white scale. ``2`` is a colored map.
+        mapstyle : `int`, optional
+            Define the color style of the map. When omitted, uses the configured
+            value. ``1`` is the black and white scale; ``2`` is a colored map.
 
         error : `int`, `float`
             Ephemeris error in mas. It plots a dashed line representing radius + error.
@@ -126,24 +135,28 @@ class PredictRow(Row):
         hcolor : `str`
             Changes the color of the height lines.
 
-        mapsize : `list`, default= [46.0, 38.0]
-            The size of figure, in cm. It must be a list with two values.
+        mapsize : `list`, optional
+            The size of the figure, in cm. When omitted, uses the configured
+            value. It must be a list with two values.
 
-        cpoints : `int`, `float`, default=60
+        cpoints : `int`, `float`, optional
             Interval for the small points marking the center of shadow, in seconds.
+            When omitted, uses the configured value.
 
         ptcolor : `str`
             Change the color of the center points.
 
-        alpha : `float`, default=0.2
+        alpha : `float`, optional
             The transparency of the night shade, where 0.0 is full transparency and
-            1.0 is full black.
+            1.0 is full black. When omitted, uses the configured value.
 
-        fmt : `str`, default='png'
-            The format to save the image. It is parsed directly by `matplotlib.pyplot`.
+        fmt : `str`, optional
+            The format used to save the image. When omitted, uses the configured
+            value. It is parsed directly by `matplotlib.pyplot`.
 
-        dpi : `int`, default=100
-            Resolution in "dots per inch". It defines the quality of the image.
+        dpi : `int`, optional
+            Resolution in "dots per inch". When omitted, uses the configured
+            value.
 
         lncolor : `str`
             Changes the color of the line that represents the limits of the shadow
@@ -153,21 +166,25 @@ class PredictRow(Row):
             Changes the color of the lines that represents the limits of the shadow
             outside Earth.
 
-        nscale : `int`, `float`
-            Arbitrary scale for the size of the name of the site.
+        nscale : `int`, `float`, optional
+            Arbitrary scale for the size of the name of the site. When omitted,
+            uses the configured value.
 
-        cscale : `int`, `float`
-            Arbitrary scale for the name of the country.
+        cscale : `int`, `float`, optional
+            Arbitrary scale for the name of the country. When omitted, uses the
+            configured value.
 
-        sscale : `int`, `float`
-            Arbitrary scale for the size of point of the site.
+        sscale : `int`, `float`, optional
+            Arbitrary scale for the size of point of the site. When omitted,
+            uses the configured value.
 
-        pscale : `int`, `float`
+        pscale : `int`, `float`, optional
             Arbitrary scale for the size of the points that represent the center of
-            the shadow.
+            the shadow. When omitted, uses the configured value.
 
-        arrow : `bool`, default=True
-            If True, it plots the arrow with the occultation direction.
+        arrow : `bool`, optional
+            If True, it plots the arrow with the occultation direction. When
+            omitted, uses the configured value.
 
 
         Notes

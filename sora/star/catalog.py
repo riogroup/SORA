@@ -9,7 +9,21 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from astroquery.vizier import Vizier
 
+from sora.config import get_config
 from sora.config.input_tests import SelectDefault
+
+
+class _TimeoutSession(requests.Session):
+    """Requests session that supplies a default timeout when one is configured."""
+
+    def __init__(self, timeout=None):
+        super().__init__()
+        self._default_timeout = timeout
+
+    def request(self, method, url, **kwargs):
+        if self._default_timeout is not None:
+            kwargs.setdefault('timeout', self._default_timeout)
+        return super().request(method, url, **kwargs)
 
 
 @dataclass
@@ -297,21 +311,33 @@ class VizierCatalogue(Catalogue):
 class LineaGaiaCatalogue(Catalogue):
     """Gaia catalogue served by the LIneA TAP service."""
 
-    def __init__(self, tap_url='https://userquery.linea.org.br/tap', language=None, **kwargs):
+    def __init__(self, tap_url=None, language=None, **kwargs):
         """Initializes a LineaGaiaCatalogue object.
 
         Parameters
         ----------
         tap_url : `str`, optional
-            URL of the TAP service.
+            URL of the TAP service. When omitted, uses the configured LIneA
+            endpoint.
         language : `str`, optional
             Query language passed to the TAP service.
         **kwargs
             Catalogue metadata passed to `Catalogue`.
         """
-        self.tap_url = tap_url
+        self._tap_url = tap_url
         self.language = language
         super(LineaGaiaCatalogue, self).__init__(**kwargs)
+
+    @property
+    def tap_url(self):
+        """Return the explicit or configured LIneA TAP endpoint."""
+        if self._tap_url is not None:
+            return self._tap_url
+        return get_config().services.linea_tap_url
+
+    @tap_url.setter
+    def tap_url(self, value):
+        self._tap_url = value
 
     @staticmethod
     def _format_value(value):
@@ -321,9 +347,9 @@ class LineaGaiaCatalogue(Catalogue):
             return text
         return "'{}'".format(text.replace("'", "''"))
 
-    def _run_query(self, query):
+    def _run_query(self, query, timeout=None):
         """Runs a TAP query and returns the resulting table."""
-        session = requests.Session()
+        session = _TimeoutSession(timeout=timeout)
         tap = pyvo.dal.TAPService(self.tap_url, session=session)
         if self.language is None:
             return tap.run_sync(query).to_table()
@@ -400,7 +426,7 @@ class LineaGaiaCatalogue(Catalogue):
             Maximum number of rows to fetch. Non-positive values remove the
             ``TOP`` clause.
         timeout : `number`, optional
-            Accepted for API compatibility with VizieR catalogues.
+            HTTP timeout in seconds.
         column_filters : `dict`, optional
             Additional ADQL filter expressions keyed by column name.
         **kwargs
@@ -411,7 +437,7 @@ class LineaGaiaCatalogue(Catalogue):
         catalogue : `list`
             Empty list when no source is found, or a list containing one table.
         """
-        del timeout, kwargs
+        del kwargs
 
         if not isinstance(coord, SkyCoord):
             coord = SkyCoord(coord, unit=('hourangle', 'deg'))
@@ -439,7 +465,7 @@ class LineaGaiaCatalogue(Catalogue):
         query_filters.extend(self._format_column_filters(column_filters))
         top = f'TOP {int(row_limit)} ' if row_limit and row_limit > 0 else ''
         query = f"SELECT {top}{self._format_columns(columns)} FROM {self.cat_path} WHERE {' AND '.join(query_filters)}"
-        catalogue = self._run_query(query)
+        catalogue = self._run_query(query, timeout=timeout)
         return [] if len(catalogue) == 0 else [catalogue]
 
     def __repr__(self):

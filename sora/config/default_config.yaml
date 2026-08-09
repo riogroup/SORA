@@ -1,1 +1,36 @@
 config_version: 1
+services:
+  linea_tap_url: https://userquery.linea.org.br/tap
+prediction:
+  default_catalogue: gaiadr3_linea
+  catalogue_row_limit: 10000000
+  catalogue_timeout: 600
+  fallback_catalogue: gaiadr3
+  fallback_on_timeout: true
+occ_map:
+  style: 1
+  resolution: 2
+  format: png
+  dpi: 100
+  size_cm:
+    - 46.0
+    - 38.0
+  meridian_interval: 30
+  parallel_interval: 30
+  center_point_interval: 60
+  site_name_scale: 1.0
+  country_name_scale: 1.0
+  site_marker_scale: 1.0
+  center_marker_scale: 1.0
+  positive_site_color: blue
+  negative_site_color: red
+  site_marker: o
+  site_name_offset_km:
+    - 10
+    - 10
+  states: true
+  labels: true
+  site_names: true
+  arrow: true
+  night_alpha: 0.2
+  site_box_alpha: 0.0
