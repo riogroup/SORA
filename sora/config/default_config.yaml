@@ -2,6 +2,15 @@ config_version: 1
 services:
   linea_tap_url: https://userquery.linea.org.br/tap
   sbdb_cache: false
+  vizier_cache: false
+star:
+  default_catalogue: gaiadr3_linea
+  catalogue_timeout: 600
+  catalogue_row_limit: 100
+  fallback_catalogue: gaiadr3
+  fallback_on_timeout: true
+  fetch_nomad_photometry: true
+  nomad_search_radius_arcsec: 3
 prediction:
   default_catalogue: gaiadr3_linea
   catalogue_row_limit: 10000000

@@ -11,6 +11,7 @@ __all__ = [
     'OccMapConfig',
     'PredictionConfig',
     'ServicesConfig',
+    'StarConfig',
 ]
 
 
@@ -35,7 +36,7 @@ def _is_non_negative_number(value: Any) -> bool:
 class ServicesConfig(BaseConfigSection):
     """Connection preferences for external services used by SORA."""
 
-    FIELDS = ('linea_tap_url', 'sbdb_cache')
+    FIELDS = ('linea_tap_url', 'sbdb_cache', 'vizier_cache')
     LOCAL_KEYS = frozenset(FIELDS)
 
     def _initialize(
@@ -45,6 +46,7 @@ class ServicesConfig(BaseConfigSection):
     ) -> None:
         self.linea_tap_url = effective_data['linea_tap_url']
         self.sbdb_cache = effective_data['sbdb_cache']
+        self.vizier_cache = effective_data['vizier_cache']
 
     def _validate(self) -> None:
         if not isinstance(self.linea_tap_url, str):
@@ -58,6 +60,68 @@ class ServicesConfig(BaseConfigSection):
 
         if not isinstance(self.sbdb_cache, bool):
             raise TypeError('services.sbdb_cache must be a boolean')
+
+        if not isinstance(self.vizier_cache, bool):
+            raise TypeError('services.vizier_cache must be a boolean')
+
+
+class StarConfig(BaseConfigSection):
+    """Operational defaults for individual star catalogue lookups."""
+
+    FIELDS = (
+        'default_catalogue',
+        'catalogue_timeout',
+        'catalogue_row_limit',
+        'fallback_catalogue',
+        'fallback_on_timeout',
+        'fetch_nomad_photometry',
+        'nomad_search_radius_arcsec',
+    )
+    LOCAL_KEYS = frozenset(FIELDS)
+
+    def _initialize(
+        self,
+        default_data: Mapping[str, Any],
+        effective_data: Mapping[str, Any],
+    ) -> None:
+        self.default_catalogue = effective_data['default_catalogue']
+        self.catalogue_timeout = effective_data['catalogue_timeout']
+        self.catalogue_row_limit = effective_data['catalogue_row_limit']
+        self.fallback_catalogue = effective_data['fallback_catalogue']
+        self.fallback_on_timeout = effective_data['fallback_on_timeout']
+        self.fetch_nomad_photometry = effective_data[
+            'fetch_nomad_photometry'
+        ]
+        self.nomad_search_radius_arcsec = effective_data[
+            'nomad_search_radius_arcsec'
+        ]
+
+    def _validate(self) -> None:
+        for field in ('default_catalogue', 'fallback_catalogue'):
+            value = getattr(self, field)
+            if not isinstance(value, str) or not value.strip():
+                raise TypeError(f'star.{field} must be a non-empty string')
+
+        if not _is_positive_number(self.catalogue_timeout):
+            raise ValueError('star.catalogue_timeout must be positive')
+
+        if (
+            not isinstance(self.catalogue_row_limit, int)
+            or isinstance(self.catalogue_row_limit, bool)
+            or self.catalogue_row_limit <= 0
+        ):
+            raise ValueError(
+                'star.catalogue_row_limit must be a positive integer'
+            )
+
+        for field in ('fallback_on_timeout', 'fetch_nomad_photometry'):
+            if not isinstance(getattr(self, field), bool):
+                raise TypeError(f'star.{field} must be a boolean')
+
+        if not _is_positive_number(self.nomad_search_radius_arcsec):
+            raise ValueError(
+                'star.nomad_search_radius_arcsec must be positive'
+            )
 
 
 class BodyPlotConfig(BaseConfigSection):
@@ -305,6 +369,7 @@ class OccMapConfig(BaseConfigSection):
 
 DEFAULT_SECTION_TYPES = {
     'services': ServicesConfig,
+    'star': StarConfig,
     'prediction': PredictionConfig,
     'occ_map': OccMapConfig,
     'body_plot': BodyPlotConfig,

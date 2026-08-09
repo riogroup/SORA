@@ -2,7 +2,7 @@ import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
 
-from sora.config import input_tests
+from sora.config import get_config, input_tests
 from sora.config.decorators import deprecated_alias
 
 __all__ = ['van_belle', 'kervella']
@@ -32,6 +32,18 @@ def search_star(**kwargs):
     verbose : `bool`
         If True, prints the catalogue being queried.
 
+    row_limit : `int`, optional
+        Maximum number of rows to retrieve. When omitted, uses the configured
+        lookup limit.
+
+    timeout : `number`, optional
+        Timeout for connecting to VizieR, in seconds. When omitted, uses the
+        configured value.
+
+    cache : `bool`, optional
+        Whether VizieR may reuse cached responses. When omitted, uses the
+        configured value.
+
     Returns
     -------
     catalogue : `astroquery.utils.commons.TableList`
@@ -39,15 +51,50 @@ def search_star(**kwargs):
     """
     from astroquery.vizier import Vizier
 
-    input_tests.check_kwargs(kwargs, allowed_kwargs=['catalog', 'code', 'columns', 'coord', 'verbose', 'radius'])
-    row_limit = 100
+    input_tests.check_kwargs(
+        kwargs,
+        allowed_kwargs=[
+            'cache',
+            'catalog',
+            'code',
+            'columns',
+            'coord',
+            'radius',
+            'row_limit',
+            'timeout',
+            'verbose',
+        ],
+    )
+    config = get_config()
+    row_limit = kwargs.get('row_limit')
+    if row_limit is None:
+        row_limit = config.star.catalogue_row_limit
+    timeout = kwargs.get('timeout')
+    if timeout is None:
+        timeout = config.star.catalogue_timeout
+    cache = kwargs.get('cache')
+    if cache is None:
+        cache = config.services.vizier_cache
     if 'verbose' in kwargs and kwargs['verbose']:
         print('\nDownloading star parameters from {}'.format(kwargs['catalog']))
-    vquery = Vizier(columns=kwargs['columns'], row_limit=row_limit, timeout=600)
+    vquery = Vizier(
+        columns=kwargs['columns'],
+        row_limit=row_limit,
+        timeout=timeout,
+    )
     if 'code' in kwargs:
-        catalogue = vquery.query_constraints(catalog=kwargs['catalog'], Source=kwargs['code'], cache=False)
+        catalogue = vquery.query_constraints(
+            catalog=kwargs['catalog'],
+            Source=kwargs['code'],
+            cache=cache,
+        )
     elif 'coord' in kwargs:
-        catalogue = vquery.query_region(kwargs['coord'], radius=kwargs['radius'], catalog=kwargs['catalog'], cache=False)
+        catalogue = vquery.query_region(
+            kwargs['coord'],
+            radius=kwargs['radius'],
+            catalog=kwargs['catalog'],
+            cache=cache,
+        )
     else:
         raise ValueError('At least a code or coord should be given as input')
     return catalogue

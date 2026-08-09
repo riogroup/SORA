@@ -5,6 +5,7 @@ from .sections import (
     OccMapConfig,
     PredictionConfig,
     ServicesConfig,
+    StarConfig,
 )
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     'OccMapConfig',
     'PredictionConfig',
     'ServicesConfig',
+    'StarConfig',
     'deep_merge',
     'get_config',
     'reload_config',

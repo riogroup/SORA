@@ -5,11 +5,11 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
-from sora.config import input_tests
+from sora.config import get_config, input_tests
 from sora.config.decorators import deprecated_alias, deprecated_function
 from .meta import MetaStar
 from .utils import search_star, van_belle, kervella, spatial_motion, choice_star
-from .catalog import allowed_catalogues, gaiadr3, should_fallback_to_gaiadr3
+from .catalog import allowed_catalogues, should_fallback_to_gaiadr3
 
 warnings.simplefilter('always', UserWarning)
 
@@ -21,10 +21,10 @@ class Star(MetaStar):
 
     Parameters
     ----------
-    catalogue : `str`, `Catalogue`
+    catalogue : `str`, `Catalogue`, optional
         The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
-        ``'gaiadr3'``, ``'gaiadr3_linea'``, or a `Catalogue` object,
-        default='gaiadr3_linea'.
+        ``'gaiadr3'``, ``'gaiadr3_linea'``, or a `Catalogue` object. When
+        omitted, uses the configured value.
 
     code : `str`
         Gaia source identifier used for catalogue searches.
@@ -54,8 +54,9 @@ class Star(MetaStar):
     epoch : `str`, `astropy.time.Time`, default='J2000'
         Epoch of the coordinates.
 
-    nomad : `bool`, default=True
+    nomad : `bool`, optional
         If True, it tries to download the magnitudes from NOMAD catalogue.
+        When omitted, uses the configured value.
 
     bjones : `bool`, default=False
         If True, it uses the star distance from Bailer-Jones et al. (2018).
@@ -82,8 +83,9 @@ class Star(MetaStar):
     """
 
     @deprecated_alias(log='verbose')  # remove this line in v1.0
-    def __init__(self, catalogue='gaiadr3_linea', **kwargs):
+    def __init__(self, catalogue=None, **kwargs):
 
+        star_config = get_config().star
         self._attributes = {}
         self.mag = {}
         self.errors = {'ra': 0*u.mas, 'dec': 0*u.mas, 'parallax': 0*u.mas, 'pmra': 0*u.mas/u.year,
@@ -91,6 +93,8 @@ class Star(MetaStar):
         allowed_kwargs = ['bjones', 'cgaudin', 'code', 'coord', 'dec', 'epoch', 'local', 'verbose', 'nomad', 'parallax',
                           'pmdec', 'pmra', 'ra', 'rad_vel']
         input_tests.check_kwargs(kwargs, allowed_kwargs=allowed_kwargs)
+        if catalogue is None:
+            catalogue = star_config.default_catalogue
         catalogue = allowed_catalogues.get_default(catalogue)
         self.catalogue = catalogue
         self._catalogue = catalogue.name
@@ -125,7 +129,7 @@ class Star(MetaStar):
             if not hasattr(self, 'code') and 'RA' not in self._attributes:
                 raise ValueError("User must give gaia Source ID 'code' or coordinates for the online search")
             self.__searchgaia(catalog=catalogue)
-        if kwargs.get('nomad', True):
+        if kwargs.get('nomad', star_config.fetch_nomad_photometry):
             self.__getcolors()
         try:
             self.bjones = kwargs.get('bjones', False)
@@ -311,15 +315,18 @@ class Star(MetaStar):
             ``'gaiaedr3'``, ``'gaiadr3'``, ``'gaiadr3_linea'``, or a
             `Catalogue` object.
         """
+        self.catalogue = catalog
+        self._catalogue = catalog.name
+        self.catalogue_name = catalog.name
         catalogue = None
 
         if hasattr(self, 'code') and self.code:
             try:
                 catalogue = catalog.search_star(code=self.code)
             except Exception as e:
-                if should_fallback_to_gaiadr3(catalog, e):
-                    warnings.warn('TapLinea timed out. Retrying Gaia DR3 search on VizieR.')
-                    return self.__searchgaia(catalog=gaiadr3)
+                fallback = self.__get_fallback_catalogue(catalog, e)
+                if fallback is not None:
+                    return self.__searchgaia(catalog=fallback)
                 raise ValueError(f"Search by code failed: {e}")
         elif hasattr(self, 'coord') and self.coord:
             search_radii = [1, 2, 4, 8, 16, 32] * u.arcsec
@@ -332,9 +339,9 @@ class Star(MetaStar):
                     if radius < max(search_radii):
                         print(f"Retrying search with a larger radius: {radius * 2}", end="\r")
                 except Exception as e:
-                    if should_fallback_to_gaiadr3(catalog, e):
-                        warnings.warn('TapLinea timed out. Retrying Gaia DR3 search on VizieR.')
-                        return self.__searchgaia(catalog=gaiadr3)
+                    fallback = self.__get_fallback_catalogue(catalog, e)
+                    if fallback is not None:
+                        return self.__searchgaia(catalog=fallback)
                     warnings.warn(f"Search failed at radius {radius}: {e}")
 
             if not catalogue or len(catalogue) == 0:
@@ -416,11 +423,36 @@ class Star(MetaStar):
                   self.ra.to_string(u.hourangle, sep='hms', precision=5), self.errors['ra'],
                   self.dec.to_string(u.deg, sep='dms', precision=4), self.errors['dec']))
 
+    @staticmethod
+    def __get_fallback_catalogue(catalog, error):
+        """Return the configured fallback for a timed-out LIneA lookup."""
+        star_config = get_config().star
+        if not (
+            star_config.fallback_on_timeout
+            and should_fallback_to_gaiadr3(catalog, error)
+        ):
+            return None
+
+        fallback = allowed_catalogues.get_default(
+            star_config.fallback_catalogue
+        )
+        if fallback is catalog:
+            raise ValueError(
+                'star.fallback_catalogue must differ from the active '
+                'LIneA catalogue'
+            )
+        warnings.warn(
+            'LIneA TAP timed out. Retrying the search with catalogue '
+            f"'{star_config.fallback_catalogue}'."
+        )
+        return fallback
+
     def __getcolors(self):
         """Searches for B, V, R, J, H, and K magnitudes in the NOMAD catalogue."""
+        search_radius = get_config().star.nomad_search_radius_arcsec * u.arcsec
         nomad_coord = SkyCoord(self.ra, self.dec, frame='icrs')
         columns = ['RAJ2000', 'DEJ2000', 'Bmag', 'Vmag', 'Rmag', 'Jmag', 'Hmag', 'Kmag']
-        catalogue = search_star(coord=nomad_coord, columns=columns, radius=3*u.arcsec,
+        catalogue = search_star(coord=nomad_coord, columns=columns, radius=search_radius,
                                 catalog='I/297/out', verbose=self._verbose)
         if len(catalogue) == 0:
             if self._verbose:
