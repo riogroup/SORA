@@ -7,6 +7,8 @@ import shapely.geometry as geometry
 from astropy.coordinates import SkyCoord, CartesianRepresentation
 from shapely.ops import unary_union
 
+from sora.config import get_config
+
 from .limb import Limb
 from .meta import BaseShape
 from .utils import read_obj_file, rotated_matrix
@@ -23,7 +25,7 @@ class Shape3D(BaseShape):
         Path to the Wavefront OBJ file.
     texture : `str`, optional
         Path to the image that contains the surface texture of the object.
-        If `None`, a gray color is used.
+        If `None`, the configured default surface color is used.
     scale : `float`, optional
         Scale factor applied to the shape model vertices. Default is 1.
     right_hand : `bool`, optional
@@ -52,7 +54,11 @@ class Shape3D(BaseShape):
     @property
     def texture(self):
         """`numpy.array` : RGB colors assigned to each face of the shape."""
-        texture = 0.5 * np.ones((len(self.faces), 3))
+        default_color = np.asarray(
+            get_config().body_plot.default_surface_color,
+            dtype=float,
+        )
+        texture = np.tile(default_color, (len(self.faces), 1))
         texture = getattr(self, '_texture', texture)
         return texture
 
@@ -203,8 +209,10 @@ class Shape3D(BaseShape):
             limb = limb.geoms[0]
         return Limb(limb)
 
-    def plot(self, sub_observer="00 00 00 +00 00 00", sub_solar=None, pole_position_angle=0, center_f=0, center_g=0,
-             scale=1, ax=None, plot_pole=True, **kwargs):
+    def plot(self, sub_observer="00 00 00 +00 00 00", sub_solar=None,
+             pole_position_angle=0, center_f=0, center_g=0, scale=1, ax=None,
+             plot_pole=None, north_pole_color=None, south_pole_color=None,
+             pole_length_scale=None, surface_alpha=None, **kwargs):
         """Plot the projected 3D shape on the tangent plane.
 
         Parameters
@@ -237,13 +245,42 @@ class Shape3D(BaseShape):
         ax : `matplotlib.pyplot.Axes`
             The axes where to make the plot. If None, it will use the default axes.
 
-        plot_pole : `bool`
-            If True, the direction of the pole is plotted.
+        plot_pole : `bool`, optional
+            If True, the direction of the pole is plotted. When omitted, uses
+            the configured value.
+
+        north_pole_color : `str`, optional
+            Color used to plot the North pole. When omitted, uses the
+            configured value.
+
+        south_pole_color : `str`, optional
+            Color used to plot the South pole. When omitted, uses the
+            configured value.
+
+        pole_length_scale : `float`, optional
+            Scale applied to the plotted pole length. When omitted, uses the
+            configured value.
+
+        surface_alpha : `float`, optional
+            Opacity of the plotted shape surface, between 0 and 1. When
+            omitted, uses the configured value.
 
         **kwargs
             Any other keyword argument is discarded.
         """
         import matplotlib.pyplot as plt
+
+        plot_config = get_config().body_plot
+        if plot_pole is None:
+            plot_pole = plot_config.show_pole
+        if north_pole_color is None:
+            north_pole_color = plot_config.north_pole_color
+        if south_pole_color is None:
+            south_pole_color = plot_config.south_pole_color
+        if pole_length_scale is None:
+            pole_length_scale = plot_config.pole_length_scale
+        if surface_alpha is None:
+            surface_alpha = plot_config.surface_alpha
 
         ax = ax or plt.gca()
         ax.axis('equal')
@@ -268,7 +305,7 @@ class Shape3D(BaseShape):
 
         shade = normal_sun.x
         shade[shade < 0] = 0
-        alpha = np.ones(len(shade))
+        alpha = np.full(len(shade), surface_alpha)
         color = np.vstack((self.texture.T * shade, alpha)).T.value
 
         # Define pole for plotting
@@ -276,14 +313,25 @@ class Shape3D(BaseShape):
         maxd = vert.norm().max()
         maxz = vert.z.argmax()
         minz = vert.z.argmin()
-        npole = CartesianRepresentation([0, 0] * u.km, [0, 0] * u.km, [vert[maxz].norm(), maxd * 1.2])*scale
-        spole = CartesianRepresentation([0, 0] * u.km, [0, 0] * u.km, [-vert[minz].norm(), -maxd * 1.2])*scale
+        npole = CartesianRepresentation(
+            [0, 0] * u.km,
+            [0, 0] * u.km,
+            [vert[maxz].norm(), maxd * pole_length_scale],
+        ) * scale
+        spole = CartesianRepresentation(
+            [0, 0] * u.km,
+            [0, 0] * u.km,
+            [-vert[minz].norm(), -maxd * pole_length_scale],
+        ) * scale
         params['right_hand'] = self._right_hand
         rnpole = rotated_matrix(coordinate=npole, **params)
         rspole = rotated_matrix(coordinate=spole, **params)
 
         poles = {'north': rnpole, 'south': rspole}
-        pcolor = {'north': 'red', 'south': 'blue'}
+        pcolor = {
+            'north': north_pole_color,
+            'south': south_pole_color,
+        }
         forepole = 'north' if rnpole[0].x > rspole[0].x else 'south'
         backpole = 'south' if forepole == 'north' else 'north'
 

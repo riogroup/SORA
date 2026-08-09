@@ -1,6 +1,7 @@
 config_version: 1
 services:
   linea_tap_url: https://userquery.linea.org.br/tap
+  sbdb_cache: false
 prediction:
   default_catalogue: gaiadr3_linea
   catalogue_row_limit: 10000000
@@ -34,3 +35,13 @@ occ_map:
   arrow: true
   night_alpha: 0.2
   site_box_alpha: 0.0
+body_plot:
+  show_pole: true
+  north_pole_color: red
+  south_pole_color: blue
+  pole_length_scale: 1.2
+  default_surface_color:
+    - 0.5
+    - 0.5
+    - 0.5
+  surface_alpha: 1.0

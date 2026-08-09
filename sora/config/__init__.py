@@ -1,10 +1,16 @@
 from .core import CONFIG_VERSION, Config, get_config, reload_config
 from .meta import BaseConfigSection, deep_merge
-from .sections import OccMapConfig, PredictionConfig, ServicesConfig
+from .sections import (
+    BodyPlotConfig,
+    OccMapConfig,
+    PredictionConfig,
+    ServicesConfig,
+)
 
 __all__ = [
     'CONFIG_VERSION',
     'BaseConfigSection',
+    'BodyPlotConfig',
     'Config',
     'OccMapConfig',
     'PredictionConfig',

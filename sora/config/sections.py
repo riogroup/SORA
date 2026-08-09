@@ -6,7 +6,12 @@ from urllib.parse import urlparse
 
 from .meta import BaseConfigSection
 
-__all__ = ['OccMapConfig', 'PredictionConfig', 'ServicesConfig']
+__all__ = [
+    'BodyPlotConfig',
+    'OccMapConfig',
+    'PredictionConfig',
+    'ServicesConfig',
+]
 
 
 def _is_positive_number(value: Any) -> bool:
@@ -28,9 +33,9 @@ def _is_non_negative_number(value: Any) -> bool:
 
 
 class ServicesConfig(BaseConfigSection):
-    """Endpoints for external services used by SORA."""
+    """Connection preferences for external services used by SORA."""
 
-    FIELDS = ('linea_tap_url',)
+    FIELDS = ('linea_tap_url', 'sbdb_cache')
     LOCAL_KEYS = frozenset(FIELDS)
 
     def _initialize(
@@ -39,6 +44,7 @@ class ServicesConfig(BaseConfigSection):
         effective_data: Mapping[str, Any],
     ) -> None:
         self.linea_tap_url = effective_data['linea_tap_url']
+        self.sbdb_cache = effective_data['sbdb_cache']
 
     def _validate(self) -> None:
         if not isinstance(self.linea_tap_url, str):
@@ -49,6 +55,66 @@ class ServicesConfig(BaseConfigSection):
             raise ValueError(
                 'services.linea_tap_url must be an absolute HTTP or HTTPS URL'
             )
+
+        if not isinstance(self.sbdb_cache, bool):
+            raise TypeError('services.sbdb_cache must be a boolean')
+
+
+class BodyPlotConfig(BaseConfigSection):
+    """Visual defaults for plots of body shape models."""
+
+    FIELDS = (
+        'show_pole',
+        'north_pole_color',
+        'south_pole_color',
+        'pole_length_scale',
+        'default_surface_color',
+        'surface_alpha',
+    )
+    LOCAL_KEYS = frozenset(FIELDS)
+
+    def _initialize(
+        self,
+        default_data: Mapping[str, Any],
+        effective_data: Mapping[str, Any],
+    ) -> None:
+        self.show_pole = effective_data['show_pole']
+        self.north_pole_color = effective_data['north_pole_color']
+        self.south_pole_color = effective_data['south_pole_color']
+        self.pole_length_scale = effective_data['pole_length_scale']
+        self.default_surface_color = effective_data['default_surface_color']
+        self.surface_alpha = effective_data['surface_alpha']
+
+    def _validate(self) -> None:
+        if not isinstance(self.show_pole, bool):
+            raise TypeError('body_plot.show_pole must be a boolean')
+
+        for field in ('north_pole_color', 'south_pole_color'):
+            value = getattr(self, field)
+            if not isinstance(value, str) or not value.strip():
+                raise TypeError(f'body_plot.{field} must be a non-empty string')
+
+        if not _is_positive_number(self.pole_length_scale):
+            raise ValueError('body_plot.pole_length_scale must be positive')
+
+        if (
+            not isinstance(self.default_surface_color, (list, tuple))
+            or len(self.default_surface_color) != 3
+            or not all(
+                _is_non_negative_number(value) and value <= 1
+                for value in self.default_surface_color
+            )
+        ):
+            raise ValueError(
+                'body_plot.default_surface_color must contain three numbers '
+                'between 0 and 1'
+            )
+
+        if (
+            not _is_non_negative_number(self.surface_alpha)
+            or self.surface_alpha > 1
+        ):
+            raise ValueError('body_plot.surface_alpha must be between 0 and 1')
 
 
 class PredictionConfig(BaseConfigSection):
@@ -241,4 +307,5 @@ DEFAULT_SECTION_TYPES = {
     'services': ServicesConfig,
     'prediction': PredictionConfig,
     'occ_map': OccMapConfig,
+    'body_plot': BodyPlotConfig,
 }
