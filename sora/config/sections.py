@@ -36,7 +36,13 @@ def _is_non_negative_number(value: Any) -> bool:
 class ServicesConfig(BaseConfigSection):
     """Connection preferences for external services used by SORA."""
 
-    FIELDS = ('linea_tap_url', 'sbdb_cache', 'vizier_cache')
+    FIELDS = (
+        'linea_tap_url',
+        'sbdb_cache',
+        'vizier_cache',
+        'horizons_timeout',
+        'horizons_cache',
+    )
     LOCAL_KEYS = frozenset(FIELDS)
 
     def _initialize(
@@ -47,6 +53,8 @@ class ServicesConfig(BaseConfigSection):
         self.linea_tap_url = effective_data['linea_tap_url']
         self.sbdb_cache = effective_data['sbdb_cache']
         self.vizier_cache = effective_data['vizier_cache']
+        self.horizons_timeout = effective_data['horizons_timeout']
+        self.horizons_cache = effective_data['horizons_cache']
 
     def _validate(self) -> None:
         if not isinstance(self.linea_tap_url, str):
@@ -63,6 +71,12 @@ class ServicesConfig(BaseConfigSection):
 
         if not isinstance(self.vizier_cache, bool):
             raise TypeError('services.vizier_cache must be a boolean')
+
+        if not _is_positive_number(self.horizons_timeout):
+            raise ValueError('services.horizons_timeout must be positive')
+
+        if not isinstance(self.horizons_cache, bool):
+            raise TypeError('services.horizons_cache must be a boolean')
 
 
 class StarConfig(BaseConfigSection):

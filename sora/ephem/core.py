@@ -299,7 +299,7 @@ class EphemHorizons(BaseEphem):
         _ = self.get_position(Time.now())  # test if Horizons can proceed for this object
         self.meta = {'kernels':'horizons'}
 
-    def get_position(self, time, observer='geocenter'):
+    def get_position(self, time, observer='geocenter', timeout=None, cache=None):
         """Returns the ICRS position of the object for observer.
 
         Parameters
@@ -312,6 +312,14 @@ class EphemHorizons(BaseEphem):
             Horizons observer code, a SORA observer object, a SORA spacecraft
             object, or one of ``'geocenter'`` and ``'barycenter'``.
 
+        timeout : `int`, `float`, optional
+            Horizons connection timeout in seconds. When omitted, uses the
+            configured value.
+
+        cache : `bool`, optional
+            Whether Astroquery may reuse cached Horizons responses. When
+            omitted, uses the configured value.
+
         Returns
         -------
         coord : `astropy.coordinates.SkyCoord`
@@ -319,7 +327,15 @@ class EphemHorizons(BaseEphem):
         """
         from .utils import ephem_horizons
 
-        coord = ephem_horizons(time=time, target=self.name, observer=observer, id_type=self.id_type, output='ephemeris')
+        coord = ephem_horizons(
+            time=time,
+            target=self.name,
+            observer=observer,
+            id_type=self.id_type,
+            output='ephemeris',
+            timeout=timeout,
+            cache=cache,
+        )
         if hasattr(self, 'offset'):
             pos_frame = SkyOffsetFrame(origin=coord)
             new_pos = SkyCoord(lon=self.offset.d_lon_coslat, lat=self.offset.d_lat,

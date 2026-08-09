@@ -158,7 +158,7 @@ class BaseEphem:
                                  ' object.'.format(self.__class__.__name__))
         self._G = float(value)
 
-    def apparent_magnitude(self, time):
+    def apparent_magnitude(self, time, timeout=None, cache=None):
         """Calculates the object's apparent magnitude.
 
         Parameters
@@ -166,6 +166,14 @@ class BaseEphem:
         time : `str`, `astropy.time.Time`
             Reference time to calculate the object's apparent magnitude.
             It can be a string in the ISO format (yyyy-mm-dd hh:mm:ss.s) or an astropy Time object.
+
+        timeout : `int`, `float`, optional
+            Horizons connection timeout in seconds. When omitted, uses the
+            configured value.
+
+        cache : `bool`, optional
+            Whether Astroquery may reuse cached Horizons responses. When
+            omitted, uses the configured value.
 
         Returns
         -------
@@ -176,6 +184,7 @@ class BaseEphem:
         from sora.body.utils import apparent_magnitude
         from astroquery.jplhorizons import Horizons
         from astropy.coordinates import get_sun
+        from .utils import _resolve_horizons_options
 
         time = Time(time)
 
@@ -183,8 +192,13 @@ class BaseEphem:
             search_name = self._shared_with['body'].get('search_name', self.name)
             id_type = getattr(self, 'id_type', 'majorbody')
             id_type = self._shared_with['body'].get('id_type', id_type)
+            timeout, cache = _resolve_horizons_options(
+                timeout=timeout,
+                cache=cache,
+            )
             obj = Horizons(id=search_name, id_type=id_type, location='geo', epochs=time.jd)
-            eph = obj.ephemerides(extra_precision=True)
+            obj.TIMEOUT = timeout
+            eph = obj.ephemerides(extra_precision=True, cache=cache)
             if 'H' in eph.keys():
                 self.H = eph['H'][0]
                 self.G = eph['G'][0]

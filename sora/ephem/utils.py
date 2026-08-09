@@ -14,7 +14,22 @@ satellites_bsp = {
     "1930 BM": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/plu060.bsp",
 }
 
-def getBSPfromJPL(identifier, initial_date, final_date, email=None, directory='./'):
+
+def _resolve_horizons_options(timeout=None, cache=None):
+    """Resolve explicit Horizons options against configured defaults."""
+    if timeout is None or cache is None:
+        from sora.config import get_config
+
+        services = get_config().services
+        if timeout is None:
+            timeout = services.horizons_timeout
+        if cache is None:
+            cache = services.horizons_cache
+    return timeout, cache
+
+
+def getBSPfromJPL(identifier, initial_date, final_date, email=None,
+                  directory='./', timeout=None):
     """
     Retrieve SPK (Spacecraft and Planet Kernel) files from JPL Horizons API for given object identifiers.
 
@@ -33,6 +48,9 @@ def getBSPfromJPL(identifier, initial_date, final_date, email=None, directory='.
         User email for JPL API (reserved for backward compatibility; not used).
     directory : str, optional
         Path to the directory where BSP files will be saved. Default is current directory.
+    timeout : int, float, optional
+        HTTP timeout in seconds. When omitted, uses the configured Horizons
+        timeout.
 
     Returns
     -------
@@ -46,6 +64,7 @@ def getBSPfromJPL(identifier, initial_date, final_date, email=None, directory='.
     Exception
         For HTTP errors, missing SPK generation, or file writing issues.
     """
+    timeout, _ = _resolve_horizons_options(timeout=timeout, cache=False)
     ids = [identifier] if isinstance(identifier, str) else list(identifier)
     ids = [str(obj) for obj in ids]
 
@@ -81,7 +100,12 @@ def getBSPfromJPL(identifier, initial_date, final_date, email=None, directory='.
         Exception
             If the HTTP status code is not 200 (OK).
         """
-        r = requests.get(base_url, params=params, stream=True)
+        r = requests.get(
+            base_url,
+            params=params,
+            stream=True,
+            timeout=timeout,
+        )
         if r.status_code != 200:
             raise Exception(f"HTTP {r.status_code} - {http.HTTPStatus(r.status_code).phrase}")
         return r
@@ -124,7 +148,7 @@ def getBSPfromJPL(identifier, initial_date, final_date, email=None, directory='.
                 url = satellites_bsp.get(obj.upper())
                 if not url:
                     raise Exception("No fallback URL for satellite")
-                r = requests.get(url, stream=True)
+                r = requests.get(url, stream=True, timeout=timeout)
                 r.raise_for_status()
                 content = r.content
             elif "spk" in data:
@@ -256,7 +280,8 @@ def ephem_kernel(time, target, observer, kernels, output='ephemeris'):
     return coord
 
 
-def ephem_horizons(time, target, observer, id_type='smallbody', output='ephemeris'):
+def ephem_horizons(time, target, observer, id_type='smallbody',
+                   output='ephemeris', timeout=None, cache=None):
     """Calculates the ephemeris from Horizons.
 
     Parameters
@@ -281,6 +306,14 @@ def ephem_horizons(time, target, observer, id_type='smallbody', output='ephemeri
         The output of data. ``ephemeris`` will output the observed position,
         while ``vector`` will output the Cartesian state vector, without
         light time correction.
+
+    timeout : `int`, `float`, optional
+        Horizons connection timeout in seconds. When omitted, uses the
+        configured value.
+
+    cache : `bool`, optional
+        Whether Astroquery may reuse cached Horizons responses. When omitted,
+        uses the configured value.
 
     Returns
     -------
@@ -317,6 +350,10 @@ def ephem_horizons(time, target, observer, id_type='smallbody', output='ephemeri
     if output not in ['ephemeris', 'vector']:
         raise ValueError("output must be 'ephemeris' or 'vector'")
 
+    timeout, cache = _resolve_horizons_options(
+        timeout=timeout,
+        cache=cache,
+    )
     time = Time(time)
     time1 = getattr(time, {'ephemeris': 'utc', 'vector': 'tdb'}[output]).jd
     if not time.isscalar and len(time) > 50:
@@ -337,13 +374,14 @@ def ephem_horizons(time, target, observer, id_type='smallbody', output='ephemeri
                       'We will use only Horizons.')
     id_type = None if id_type == 'majorbody' else id_type
     ob = Horizons(id=target, id_type=id_type, location=location, epochs=time2)
+    ob.TIMEOUT = timeout
 
     if output == 'ephemeris':
-        eph = ob.ephemerides(extra_precision=True, cache=False)
+        eph = ob.ephemerides(extra_precision=True, cache=cache)
         obstime = Time(eph['datetime_jd'], format='jd', scale='utc')
         pos = SkyCoord(eph['RA'], eph['DEC'], eph['delta'], frame='icrs', obstime=obstime)
     else:
-        vec = ob.vectors(refplane='earth', cache=False)
+        vec = ob.vectors(refplane='earth', cache=cache)
         obstime = Time(vec['datetime_jd'], format='jd', scale='tdb')
         pos = SkyCoord(*[vec[i] for i in ['x', 'y', 'z']] * u.AU, representation_type='cartesian', obstime=obstime)
 

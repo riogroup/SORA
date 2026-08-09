@@ -372,7 +372,12 @@ class Body(BaseBody):
             if not location:
                 raise ValueError("observer must be 'geocenter', 'barycenter' or an observer object.")
             obj = Horizons(id=self._search_name, id_type=self._id_type, location=location, epochs=time.jd)
-            eph = obj.ephemerides(extra_precision=True)
+            services = get_config().services
+            obj.TIMEOUT = services.horizons_timeout
+            eph = obj.ephemerides(
+                extra_precision=True,
+                cache=services.horizons_cache,
+            )
             if 'H' in eph.keys():
                 self.H = eph['H'][0]
                 self.H.reference = "JPL Horizons"

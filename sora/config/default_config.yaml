@@ -3,6 +3,8 @@ services:
   linea_tap_url: https://userquery.linea.org.br/tap
   sbdb_cache: false
   vizier_cache: false
+  horizons_timeout: 600
+  horizons_cache: false
 star:
   default_catalogue: gaiadr3_linea
   catalogue_timeout: 600
