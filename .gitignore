@@ -24,6 +24,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+sora/_version.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -122,7 +123,6 @@ build/notebook-full-test/
 
 # Manual download for body.ipynb tutorial (3D shape model)
 docs/guidelines/Phoebe*.obj
-
 
 
 
