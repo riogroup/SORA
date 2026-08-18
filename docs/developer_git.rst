@@ -136,7 +136,12 @@ Repository layout
    * - Path
      - Responsibility
    * - ``sora/__init__.py``
-     - Public package facade and runtime version.
+     - Public package facade; it re-exports the version resolved by
+       ``sora/version.py``.
+   * - ``sora/version.py``
+     - Runtime version loader. A source checkout reads Git metadata through
+       ``setuptools-scm``; installed distributions use the generated
+       ``sora/_version.py`` module.
    * - ``sora/body/``
      - Solar System body data. ``core.py`` defines ``Body``;
        ``meta.py`` validates physical and ephemeris attributes; ``utils.py``
@@ -170,8 +175,20 @@ Repository layout
    * - ``docs/``
      - Sphinx sources, API reference, examples, tutorials, and release notes.
        See :ref:`Sphinx documentation <Sec:developer-sphinx>`.
+   * - ``pyproject.toml``
+     - Build backend, package metadata, supported Python versions, runtime and
+       optional dependencies, ``setuptools-scm``, pytest, and coverage
+       configuration.
    * - ``setup.py``
-     - Package metadata, supported Python version, and runtime dependencies.
+     - Minimal compatibility shim that delegates the build to the declarative
+       configuration in ``pyproject.toml``.
+   * - ``MANIFEST.in``
+     - Source-distribution inclusion and exclusion rules.
+   * - ``tox.ini``
+     - Isolated test environments for Python 3.11--3.13 and the documentation
+       build environment.
+   * - ``.github/workflows/ci.yml``
+     - Distribution build and the OpenAstronomy reusable tox test matrix.
 
 
 Following a call through the code
@@ -253,12 +270,19 @@ Install SORA locally
 
 After cloning the fork and entering the repository root, ensure that the
 environment created earlier is active, upgrade ``pip``, and install SORA in
-editable mode:
+editable mode with the test and documentation dependency groups declared in
+``pyproject.toml``:
 
 .. code-block:: console
 
    $ python -m pip install --upgrade pip
-   $ python -m pip install -e .
+   $ python -m pip install -e ".[test,docs]"
+
+Install the isolated-environment and distribution-build frontends as needed:
+
+.. code-block:: console
+
+   $ python -m pip install tox build
 
 Some SORA operations query external services such as JPL Horizons, SBDB, MPC,
 VizieR, and LIneA TAP. Keep network-dependent checks separate from deterministic
@@ -328,17 +352,30 @@ Numerical code should not acquire an unrelated network dependency.
 Validate a change
 -----------------
 
-Run checks from the repository root. The baseline checks that are reproducible
-from the files in ``develop`` are:
+Run checks from the repository root. The baseline checks cover importability,
+the source and wheel distributions, and the documentation:
 
 .. code-block:: console
 
    $ python -m compileall -q sora
    $ python -c "import sora; print(sora.__version__)"
+   $ python -m build
+   $ tox run -e build_docs
 
 Also run a focused example that exercises the changed behavior. Prefer local
-inputs for the first check. If a pull request provides automated tests, run
-those tests with the environment and command stated in the pull request.
+inputs for the first check. When tracked tests are available, run the tox
+environment for an installed interpreter (replace ``py311`` with ``py312`` or
+``py313`` when appropriate):
+
+.. code-block:: console
+
+   $ tox run -e py311
+
+The continuous-integration workflow always builds the source distribution and
+wheel on Python 3.13. It enables the OpenAstronomy reusable tox workflow for
+Python 3.11, 3.12, and 3.13 when Git contains a file matching
+``sora/**/tests/test_*.py``. A local untracked test does not enable that matrix;
+add intentional tests to the pull request.
 
 When a change affects docstrings, tutorials, release notes, or the public API,
 also follow :ref:`the Sphinx validation workflow <Sec:developer-sphinx>`.
@@ -417,7 +454,14 @@ reference into a temporary local branch (replace ``123`` as needed):
    $ git status --short
    $ git fetch upstream pull/123/head:review/pr-123
    $ git switch review/pr-123
-   $ python -m compileall -q sora
+   $ python -m build
+
+If the pull request includes tracked tests, run the applicable tox environment
+as well:
+
+.. code-block:: console
+
+   $ tox run -e py311
 
 Apply the focused checks described by the author. A scientific review should
 also trace units and frames, test representative edge cases, and distinguish
@@ -463,16 +507,16 @@ Create the branch from the current ``develop``:
    $ git pull --ff-only upstream develop
    $ git switch -c release/v0.3.4
 
-Update the version consistently in:
+Create ``docs/releases/v0.3.4.rst`` with the release notes and date, then add it
+at the top of ``docs/releases.rst``. Summarize new features, API changes, bug
+fixes, and documentation, and link the relevant pull requests or issues with
+the existing Sphinx roles.
 
-* ``setup.py``: package version;
-* ``sora/__init__.py``: ``__version__``;
-* ``docs/conf.py``: ``version`` and ``release``;
-* ``docs/releases/v0.3.4.rst``: release notes and date.
-
-Add the new release note at the top of ``docs/releases.rst``. Summarize new
-features, API changes, bug fixes, and documentation, and link the relevant pull
-requests or issues with the existing Sphinx roles.
+Do not edit a version string in ``setup.py``, ``sora/__init__.py``, or
+``docs/conf.py``. The project declares a dynamic version in ``pyproject.toml``;
+``setuptools-scm`` derives it from Git tags, ``sora.__version__`` exposes it at
+runtime, and Sphinx imports that value. The generated ``sora/_version.py`` file
+is ignored in a source checkout and must not be committed.
 
 Build and inspect the candidate distribution:
 
@@ -481,17 +525,20 @@ Build and inspect the candidate distribution:
    $ python -m pip install build twine
    $ python -m compileall -q sora
    $ python -m build --outdir build/release-candidate
-   $ python -m twine check build/release-candidate/sora_astro-0.3.4*
+   $ python -m twine check build/release-candidate/*
+
+Before the release tag exists, ``setuptools-scm`` gives these candidate files a
+development version derived from the previous tag and current commit. Check the
+exact ``0.3.4`` filenames only after creating the release tag.
 
 Before committing the release, complete the build described in
 :ref:`Sphinx documentation <Sec:developer-sphinx>`.
 
-Commit the release metadata and push the branch:
+Commit the release notes and push the branch:
 
 .. code-block:: console
 
-   $ git add setup.py sora/__init__.py docs/conf.py \
-       docs/releases.rst docs/releases/v0.3.4.rst
+   $ git add docs/releases.rst docs/releases/v0.3.4.rst
    $ git commit -m "Prepare release v0.3.4"
    $ git push -u origin release/v0.3.4
 
@@ -504,9 +551,10 @@ promotes the validated development line and prepares the release.
 Tag and create the GitHub release
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-After the release pull request is approved and merged, tag the exact merge
-commit on ``master``. Build the final artifacts from that commit before making
-the tag public:
+After the release pull request is approved and merged, create an annotated tag
+on the exact merge commit on ``master``. The local tag makes
+``setuptools-scm`` resolve the final version. Build and validate the artifacts
+with that tag present before pushing it:
 
 .. code-block:: console
 
@@ -514,6 +562,7 @@ the tag public:
    $ git switch master
    $ git pull --ff-only upstream master
    $ git tag -a v0.3.4 -m "SORA v0.3.4"
+   $ python -c "import sora; print(sora.__version__)"
    $ python -m build --outdir dist/v0.3.4
    $ python -m twine check dist/v0.3.4/sora_astro-0.3.4*
    $ git push upstream v0.3.4
@@ -554,9 +603,9 @@ same files ensures that the verified distribution is the released
 distribution. Credentials must come from the maintainer's configured keyring,
 token, or trusted publishing environment and must never be committed.
 
-Synchronize ``master`` back into ``develop`` after the release so the version
-commit, tag context, and release notes remain in the development line. Make the
-sync through a pull request:
+Synchronize ``master`` back into ``develop`` after the release so the release
+notes and tagged commit remain in the development line. Make the sync through a
+pull request:
 
 .. code-block:: console
 
@@ -573,10 +622,11 @@ Release checklist
 ~~~~~~~~~~~~~~~~~
 
 * ``develop`` contains the intended features and fixes.
-* Version values agree in package metadata, runtime API, and documentation.
+* The release tag is the single version source, and its value agrees with the
+  runtime API, documentation, and built artifacts.
 * Release notes describe user-visible changes and link their pull requests.
-* Documentation, import smoke check, focused behavior checks, and distribution
-  validation pass.
+* Tox tests (when present), documentation, import smoke check, focused behavior
+  checks, and distribution validation pass.
 * The release pull request targets ``master`` and is approved.
 * The annotated tag points to the reviewed commit on ``master``.
 * The GitHub release and package index use the same version.

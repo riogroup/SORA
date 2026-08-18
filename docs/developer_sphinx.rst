@@ -26,8 +26,14 @@ Read the Docs.
    * - ``docs/conf.py``
      - Sphinx extensions, theme, project metadata, external references, and
        excluded build paths.
-   * - ``docs/requirements.txt``
-     - Versioned Python dependencies needed to build the documentation.
+   * - ``pyproject.toml``
+     - The ``docs`` optional-dependency group containing Sphinx, ``nbsphinx``,
+       the theme, and the extensions used by the documentation.
+   * - ``tox.ini``
+     - The reproducible ``build_docs`` environment and its Sphinx command.
+   * - ``docs/Makefile`` and ``docs/make.bat``
+     - Convenience entry points for local Sphinx builds on Unix-like systems
+       and Windows.
    * - ``docs/modules/``
      - API reference generated from package docstrings with autodoc.
    * - ``docs/guidelines/``
@@ -37,8 +43,8 @@ Read the Docs.
    * - ``docs/releases.rst``
      - Release-note index; version pages live under ``docs/releases/``.
    * - ``.readthedocs.yaml``
-     - Read the Docs operating system, Python version, build command, and
-       output formats.
+     - Read the Docs operating system, Python version, ``docs`` extra,
+       system-level Pandoc package, builder, and output formats.
 
 
 Install the build dependencies
@@ -66,18 +72,25 @@ Using Conda (replace ``sora-dev`` if you prefer another environment name):
    $ conda activate sora-dev
    $ python -m pip install --upgrade pip
 
-Install SORA in editable mode and then install the versioned documentation
-toolchain:
+Install SORA in editable mode with the documentation dependencies declared by
+the ``docs`` optional-dependency group in ``pyproject.toml``:
 
 .. code-block:: console
 
-   $ python -m pip install -e .
-   $ python -m pip install -r docs/requirements.txt
+   $ python -m pip install -e ".[docs]"
 
-The editable SORA installation is required because autodoc imports the package
-and its runtime dependencies while building the API reference.
-``docs/requirements.txt`` installs Sphinx, ``nbsphinx``, the Read the Docs
+For direct Sphinx builds, the editable SORA installation is required because
+autodoc imports the package and its runtime dependencies while building the API
+reference. The ``docs`` extra installs Sphinx, ``nbsphinx``, the Read the Docs
 theme, and the extensions used for issues, bibliography, and videos.
+
+The canonical build uses tox, which creates an isolated environment and
+installs the same ``docs`` extra automatically. Install tox in the active
+environment with:
+
+.. code-block:: console
+
+   $ python -m pip install tox
 
 
 Install Pandoc
@@ -85,20 +98,25 @@ Install Pandoc
 
 The documentation contains Jupyter notebooks, so a full build also requires the
 external `Pandoc <https://pandoc.org/installing.html>`_ executable on ``PATH``.
-Pandoc is not a Python dependency and therefore is not installed by
-``docs/requirements.txt``.
+Pandoc is not a Python dependency and therefore is not installed by the
+``docs`` extra.
 
 Conda users can prepare the complete environment with:
 
 .. code-block:: console
 
    $ conda activate sora-dev
-   $ python -m pip install -e .
-   $ python -m pip install -r docs/requirements.txt
+   $ python -m pip install -e ".[docs]"
+   $ python -m pip install tox
    $ conda install -c conda-forge pandoc
 
 Do not use ``pip install pandoc`` for this requirement: the PyPI project with
 that name does not provide the command-line executable that ``nbsphinx`` calls.
+
+Read the Docs handles the two dependency types separately according to
+``.readthedocs.yaml``: it installs SORA with the ``docs`` extra and installs the
+Pandoc executable from the operating system's APT packages. Local builds must
+provide Pandoc with Conda or the appropriate system package manager.
 
 Verify that Python, Sphinx, and Pandoc are available to the same process:
 
@@ -113,21 +131,42 @@ Verify that Python, Sphinx, and Pandoc are available to the same process:
 Build the HTML documentation
 ----------------------------
 
-Run Sphinx from the repository root:
+Run the reproducible tox environment from the repository root:
 
 .. code-block:: console
 
-   $ python -m sphinx -b html docs docs/build/html
+   $ tox run -e build_docs
 
-Open ``docs/build/html/index.html`` in a browser and inspect every page changed
-by the contribution. The ``docs/build`` directory is generated, excluded by
-Sphinx, and ignored by Git.
+Tox installs the project with the ``docs`` extra and invokes Sphinx with the
+settings in ``tox.ini``. Open ``docs/_build/html/index.html`` in a browser and
+inspect every page changed by the contribution. The ``docs/_build`` directory
+is generated, excluded by Sphinx, and ignored by Git.
+
+For a faster build in an already prepared editable environment, invoke Sphinx
+directly:
+
+.. code-block:: console
+
+   $ python -m sphinx -b html docs docs/_build/html
+
+The platform-specific wrappers are equivalent alternatives when their commands
+are available:
+
+.. code-block:: console
+
+   $ make -C docs html
+
+On Windows Command Prompt or PowerShell, run:
+
+.. code-block:: powershell
+
+   docs\make.bat html
 
 Use a fresh Sphinx environment when cached source information may be stale:
 
 .. code-block:: console
 
-   $ python -m sphinx -E -b html docs docs/build/html
+   $ python -m sphinx -E -b html docs docs/_build/html
 
 The build should complete without introducing new warnings. Some existing
 notebooks may emit warnings about old Pygments lexers or undefined internal
@@ -154,7 +193,7 @@ through Conda:
 
 .. code-block:: console
 
-   $ conda run -n sora-dev python -m sphinx -b html docs docs/build/html
+   $ conda run -n sora-dev python -m sphinx -b html docs docs/_build/html
 
 This command ensures that the Python modules and external executables come from
 the same environment.
@@ -210,8 +249,8 @@ error in the documented SORA behavior.
 Documentation checklist
 -----------------------
 
-* SORA is installed in editable mode.
-* Packages from ``docs/requirements.txt`` are installed.
+* Tox is installed for the canonical ``build_docs`` environment, or SORA is
+  installed in editable mode with the ``docs`` extra for a direct build.
 * The real Pandoc executable is available on ``PATH``.
 * The page is included in a ``toctree``.
 * API changes update their docstrings and module reference.
