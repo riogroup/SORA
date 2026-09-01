@@ -27,6 +27,10 @@ class Config:
     Concrete configuration sections are implemented and registered separately.
     This class only owns paths, YAML loading, version checks, section
     construction, and persistence of explicit user overrides.
+
+    The distributed defaults must declare the current ``config_version``.
+    A local override file may omit it and is then interpreted using the current
+    schema; an explicitly declared incompatible version is rejected.
     """
 
     SECTION_TYPES: ClassVar[Mapping[str, type[BaseConfigSection]]] = (
@@ -164,11 +168,17 @@ class Config:
                 f'Configuration file {path} must use string keys at its root.'
             )
 
-        if require_version or document:
-            version = document.get(_VERSION_KEY)
+        has_version = _VERSION_KEY in document
+        if require_version and not has_version:
+            raise ValueError(
+                f'Missing configuration version in {path}: '
+                f'expected {CONFIG_VERSION}.'
+            )
+        if has_version:
+            version = document[_VERSION_KEY]
             if version != CONFIG_VERSION:
                 raise ValueError(
-                    f'Unsupported or missing configuration version in {path}: '
+                    f'Unsupported configuration version in {path}: '
                     f'expected {CONFIG_VERSION}, found {version!r}.'
                 )
 

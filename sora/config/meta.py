@@ -42,11 +42,23 @@ class BaseConfigSection(ABC):
     Subclasses must list every serializable attribute in ``FIELDS`` and the
     subset users may override in ``LOCAL_KEYS``. They are responsible for
     assigning all fields in ``_initialize`` and may validate the resulting
-    values in ``_validate``.
+    values in ``_validate``. Assigning a declared field after initialization
+    validates and persists it as a user override.
     """
 
     FIELDS: ClassVar[tuple[str, ...]] = ()
     LOCAL_KEYS: ClassVar[frozenset[str]] = frozenset()
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Persist assignments to declared configuration fields."""
+        if (
+            name in type(self).FIELDS
+            and '_parent' in self.__dict__
+            and not self.__dict__.get('_applying_field_values', False)
+        ):
+            self._parent.update(self._section_name, name, value)
+            return
+        object.__setattr__(self, name, value)
 
     def __init__(
         self,
@@ -60,6 +72,7 @@ class BaseConfigSection(ABC):
         self._validate_declaration()
         self._default_data = self._validate_default_data(default_data)
         self._local_overrides: dict[str, Any] = {}
+        self._applying_field_values = False
         self._apply_local_overrides(local_data)
 
     def _validate_declaration(self) -> None:
@@ -154,13 +167,16 @@ class BaseConfigSection(ABC):
         }
         previous_overrides = deepcopy(self._local_overrides)
 
+        self._applying_field_values = True
         try:
             for field in self.FIELDS:
                 if hasattr(self, field):
                     delattr(self, field)
             self._initialize(self._default_data, effective_data)
 
-            missing = [field for field in self.FIELDS if not hasattr(self, field)]
+            missing = [
+                field for field in self.FIELDS if not hasattr(self, field)
+            ]
             if missing:
                 keys = ', '.join(missing)
                 raise TypeError(
@@ -178,6 +194,8 @@ class BaseConfigSection(ABC):
                 setattr(self, field, value)
             self._local_overrides = previous_overrides
             raise
+        finally:
+            self._applying_field_values = False
 
     @abstractmethod
     def _initialize(
