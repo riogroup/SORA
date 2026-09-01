@@ -7,6 +7,7 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
 from sora.body import Body
+from sora.config import get_config
 from sora.ephem.meta import BaseEphem
 from sora.star import Star
 from sora.config.decorators import deprecated_alias
@@ -112,7 +113,7 @@ def occ_params(star, ephem, time, n_recursions=5, max_tdiff=None, reference_cent
 
 
 @deprecated_alias(log='verbose')  # remove this line in v1.0
-def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue='gaiadr3_linea', step=60, divs=1, sigma=1,
+def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogue=None, step=60, divs=1, sigma=1,
                radius=None, verbose=True, reference_center='geocenter'):
     """Predicts stellar occultations.
 
@@ -140,9 +141,10 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         which will only download stars with V<=15 or ``mag_lim={'V': 15, 'B': 14}``
         which will download stars with V<=15 AND B<=14.
 
-    catalogue : `str`, `Catalogue`, default='gaiadr3_linea'
-        The catalogue to download data. It can be ``'gaiadr2'``, ``'gaiaedr3'``,
-        ``'gaiadr3'``, ``'gaiadr3_linea'``, or a Catalogue object.
+    catalogue : `str`, `Catalogue`, optional
+        The catalogue to download data. When omitted, uses the configured
+        default. It can be ``'gaiadr2'``, ``'gaiaedr3'``, ``'gaiadr3'``,
+        ``'gaiadr3_linea'``, or a Catalogue object.
 
     step : `int`, `float`, default=60
         Step, in seconds, of ephemeris times for search.
@@ -188,8 +190,12 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         PredictionTable with the occultation params for each event.
     """
     from sora.observer import Observer, Spacecraft
-    from sora.star.catalog import allowed_catalogues, gaiadr3, should_fallback_to_gaiadr3
+    from sora.star.catalog import allowed_catalogues, should_fallback_to_gaiadr3
     from .table import PredictionTable
+
+    prediction_config = get_config().prediction
+    if catalogue is None:
+        catalogue = prediction_config.default_catalogue
 
     if reference_center != 'geocenter' and not isinstance(reference_center, (Observer, Spacecraft)):
         raise ValueError('reference_center must be "geocenter" or an observer object.')
@@ -216,7 +222,11 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
     catalog = allowed_catalogues.get_default(catalogue)
 
     def build_query_kwargs(active_catalog):
-        kwds = {'columns': 'simple', 'row_limit': 10000000, 'timeout': 600}
+        kwds = {
+            'columns': 'simple',
+            'row_limit': prediction_config.catalogue_row_limit,
+            'timeout': prediction_config.catalogue_timeout,
+        }
         active_mag_lim = mag_lim
         if active_mag_lim is not None:
             if isinstance(active_mag_lim, (int, float)):
@@ -272,9 +282,16 @@ def prediction(time_beg, time_end, body=None, ephem=None, mag_lim=None, catalogu
         try:
             catalogue = catalog.search_region(pos_search, width=width, height=height, **kwds)
         except Exception as e:
-            if should_fallback_to_gaiadr3(catalog, e):
-                warnings.warn('TapLinea timed out. Retrying Gaia DR3 search on VizieR.')
-                catalog = gaiadr3
+            if (
+                prediction_config.fallback_on_timeout
+                and should_fallback_to_gaiadr3(catalog, e)
+            ):
+                fallback_name = prediction_config.fallback_catalogue
+                warnings.warn(
+                    'TapLinea timed out. Retrying the search with '
+                    f"catalogue '{fallback_name}'."
+                )
+                catalog = allowed_catalogues.get_default(fallback_name)
                 kwds = build_query_kwargs(catalog)
                 catalogue = catalog.search_region(pos_search, width=width, height=height, **kwds)
             else:

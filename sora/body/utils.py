@@ -1,10 +1,12 @@
 import astropy.units as u
 import numpy as np
 
+from sora.config import get_config
+
 __all__ = ['search_sbdb', 'apparent_magnitude']
 
 
-def search_sbdb(name):
+def search_sbdb(name, cache=None):
     """Search the JPL Small-Body Database for object information.
 
     This function searches only for small bodies. Planet and satellite
@@ -15,6 +17,10 @@ def search_sbdb(name):
     name : `str`
         Name of the object to search for. It can also be the assigned `spkid`
         or designation number. The name is case-insensitive.
+
+    cache : `bool`, optional
+        Whether Astroquery may reuse cached SBDB responses. When omitted, uses
+        the configured value.
 
     Returns
     -------
@@ -30,17 +36,30 @@ def search_sbdb(name):
     from astroquery.jplsbdb import SBDB
     from . import values
 
+    if cache is None:
+        cache = get_config().services.sbdb_cache
+    elif not isinstance(cache, bool):
+        raise TypeError('cache must be a boolean')
+
     print('Obtaining data for {} from SBDB'.format(name))
-    sbdb = SBDB.query(name, full_precision=True, solution_epoch=True, validity=True, phys=True, discovery=True, cache=False)
+    sbdb = SBDB.query(
+        name,
+        full_precision=True,
+        solution_epoch=True,
+        validity=True,
+        phys=True,
+        discovery=True,
+        cache=cache,
+    )
     if 'message' in sbdb:
         if sbdb['message'] == values.not_found_message:
             raise ValueError(values.not_found_message + " on SBDB")
         elif sbdb['message'] == values.many_objects_message:
-            sbdb = select_body(sbdb)
+            sbdb = select_body(sbdb, cache=cache)
     return sbdb
 
 
-def select_body(sbdb):
+def select_body(sbdb, cache=None):
     """Create an object selection table.
 
     A table is created when the SBDB search returns more than one object. This
@@ -50,6 +69,10 @@ def select_body(sbdb):
     ----------
     sbdb : `dict`
         Ordered dictionary returned by an SBDB search.
+
+    cache : `bool`, optional
+        Cache preference forwarded if a second query is needed after selecting
+        one of multiple matches.
 
     Returns
     -------
@@ -71,7 +94,7 @@ def select_body(sbdb):
             break
     if choice == 0:
         raise ValueError('It was not possible to define a Small Body')
-    return search_sbdb(name=sbdb['list']['pdes'][choice - 1])
+    return search_sbdb(name=sbdb['list']['pdes'][choice - 1], cache=cache)
 
 
 def apparent_magnitude(H, G, dist, sundist, phase=0.0):

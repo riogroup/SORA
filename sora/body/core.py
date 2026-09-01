@@ -6,7 +6,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord, Longitude, Latitude
 from astropy.time import Time
 
-from sora.config import input_tests
+from sora.config import get_config, input_tests
 from .frame import get_archinal_frame
 from .meta import BaseBody, PhysicalData
 from .utils import search_sbdb, search_satdb, apparent_magnitude
@@ -372,7 +372,12 @@ class Body(BaseBody):
             if not location:
                 raise ValueError("observer must be 'geocenter', 'barycenter' or an observer object.")
             obj = Horizons(id=self._search_name, id_type=self._id_type, location=location, epochs=time.jd)
-            eph = obj.ephemerides(extra_precision=True)
+            services = get_config().services
+            obj.TIMEOUT = services.horizons_timeout
+            eph = obj.ephemerides(
+                extra_precision=True,
+                cache=services.horizons_cache,
+            )
             if 'H' in eph.keys():
                 self.H = eph['H'][0]
                 self.H.reference = "JPL Horizons"
@@ -458,7 +463,8 @@ class Body(BaseBody):
             warnings.warn("Pole coordinates are not defined")
         return orientation
 
-    def plot(self, time=None, observer='geocenter', center_f=0, center_g=0, contour=False, ax=None, plot_pole=True, **kwargs):
+    def plot(self, time=None, observer='geocenter', center_f=0, center_g=0,
+             contour=False, ax=None, plot_pole=None, **kwargs):
         """Plot the body shape as viewed by an observer.
 
         If the user wants to define the orientation directly, use
@@ -489,9 +495,26 @@ class Body(BaseBody):
         ax : `matplotlib.pyplot.Axes`
             Axes where the plot is drawn. If None, the default axes are used.
 
-        plot_pole : `bool`
+        plot_pole : `bool`, optional
             If True, the direction of the pole is plotted.
-            Ignored if ``contour=True``.
+            When omitted, uses the configured value. Ignored if
+            ``contour=True``.
+
+        north_pole_color : `str`, optional
+            Color used to plot the North pole. When omitted, uses the
+            configured value.
+
+        south_pole_color : `str`, optional
+            Color used to plot the South pole. When omitted, uses the
+            configured value.
+
+        pole_length_scale : `float`, optional
+            Scale applied to the plotted pole length. When omitted, uses the
+            configured value.
+
+        surface_alpha : `float`, optional
+            Opacity of the plotted shape surface, between 0 and 1. When
+            omitted, uses the configured value.
 
         **kwargs
             Additional keyword arguments forwarded to the shape plotting method.
@@ -512,6 +535,8 @@ class Body(BaseBody):
             orientation.pop('pole_aperture_angle')
         if 'pole_aperture_angle' in kwargs:
             kwargs.pop('pole_aperture_angle')
+        if plot_pole is None:
+            plot_pole = get_config().body_plot.show_pole
         if contour:
             orientation.pop('sub_solar')
             self.shape.get_limb(**orientation).plot(center_f=center_f, center_g=center_g, ax=ax, **kwargs)

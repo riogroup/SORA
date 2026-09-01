@@ -3,6 +3,8 @@ import numpy as np
 import pyvo
 import requests
 
+from sora.config import get_config
+
 __all__ = ['search_code_mpc']
 
 _MPC_CODE_CACHE = {}
@@ -40,7 +42,7 @@ def search_code_mpc(code):
     if code in _MPC_CODE_CACHE:
         return _MPC_CODE_CACHE[code]
     
-    url = "https://userquery.linea.org.br/tap"
+    url = get_config().services.linea_tap_url
     session = requests.Session()
     tap = pyvo.dal.TAPService(url, session=session)
     

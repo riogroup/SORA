@@ -9,7 +9,33 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from astroquery.vizier import Vizier
 
+from sora.config import get_config
 from sora.config.input_tests import SelectDefault
+
+
+def _resolve_query_options(row_limit=None, timeout=None, cache=None):
+    """Resolve explicit catalogue options against configured defaults."""
+    config = get_config()
+    if row_limit is None:
+        row_limit = config.star.catalogue_row_limit
+    if timeout is None:
+        timeout = config.star.catalogue_timeout
+    if cache is None:
+        cache = config.services.vizier_cache
+    return row_limit, timeout, cache
+
+
+class _TimeoutSession(requests.Session):
+    """Requests session that supplies a default timeout when one is configured."""
+
+    def __init__(self, timeout=None):
+        super().__init__()
+        self._default_timeout = timeout
+
+    def request(self, method, url, **kwargs):
+        if self._default_timeout is not None:
+            kwargs.setdefault('timeout', self._default_timeout)
+        return super().request(method, url, **kwargs)
 
 
 @dataclass
@@ -56,7 +82,7 @@ class Catalogue(metaclass=ABCMeta):
 
     @abstractmethod
     def search_region(self, coord, radius=None, width=None, height=None, columns=None, verbose=False,
-                      row_limit=10000000, timeout=600, **kwargs):
+                      row_limit=10_000_000, timeout=None, cache=None, **kwargs):
         """Searches for stars in a sky region."""
         pass
 
@@ -198,7 +224,8 @@ class VizierCatalogue(Catalogue):
         """Initializes a VizierCatalogue object."""
         super(VizierCatalogue, self).__init__(**kwargs)
 
-    def search_star(self, code=None, coord=None, radius=None):
+    def search_star(self, code=None, coord=None, radius=None, row_limit=None,
+                    timeout=None, cache=None):
         """Searches for a specific star in the catalogue.
 
         Parameters
@@ -211,6 +238,15 @@ class VizierCatalogue(Catalogue):
             ICRS coordinates may also be entered as a string.
         radius : `number`
             Radius of the circular region to query.
+        row_limit : `int`, optional
+            Maximum number of rows to retrieve. When omitted, uses the
+            configured lookup limit.
+        timeout : `number`, optional
+            Timeout for connecting to the server, in seconds. When omitted,
+            uses the configured value.
+        cache : `bool`, optional
+            Whether VizieR may reuse cached responses. When omitted, uses the
+            configured value.
 
         Returns
         -------
@@ -231,19 +267,38 @@ class VizierCatalogue(Catalogue):
 
             If both alternatives are provided, only the first is used.
         """
+        row_limit, timeout, cache = _resolve_query_options(
+            row_limit=row_limit,
+            timeout=timeout,
+            cache=cache,
+        )
         if code is not None:
-            vquery = Vizier(columns=['**'], timeout=600)
-            kwargs = {self.code: code}
-            catalogue = vquery.query_constraints(catalog=self.cat_path, cache=False, **kwargs)
+            vquery = Vizier(
+                columns=['**'],
+                row_limit=row_limit,
+                timeout=timeout,
+            )
+            constraints = {self.code: code}
+            catalogue = vquery.query_constraints(
+                catalog=self.cat_path,
+                cache=cache,
+                **constraints,
+            )
         elif coord is not None:
-            catalogue = self.search_region(coord=coord, radius=radius)
+            catalogue = self.search_region(
+                coord=coord,
+                radius=radius,
+                row_limit=row_limit,
+                timeout=timeout,
+                cache=cache,
+            )
         else:
             raise ValueError('At least a code or coord should be given as input')
         # TODO(Implement choice star if necessary)
         return catalogue
 
     def search_region(self, coord, radius=None, width=None, height=None, columns=None,
-                      row_limit=10_000_000, timeout=600, **kwargs):
+                      row_limit=10_000_000, timeout=None, cache=None, **kwargs):
         """Searches the catalogue around a sky position.
 
         Parameters
@@ -267,8 +322,12 @@ class VizierCatalogue(Catalogue):
         row_limit : `int`
             Maximum number of rows that will be fetched from the result
             (set to -1 for unlimited). Default: ``row_limit=10_000_000``.
-        timeout : `number`
-            Timeout for connecting to server in seconds. Default: ``timeout=600``.
+        timeout : `number`, optional
+            Timeout for connecting to the server, in seconds. When omitted,
+            uses the configured value.
+        cache : `bool`, optional
+            Whether VizieR may reuse cached responses. When omitted, uses the
+            configured value.
         **kwargs
             Additional keyword arguments passed to `astroquery.vizier.Vizier`.
 
@@ -281,8 +340,20 @@ class VizierCatalogue(Catalogue):
             columns = self.get_simple_columns()
         elif columns is None:
             columns = ['**']
+        row_limit, timeout, cache = _resolve_query_options(
+            row_limit=row_limit,
+            timeout=timeout,
+            cache=cache,
+        )
         vquery = Vizier(columns=columns, row_limit=row_limit, timeout=timeout, **kwargs)
-        catalogue = vquery.query_region(coord, radius=radius, width=width, height=height, catalog=self.cat_path, cache=False)
+        catalogue = vquery.query_region(
+            coord,
+            radius=radius,
+            width=width,
+            height=height,
+            catalog=self.cat_path,
+            cache=cache,
+        )
         return catalogue
 
     def __repr__(self):
@@ -297,21 +368,33 @@ class VizierCatalogue(Catalogue):
 class LineaGaiaCatalogue(Catalogue):
     """Gaia catalogue served by the LIneA TAP service."""
 
-    def __init__(self, tap_url='https://userquery.linea.org.br/tap', language=None, **kwargs):
+    def __init__(self, tap_url=None, language=None, **kwargs):
         """Initializes a LineaGaiaCatalogue object.
 
         Parameters
         ----------
         tap_url : `str`, optional
-            URL of the TAP service.
+            URL of the TAP service. When omitted, uses the configured LIneA
+            endpoint.
         language : `str`, optional
             Query language passed to the TAP service.
         **kwargs
             Catalogue metadata passed to `Catalogue`.
         """
-        self.tap_url = tap_url
+        self._tap_url = tap_url
         self.language = language
         super(LineaGaiaCatalogue, self).__init__(**kwargs)
+
+    @property
+    def tap_url(self):
+        """Return the explicit or configured LIneA TAP endpoint."""
+        if self._tap_url is not None:
+            return self._tap_url
+        return get_config().services.linea_tap_url
+
+    @tap_url.setter
+    def tap_url(self, value):
+        self._tap_url = value
 
     @staticmethod
     def _format_value(value):
@@ -321,9 +404,9 @@ class LineaGaiaCatalogue(Catalogue):
             return text
         return "'{}'".format(text.replace("'", "''"))
 
-    def _run_query(self, query):
+    def _run_query(self, query, timeout=None):
         """Runs a TAP query and returns the resulting table."""
-        session = requests.Session()
+        session = _TimeoutSession(timeout=timeout)
         tap = pyvo.dal.TAPService(self.tap_url, session=session)
         if self.language is None:
             return tap.run_sync(query).to_table()
@@ -351,7 +434,8 @@ class LineaGaiaCatalogue(Catalogue):
             filters.append(f'{column} {str(expression).strip()}')
         return filters
 
-    def search_star(self, code=None, coord=None, radius=None):
+    def search_star(self, code=None, coord=None, radius=None, row_limit=None,
+                    timeout=None, cache=None):
         """Searches for a specific star in the LIneA Gaia catalogue.
 
         Parameters
@@ -362,17 +446,39 @@ class LineaGaiaCatalogue(Catalogue):
             Target coordinate used when searching by sky position.
         radius : `astropy.units.Quantity`, optional
             Radius of the circular region to query when ``coord`` is used.
+        row_limit : `int`, optional
+            Maximum number of rows to retrieve. When omitted, uses the
+            configured lookup limit.
+        timeout : `number`, optional
+            HTTP timeout in seconds. When omitted, uses the configured value.
+        cache : `bool`, optional
+            Accepted for API compatibility with VizieR catalogues.
 
         Returns
         -------
         catalogue : `list`
             Empty list when no source is found, or a list containing one table.
         """
+        row_limit, timeout, _ = _resolve_query_options(
+            row_limit=row_limit,
+            timeout=timeout,
+            cache=cache,
+        )
         if code is not None:
-            query = f'SELECT * FROM {self.cat_path} WHERE {self.code} = {self._format_value(code)}'
-            catalogue = self._run_query(query)
+            top = f'TOP {int(row_limit)} ' if row_limit and row_limit > 0 else ''
+            query = (
+                f'SELECT {top}* FROM {self.cat_path} '
+                f'WHERE {self.code} = {self._format_value(code)}'
+            )
+            catalogue = self._run_query(query, timeout=timeout)
         elif coord is not None:
-            catalogue = self.search_region(coord=coord, radius=radius)
+            catalogue = self.search_region(
+                coord=coord,
+                radius=radius,
+                row_limit=row_limit,
+                timeout=timeout,
+                cache=cache,
+            )
         else:
             raise ValueError('At least a code or coord should be given as input')
         if isinstance(catalogue, list):
@@ -380,7 +486,8 @@ class LineaGaiaCatalogue(Catalogue):
         return [] if len(catalogue) == 0 else [catalogue]
 
     def search_region(self, coord, radius=None, width=None, height=None, columns=None,
-                      row_limit=10_000_000, timeout=600, column_filters=None, **kwargs):
+                      row_limit=10_000_000, timeout=None, column_filters=None,
+                      cache=None, **kwargs):
         """Searches the LIneA Gaia catalogue around a sky position.
 
         Parameters
@@ -400,6 +507,8 @@ class LineaGaiaCatalogue(Catalogue):
             Maximum number of rows to fetch. Non-positive values remove the
             ``TOP`` clause.
         timeout : `number`, optional
+            HTTP timeout in seconds. When omitted, uses the configured value.
+        cache : `bool`, optional
             Accepted for API compatibility with VizieR catalogues.
         column_filters : `dict`, optional
             Additional ADQL filter expressions keyed by column name.
@@ -411,7 +520,12 @@ class LineaGaiaCatalogue(Catalogue):
         catalogue : `list`
             Empty list when no source is found, or a list containing one table.
         """
-        del timeout, kwargs
+        del kwargs, cache
+
+        row_limit, timeout, _ = _resolve_query_options(
+            row_limit=row_limit,
+            timeout=timeout,
+        )
 
         if not isinstance(coord, SkyCoord):
             coord = SkyCoord(coord, unit=('hourangle', 'deg'))
@@ -439,7 +553,7 @@ class LineaGaiaCatalogue(Catalogue):
         query_filters.extend(self._format_column_filters(column_filters))
         top = f'TOP {int(row_limit)} ' if row_limit and row_limit > 0 else ''
         query = f"SELECT {top}{self._format_columns(columns)} FROM {self.cat_path} WHERE {' AND '.join(query_filters)}"
-        catalogue = self._run_query(query)
+        catalogue = self._run_query(query, timeout=timeout)
         return [] if len(catalogue) == 0 else [catalogue]
 
     def __repr__(self):
