@@ -89,6 +89,37 @@ class Config:
             self._sections[section_name] = section
             setattr(self, section_name, section)
 
+    def get_prompt_schema(self) -> dict[str, dict[str, dict[str, Any]]]:
+        """Return prompt metadata for user-overridable configuration keys."""
+        schema = {}
+        for section_name, section in self._sections.items():
+            prompts = getattr(section.__class__, 'PROMPTS', None)
+            if prompts is None:
+                prompts = {
+                    key: {
+                        'question': f"{key.replace('_', ' ').capitalize()}:",
+                        'level': 1,
+                    }
+                    for key in section.FIELDS
+                    if key in section.LOCAL_KEYS
+                }
+            else:
+                prompts = {
+                    key: dict(prompt)
+                    for key, prompt in prompts.items()
+                }
+
+            for prompt in prompts.values():
+                choices = prompt.get('choices')
+                if callable(choices):
+                    prompt['choices'] = list(choices())
+                elif choices is not None:
+                    prompt['choices'] = list(choices)
+
+            if prompts:
+                schema[section_name] = prompts
+        return schema
+
     @property
     def config_path(self) -> Path:
         """Path to the user override file."""
@@ -226,11 +257,19 @@ class Config:
 
     def save_local(self) -> None:
         """Atomically persist explicit user overrides."""
-        self._local_path.parent.mkdir(parents=True, exist_ok=True)
+        self._write_local_document(self._local_path, self.to_local_dict())
+
+    @staticmethod
+    def _write_local_document(
+        path: Path,
+        document: Mapping[str, Any],
+    ) -> None:
+        """Atomically write a user configuration document."""
+        path.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary_name = tempfile.mkstemp(
-            prefix=f'.{self._local_path.name}.',
+            prefix=f'.{path.name}.',
             suffix='.tmp',
-            dir=self._local_path.parent,
+            dir=path.parent,
             text=True,
         )
         temporary_path = Path(temporary_name)
@@ -238,17 +277,82 @@ class Config:
         try:
             with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
                 yaml.safe_dump(
-                    self.to_local_dict(),
+                    document,
                     stream,
                     sort_keys=False,
                     default_flow_style=False,
                 )
                 stream.flush()
                 os.fsync(stream.fileno())
-            os.replace(temporary_path, self._local_path)
+            os.replace(temporary_path, path)
         except Exception:
             temporary_path.unlink(missing_ok=True)
             raise
+
+    @classmethod
+    def remove_override_from_file(
+        cls,
+        section: str,
+        key: str,
+        *,
+        local_path: Path | str | None = None,
+    ) -> bool:
+        """Remove one override without constructing configuration sections.
+
+        This recovery operation is intended for user files whose override
+        values fail normal configuration validation. It parses the YAML and
+        removes only the requested key, leaving all other content unchanged.
+
+        Parameters
+        ----------
+        section : `str`
+            Section containing the override.
+        key : `str`
+            Override name to remove.
+        local_path : path-like, optional
+            User configuration path. The platform-specific SORA path is used
+            when omitted.
+
+        Returns
+        -------
+        `bool`
+            `True` if the override was found and removed; otherwise `False`.
+
+        Raises
+        ------
+        TypeError
+            If the selected section is not a mapping.
+        ValueError
+            If the user configuration is not valid YAML.
+        """
+        path = (
+            Path(local_path)
+            if local_path is not None
+            else PlatformDirs(APP_NAME, ensure_exists=False).user_config_path
+            / CONFIG_NAME
+        )
+        document = cls._load_yaml(path, required=False)
+
+        if section not in document:
+            return False
+        section_document = document[section]
+        if not isinstance(section_document, Mapping):
+            raise TypeError(
+                f"User configuration section '{section}' in {path} "
+                'must be a mapping.'
+            )
+        if key not in section_document:
+            return False
+
+        updated_section = dict(section_document)
+        del updated_section[key]
+        if updated_section:
+            document[section] = updated_section
+        else:
+            del document[section]
+
+        cls._write_local_document(path, document)
+        return True
 
     save = save_local
 
