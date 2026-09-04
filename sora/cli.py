@@ -610,6 +610,35 @@ def cmd_data_nima_download_all(args) -> int:
     return 0
 
 
+def cmd_data_kernels_list(args) -> int:
+    from sora.ephem.planetary_kernels import PlanetaryKernelDB
+
+    database = PlanetaryKernelDB(config=_new_config())
+    for status in database.kernel_statuses():
+        cached_count = sum(status["cached_files"])
+        file_count = len(status["cached_files"])
+        state = (
+            "cached"
+            if status["cached"]
+            else f"{cached_count}/{file_count} cached"
+        )
+        sources = status["urls"] or status["paths"]
+        print(f"{status['name']}: {state} — {', '.join(sources)}")
+    return 0
+
+
+def cmd_data_kernels_download(args) -> int:
+    from sora.ephem.planetary_kernels import PlanetaryKernelDB
+
+    paths = PlanetaryKernelDB(config=_new_config()).get_planetary_kernels(
+        args.name,
+        retries=args.retries,
+    )
+    for path in paths:
+        print(f"Planetary kernel available at {path}")
+    return 0
+
+
 def _reset_invalid_config(args, load_error: Exception) -> int:
     """Remove an override directly when normal configuration loading fails.
 
@@ -874,6 +903,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum attempts per download",
     )
     nima_download_parser.set_defaults(handler=cmd_data_nima_download_all)
+
+    kernels_parser = data_subparsers.add_parser(
+        "kernels",
+        help="Manage JPL planetary kernels",
+    )
+    kernels_subparsers = kernels_parser.add_subparsers(
+        dest="kernels_command",
+        required=True,
+    )
+    kernels_list_parser = kernels_subparsers.add_parser(
+        "list",
+        help="List configured planetary kernels",
+    )
+    kernels_list_parser.set_defaults(handler=cmd_data_kernels_list)
+
+    kernels_download_parser = kernels_subparsers.add_parser(
+        "download",
+        help="Download one planetary kernel",
+    )
+    kernels_download_parser.add_argument("name")
+    kernels_download_parser.add_argument(
+        "--retries",
+        type=_positive_int,
+        default=3,
+        help="Maximum download attempts",
+    )
+    kernels_download_parser.set_defaults(handler=cmd_data_kernels_download)
 
     dev_parser = subparsers.add_parser(
         "dev",

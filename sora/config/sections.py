@@ -8,6 +8,7 @@ from .meta import BaseConfigSection
 
 __all__ = [
     'BodyPlotConfig',
+    'EphemConfig',
     'NimaConfig',
     'OccMapConfig',
     'PredictionConfig',
@@ -263,6 +264,96 @@ class NimaConfig(BaseConfigSection):
             or self.update_age_days <= 0
         ):
             raise ValueError('nima.update_age_days must be a positive integer')
+
+
+class EphemConfig(BaseConfigSection):
+    """Storage and default selection for planetary ephemeris kernels."""
+
+    FIELDS = (
+        'planet_kernels',
+        'planet_kernels_url',
+        'data_dir',
+        'planetary_default',
+        'planetary_kernel_position',
+        'update_age_days',
+    )
+    LOCAL_KEYS = frozenset(FIELDS)
+    PROMPTS = _prompt_schema(
+        FIELDS,
+        basic={'planetary_default', 'update_age_days'},
+        develop={'planet_kernels', 'planet_kernels_url'},
+        choices={'planetary_kernel_position': ['first', 'last']},
+        questions={
+            'planet_kernels': 'Planetary kernel metadata path:',
+            'planet_kernels_url': 'Planetary kernel catalogue URL:',
+            'data_dir': 'Planetary kernel directory:',
+            'planetary_default': 'Default JPL planetary kernel:',
+            'planetary_kernel_position': (
+                'Position of the planetary kernel relative to the object kernel:'
+            ),
+            'update_age_days': (
+                'Maximum number of days between planetary catalogue updates:'
+            ),
+        },
+    )
+
+    def _initialize(
+        self,
+        default_data: Mapping[str, Any],
+        effective_data: Mapping[str, Any],
+    ) -> None:
+        self.planet_kernels = effective_data['planet_kernels']
+        self.planet_kernels_url = effective_data['planet_kernels_url']
+        self.data_dir = effective_data['data_dir']
+        self.planetary_default = effective_data['planetary_default']
+        self.planetary_kernel_position = effective_data[
+            'planetary_kernel_position'
+        ]
+        self.update_age_days = effective_data['update_age_days']
+
+    def _validate(self) -> None:
+        for field in (
+            'planet_kernels',
+            'planet_kernels_url',
+            'data_dir',
+            'planetary_default',
+            'planetary_kernel_position',
+        ):
+            value = getattr(self, field)
+            if not isinstance(value, str) or not value.strip():
+                raise TypeError(f'ephem.{field} must be a non-empty string')
+
+        if self.planetary_kernel_position not in {'first', 'last'}:
+            raise ValueError(
+                'ephem.planetary_kernel_position must be "first" or "last"'
+            )
+
+        if (
+            not isinstance(self.update_age_days, int)
+            or isinstance(self.update_age_days, bool)
+            or self.update_age_days <= 0
+        ):
+            raise ValueError('ephem.update_age_days must be a positive integer')
+
+        parsed_url = urlparse(self.planet_kernels_url)
+        if parsed_url.scheme not in {'http', 'https'} or not parsed_url.netloc:
+            raise ValueError(
+                'ephem.planet_kernels_url must be an absolute HTTP or HTTPS URL'
+            )
+
+    def get_prompt_schema(self) -> dict[str, dict[str, Any]]:
+        """Return prompt choices from the current planetary kernel metadata."""
+        from sora.ephem.planetary_kernels import PlanetaryKernelDB
+
+        schema = super().get_prompt_schema()
+        schema['planetary_default']['choices'] = [
+            name.upper()
+            for name in PlanetaryKernelDB(
+                config=self._parent,
+                refresh=False,
+            ).kernel_names()
+        ]
+        return schema
 
 
 class BodyPlotConfig(BaseConfigSection):
@@ -558,6 +649,7 @@ DEFAULT_SECTION_TYPES = {
     'services': ServicesConfig,
     'star': StarConfig,
     'nima': NimaConfig,
+    'ephem': EphemConfig,
     'prediction': PredictionConfig,
     'occ_map': OccMapConfig,
     'body_plot': BodyPlotConfig,

@@ -11,7 +11,7 @@ import yaml
 from platformdirs import PlatformDirs
 
 from .meta import BaseConfigSection
-from .sections import DEFAULT_SECTION_TYPES, NimaConfig
+from .sections import DEFAULT_SECTION_TYPES, EphemConfig, NimaConfig
 
 __all__ = [
     'CONFIG_VERSION',
@@ -53,6 +53,7 @@ class Config:
     SECTION_TYPES: ClassVar[Mapping[str, type[BaseConfigSection]]] = (
         DEFAULT_SECTION_TYPES
     )
+    ephem: EphemConfig
     nima: NimaConfig
 
     def __init__(
@@ -111,29 +112,7 @@ class Config:
         """Return prompt metadata for user-overridable configuration keys."""
         schema = {}
         for section_name, section in self._sections.items():
-            prompts = getattr(section.__class__, 'PROMPTS', None)
-            if prompts is None:
-                prompts = {
-                    key: {
-                        'question': f"{key.replace('_', ' ').capitalize()}:",
-                        'level': 1,
-                    }
-                    for key in section.FIELDS
-                    if key in section.LOCAL_KEYS
-                }
-            else:
-                prompts = {
-                    key: dict(prompt)
-                    for key, prompt in prompts.items()
-                }
-
-            for prompt in prompts.values():
-                choices = prompt.get('choices')
-                if callable(choices):
-                    prompt['choices'] = list(choices())
-                elif choices is not None:
-                    prompt['choices'] = list(choices)
-
+            prompts = section.get_prompt_schema()
             if prompts:
                 schema[section_name] = prompts
         return schema

@@ -1,0 +1,62 @@
+{
+  "de430": {
+    "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp",
+    "filename": "de430.bsp"
+  },
+  "de431": {
+    "files": [
+      {
+        "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de431_part-1.bsp",
+        "filename": "de431_part-1.bsp"
+      },
+      {
+        "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de431_part-2.bsp",
+        "filename": "de431_part-2.bsp"
+      }
+    ]
+  },
+  "de432": {
+    "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de432.bsp",
+    "filename": "de432.bsp"
+  },
+  "de432s": {
+    "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de432s.bsp",
+    "filename": "de432s.bsp"
+  },
+  "de435": {
+    "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de435.bsp",
+    "filename": "de435.bsp"
+  },
+  "de438": {
+    "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de438.bsp",
+    "filename": "de438.bsp"
+  },
+  "de440": {
+    "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440.bsp",
+    "filename": "de440.bsp"
+  },
+  "de440s": {
+    "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp",
+    "filename": "de440s.bsp"
+  },
+  "de441": {
+    "files": [
+      {
+        "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de441_part-1.bsp",
+        "filename": "de441_part-1.bsp"
+      },
+      {
+        "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de441_part-2.bsp",
+        "filename": "de441_part-2.bsp"
+      }
+    ]
+  },
+  "de442": {
+    "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de442.bsp",
+    "filename": "de442.bsp"
+  },
+  "de442s": {
+    "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de442s.bsp",
+    "filename": "de442s.bsp"
+  }
+}

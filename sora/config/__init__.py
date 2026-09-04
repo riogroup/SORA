@@ -8,6 +8,7 @@ from .core import (
 from .meta import BaseConfigSection, deep_merge
 from .sections import (
     BodyPlotConfig,
+    EphemConfig,
     NimaConfig,
     OccMapConfig,
     PredictionConfig,
@@ -20,6 +21,7 @@ __all__ = [
     'BaseConfigSection',
     'BodyPlotConfig',
     'Config',
+    'EphemConfig',
     'NimaConfig',
     'OccMapConfig',
     'PredictionConfig',

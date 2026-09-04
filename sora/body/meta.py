@@ -5,6 +5,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord, Longitude, Latitude
 
 from sora.ephem import EphemPlanete, EphemKernel, EphemJPL, EphemHorizons
+from sora.config.core import get_config
 
 __all__ = ['PhysicalData']
 
@@ -354,14 +355,81 @@ class BaseBody():
         except AttributeError:
             raise AttributeError('{} object does not have ephemeris.'.format(self.__class__.__name__))
 
+    def _resolve_kernel_sequence(self, kernels):
+        """Resolve NIMA and planetary catalogue names in their given order.
+
+        Strings that look like file paths remain unchanged. Planetary catalogue
+        entries may expand to more than one BSP file, while ``nima`` resolves to
+        the object kernel and supplies its SPK identifier.
+        """
+        from sora.ephem.nima import NimaDB
+        from sora.ephem.planetary_kernels import PlanetaryKernelDB
+
+        config = get_config()
+        resolved = []
+        spkid = self.spkid
+        nima_kernel = None
+        planetary_database = None
+        planetary_names = set()
+
+        for kernel in kernels:
+            if not isinstance(kernel, str):
+                resolved.append(kernel)
+                continue
+
+            normalized = kernel.casefold()
+            if normalized == 'nima':
+                if nima_kernel is None:
+                    nima_kernel = NimaDB(config=config).get_bspfile(
+                        self._search_name
+                    )
+                path, spkid = nima_kernel
+                resolved.append(path)
+                continue
+
+            # A bare name can refer to the dynamically maintained planetary
+            # catalogue. Paths and ordinary SPICE filenames retain the legacy
+            # behavior and are sent directly to EphemKernel.
+            looks_like_name = (
+                '/' not in kernel
+                and '\\' not in kernel
+                and '.' not in kernel
+            )
+            if looks_like_name:
+                if planetary_database is None:
+                    planetary_database = PlanetaryKernelDB(config=config)
+                    planetary_names = {
+                        name.casefold()
+                        for name in planetary_database.kernel_names()
+                    }
+                if normalized in planetary_names:
+                    resolved.extend(
+                        planetary_database.get_planetary_kernels(kernel)
+                    )
+                    continue
+
+            resolved.append(kernel)
+
+        return resolved, spkid
+
     @ephem.setter
     def ephem(self, value):
         allowed_types = [EphemPlanete, EphemKernel, EphemJPL, EphemHorizons]
-        if type(value) not in allowed_types:
+        if isinstance(value, str) and value.casefold() == 'nima':
+            config = get_config()
+            kernel_names = ['nima', config.ephem.planetary_default]
+            if config.ephem.planetary_kernel_position == 'first':
+                kernel_names.reverse()
+            kernels, spkid = self._resolve_kernel_sequence(kernel_names)
+            value = EphemKernel(kernels, spkid=spkid)
+        elif isinstance(value, list):
+            kernels, spkid = self._resolve_kernel_sequence(value)
+            value = EphemKernel(kernels=kernels, spkid=spkid)
+        elif type(value) not in allowed_types:
             if isinstance(value, str) and value.lower() == 'horizons':
                 value = EphemHorizons(name=self._search_name, id_type=self._id_type, spkid=self.spkid)
-            elif isinstance(value, (list, str)):
-                value = EphemKernel(kernels=value, spkid=self.spkid)
+            elif isinstance(value, str):
+                value = EphemKernel(kernels=[value], spkid=self.spkid)
             else:
                 raise ValueError('Cannot set "ephem" with {}. Allowed types are: {}'.format(type(value), allowed_types))
         if 'spkid' not in self._shared_with['ephem'] or self._shared_with['ephem']['spkid'] is None:

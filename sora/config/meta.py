@@ -213,15 +213,24 @@ class BaseConfigSection(ABC):
     def get_prompt_schema(self) -> dict[str, dict[str, Any]]:
         """Return prompt metadata for this section's overridable fields."""
         if self.PROMPTS is not None:
-            return deepcopy(dict(self.PROMPTS))
-        return {
-            key: {
-                'question': f"{key.replace('_', ' ').capitalize()}:",
-                'level': 1,
+            prompts = deepcopy(dict(self.PROMPTS))
+        else:
+            prompts = {
+                key: {
+                    'question': f"{key.replace('_', ' ').capitalize()}:",
+                    'level': 1,
+                }
+                for key in self.FIELDS
+                if key in self.LOCAL_KEYS
             }
-            for key in self.FIELDS
-            if key in self.LOCAL_KEYS
-        }
+
+        for prompt in prompts.values():
+            choices = prompt.get('choices')
+            if callable(choices):
+                prompt['choices'] = list(choices())
+            elif choices is not None:
+                prompt['choices'] = list(choices)
+        return prompts
 
     @staticmethod
     def _serialize(value: Any) -> Any:
