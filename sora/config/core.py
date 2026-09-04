@@ -11,14 +11,31 @@ import yaml
 from platformdirs import PlatformDirs
 
 from .meta import BaseConfigSection
-from .sections import DEFAULT_SECTION_TYPES
+from .sections import DEFAULT_SECTION_TYPES, NimaConfig
 
-__all__ = ['CONFIG_VERSION', 'Config', 'get_config', 'reload_config']
+__all__ = [
+    'CONFIG_VERSION',
+    'Config',
+    'get_config',
+    'reload_config',
+    'resolve_storage_path',
+]
 
 APP_NAME = 'sora'
 CONFIG_NAME = 'config.yaml'
 CONFIG_VERSION = 1
 _VERSION_KEY = 'config_version'
+
+
+def resolve_storage_path(
+    base_path: Path | str,
+    configured_path: Path | str,
+) -> Path:
+    """Resolve a configurable storage path relative to the SORA data root."""
+    path = Path(configured_path).expanduser()
+    if path.is_absolute():
+        return path
+    return Path(base_path).expanduser() / path
 
 
 class Config:
@@ -36,6 +53,7 @@ class Config:
     SECTION_TYPES: ClassVar[Mapping[str, type[BaseConfigSection]]] = (
         DEFAULT_SECTION_TYPES
     )
+    nima: NimaConfig
 
     def __init__(
         self,

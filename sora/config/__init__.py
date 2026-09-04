@@ -1,7 +1,14 @@
-from .core import CONFIG_VERSION, Config, get_config, reload_config
+from .core import (
+    CONFIG_VERSION,
+    Config,
+    get_config,
+    reload_config,
+    resolve_storage_path,
+)
 from .meta import BaseConfigSection, deep_merge
 from .sections import (
     BodyPlotConfig,
+    NimaConfig,
     OccMapConfig,
     PredictionConfig,
     ServicesConfig,
@@ -13,6 +20,7 @@ __all__ = [
     'BaseConfigSection',
     'BodyPlotConfig',
     'Config',
+    'NimaConfig',
     'OccMapConfig',
     'PredictionConfig',
     'ServicesConfig',
@@ -20,4 +28,5 @@ __all__ = [
     'deep_merge',
     'get_config',
     'reload_config',
+    'resolve_storage_path',
 ]

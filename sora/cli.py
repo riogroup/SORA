@@ -3,15 +3,26 @@
 import argparse
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 from importlib import metadata
 from typing import Any
 
+from requests import RequestException
+
 
 PACKAGE_NAME = "sora-astro"
 CONFIG_LEVELS = {"basic": 1, "advanced": 2, "develop": 3}
 PUBLIC_CONFIG_MODES = ("basic", "advanced")
+
+
+def _positive_int(value: str) -> int:
+    """Parse an argparse value that must be a strictly positive integer."""
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return parsed
 
 
 def get_version() -> str:
@@ -567,6 +578,38 @@ def cmd_config_reset(args) -> int:
     return 0
 
 
+def cmd_data_nima_update(args) -> int:
+    """Update the configured local NIMA catalogue."""
+    from sora.ephem.nima import NimaDB
+
+    database = NimaDB(config=_new_config())
+    updated = database.update_database(force=args.force)
+    if updated:
+        print(f"NIMA database updated: {database.db_path}")
+    else:
+        print(f"NIMA database is already up to date: {database.db_path}")
+    return 0
+
+
+def cmd_data_nima_status(args) -> int:
+    """Print storage and freshness information for the NIMA catalogue."""
+    from sora.ephem.nima import NimaDB
+
+    status = NimaDB(config=_new_config()).status()
+    print(_format_config_value(status))
+    return 0
+
+
+def cmd_data_nima_download_all(args) -> int:
+    """Download every BSP file referenced by the NIMA catalogue."""
+    from sora.ephem.nima import NimaDB
+
+    database = NimaDB(config=_new_config())
+    downloaded = database.download_all_bspfiles(retries=args.retries)
+    print(f"Downloaded {len(downloaded)} NIMA BSP file(s) to {database.data_dir}")
+    return 0
+
+
 def _reset_invalid_config(args, load_error: Exception) -> int:
     """Remove an override directly when normal configuration loading fails.
 
@@ -786,6 +829,52 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reset_parser.set_defaults(handler=cmd_config_reset)
 
+    data_parser = subparsers.add_parser(
+        "data",
+        help="Manage SORA data sources",
+    )
+    data_subparsers = data_parser.add_subparsers(
+        dest="data_source",
+        required=True,
+    )
+
+    nima_parser = data_subparsers.add_parser(
+        "nima",
+        help="Manage the NIMA ephemeris database",
+    )
+    nima_subparsers = nima_parser.add_subparsers(
+        dest="nima_command",
+        required=True,
+    )
+    nima_update_parser = nima_subparsers.add_parser(
+        "update",
+        help="Update the NIMA catalogue",
+    )
+    nima_update_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Update even when the local catalogue is current",
+    )
+    nima_update_parser.set_defaults(handler=cmd_data_nima_update)
+
+    nima_status_parser = nima_subparsers.add_parser(
+        "status",
+        help="Show NIMA cache status",
+    )
+    nima_status_parser.set_defaults(handler=cmd_data_nima_status)
+
+    nima_download_parser = nima_subparsers.add_parser(
+        "download-all",
+        help="Download every BSP listed by NIMA",
+    )
+    nima_download_parser.add_argument(
+        "--retries",
+        type=_positive_int,
+        default=3,
+        help="Maximum attempts per download",
+    )
+    nima_download_parser.set_defaults(handler=cmd_data_nima_download_all)
+
     dev_parser = subparsers.add_parser(
         "dev",
         help="Developer utilities",
@@ -843,7 +932,16 @@ def main(argv=None) -> int:
     except KeyboardInterrupt:
         print("Operation canceled.", file=sys.stderr)
         return 130
-    except (EOFError, KeyError, OSError, TypeError, ValueError) as exc:
+    except (
+        EOFError,
+        KeyError,
+        OSError,
+        RequestException,
+        RuntimeError,
+        sqlite3.Error,
+        TypeError,
+        ValueError,
+    ) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
