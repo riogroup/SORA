@@ -13,6 +13,19 @@ star:
   fallback_on_timeout: true
   fetch_nomad_photometry: true
   nomad_search_radius_arcsec: 3
+nima:
+  database: nima.db
+  database_url: https://lesia.obspm.fr/lucky-star/nimacsv.php
+  json_data: nima_meta.json
+  data_dir: kernels/nima
+  update_age_days: 30
+ephem:
+  planet_kernels: planetary_kernels.json
+  planet_kernels_url: https://riogroup.github.io/sora/databases/planet_kernels.json
+  data_dir: kernels/planetary
+  planetary_default: DE440
+  planetary_kernel_position: last
+  update_age_days: 90
 prediction:
   default_catalogue: gaiadr3_linea
   catalogue_row_limit: 10000000
