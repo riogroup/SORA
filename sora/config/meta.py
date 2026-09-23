@@ -48,6 +48,7 @@ class BaseConfigSection(ABC):
 
     FIELDS: ClassVar[tuple[str, ...]] = ()
     LOCAL_KEYS: ClassVar[frozenset[str]] = frozenset()
+    PROMPTS: ClassVar[Mapping[str, Mapping[str, Any]] | None] = None
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Persist assignments to declared configuration fields."""
@@ -208,6 +209,28 @@ class BaseConfigSection(ABC):
 
     def _validate(self) -> None:
         """Validate initialized values. Subclasses may override this hook."""
+
+    def get_prompt_schema(self) -> dict[str, dict[str, Any]]:
+        """Return prompt metadata for this section's overridable fields."""
+        if self.PROMPTS is not None:
+            prompts = deepcopy(dict(self.PROMPTS))
+        else:
+            prompts = {
+                key: {
+                    'question': f"{key.replace('_', ' ').capitalize()}:",
+                    'level': 1,
+                }
+                for key in self.FIELDS
+                if key in self.LOCAL_KEYS
+            }
+
+        for prompt in prompts.values():
+            choices = prompt.get('choices')
+            if callable(choices):
+                prompt['choices'] = list(choices())
+            elif choices is not None:
+                prompt['choices'] = list(choices)
+        return prompts
 
     @staticmethod
     def _serialize(value: Any) -> Any:

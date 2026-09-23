@@ -1,3 +1,6 @@
+from os import PathLike, fspath
+from pathlib import Path
+
 import astropy.units as u
 import numpy as np
 import pyvo
@@ -8,6 +11,51 @@ from sora.config import get_config
 __all__ = ['search_code_mpc']
 
 _MPC_CODE_CACHE = {}
+
+
+def _resolve_observer_ephem(ephem):
+    """Resolve observer ephemerides to Horizons or an ordered kernel list.
+
+    Bare names are looked up in the planetary catalogue, including locally
+    registered kernels. Paths are passed through to SPICE. Multipart entries
+    expand in place, preserving their order relative to other kernels.
+    """
+    if isinstance(ephem, str) and ephem.casefold() == 'horizons':
+        return 'horizons'
+    if isinstance(ephem, (str, PathLike)):
+        ephem = [ephem]
+    if not isinstance(ephem, list):
+        raise TypeError('ephem must be "horizons", a kernel name or path, or a list of kernels')
+    if not ephem:
+        raise ValueError('ephem must contain at least one kernel')
+    if any(
+        not isinstance(kernel, (str, PathLike))
+        or not isinstance(fspath(kernel), str)
+        or not fspath(kernel).strip()
+        for kernel in ephem
+    ):
+        raise TypeError('Kernel names and paths must be non-empty strings or paths')
+
+    database = None
+    kernels = []
+    for kernel in ephem:
+        path = fspath(kernel)
+        # Explicit paths do not need a catalogue lookup or network access.
+        if (
+            isinstance(kernel, PathLike)
+            or '/' in path
+            or '\\' in path
+            or Path(path).suffix
+            or Path(path).is_file()
+        ):
+            kernels.append(path)
+            continue
+        if database is None:
+            from sora.ephem.planetary_kernels import PlanetaryKernelDB
+
+            database = PlanetaryKernelDB(config=get_config())
+        kernels.extend(database.get_planetary_kernels(path))
+    return kernels
 
 
 def search_code_mpc(code):

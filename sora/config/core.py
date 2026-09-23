@@ -11,14 +11,31 @@ import yaml
 from platformdirs import PlatformDirs
 
 from .meta import BaseConfigSection
-from .sections import DEFAULT_SECTION_TYPES
+from .sections import DEFAULT_SECTION_TYPES, EphemConfig, NimaConfig
 
-__all__ = ['CONFIG_VERSION', 'Config', 'get_config', 'reload_config']
+__all__ = [
+    'CONFIG_VERSION',
+    'Config',
+    'get_config',
+    'reload_config',
+    'resolve_storage_path',
+]
 
 APP_NAME = 'sora'
 CONFIG_NAME = 'config.yaml'
 CONFIG_VERSION = 1
 _VERSION_KEY = 'config_version'
+
+
+def resolve_storage_path(
+    base_path: Path | str,
+    configured_path: Path | str,
+) -> Path:
+    """Resolve a configurable storage path relative to the SORA data root."""
+    path = Path(configured_path).expanduser()
+    if path.is_absolute():
+        return path
+    return Path(base_path).expanduser() / path
 
 
 class Config:
@@ -36,6 +53,8 @@ class Config:
     SECTION_TYPES: ClassVar[Mapping[str, type[BaseConfigSection]]] = (
         DEFAULT_SECTION_TYPES
     )
+    ephem: EphemConfig
+    nima: NimaConfig
 
     def __init__(
         self,
@@ -93,29 +112,7 @@ class Config:
         """Return prompt metadata for user-overridable configuration keys."""
         schema = {}
         for section_name, section in self._sections.items():
-            prompts = getattr(section.__class__, 'PROMPTS', None)
-            if prompts is None:
-                prompts = {
-                    key: {
-                        'question': f"{key.replace('_', ' ').capitalize()}:",
-                        'level': 1,
-                    }
-                    for key in section.FIELDS
-                    if key in section.LOCAL_KEYS
-                }
-            else:
-                prompts = {
-                    key: dict(prompt)
-                    for key, prompt in prompts.items()
-                }
-
-            for prompt in prompts.values():
-                choices = prompt.get('choices')
-                if callable(choices):
-                    prompt['choices'] = list(choices())
-                elif choices is not None:
-                    prompt['choices'] = list(choices)
-
+            prompts = section.get_prompt_schema()
             if prompts:
                 schema[section_name] = prompts
         return schema

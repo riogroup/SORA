@@ -38,6 +38,7 @@ dependencies = [
     "astroquery>=0.4.9",
     "spiceypy>=6.0.0",
     "matplotlib>=3.10.0",
+    "pandas>=2.2",
     "scipy>=1.15",
     "requests",
     "tqdm>=4.66",
