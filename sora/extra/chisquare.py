@@ -70,15 +70,23 @@ class ChiSquare:
         Raises
         ------
         ValueError
-            If `key` is not one of the available parameter names.
+            If `key` is not one of the available parameter names or there
+            are no finite chi-square values.
 
         Notes
         -----
         Parameter intervals are computed from the minimum and maximum values
-        selected within the requested sigma level.
+        selected within the requested sigma level. Non-finite chi-square
+        trials are excluded from the minimum and interval selection; the
+        stored data are not modified.
         """
-        values = np.where(self.data['chi2'] < self.data['chi2'].min() + sigma ** 2)[0]
-        output = {'chi2_min': self.data['chi2'].min(), 'sigma': sigma, 'n_points': len(values)}
+        chi2 = self.data['chi2']
+        finite = np.isfinite(chi2)
+        if not np.any(finite):
+            raise ValueError('No finite chi-square values are available.')
+        chi2_min = chi2[finite].min()
+        values = np.where(finite & (chi2 < chi2_min + sigma ** 2))[0]
+        output = {'chi2_min': chi2_min, 'sigma': sigma, 'n_points': len(values)}
         for name in self._names[1:]:
             vmax = self.data[name][values].max()
             vmin = self.data[name][values].min()
