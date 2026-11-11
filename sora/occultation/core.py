@@ -13,6 +13,25 @@ __all__ = ['Occultation']
 warnings.simplefilter('always', UserWarning)
 
 
+def _normal_velocity(vals, center, major_axis, minor_axis, position_angle=0.0):
+    """Absolute velocity component normal to an ellipse at the point ``vals[:2]``.
+
+    ``vals`` is (f, g, df/dt, dg/dt). ``position_angle`` follows the convention of
+    `sora.extra.get_ellipse_points` (pole position angle, North through East, in degrees).
+    """
+    phi = np.radians(position_angle)
+    x, y = np.array(vals[:2]) - np.array(center)
+    # coordinates in the frame of the ellipse (semi-major axis along X)
+    X = x * np.cos(phi) - y * np.sin(phi)
+    Y = x * np.sin(phi) + y * np.cos(phi)
+    normal = np.array([X / major_axis ** 2, Y / minor_axis ** 2])
+    normal = normal / np.linalg.norm(normal)
+    # back to (f, g)
+    normal_fg = np.array([normal[0] * np.cos(phi) + normal[1] * np.sin(phi),
+                          -normal[0] * np.sin(phi) + normal[1] * np.cos(phi)])
+    return np.abs(np.dot(normal_fg, np.array(vals[2:])))
+
+
 class Occultation:
     """Instantiates the Occultation object and performs the reduction of the
     occultation.
@@ -348,16 +367,24 @@ class Occultation:
     # end of block removal
 
     def check_velocities(self):
-        """Prints the velocity used by each LightCurve and its radial velocity."""
+        """Prints the velocity used by each LightCurve and its radial velocity.
+
+        The radial velocity is the component of the shadow velocity normal to
+        the limb of the fitted ellipse at the immersion or emersion point.
+        The orientation of the ellipse (``position_angle``) is taken into
+        account.
+        """
         if hasattr(self, 'fitted_params'):
             center = np.array([self.fitted_params['center_f'][0], self.fitted_params['center_g'][0]])
             major_axis = self.fitted_params["equatorial_radius"][0]
             minor_axis = major_axis * (1 - self.fitted_params["oblateness"][0])
+            position_angle = self.fitted_params["position_angle"][0]
         else:
             warnings.warn("A shape was not fitted. Using a circular shape provided in body centred at the origin.")
             center = np.array([0, 0])
             major_axis = self.body.radius.value
             minor_axis = major_axis
+            position_angle = 0.0
         for name, chord in self.chords.items():
             im = getattr(chord.lightcurve, 'immersion', None)
             em = getattr(chord.lightcurve, 'emersion', None)
@@ -366,18 +393,12 @@ class Occultation:
             print('{} - Velocity used: {:.3f}'.format(name, chord.lightcurve.vel))
             if im is not None:
                 vals = chord.get_fg(time=im, vel=True)
-                x, y = vals[:2] - center
-                ang = np.arctan((-x / y) * np.power(minor_axis / major_axis, 2)) + np.pi / 2
-                observer_vec = np.array([np.cos(ang), np.sin(ang)])
-                normal_vel = np.abs(np.dot(observer_vec, np.array(vals[2:])) / np.linalg.norm(observer_vec))
+                normal_vel = _normal_velocity(vals, center, major_axis, minor_axis, position_angle)
                 print('    Immersion Radial Velocity: {:.3f}'.
                       format(normal_vel))
             if em is not None:
                 vals = chord.get_fg(time=em, vel=True)
-                x, y = vals[:2] - center
-                ang = np.arctan((-x / y) * np.power(minor_axis / major_axis, 2)) + np.pi / 2
-                observer_vec = np.array([np.cos(ang), np.sin(ang)])
-                normal_vel = np.abs(np.dot(observer_vec, np.array(vals[2:])) / np.linalg.norm(observer_vec))
+                normal_vel = _normal_velocity(vals, center, major_axis, minor_axis, position_angle)
                 print('    Emersion Radial Velocity: {:.3f}'.
                       format(normal_vel))
 
