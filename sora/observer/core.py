@@ -6,7 +6,7 @@ from astropy.time import Time
 from astropy.utils.exceptions import AstropyWarning
 
 from sora.config import input_tests
-from .utils import search_code_mpc
+from .utils import _resolve_observer_ephem, search_code_mpc
 
 __all__ = ['Observer', 'Spacecraft']
 
@@ -41,7 +41,10 @@ class Observer:
 
     ephem : `str`, `list`, optional, default='horizons'
         The ephemeris used to locate the observer in space.
-        It can be ``'horizons'`` to use JPL Horizons or a list of SPICE kernels.
+        Use ``'horizons'``, a planetary catalogue name such as ``'de440'``,
+        a SPICE kernel path, or a list combining names and paths. Catalogue
+        entries are downloaded if needed when assigned. Multipart entries
+        expand in place and the supplied kernel order is preserved.
 
 
     Examples
@@ -88,6 +91,15 @@ class Observer:
         else:
             raise ValueError('Input parameters could not be determined')
         self.ephem = kwargs.get('ephem', 'horizons')
+
+    @property
+    def ephem(self):
+        """Return ``'horizons'`` or the resolved SPICE kernel paths."""
+        return self._ephem
+
+    @ephem.setter
+    def ephem(self, value):
+        self._ephem = _resolve_observer_ephem(value)
 
     def get_ksi_eta(self, time, star):
         """Calculates relative position to star in the orthographic projection.
@@ -306,14 +318,18 @@ class Spacecraft:
 
     ephem : `str`, `list`, optional, default='horizons'
         The ephemeris used to locate the observer in space.
-        It can be ``'horizons'`` to use JPL Horizons or a list of SPICE kernels.
+        Use ``'horizons'``, a SPICE kernel path, or a list combining planetary
+        catalogue names and kernel paths, such as ``['de440', 'spacecraft.bsp']``.
+        Catalogue entries are downloaded if needed when assigned. Multipart
+        entries expand in place and the supplied kernel order is preserved.
+        The kernels must include the spacecraft trajectory.
 
     """
 
     def __init__(self, name, spkid, ephem='horizons'):
         self._name = name
         self._spkid = spkid
-        self._ephem = ephem
+        self.ephem = ephem
 
     @property
     def name(self):
@@ -325,7 +341,12 @@ class Spacecraft:
 
     @property
     def ephem(self):
+        """Return ``'horizons'`` or the resolved SPICE kernel paths."""
         return self._ephem
+
+    @ephem.setter
+    def ephem(self, value):
+        self._ephem = _resolve_observer_ephem(value)
 
     def get_vector(self, time, origin='barycenter'):
         """Returns the vector from the origin to the spacecraft in the ICRS.
